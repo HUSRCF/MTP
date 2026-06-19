@@ -41,21 +41,21 @@ DEFAULT_FOURTH_FIELD_JSON = (
     / "outputs"
     / "reports"
     / "premap_kernel_consumer"
-    / "future_wna16_typed_slot_kernel_variant_fourth_field_handoff_canary_v3_default.json"
+    / "future_wna16_typed_slot_kernel_variant_fourth_field_handoff_canary_kernel_side_path_v1.json"
 )
 DEFAULT_OUTPUT_JSON = (
     REPO_ROOT
     / "outputs"
     / "reports"
     / "premap_kernel_consumer"
-    / "future_wna16_typed_slot_kernel_variant_all_four_field_consumer_v3_default.json"
+    / "future_wna16_typed_slot_kernel_variant_all_four_field_consumer_kernel_side_path_v1.json"
 )
 DEFAULT_OUTPUT_DIR = (
     REPO_ROOT
     / "outputs"
     / "reports"
     / "premap_kernel_consumer"
-    / "future_wna16_typed_slot_kernel_variant_all_four_field_consumer_v3_default"
+    / "future_wna16_typed_slot_kernel_variant_all_four_field_consumer_kernel_side_path_v1"
 )
 
 ARTIFACT_KIND = "future_wna16_typed_slot_kernel_variant_all_four_field_consumer"

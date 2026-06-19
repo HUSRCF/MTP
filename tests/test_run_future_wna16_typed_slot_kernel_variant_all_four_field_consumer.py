@@ -35,17 +35,18 @@ def _load_module():
     return module
 
 
-def test_default_paths_use_v3_four_field_gate() -> None:
+def test_default_paths_use_kernel_side_four_field_gate() -> None:
     module = _load_module()
 
     assert module.DEFAULT_FOURTH_FIELD_JSON.name == (
-        "future_wna16_typed_slot_kernel_variant_fourth_field_handoff_canary_v3_default.json"
+        "future_wna16_typed_slot_kernel_variant_fourth_field_handoff_canary_kernel_side_path_v1.json"
     )
+    assert module.DEFAULT_FOURTH_FIELD_JSON.exists()
     assert module.DEFAULT_OUTPUT_JSON.name == (
-        "future_wna16_typed_slot_kernel_variant_all_four_field_consumer_v3_default.json"
+        "future_wna16_typed_slot_kernel_variant_all_four_field_consumer_kernel_side_path_v1.json"
     )
     assert module.DEFAULT_OUTPUT_DIR.name == (
-        "future_wna16_typed_slot_kernel_variant_all_four_field_consumer_v3_default"
+        "future_wna16_typed_slot_kernel_variant_all_four_field_consumer_kernel_side_path_v1"
     )
 
 

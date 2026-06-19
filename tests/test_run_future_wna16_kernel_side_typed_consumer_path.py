@@ -280,14 +280,15 @@ def test_kernel_side_typed_consumer_path_runs_native_gate(tmp_path: Path, monkey
     assert json.loads(output.read_text(encoding="utf-8"))["passed"] is True
 
 
-def test_kernel_side_typed_consumer_path_defaults_to_v3_all_four() -> None:
+def test_kernel_side_typed_consumer_path_defaults_to_kernel_side_all_four() -> None:
     module = _load_module()
 
     default_path = Path(module.build_parser().parse_args([]).all_four_json)
 
     assert default_path.name == (
-        "future_wna16_typed_slot_kernel_variant_all_four_field_consumer_v3_default.json"
+        "future_wna16_typed_slot_kernel_variant_all_four_field_consumer_kernel_side_path_v1.json"
     )
+    assert default_path.exists()
 
 
 def test_kernel_side_typed_consumer_path_rejects_all_four_current_args(

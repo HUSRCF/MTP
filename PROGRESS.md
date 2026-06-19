@@ -36809,3 +36809,253 @@ Second-field remains a readonly independent typed-slot ABI/stub canary. It does
 not pass current WNA16 fused-MoE args, does not dereference payload, and does not
 measure TPOT/vLLM latency.
 ```
+
+## Latest Update: Third-Field Canary Uses Kernel-Side Second-Field Gate
+
+The third-field handoff canary now consumes the kernel-side-path second-field
+artifact:
+
+```text
+outputs/reports/premap_kernel_consumer/future_wna16_typed_slot_kernel_variant_second_field_handoff_canary_kernel_side_path_v1.json
+```
+
+It promotes the previous artifact's flattened payloadless
+`future_wna16_kernel_side_typed_consumer_path` evidence to a required gate. The
+third-field gate now resolves the evidence path, recomputes the SHA, loads the
+evidence JSON, and checks:
+
+```text
+artifact_kind = future_wna16_kernel_side_typed_consumer_path
+passed = true
+stage_type = lab_gate
+native_consumer_executed = true
+native_consumer_passed = true
+source_count / input_json_count / row_count / row_ok_count match
+all_four_sha256 matches
+selected_input_manifest_sha256 matches
+payload_bytes = 0
+kernel_arg_pass_allowed = false
+passed_to_kernel = false
+changes_kernel_launch_args = false
+uses_current_wna16_args = false
+measures_tpot = false
+measures_vllm_latency = false
+```
+
+Generated artifact:
+
+```text
+outputs/reports/premap_kernel_consumer/future_wna16_typed_slot_kernel_variant_third_field_handoff_canary_kernel_side_path_v1.json
+```
+
+Real-artifact validation:
+
+```text
+passed = true
+third_field_name = packed_weight_descriptor
+third_field_handoff_canary_native_executed = true
+source_count = 128
+row_count = 5345
+row_ok_count = 5345
+third_field_handoff_live_enabled = false
+payload_bytes = 0
+kernel_arg_pass_allowed = false
+passed_to_kernel = false
+changes_kernel_launch_args = false
+uses_current_wna16_args = false
+measures_tpot = false
+measures_vllm_latency = false
+```
+
+Validation:
+
+```text
+conda run -n TRY pytest \
+  tests/test_run_future_wna16_typed_slot_kernel_variant_third_field_handoff_canary.py -q
+# 22 passed
+
+conda run -n TRY pytest \
+  tests/test_run_future_wna16_typed_slot_kernel_variant_payloadless_execution.py \
+  tests/test_run_future_wna16_typed_slot_kernel_variant_one_field_handoff_canary.py \
+  tests/test_run_future_wna16_typed_slot_kernel_variant_second_field_handoff_canary.py \
+  tests/test_run_future_wna16_typed_slot_kernel_variant_third_field_handoff_canary.py -q
+# 111 passed
+```
+
+Boundary remains unchanged:
+
+```text
+Third-field remains a readonly independent typed-slot ABI/stub canary. It does
+not pass current WNA16 fused-MoE args, does not dereference payload, and does not
+measure TPOT/vLLM latency.
+```
+
+## Latest Update: Fourth-Field Canary Defaults to Kernel-Side Third-Field Gate
+
+The fourth-field handoff canary now defaults to the kernel-side-path third-field
+artifact:
+
+```text
+outputs/reports/premap_kernel_consumer/future_wna16_typed_slot_kernel_variant_third_field_handoff_canary_kernel_side_path_v1.json
+```
+
+Generated artifact:
+
+```text
+outputs/reports/premap_kernel_consumer/future_wna16_typed_slot_kernel_variant_fourth_field_handoff_canary_kernel_side_path_v1.json
+```
+
+Real-artifact validation:
+
+```text
+passed = true
+fourth_field_name = descriptor_ptr
+fourth_field_handoff_canary_native_executed = true
+source_count = 128
+row_count = 5345
+row_ok_count = 5345
+fourth_field_handoff_live_enabled = false
+payload_bytes = 0
+kernel_arg_pass_allowed = false
+passed_to_kernel = false
+changes_kernel_launch_args = false
+uses_current_wna16_args = false
+measures_tpot = false
+measures_vllm_latency = false
+```
+
+Validation:
+
+```text
+conda run -n TRY pytest \
+  tests/test_run_future_wna16_typed_slot_kernel_variant_fourth_field_handoff_canary.py -q
+# 26 passed
+
+conda run -n TRY pytest \
+  tests/test_run_future_wna16_typed_slot_kernel_variant_payloadless_execution.py \
+  tests/test_run_future_wna16_typed_slot_kernel_variant_one_field_handoff_canary.py \
+  tests/test_run_future_wna16_typed_slot_kernel_variant_second_field_handoff_canary.py \
+  tests/test_run_future_wna16_typed_slot_kernel_variant_third_field_handoff_canary.py \
+  tests/test_run_future_wna16_typed_slot_kernel_variant_fourth_field_handoff_canary.py -q
+# 137 passed
+```
+
+Boundary remains unchanged:
+
+```text
+Fourth-field remains a readonly independent typed-slot ABI/stub canary. It does
+not pass current WNA16 fused-MoE args, does not dereference payload, and does not
+measure TPOT/vLLM latency.
+```
+
+## Latest Update: All-Four Consumer Defaults to Kernel-Side Fourth-Field Gate
+
+The all-four future WNA16 typed-slot consumer now defaults to the kernel-side
+fourth-field artifact:
+
+```text
+outputs/reports/premap_kernel_consumer/future_wna16_typed_slot_kernel_variant_fourth_field_handoff_canary_kernel_side_path_v1.json
+```
+
+The lab preflight config now also points at:
+
+```text
+outputs/reports/premap_kernel_consumer/future_wna16_typed_slot_kernel_variant_fourth_field_handoff_canary_kernel_side_path_v1.json
+outputs/reports/premap_kernel_consumer/future_wna16_typed_slot_kernel_variant_all_four_field_consumer_kernel_side_path_v1.json
+```
+
+Generated artifact:
+
+```text
+outputs/reports/premap_kernel_consumer/future_wna16_typed_slot_kernel_variant_all_four_field_consumer_kernel_side_path_v1.json
+```
+
+Real-artifact validation:
+
+```text
+passed = true
+stage_type = lab_gate
+source_count = 128
+row_count = 5345
+row_ok_count = 5345
+future_wna16_kernel_side_consumer_execution_all_handle_fields_read = true
+wna16_side_consumer_variant_execution_all_handle_fields_read = true
+selected_input_manifest_sha256 = post_native_input_manifest_sha256
+payload_bytes = 0
+kernel_arg_pass_allowed = false
+passed_to_kernel = false
+changes_kernel_launch_args = false
+uses_current_wna16_args = false
+measures_tpot = false
+measures_vllm_latency = false
+```
+
+Validation:
+
+```text
+conda run -n TRY python -m pytest \
+  tests/test_run_future_wna16_typed_slot_kernel_variant_all_four_field_consumer.py \
+  tests/test_run_premap_lab_preflight.py -q
+# 190 passed
+```
+
+Boundary remains unchanged:
+
+```text
+All-four remains a readonly independent typed-slot ABI/stub lab gate. It does
+not pass current WNA16 fused-MoE args, does not dereference payload, and does not
+measure TPOT/vLLM latency.
+```
+
+## Latest Update: Kernel-Side Typed Consumer Path Defaults to Kernel-Side All-Four Gate
+
+The independent kernel-side typed consumer path now defaults to the kernel-side
+all-four artifact:
+
+```text
+outputs/reports/premap_kernel_consumer/future_wna16_typed_slot_kernel_variant_all_four_field_consumer_kernel_side_path_v1.json
+```
+
+Generated / refreshed artifacts:
+
+```text
+outputs/reports/premap_kernel_consumer/future_wna16_kernel_side_typed_consumer_path_v1.json
+outputs/reports/premap_kernel_consumer/premap_lab_preflight_kernel_side_path_v1_refresh.json
+```
+
+Real-artifact validation:
+
+```text
+future_wna16_kernel_side_typed_consumer_path_v1:
+  passed = true
+  all_four_json = ...all_four_field_consumer_kernel_side_path_v1.json
+  source_count = 128
+  row_count = 5345
+  row_ok_count = 5345
+  native_consumer_passed = true
+  payload_bytes = 0
+  kernel_arg_pass_allowed = false
+  passed_to_kernel = false
+  uses_current_wna16_args = false
+  measures_tpot = false
+  measures_vllm_latency = false
+
+premap_lab_preflight_kernel_side_path_v1_refresh:
+  passed = true
+```
+
+Validation:
+
+```text
+conda run -n TRY python -m pytest \
+  tests/test_run_future_wna16_kernel_side_typed_consumer_path.py \
+  tests/test_run_premap_lab_preflight.py -q
+# 188 passed
+```
+
+This closes the default-path drift found during review:
+
+```text
+fourth gate -> all-four gate -> kernel-side typed consumer path -> lab preflight
+all now use the kernel_side_path_v1 artifact chain by default.
+```

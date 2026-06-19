@@ -287,6 +287,16 @@ def test_fourth_field_canary_runs_native_gate(tmp_path: Path, monkeypatch):
     assert json.loads(output.read_text(encoding="utf-8"))["passed"] is True
 
 
+def test_fourth_field_default_previous_points_to_kernel_side_artifact():
+    module = _load_module()
+
+    assert (
+        module.DEFAULT_PREVIOUS_FIELD_JSON.name
+        == "future_wna16_typed_slot_kernel_variant_third_field_handoff_canary_kernel_side_path_v1.json"
+    )
+    assert module.DEFAULT_PREVIOUS_FIELD_JSON.exists()
+
+
 def test_fourth_field_canary_rejects_previous_not_passed(tmp_path: Path):
     module = _load_module()
     previous = _seed_previous_gate(tmp_path)

@@ -130,7 +130,7 @@ def test_default_lab_gate_uses_strict_nodefer_online_native_evidence() -> None:
     )
 
 
-def test_default_lab_gate_uses_v3_future_wna16_four_field_evidence() -> None:
+def test_default_lab_gate_uses_kernel_side_future_wna16_four_field_evidence() -> None:
     gate_path = (
         REPO_ROOT
         / "configs/runtime/"
@@ -140,10 +140,10 @@ def test_default_lab_gate_uses_v3_future_wna16_four_field_evidence() -> None:
     evidence = gate["evidence_paths"]
 
     assert evidence["future_wna16_typed_slot_fourth_field_handoff_canary_json"].endswith(
-        "future_wna16_typed_slot_kernel_variant_fourth_field_handoff_canary_v3_default.json"
+        "future_wna16_typed_slot_kernel_variant_fourth_field_handoff_canary_kernel_side_path_v1.json"
     )
     assert evidence["future_wna16_typed_slot_all_four_field_consumer_json"].endswith(
-        "future_wna16_typed_slot_kernel_variant_all_four_field_consumer_v3_default.json"
+        "future_wna16_typed_slot_kernel_variant_all_four_field_consumer_kernel_side_path_v1.json"
     )
     assert evidence["future_wna16_kernel_side_typed_consumer_path_json"].endswith(
         "future_wna16_kernel_side_typed_consumer_path_v1.json"

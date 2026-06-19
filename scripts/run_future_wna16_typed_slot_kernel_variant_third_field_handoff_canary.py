@@ -37,21 +37,21 @@ DEFAULT_PREVIOUS_FIELD_JSON = (
     / "outputs"
     / "reports"
     / "premap_kernel_consumer"
-    / "future_wna16_typed_slot_kernel_variant_second_field_handoff_canary_v3_default.json"
+    / "future_wna16_typed_slot_kernel_variant_second_field_handoff_canary_kernel_side_path_v1.json"
 )
 DEFAULT_OUTPUT_JSON = (
     REPO_ROOT
     / "outputs"
     / "reports"
     / "premap_kernel_consumer"
-    / "future_wna16_typed_slot_kernel_variant_third_field_handoff_canary_v3_default.json"
+    / "future_wna16_typed_slot_kernel_variant_third_field_handoff_canary_kernel_side_path_v1.json"
 )
 DEFAULT_CANARY_OUTPUT_DIR = (
     REPO_ROOT
     / "outputs"
     / "reports"
     / "premap_kernel_consumer"
-    / "future_wna16_typed_slot_kernel_variant_third_field_handoff_canary"
+    / "future_wna16_typed_slot_kernel_variant_third_field_handoff_canary_kernel_side_path_v1"
 )
 
 CANARY_NAME = "premap_future_wna16_typed_slot_third_field_handoff_canary_v1"
@@ -60,6 +60,9 @@ CANARY_SOURCE = "premap_future_wna16_typed_slot_second_field_handoff_canary_v1"
 PREVIOUS_FIELD = "aux_metadata_handle"
 FIRST_FIELD = "scale_metadata_handle"
 DEFAULT_THIRD_FIELD = "packed_weight_descriptor"
+KERNEL_SIDE_TYPED_PATH_PREFIX = (
+    "payloadless_future_wna16_kernel_side_typed_consumer_path"
+)
 NEXT_RUNTIME_STAGE = (
     "implement_future_wna16_typed_slot_kernel_variant_fourth_field_handoff_canary"
 )
@@ -311,6 +314,130 @@ def _load_payloadless_artifact(
     return payloadless, failures
 
 
+def _check_payloadless_kernel_side_evidence(
+    previous: dict[str, Any],
+    *,
+    previous_path: Path,
+    source_count: int | None,
+    row_count: int | None,
+) -> list[str]:
+    failures: list[str] = []
+    prefix = KERNEL_SIDE_TYPED_PATH_PREFIX
+    expected_scalars = {
+        f"{prefix}_ready": True,
+        f"{prefix}_hashes_valid": True,
+    }
+    for key, expected in expected_scalars.items():
+        if previous.get(key) != expected:
+            failures.append(
+                f"previous_{key}_mismatch:{previous.get(key)!r}!={expected!r}"
+            )
+    kernel_source_count = _int_metric(previous, f"{prefix}_source_count")
+    if kernel_source_count is None:
+        failures.append("previous_payloadless_kernel_side_source_count_invalid")
+    elif source_count is not None and kernel_source_count != source_count:
+        failures.append("previous_payloadless_kernel_side_source_count_mismatch")
+    kernel_input_count = _int_metric(previous, f"{prefix}_input_json_count")
+    if kernel_input_count is None:
+        failures.append("previous_payloadless_kernel_side_input_count_invalid")
+    elif source_count is not None and kernel_input_count != source_count:
+        failures.append("previous_payloadless_kernel_side_input_count_mismatch")
+    kernel_row_count = _int_metric(previous, f"{prefix}_row_count")
+    kernel_row_ok_count = _int_metric(previous, f"{prefix}_row_ok_count")
+    if kernel_row_count is None:
+        failures.append("previous_payloadless_kernel_side_row_count_invalid")
+    elif row_count is not None and kernel_row_count != row_count:
+        failures.append("previous_payloadless_kernel_side_row_count_mismatch")
+    if kernel_row_ok_count is None:
+        failures.append("previous_payloadless_kernel_side_row_ok_count_invalid")
+    elif kernel_row_count is not None and kernel_row_ok_count != kernel_row_count:
+        failures.append("previous_payloadless_kernel_side_row_ok_count_mismatch")
+
+    evidence_path_value = previous.get(f"{prefix}_evidence_path")
+    evidence_sha_value = previous.get(f"{prefix}_evidence_sha256")
+    evidence_path, path_failures = _resolve_artifact_reference(
+        evidence_path_value,
+        roots=[REPO_ROOT, previous_path.parent],
+        label="previous_payloadless_kernel_side_evidence_path",
+    )
+    if path_failures:
+        failures.extend(path_failures)
+        return failures
+    if not _is_sha256_hex(evidence_sha_value):
+        failures.append("previous_payloadless_kernel_side_evidence_sha_invalid")
+        return failures
+    assert evidence_path is not None
+    evidence_payload: dict[str, Any] | None = None
+    try:
+        actual_sha = _sha256(evidence_path)
+    except Exception as exc:
+        failures.append(
+            "previous_payloadless_kernel_side_evidence_sha_failed:"
+            f"{exc.__class__.__name__}:{exc}"
+        )
+    else:
+        if actual_sha != evidence_sha_value:
+            failures.append("previous_payloadless_kernel_side_evidence_sha_mismatch")
+        else:
+            try:
+                evidence_payload = _load_json(evidence_path)
+            except Exception as exc:
+                failures.append(
+                    "previous_payloadless_kernel_side_evidence_json_invalid:"
+                    f"{exc.__class__.__name__}:{exc}"
+                )
+    if evidence_payload is None:
+        return failures
+
+    expected_evidence = {
+        "artifact_kind": "future_wna16_kernel_side_typed_consumer_path",
+        "passed": True,
+        "stage_type": "lab_gate",
+        "bench_semantics": False,
+        "all_four_gate_ready": True,
+        "native_consumer_executed": True,
+        "native_consumer_passed": True,
+        "payload_bytes": 0,
+        "payload_deref_allowed": False,
+        "kernel_arg_pass_allowed": False,
+        "passed_to_kernel": False,
+        "changes_kernel_launch_args": False,
+        "uses_current_wna16_args": False,
+        "measures_tpot": False,
+        "measures_vllm_latency": False,
+        "wna16_benchmark_ready": False,
+    }
+    for key, expected in expected_evidence.items():
+        if evidence_payload.get(key) != expected:
+            failures.append(
+                f"previous_payloadless_kernel_side_evidence_{key}_mismatch:"
+                f"{evidence_payload.get(key)!r}!={expected!r}"
+            )
+    if evidence_payload.get("failures") != []:
+        failures.append("previous_payloadless_kernel_side_evidence_failures_not_empty")
+    if source_count is not None and _int_metric(evidence_payload, "source_count") != source_count:
+        failures.append("previous_payloadless_kernel_side_evidence_source_count_mismatch")
+    if kernel_input_count is not None and _int_metric(evidence_payload, "input_json_count") != kernel_input_count:
+        failures.append("previous_payloadless_kernel_side_evidence_input_count_mismatch")
+    if row_count is not None and _int_metric(evidence_payload, "row_count") != row_count:
+        failures.append("previous_payloadless_kernel_side_evidence_row_count_mismatch")
+    if row_count is not None and _int_metric(evidence_payload, "row_ok_count") != row_count:
+        failures.append("previous_payloadless_kernel_side_evidence_row_ok_count_mismatch")
+    all_four_sha = previous.get(f"{prefix}_all_four_sha256")
+    if not _is_sha256_hex(all_four_sha):
+        failures.append("previous_payloadless_kernel_side_all_four_sha_invalid")
+    elif evidence_payload.get("all_four_sha256") != all_four_sha:
+        failures.append("previous_payloadless_kernel_side_evidence_all_four_sha_mismatch")
+    selected_manifest = previous.get(f"{prefix}_selected_input_manifest_sha256")
+    if not _is_sha256_hex(selected_manifest):
+        failures.append("previous_payloadless_kernel_side_selected_manifest_invalid")
+    elif evidence_payload.get("selected_input_manifest_sha256") != selected_manifest:
+        failures.append(
+            "previous_payloadless_kernel_side_evidence_selected_manifest_mismatch"
+        )
+    return failures
+
+
 def _check_previous_gate(
     previous: dict[str, Any],
     *,
@@ -417,6 +544,14 @@ def _check_previous_gate(
         failures.append("previous_payloadless_all_four_row_count_mismatch")
     if row_count is not None and all_four_row_ok_count != row_count:
         failures.append("previous_payloadless_all_four_row_ok_count_mismatch")
+    failures.extend(
+        _check_payloadless_kernel_side_evidence(
+            previous,
+            previous_path=previous_path,
+            source_count=source_count,
+            row_count=row_count,
+        )
+    )
     fourth_path = previous.get("payloadless_fourth_field_handoff_evidence_path")
     fourth_sha = previous.get("payloadless_fourth_field_handoff_evidence_sha256")
     all_four_fourth_path = previous.get(
@@ -798,6 +933,36 @@ def run_third_field_handoff_canary(args: argparse.Namespace) -> dict[str, Any]:
         ),
         "payloadless_all_four_field_consumer_fourth_field_sha256": previous.get(
             "payloadless_all_four_field_consumer_fourth_field_sha256"
+        ),
+        f"{KERNEL_SIDE_TYPED_PATH_PREFIX}_ready": previous.get(
+            f"{KERNEL_SIDE_TYPED_PATH_PREFIX}_ready"
+        ),
+        f"{KERNEL_SIDE_TYPED_PATH_PREFIX}_hashes_valid": previous.get(
+            f"{KERNEL_SIDE_TYPED_PATH_PREFIX}_hashes_valid"
+        ),
+        f"{KERNEL_SIDE_TYPED_PATH_PREFIX}_evidence_path": previous.get(
+            f"{KERNEL_SIDE_TYPED_PATH_PREFIX}_evidence_path"
+        ),
+        f"{KERNEL_SIDE_TYPED_PATH_PREFIX}_evidence_sha256": previous.get(
+            f"{KERNEL_SIDE_TYPED_PATH_PREFIX}_evidence_sha256"
+        ),
+        f"{KERNEL_SIDE_TYPED_PATH_PREFIX}_source_count": previous.get(
+            f"{KERNEL_SIDE_TYPED_PATH_PREFIX}_source_count"
+        ),
+        f"{KERNEL_SIDE_TYPED_PATH_PREFIX}_input_json_count": previous.get(
+            f"{KERNEL_SIDE_TYPED_PATH_PREFIX}_input_json_count"
+        ),
+        f"{KERNEL_SIDE_TYPED_PATH_PREFIX}_row_count": previous.get(
+            f"{KERNEL_SIDE_TYPED_PATH_PREFIX}_row_count"
+        ),
+        f"{KERNEL_SIDE_TYPED_PATH_PREFIX}_row_ok_count": previous.get(
+            f"{KERNEL_SIDE_TYPED_PATH_PREFIX}_row_ok_count"
+        ),
+        f"{KERNEL_SIDE_TYPED_PATH_PREFIX}_all_four_sha256": previous.get(
+            f"{KERNEL_SIDE_TYPED_PATH_PREFIX}_all_four_sha256"
+        ),
+        f"{KERNEL_SIDE_TYPED_PATH_PREFIX}_selected_input_manifest_sha256": previous.get(
+            f"{KERNEL_SIDE_TYPED_PATH_PREFIX}_selected_input_manifest_sha256"
         ),
         "source_count": third_source_count,
         "row_count": third_row_count,

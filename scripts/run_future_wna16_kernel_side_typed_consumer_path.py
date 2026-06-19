@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Run a stricter independent future-WNA16 kernel-side typed consumer path.
 
-This stage consumes the v3 all-four-field typed-slot lab gate and reruns the
+This stage consumes the all-four-field typed-slot lab gate and reruns the
 native typed-consumer stub with the future-WNA16 kernel-side consumer and
 WNA16-side variant execution macros enabled.  It is still independent from the
 current AWQ WNA16 fused-MoE launch signature: no payload is dereferenced, no
@@ -31,7 +31,7 @@ DEFAULT_ALL_FOUR_JSON = (
     / "outputs"
     / "reports"
     / "premap_kernel_consumer"
-    / "future_wna16_typed_slot_kernel_variant_all_four_field_consumer_v3_default.json"
+    / "future_wna16_typed_slot_kernel_variant_all_four_field_consumer_kernel_side_path_v1.json"
 )
 DEFAULT_OUTPUT_JSON = (
     REPO_ROOT
