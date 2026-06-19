@@ -21,9 +21,10 @@ DEFAULT_OUTPUT_JSON = (
 )
 DEFAULT_MEASURED_COPY_JSON = (
     REPO_ROOT
-    / "configs"
-    / "runtime"
-    / "premap_payload_cache_gpu1_h2d_smoke_measured_copy.json"
+    / "outputs"
+    / "reports"
+    / "prefetch_action_replay"
+    / "measured_copy_gpu1_expert_transfer_v1.json"
 )
 SAFE_FALSE_FLAGS = (
     "full_fetch_allowed",
@@ -152,14 +153,18 @@ def run_stream_lookahead_sweep(args: argparse.Namespace) -> dict[str, Any]:
             except OSError:
                 pass
         model_passed = bool(result.get("passed"))
+        failure_count_before_safety = len(failures)
         row_safety = _check_row_safety(result, failures, row_index=index)
+        row_safety_failures = failures[failure_count_before_safety:]
         row = {
             "lookahead_us": float(lookahead_us),
             "queue_deadline_us": float(args.queue_deadline_us),
             "effective_ready_deadline_us": float(lookahead_us)
             + float(args.queue_deadline_us),
             "model_passed": model_passed,
-            "passed": model_passed,
+            "passed": model_passed and not row_safety_failures,
+            "safety_passed": not row_safety_failures,
+            "safety_failures": row_safety_failures,
             "full_fetch_allowed": bool(result.get("full_fetch_allowed")),
             "full_fetch_block_reason": result.get("full_fetch_block_reason"),
             "payload_bytes": result.get("payload_bytes"),

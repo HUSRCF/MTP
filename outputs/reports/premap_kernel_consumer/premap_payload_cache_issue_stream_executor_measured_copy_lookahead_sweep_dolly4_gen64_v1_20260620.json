@@ -78,6 +78,8 @@
       "ready_credit": false,
       "ready_late_miss_rate": 0.59375,
       "real_ready_credit_granted": false,
+      "safety_failures": [],
+      "safety_passed": true,
       "used_per_issued_fetch": 0.0,
       "uses_current_wna16_args": false
     },
@@ -113,6 +115,8 @@
       "ready_credit": false,
       "ready_late_miss_rate": 0.59375,
       "real_ready_credit_granted": false,
+      "safety_failures": [],
+      "safety_passed": true,
       "used_per_issued_fetch": 0.0,
       "uses_current_wna16_args": false
     },
@@ -148,6 +152,8 @@
       "ready_credit": false,
       "ready_late_miss_rate": 0.59375,
       "real_ready_credit_granted": false,
+      "safety_failures": [],
+      "safety_passed": true,
       "used_per_issued_fetch": 0.0,
       "uses_current_wna16_args": false
     },
@@ -183,6 +189,8 @@
       "ready_credit": false,
       "ready_late_miss_rate": 0.59375,
       "real_ready_credit_granted": false,
+      "safety_failures": [],
+      "safety_passed": true,
       "used_per_issued_fetch": 0.0,
       "uses_current_wna16_args": false
     },
@@ -217,6 +225,8 @@
       "ready_credit": false,
       "ready_late_miss_rate": 0.48660714285714285,
       "real_ready_credit_granted": false,
+      "safety_failures": [],
+      "safety_passed": true,
       "used_per_issued_fetch": 0.18045112781954886,
       "uses_current_wna16_args": false
     },
@@ -251,6 +261,8 @@
       "ready_credit": false,
       "ready_late_miss_rate": 0.3794642857142857,
       "real_ready_credit_granted": false,
+      "safety_failures": [],
+      "safety_passed": true,
       "used_per_issued_fetch": 0.3609022556390977,
       "uses_current_wna16_args": false
     },
@@ -282,6 +294,8 @@
       "ready_credit": false,
       "ready_late_miss_rate": 0.11607142857142858,
       "real_ready_credit_granted": false,
+      "safety_failures": [],
+      "safety_passed": true,
       "used_per_issued_fetch": 0.8045112781954887,
       "uses_current_wna16_args": false
     },
@@ -313,6 +327,8 @@
       "ready_credit": false,
       "ready_late_miss_rate": 0.0,
       "real_ready_credit_granted": false,
+      "safety_failures": [],
+      "safety_passed": true,
       "used_per_issued_fetch": 1.0,
       "uses_current_wna16_args": false
     },
@@ -344,6 +360,8 @@
       "ready_credit": false,
       "ready_late_miss_rate": 0.0,
       "real_ready_credit_granted": false,
+      "safety_failures": [],
+      "safety_passed": true,
       "used_per_issued_fetch": 1.0,
       "uses_current_wna16_args": false
     },
@@ -375,6 +393,8 @@
       "ready_credit": false,
       "ready_late_miss_rate": 0.0,
       "real_ready_credit_granted": false,
+      "safety_failures": [],
+      "safety_passed": true,
       "used_per_issued_fetch": 1.0,
       "uses_current_wna16_args": false
     },
@@ -406,6 +426,8 @@
       "ready_credit": false,
       "ready_late_miss_rate": 0.0,
       "real_ready_credit_granted": false,
+      "safety_failures": [],
+      "safety_passed": true,
       "used_per_issued_fetch": 1.0,
       "uses_current_wna16_args": false
     }

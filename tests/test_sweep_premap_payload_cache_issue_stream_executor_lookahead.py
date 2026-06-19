@@ -110,7 +110,9 @@ def test_stream_lookahead_sweep_finds_first_model_passing_row(
     assert result["passed"] is True
     assert result["first_model_passing_lookahead_us"] == 250.0
     assert result["rows"][0]["model_passed"] is False
+    assert result["rows"][0]["safety_passed"] is True
     assert result["rows"][2]["model_passed"] is True
+    assert result["rows"][2]["passed"] is True
     assert result["full_fetch_allowed"] is False
     assert result["payload_transfer_enabled"] is False
     assert result["kernel_arg_pass_allowed"] is False
@@ -153,6 +155,12 @@ def test_stream_lookahead_sweep_rejects_full_fetch_allowed_row(
 
     assert result["passed"] is False
     assert result["failures"] == ["row_0_full_fetch_allowed_not_false"]
+    assert result["rows"][0]["model_passed"] is True
+    assert result["rows"][0]["passed"] is False
+    assert result["rows"][0]["safety_passed"] is False
+    assert result["rows"][0]["safety_failures"] == [
+        "row_0_full_fetch_allowed_not_false"
+    ]
 
 
 def test_stream_lookahead_sweep_rejects_missing_row_safety_flag(
@@ -191,6 +199,10 @@ def test_stream_lookahead_sweep_rejects_missing_row_safety_flag(
 
     assert result["passed"] is False
     assert result["failures"] == ["row_0_kernel_arg_pass_allowed_missing"]
+    assert result["rows"][0]["passed"] is False
+    assert result["rows"][0]["safety_failures"] == [
+        "row_0_kernel_arg_pass_allowed_missing"
+    ]
 
 
 def test_stream_lookahead_sweep_rejects_payload_transfer_row(

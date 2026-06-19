@@ -190,10 +190,28 @@ Interpretation:
 
 ```text
 The stream model quantifies the gap: with the current packet stream and H2D
-copy envelope, full payload fetch would need roughly 200ms lookahead to satisfy
-the configured thresholds and about 243ms to make all issued fetches useful.
+copy envelope, real full payload fetch would need roughly 200ms modeled
+lookahead to satisfy the configured thresholds and about 243ms to make all
+issued fetches useful.
 That is far outside same-step decode, so lab/default should continue blocking
 real full_fetch and keep premap/descriptor-prep as the near-term runtime path.
+```
+
+Stream decision gate:
+
+```text
+script:
+  scripts/build_premap_payload_cache_stream_full_fetch_decision_gate.py
+
+artifact:
+  outputs/reports/premap_kernel_consumer/premap_payload_cache_stream_full_fetch_decision_gate_dolly4_gen64_current0_v1_20260620.json
+
+current_lookahead_us = 0.0
+first_model_passing_lookahead_us = 200000.0
+lookahead_deficit_us = 200000.0
+full_fetch_runtime_allowed = false
+full_fetch_block_reason = insufficient_stream_lookahead
+next_runtime_stage = implement_earlier_producer_issue_before_real_payload_runtime
 ```
 
 ## Previous Update: Payload Cache Full-Fetch Slack/Lookahead Decision Gate
