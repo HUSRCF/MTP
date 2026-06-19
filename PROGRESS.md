@@ -2,10 +2,91 @@
 
 ## Progress Version
 
-- Version: `v1.20-payload-cache-full-fetch-slack-lookahead-decision-gate`
+- Version: `v1.21-payload-cache-issue-stream-executor`
 - Updated: 2026-06-20
 
-## Latest Update: Payload Cache Full-Fetch Slack/Lookahead Decision Gate
+## Latest Update: Payload Cache Issue Stream Executor
+
+The payload-cache replay path now has a stream-level executor:
+
+```text
+scripts/run_premap_payload_cache_issue_stream_executor.py
+```
+
+Unlike the earlier single-packet issue-plan canary, the stream executor consumes
+all packet paths exported by the online producer-state summary and feeds their
+issue candidates into one `ReadyTimeExpertCacheManager`.  This gives a
+cross-packet model for:
+
+```text
+dedup_issue_drop_count
+max_packet_issue_width
+queue_service_us / queue_wait_us / queue_max_delay_us
+demand_hit_count / demand_miss_count
+ready_late_miss_count
+used_per_issued_fetch
+```
+
+The contract remains payloadless and no-op:
+
+```text
+payload_bytes = 0
+ready_credit = false
+ready_before_demand_credit = false
+real_ready_credit_granted = false
+payload_transfer_enabled = false
+payload_deref_allowed = false
+kernel_arg_pass_allowed = false
+passed_to_kernel = false
+changes_kernel_launch_args = false
+uses_current_wna16_args = false
+passes_current_wna16_args = false
+measures_tpot = false
+measures_vllm_latency = false
+```
+
+The producer packet and packet export context now emit these no-op fields
+explicitly, and the stream executor treats missing fields as failures rather
+than safe defaults.  This intentionally makes old packet artifacts strict-fail;
+new strict evidence must be regenerated from a producer run that includes the
+explicit boundary fields.
+
+Additional stream-level guards:
+
+```text
+len(online_packet_export_paths) == online_packet_export_count
+online_packet_export_count == online_configured_export_count
+measured_copy_selected_experts >= max_packet_issue_width
+issue_candidate_experts from packet are authoritative when present
+packet issue_candidate count/first/last/hash match the consumed issue list
+```
+
+Validation:
+
+```text
+/home/husrcf/anaconda3/envs/TRY/bin/python -m pytest \
+  tests/test_run_premap_payload_cache_issue_stream_executor.py \
+  tests/test_run_premap_payload_cache_issue_plan_executor.py \
+  tests/test_build_premap_payload_cache_issue_plan_gate.py \
+  tests/test_build_premap_payload_cache_full_fetch_decision_gate.py \
+  tests/test_sweep_premap_payload_cache_issue_plan_executor_slack.py \
+  tests/test_sweep_premap_payload_cache_issue_plan_executor_lookahead.py \
+  tests/test_runtime_premap.py \
+  tests/test_vllm_router_shadow_sink.py::test_premap_payload_cache_producer_state_packet_export_respects_stride -q
+
+71 passed
+```
+
+Next gate:
+
+```text
+Regenerate online producer packet exports with explicit no-op fields, then run
+the stream executor as a strict artifact.  If ready-time stream hit/late/used
+thresholds still fail, keep full_fetch disabled and use the result to size
+lookahead/queue requirements before any real payload runtime.
+```
+
+## Previous Update: Payload Cache Full-Fetch Slack/Lookahead Decision Gate
 
 Follow-up lookahead sweep:
 

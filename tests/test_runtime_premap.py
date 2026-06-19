@@ -200,6 +200,19 @@ def test_payload_cache_producer_transition_state_packet_is_readonly_native_contr
     assert payload["issue_candidate_first_expert"] == 2
     assert payload["issue_candidate_last_expert"] == 7
     assert payload["issue_candidate_hash"] == "ea95d41875d6802c"
+    assert payload["payload_bytes"] == 0
+    assert payload["ready_credit"] is False
+    assert payload["ready_before_demand_credit"] is False
+    assert payload["payload_transfer_enabled"] is False
+    assert payload["payload_deref_allowed"] is False
+    assert payload["kernel_arg_pass_allowed"] is False
+    assert payload["real_ready_credit_granted"] is False
+    assert payload["passed_to_kernel"] is False
+    assert payload["changes_kernel_launch_args"] is False
+    assert payload["uses_current_wna16_args"] is False
+    assert payload["passes_current_wna16_args"] is False
+    assert payload["measures_tpot"] is False
+    assert payload["measures_vllm_latency"] is False
 
 
 def test_payload_cache_producer_transition_state_packet_rejects_invalid_contract():

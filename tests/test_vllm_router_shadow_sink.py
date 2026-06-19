@@ -1525,12 +1525,34 @@ def test_premap_payload_cache_producer_state_packet_export_respects_stride(
     assert payload["native_abi_field_count"] > 0
     assert payload["payload_bytes"] == 0
     assert payload["ready_credit"] is False
+    assert payload["ready_before_demand_credit"] is False
+    assert payload["payload_transfer_enabled"] is False
+    assert payload["payload_deref_allowed"] is False
+    assert payload["kernel_arg_pass_allowed"] is False
+    assert payload["real_ready_credit_granted"] is False
     assert payload["passed_to_kernel"] is False
     assert payload["changes_kernel_launch_args"] is False
+    assert payload["uses_current_wna16_args"] is False
+    assert payload["passes_current_wna16_args"] is False
+    assert payload["measures_tpot"] is False
+    assert payload["measures_vllm_latency"] is False
     assert payload["issue_candidate_count"] == 1
     assert payload["issue_candidate_first_expert"] == 1
     assert payload["issue_candidate_last_expert"] == 1
     assert payload["issue_candidate_hash"] == "082f2307b4e88e77"
+    assert payload["_export_context"]["payload_bytes"] == 0
+    assert payload["_export_context"]["ready_credit"] is False
+    assert payload["_export_context"]["ready_before_demand_credit"] is False
+    assert payload["_export_context"]["payload_transfer_enabled"] is False
+    assert payload["_export_context"]["payload_deref_allowed"] is False
+    assert payload["_export_context"]["kernel_arg_pass_allowed"] is False
+    assert payload["_export_context"]["real_ready_credit_granted"] is False
+    assert payload["_export_context"]["passed_to_kernel"] is False
+    assert payload["_export_context"]["changes_kernel_launch_args"] is False
+    assert payload["_export_context"]["uses_current_wna16_args"] is False
+    assert payload["_export_context"]["passes_current_wna16_args"] is False
+    assert payload["_export_context"]["measures_tpot"] is False
+    assert payload["_export_context"]["measures_vllm_latency"] is False
     assert payload["_export_context"]["issue_candidate_count"] == 1
     assert payload["_export_context"]["issue_candidate_first_expert"] == 1
     assert payload["_export_context"]["issue_candidate_last_expert"] == 1

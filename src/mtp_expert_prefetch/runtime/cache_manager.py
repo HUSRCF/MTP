@@ -961,8 +961,17 @@ class PremapPayloadCacheProducerTransitionStatePacket:
             "issue_candidate_hash": str(self.issue_candidate_hash),
             "payload_bytes": int(self.payload_bytes),
             "ready_credit": bool(self.ready_credit),
+            "ready_before_demand_credit": False,
+            "payload_transfer_enabled": False,
+            "payload_deref_allowed": False,
+            "kernel_arg_pass_allowed": False,
+            "real_ready_credit_granted": False,
             "passed_to_kernel": bool(self.passed_to_kernel),
             "changes_kernel_launch_args": bool(self.changes_kernel_launch_args),
+            "uses_current_wna16_args": False,
+            "passes_current_wna16_args": False,
+            "measures_tpot": False,
+            "measures_vllm_latency": False,
         }
 
 

@@ -21,6 +21,16 @@
   "current_artifact_is_tpot_benchmark": false,
   "current_wna16_arg_compatible": false,
   "current_wna16_benchmark_ready": false,
+  "decision_gate_json": "/home/husrcf/Code/ProtBind/MTP/outputs/reports/premap_kernel_consumer/production_like_tpot/payloadless_live_config_performance_decision_gate_v1.json",
+  "decision_gate_sha256": "1d6381c9c6d8c504f2152a6a2f59f16a9ce4f7c478f620ba434449d7acf86f04",
+  "decision_summary": {
+    "freeze_payloadless_live_config_performance_claim": true,
+    "heldout_signal": "negative_heldout32",
+    "payloadless_live_config_status": "safe_participation_path_not_performance_mainline",
+    "real_performance_next_path": "future_typed_slot_useful_consumer_or_payload_cache_manager",
+    "repeat_signal": "small_positive_original_split",
+    "useful_signal": "ready_but_not_tpot_measured"
+  },
   "failures": [],
   "field_names": [
     "descriptor_ptr",
@@ -31,12 +41,14 @@
   "kernel_arg_pass_allowed": false,
   "measures_tpot": false,
   "measures_vllm_latency": false,
-  "next_runtime_stage": "run_production_like_vllm_paired_tpot_benchmark",
+  "next_runtime_stage": "future_typed_slot_useful_consumer_or_payload_cache_manager",
   "passed": true,
   "passed_to_kernel": false,
   "passes_current_wna16_args": false,
   "payload_bytes": 0,
   "payload_deref_allowed": false,
+  "payloadless_live_config_performance_claim_frozen": true,
+  "payloadless_production_tpot_allowed": false,
   "payloadless_useful_runtime_ablation_ready": true,
   "production_like_benchmark_config_ready": true,
   "production_like_timing_ready": true,
@@ -56,6 +68,8 @@
   "trace_config_summary": {
     "data": "configs/data/external_prompt_gate_dolly_128.yaml",
     "decoder_source_timing_mode": "off",
+    "expected_sample_end": 31,
+    "expected_sample_start": 0,
     "max_samples": 32,
     "max_tokens": 64,
     "model": "configs/model/qwen3_6_35b_a3b_awq_4bit_prod_batch32_graph.yaml",
@@ -64,9 +78,10 @@
     "output_dir": "data/traces/external_prompt_gate_dolly_32_awq_vllm_gpu1_decode_production_no_recorder_graph",
     "record_router_topk": false,
     "runtime_shadow_enabled": false,
-    "split_id": "external_prompt_gate_dolly_32_gen64_utilization"
+    "split_id": "external_prompt_gate_dolly_32_gen64_utilization",
+    "start_sample": 0
   },
   "uses_current_wna16_args": false,
-  "will_measure_tpot_next": true,
+  "will_measure_tpot_next": false,
   "wna16_benchmark_ready": false
 }
