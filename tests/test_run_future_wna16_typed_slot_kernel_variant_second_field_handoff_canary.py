@@ -24,6 +24,12 @@ KERNEL_SIDE_EVIDENCE_PATH = (
     / "fixtures"
     / "future_wna16_kernel_side_typed_path_evidence.json"
 )
+HANDLE_FIELDS = [
+    "descriptor_ptr",
+    "packed_weight_descriptor",
+    "scale_metadata_handle",
+    "aux_metadata_handle",
+]
 
 
 def _load_module():
@@ -52,11 +58,98 @@ def _sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
+def _kernel_side_evidence_payload(*, source_count: int = 128, row_count: int = 513) -> dict:
+    return {
+        "all_four_gate_ready": True,
+        "all_four_sha256": "7" * 64,
+        "artifact_kind": "future_wna16_kernel_side_typed_consumer_path",
+        "bench_semantics": False,
+        "changes_kernel_launch_args": False,
+        "failures": [],
+        "input_json_count": source_count,
+        "kernel_arg_pass_allowed": False,
+        "measures_tpot": False,
+        "measures_vllm_latency": False,
+        "native_consumer_executed": True,
+        "native_consumer_passed": True,
+        "passed": True,
+        "passed_to_kernel": False,
+        "payload_bytes": 0,
+        "payload_deref_allowed": False,
+        "row_count": row_count,
+        "row_ok_count": row_count,
+        "schema_version": 1,
+        "selected_input_manifest_sha256": "6" * 64,
+        "source_count": source_count,
+        "stage_type": "lab_gate",
+        "uses_current_wna16_args": False,
+        "wna16_benchmark_ready": False,
+    }
+
+
+def _entry_args_ptr_sweep_payload(*, row_count: int = 513) -> dict:
+    return {
+        "source": "online_merged_future_native_arg_slot_all_field_window_sweep_runner",
+        "passed": True,
+        "failures": [],
+        "dry_run": False,
+        "payload_bytes": 0,
+        "passed_to_kernel": False,
+        "changes_kernel_launch_args": False,
+        "window_size": 512,
+        "block_threads": 256,
+        "mirror_fields": HANDLE_FIELDS,
+        "require_program_view_ptr_abi": True,
+        "require_kernel_arg_packet_abi": True,
+        "require_kernel_entry_args_abi": True,
+        "require_kernel_entry_args_ptr_abi": True,
+        "row_counts": {field: row_count for field in HANDLE_FIELDS},
+        "field_reports": {
+            field: {
+                "passed": True,
+                "sweep_failures": [],
+                "check_failures": [],
+                "row_count": row_count,
+                "window_size": 512,
+                "windows_checked": ["full", "head", "middle", "tail"],
+                "sweep_json": f"{field}.sweep.json",
+                "check_json": f"{field}.check.json",
+            }
+            for field in HANDLE_FIELDS
+        },
+    }
+
+
+def _entry_args_ptr_check_payload(sweep_json: Path, *, row_count: int = 513) -> dict:
+    return {
+        "source": "online_merged_future_native_arg_slot_all_field_window_sweep_check",
+        "passed": True,
+        "failures": [],
+        "all_field_window_sweep_json": str(sweep_json),
+        "expected_window_size": 512,
+        "expected_block_threads": 256,
+        "min_row_count": 257,
+        "require_child_checks": True,
+        "require_child_field_masks": True,
+        "require_child_consumer_view": True,
+        "require_child_consumer_view_layout": True,
+        "require_child_consumer_view_row_layout": True,
+        "require_child_consumer_view_handle_projection": True,
+        "require_child_program_view_ptr_abi": True,
+        "require_child_kernel_arg_packet_abi": True,
+        "require_child_kernel_entry_args_abi": True,
+        "require_child_kernel_entry_args_ptr_abi": True,
+        "require_child_kernel_entry_row_metadata": True,
+        "mirror_fields_checked": HANDLE_FIELDS,
+        "row_count": row_count,
+    }
+
+
 def _native_runner_payload(
     *,
     field: str,
     source_count: int = 128,
-    row_count: int = 257,
+    row_count: int = 513,
     input_jsons: list[str] | None = None,
 ) -> dict:
     field_kind = FIELD_KINDS[field]
@@ -134,7 +227,7 @@ def _first_field_payload(
     runner_json: Path,
     *,
     source_count: int = 128,
-    row_count: int = 257,
+    row_count: int = 513,
 ) -> dict:
     fourth_evidence_sha = _sha256(FOURTH_EVIDENCE_PATH)
     kernel_side_evidence_sha = _sha256(KERNEL_SIDE_EVIDENCE_PATH)
@@ -234,18 +327,59 @@ def _first_field_payload(
     }
 
 
-def _seed_first_gate(tmp_path: Path, *, row_count: int = 257) -> tuple[Path, Path]:
+def _seed_first_gate(tmp_path: Path, *, row_count: int = 513) -> tuple[Path, Path]:
     payloadless = tmp_path / "payloadless.json"
     first = tmp_path / "first.json"
     runner = tmp_path / "first_runner.json"
     input_json = tmp_path / "input_0000.json"
+    sweep_json = tmp_path / "entry_args_ptr_sweep.json"
+    check_json = tmp_path / "entry_args_ptr_sweep.check.json"
+    kernel_evidence = tmp_path / "kernel_side_evidence.json"
     _write_json(input_json, {"schema_version": 1, "row_count": row_count})
+    _write_json(sweep_json, _entry_args_ptr_sweep_payload(row_count=row_count))
+    _write_json(check_json, _entry_args_ptr_check_payload(sweep_json, row_count=row_count))
+    _write_json(kernel_evidence, _kernel_side_evidence_payload(row_count=row_count))
     _write_json(
         payloadless,
         {
             "passed": True,
             "source_count": 128,
             "row_count": row_count,
+            "payload_bytes": 0,
+            "payload_deref_allowed": False,
+            "kernel_arg_pass_allowed": False,
+            "passed_to_kernel": False,
+            "changes_kernel_launch_args": False,
+            "uses_current_wna16_args": False,
+            "passes_current_wna16_args": False,
+            "current_wna16_arg_compatible": False,
+            "requires_wna16_arg_reinterpretation": False,
+            "measures_vllm_latency": False,
+            "measures_tpot": False,
+            "wna16_benchmark_ready": False,
+            "payloadless_execution_native_artifact_ready": True,
+            "payloadless_execution_lab_preflight_ready": True,
+            "payloadless_execution_native_requested": True,
+            "payloadless_execution_native_executed": True,
+            "payloadless_execution_native_passed": True,
+            "entry_args_ptr_required": True,
+            "entry_args_ptr_sweep_device": 1,
+            "entry_args_ptr_sweep_window_size": 512,
+            "entry_args_ptr_sweep_require_kernel_arg_packet_abi": True,
+            "entry_args_ptr_sweep_require_kernel_entry_args_abi": True,
+            "entry_args_ptr_sweep_require_kernel_entry_args_ptr_abi": True,
+            "entry_args_ptr_sweep_mirror_fields": [
+                "descriptor_ptr",
+                "packed_weight_descriptor",
+                "scale_metadata_handle",
+                "aux_metadata_handle",
+            ],
+            "entry_args_ptr_sweep_row_count": row_count,
+            "entry_args_ptr_sweep_check_row_count": row_count,
+            "entry_args_ptr_sweep_json": str(sweep_json),
+            "entry_args_ptr_sweep_sha256": _sha256(sweep_json),
+            "entry_args_ptr_sweep_check_json": str(check_json),
+            "entry_args_ptr_sweep_check_sha256": _sha256(check_json),
             "field_read_hashes": {
                 "descriptor_ptr": "3132333435363738",
                 "packed_weight_descriptor": "4142434445464748",
@@ -268,7 +402,14 @@ def _seed_first_gate(tmp_path: Path, *, row_count: int = 257) -> tuple[Path, Pat
             input_jsons=[str(input_json)],
         ),
     )
-    _write_json(first, _first_field_payload(payloadless, runner, row_count=row_count))
+    first_payload = _first_field_payload(payloadless, runner, row_count=row_count)
+    first_payload["payloadless_future_wna16_kernel_side_typed_consumer_path_evidence_path"] = str(
+        kernel_evidence
+    )
+    first_payload["payloadless_future_wna16_kernel_side_typed_consumer_path_evidence_sha256"] = _sha256(
+        kernel_evidence
+    )
+    _write_json(first, first_payload)
     return first, payloadless
 
 
@@ -286,7 +427,7 @@ def _base_args(first: Path, output: Path, tmp_path: Path) -> list[str]:
 def _second_report(
     *,
     source_count: int = 128,
-    row_count: int = 257,
+    row_count: int = 513,
     field: str = SECOND_FIELD,
 ) -> dict:
     return _native_runner_payload(
@@ -446,7 +587,7 @@ def test_second_field_canary_rejects_source_count_mismatch(tmp_path: Path, monke
 
 def test_second_field_canary_rejects_row_count_mismatch(tmp_path: Path, monkeypatch):
     module = _load_module()
-    first, _ = _seed_first_gate(tmp_path, row_count=257)
+    first, _ = _seed_first_gate(tmp_path, row_count=513)
 
     def fake_run(args, *, input_paths):
         report = _second_report(row_count=128)
@@ -555,7 +696,7 @@ def test_second_field_canary_rejects_all_four_not_ready(tmp_path: Path):
 def test_second_field_canary_defaults_to_kernel_side_one_field_artifact():
     module = _load_module()
     assert (
-        "future_wna16_typed_slot_kernel_variant_one_field_handoff_canary_kernel_side_path_v1.json"
+        "future_wna16_typed_slot_kernel_variant_one_field_handoff_canary_entry_args_ptr_default.json"
         in str(module.DEFAULT_FIRST_FIELD_JSON)
     )
     default_path = Path(module.DEFAULT_FIRST_FIELD_JSON)
@@ -563,6 +704,62 @@ def test_second_field_canary_defaults_to_kernel_side_one_field_artifact():
     payload = json.loads(default_path.read_text(encoding="utf-8"))
     assert payload["payloadless_future_wna16_kernel_side_typed_consumer_path_ready"] is True
     assert payload["one_field_handoff_canary_native_executed"] is True
+
+
+def test_second_field_canary_rejects_forged_entry_args_ptr_sweep_content(
+    tmp_path: Path,
+):
+    module = _load_module()
+    first, payloadless_path = _seed_first_gate(tmp_path)
+    first_payload = json.loads(first.read_text(encoding="utf-8"))
+    payloadless_payload = json.loads(payloadless_path.read_text(encoding="utf-8"))
+    sweep_path = Path(payloadless_payload["entry_args_ptr_sweep_json"])
+    sweep_payload = json.loads(sweep_path.read_text(encoding="utf-8"))
+    sweep_payload["source"] = "forged_entry_args_ptr_sweep"
+    _write_json(sweep_path, sweep_payload)
+    payloadless_payload["entry_args_ptr_sweep_sha256"] = _sha256(sweep_path)
+    _write_json(payloadless_path, payloadless_payload)
+    first_payload["payloadless_execution_sha256"] = _sha256(payloadless_path)
+    _write_json(first, first_payload)
+
+    args = module.build_parser().parse_args(
+        _base_args(first, tmp_path / "second.json", tmp_path)
+    )
+    result = module.run_second_field_handoff_canary(args)
+
+    assert result["passed"] is False
+    assert any(
+        item.startswith(
+            "first_payloadless_execution_entry_args_ptr_sweep_source_mismatch"
+        )
+        for item in result["failures"]
+    )
+
+
+def test_second_field_canary_rejects_forged_payloadless_top_level_unsafe(
+    tmp_path: Path,
+):
+    module = _load_module()
+    first, payloadless_path = _seed_first_gate(tmp_path)
+    first_payload = json.loads(first.read_text(encoding="utf-8"))
+    payloadless_payload = json.loads(payloadless_path.read_text(encoding="utf-8"))
+    payloadless_payload["kernel_arg_pass_allowed"] = True
+    _write_json(payloadless_path, payloadless_payload)
+    first_payload["payloadless_execution_sha256"] = _sha256(payloadless_path)
+    _write_json(first, first_payload)
+
+    args = module.build_parser().parse_args(
+        _base_args(first, tmp_path / "second.json", tmp_path)
+    )
+    result = module.run_second_field_handoff_canary(args)
+
+    assert result["passed"] is False
+    assert any(
+        item.startswith(
+            "first_payloadless_execution_kernel_arg_pass_allowed_mismatch"
+        )
+        for item in result["failures"]
+    )
 
 
 def test_second_field_canary_rejects_payloadless_kernel_side_row_drift(

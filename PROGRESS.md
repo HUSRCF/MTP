@@ -37284,3 +37284,85 @@ execution gate. It does not pass typed slots into the current WNA16 fused-MoE
 kernel, does not dereference payload, does not change launch args, and does not
 measure vLLM TPOT.
 ```
+
+The second/third/fourth field handoff canaries now continue from the
+entry-args-ptr native payloadless artifact by default, rather than the older
+kernel-side-path gate artifacts.
+
+Updated default chain:
+
+```text
+one-field:
+  future_wna16_typed_slot_kernel_variant_one_field_handoff_canary_entry_args_ptr_default.json
+second-field:
+  future_wna16_typed_slot_kernel_variant_second_field_handoff_canary_entry_args_ptr_default.json
+third-field:
+  future_wna16_typed_slot_kernel_variant_third_field_handoff_canary_entry_args_ptr_default.json
+fourth-field:
+  future_wna16_typed_slot_kernel_variant_fourth_field_handoff_canary_entry_args_ptr_default.json
+```
+
+The downstream gates now require the payloadless native entry-args-ptr preflight
+contract:
+
+```text
+payloadless_execution_native_artifact_ready = true
+payloadless_execution_lab_preflight_ready = true
+entry_args_ptr_required = true
+entry_args_ptr_sweep_device = 1
+entry_args_ptr_sweep_window_size = 512
+entry_args_ptr_sweep_row_count == entry_args_ptr_sweep_check_row_count >= 513
+entry_args_ptr_sweep_mirror_fields =
+  descriptor_ptr / packed_weight_descriptor / scale_metadata_handle / aux_metadata_handle
+entry_args_ptr sweep/check artifact SHA256 must match on disk
+sweep/check artifact content must match the expected ABI/no-op contract:
+  source, passed, failures, mirror fields, window/block settings,
+  row_counts/row_count, entry-args-ptr ABI flags, no payload, no kernel pass,
+  and check artifact path binding back to the same sweep artifact
+```
+
+Refreshed chain evidence:
+
+```text
+second-field:
+  row_count = 5345
+  field = aux_metadata_handle
+  native_passed = true
+  outer_wall_ms = 329.836258
+
+third-field:
+  row_count = 5345
+  field = packed_weight_descriptor
+  native_passed = true
+  outer_wall_ms = 332.814777
+
+fourth-field:
+  row_count = 5345
+  field = descriptor_ptr
+  native_passed = true
+  outer_wall_ms = 329.647653
+```
+
+Validation:
+
+```text
+/home/husrcf/anaconda3/envs/TRY/bin/python -m pytest \
+  tests/test_run_future_wna16_typed_slot_kernel_variant_second_field_handoff_canary.py \
+  tests/test_run_future_wna16_typed_slot_kernel_variant_third_field_handoff_canary.py \
+  tests/test_run_future_wna16_typed_slot_kernel_variant_fourth_field_handoff_canary.py -q
+# 74 passed
+
+/home/husrcf/anaconda3/envs/TRY/bin/python -m pytest \
+  tests/test_run_future_wna16_typed_slot_kernel_variant_benchmark.py \
+  tests/test_run_future_wna16_typed_slot_kernel_timing_stub.py \
+  tests/test_run_future_wna16_typed_slot_kernel_variant_payloadless_execution.py \
+  tests/test_run_future_wna16_typed_slot_kernel_variant_one_field_handoff_canary.py \
+  tests/test_run_future_wna16_typed_slot_kernel_variant_second_field_handoff_canary.py \
+  tests/test_run_future_wna16_typed_slot_kernel_variant_third_field_handoff_canary.py \
+  tests/test_run_future_wna16_typed_slot_kernel_variant_fourth_field_handoff_canary.py -q
+# 199 passed
+```
+
+Safety boundary remains strict: payload bytes are zero, payload dereference is
+disabled, kernel arg pass is disabled, current WNA16 fused-MoE args are not
+used or reinterpreted, and vLLM latency/TPOT is not measured.

@@ -37,21 +37,21 @@ DEFAULT_PREVIOUS_FIELD_JSON = (
     / "outputs"
     / "reports"
     / "premap_kernel_consumer"
-    / "future_wna16_typed_slot_kernel_variant_second_field_handoff_canary_kernel_side_path_v1.json"
+    / "future_wna16_typed_slot_kernel_variant_second_field_handoff_canary_entry_args_ptr_default.json"
 )
 DEFAULT_OUTPUT_JSON = (
     REPO_ROOT
     / "outputs"
     / "reports"
     / "premap_kernel_consumer"
-    / "future_wna16_typed_slot_kernel_variant_third_field_handoff_canary_kernel_side_path_v1.json"
+    / "future_wna16_typed_slot_kernel_variant_third_field_handoff_canary_entry_args_ptr_default.json"
 )
 DEFAULT_CANARY_OUTPUT_DIR = (
     REPO_ROOT
     / "outputs"
     / "reports"
     / "premap_kernel_consumer"
-    / "future_wna16_typed_slot_kernel_variant_third_field_handoff_canary_kernel_side_path_v1"
+    / "future_wna16_typed_slot_kernel_variant_third_field_handoff_canary_entry_args_ptr_default"
 )
 
 CANARY_NAME = "premap_future_wna16_typed_slot_third_field_handoff_canary_v1"
@@ -502,6 +502,16 @@ def _check_previous_gate(
         row_count=row_count,
     )
     failures.extend(payloadless_failures)
+    if payloadless is not None:
+        failures.extend(
+            previous_gate._check_entry_args_ptr_payloadless_artifact(  # noqa: SLF001
+                payloadless,
+                source_count=source_count,
+                row_count=row_count,
+                min_row_count=min_row_count,
+                prefix="previous_payloadless_execution",
+            )
+        )
     payloadless_hashes = payloadless.get("field_read_hashes") if payloadless else None
     payloadless_counts = (
         payloadless.get("field_read_row_ok_counts") if payloadless else None
@@ -904,6 +914,46 @@ def run_third_field_handoff_canary(args: argparse.Namespace) -> dict[str, Any]:
         "third_field_underlying_sha256": underlying_sha256,
         "payloadless_execution_json": previous.get("payloadless_execution_json"),
         "payloadless_execution_sha256": previous.get("payloadless_execution_sha256"),
+        "payloadless_execution_native_artifact_ready": (
+            payloadless.get("payloadless_execution_native_artifact_ready")
+            if payloadless
+            else None
+        ),
+        "payloadless_execution_lab_preflight_ready": (
+            payloadless.get("payloadless_execution_lab_preflight_ready")
+            if payloadless
+            else None
+        ),
+        "payloadless_entry_args_ptr_required": (
+            payloadless.get("entry_args_ptr_required") if payloadless else None
+        ),
+        "payloadless_entry_args_ptr_sweep_json": (
+            payloadless.get("entry_args_ptr_sweep_json") if payloadless else None
+        ),
+        "payloadless_entry_args_ptr_sweep_sha256": (
+            payloadless.get("entry_args_ptr_sweep_sha256") if payloadless else None
+        ),
+        "payloadless_entry_args_ptr_sweep_check_json": (
+            payloadless.get("entry_args_ptr_sweep_check_json") if payloadless else None
+        ),
+        "payloadless_entry_args_ptr_sweep_check_sha256": (
+            payloadless.get("entry_args_ptr_sweep_check_sha256")
+            if payloadless
+            else None
+        ),
+        "payloadless_entry_args_ptr_sweep_row_count": (
+            payloadless.get("entry_args_ptr_sweep_row_count") if payloadless else None
+        ),
+        "payloadless_entry_args_ptr_sweep_check_row_count": (
+            payloadless.get("entry_args_ptr_sweep_check_row_count")
+            if payloadless
+            else None
+        ),
+        "payloadless_entry_args_ptr_sweep_mirror_fields": (
+            payloadless.get("entry_args_ptr_sweep_mirror_fields")
+            if payloadless
+            else None
+        ),
         "payloadless_fourth_field_handoff_evidence_path": previous.get(
             "payloadless_fourth_field_handoff_evidence_path"
         ),
@@ -1050,7 +1100,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--max-inputs", type=int, default=128)
     parser.add_argument("--min-source-count", type=int, default=128)
-    parser.add_argument("--min-row-count", type=int, default=1)
+    parser.add_argument("--min-row-count", type=int, default=513)
     parser.add_argument("--block-threads", type=int, default=256)
     parser.add_argument("--device", type=int, default=1)
     parser.add_argument("--hip-visible-devices")

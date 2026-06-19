@@ -34,21 +34,21 @@ DEFAULT_FIRST_FIELD_JSON = (
     / "outputs"
     / "reports"
     / "premap_kernel_consumer"
-    / "future_wna16_typed_slot_kernel_variant_one_field_handoff_canary_kernel_side_path_v1.json"
+    / "future_wna16_typed_slot_kernel_variant_one_field_handoff_canary_entry_args_ptr_default.json"
 )
 DEFAULT_OUTPUT_JSON = (
     REPO_ROOT
     / "outputs"
     / "reports"
     / "premap_kernel_consumer"
-    / "future_wna16_typed_slot_kernel_variant_second_field_handoff_canary_v3_default.json"
+    / "future_wna16_typed_slot_kernel_variant_second_field_handoff_canary_entry_args_ptr_default.json"
 )
 DEFAULT_CANARY_OUTPUT_DIR = (
     REPO_ROOT
     / "outputs"
     / "reports"
     / "premap_kernel_consumer"
-    / "future_wna16_typed_slot_kernel_variant_second_field_handoff_canary"
+    / "future_wna16_typed_slot_kernel_variant_second_field_handoff_canary_entry_args_ptr_default"
 )
 
 CANARY_NAME = "premap_future_wna16_typed_slot_second_field_handoff_canary_v1"
@@ -65,6 +65,7 @@ HANDLE_FIELDS = (
     "scale_metadata_handle",
     "aux_metadata_handle",
 )
+ENTRY_ARGS_PTR_MIRROR_FIELDS = HANDLE_FIELDS
 KERNEL_SIDE_TYPED_PATH_PREFIX = "payloadless_future_wna16_kernel_side_typed_consumer_path"
 FIELD_KINDS = {
     "descriptor_ptr": 1,
@@ -343,6 +344,221 @@ def _check_payloadless_kernel_side_evidence(first: dict[str, Any]) -> list[str]:
     return failures
 
 
+def _check_entry_args_ptr_payloadless_artifact(
+    payloadless: dict[str, Any],
+    *,
+    source_count: int | None,
+    row_count: int | None,
+    min_row_count: int,
+    prefix: str,
+) -> list[str]:
+    failures: list[str] = []
+    expected_scalars = {
+        "payloadless_execution_native_artifact_ready": True,
+        "payloadless_execution_lab_preflight_ready": True,
+        "payloadless_execution_native_requested": True,
+        "payloadless_execution_native_executed": True,
+        "payloadless_execution_native_passed": True,
+        "payload_bytes": 0,
+        "payload_deref_allowed": False,
+        "kernel_arg_pass_allowed": False,
+        "passed_to_kernel": False,
+        "changes_kernel_launch_args": False,
+        "uses_current_wna16_args": False,
+        "passes_current_wna16_args": False,
+        "current_wna16_arg_compatible": False,
+        "requires_wna16_arg_reinterpretation": False,
+        "measures_vllm_latency": False,
+        "measures_tpot": False,
+        "wna16_benchmark_ready": False,
+        "entry_args_ptr_required": True,
+        "entry_args_ptr_sweep_device": 1,
+        "entry_args_ptr_sweep_window_size": 512,
+        "entry_args_ptr_sweep_require_kernel_arg_packet_abi": True,
+        "entry_args_ptr_sweep_require_kernel_entry_args_abi": True,
+        "entry_args_ptr_sweep_require_kernel_entry_args_ptr_abi": True,
+    }
+    for key, expected in expected_scalars.items():
+        if payloadless.get(key) != expected:
+            failures.append(
+                f"{prefix}_{key}_mismatch:{payloadless.get(key)!r}!={expected!r}"
+            )
+    if list(payloadless.get("entry_args_ptr_sweep_mirror_fields") or []) != list(
+        ENTRY_ARGS_PTR_MIRROR_FIELDS
+    ):
+        failures.append(f"{prefix}_entry_args_ptr_sweep_mirror_fields_mismatch")
+    sweep_rows = _int_metric(payloadless, "entry_args_ptr_sweep_row_count")
+    check_rows = _int_metric(payloadless, "entry_args_ptr_sweep_check_row_count")
+    if sweep_rows is None or sweep_rows < min_row_count:
+        failures.append(f"{prefix}_entry_args_ptr_sweep_row_count_invalid")
+    if check_rows is None or check_rows < min_row_count:
+        failures.append(f"{prefix}_entry_args_ptr_sweep_check_row_count_invalid")
+    if sweep_rows is not None and check_rows is not None and sweep_rows != check_rows:
+        failures.append(f"{prefix}_entry_args_ptr_sweep_check_row_count_mismatch")
+    if row_count is not None and row_count < min_row_count:
+        failures.append(f"{prefix}_row_count_below_entry_args_ptr_min")
+    if source_count is not None and source_count <= 0:
+        failures.append(f"{prefix}_source_count_invalid_for_entry_args_ptr")
+    loaded_artifacts: dict[str, tuple[Path, dict[str, Any]]] = {}
+    for path_key, sha_key in (
+        ("entry_args_ptr_sweep_json", "entry_args_ptr_sweep_sha256"),
+        ("entry_args_ptr_sweep_check_json", "entry_args_ptr_sweep_check_sha256"),
+    ):
+        path_value = payloadless.get(path_key)
+        sha_value = payloadless.get(sha_key)
+        if not isinstance(path_value, str) or not path_value:
+            failures.append(f"{prefix}_{path_key}_missing")
+            continue
+        if not _is_sha256_hex(sha_value):
+            failures.append(f"{prefix}_{sha_key}_invalid")
+            continue
+        path = _resolve(path_value)
+        try:
+            actual_sha = _sha256(path)
+        except Exception as exc:
+            failures.append(
+                f"{prefix}_{sha_key}_failed:{exc.__class__.__name__}:{exc}"
+            )
+        else:
+            if actual_sha != sha_value:
+                failures.append(f"{prefix}_{sha_key}_mismatch")
+            else:
+                try:
+                    loaded_artifacts[path_key] = (path, _load_json(path))
+                except Exception as exc:
+                    failures.append(
+                        f"{prefix}_{path_key}_load_failed:"
+                        f"{exc.__class__.__name__}:{exc}"
+                    )
+    sweep_entry = loaded_artifacts.get("entry_args_ptr_sweep_json")
+    check_entry = loaded_artifacts.get("entry_args_ptr_sweep_check_json")
+    if sweep_entry is not None:
+        _sweep_path, sweep = sweep_entry
+        expected_sweep = {
+            "source": "online_merged_future_native_arg_slot_all_field_window_sweep_runner",
+            "passed": True,
+            "failures": [],
+            "dry_run": False,
+            "payload_bytes": 0,
+            "passed_to_kernel": False,
+            "changes_kernel_launch_args": False,
+            "window_size": 512,
+            "block_threads": 256,
+            "require_program_view_ptr_abi": True,
+            "require_kernel_arg_packet_abi": True,
+            "require_kernel_entry_args_abi": True,
+            "require_kernel_entry_args_ptr_abi": True,
+            "mirror_fields": list(ENTRY_ARGS_PTR_MIRROR_FIELDS),
+        }
+        for key, expected in expected_sweep.items():
+            if sweep.get(key) != expected:
+                failures.append(
+                    f"{prefix}_entry_args_ptr_sweep_{key}_mismatch:"
+                    f"{sweep.get(key)!r}!={expected!r}"
+                )
+        row_counts = sweep.get("row_counts")
+        if not isinstance(row_counts, dict):
+            failures.append(f"{prefix}_entry_args_ptr_sweep_row_counts_missing")
+        else:
+            values: list[int] = []
+            for field in ENTRY_ARGS_PTR_MIRROR_FIELDS:
+                value = row_counts.get(field)
+                if not isinstance(value, int) or isinstance(value, bool):
+                    failures.append(
+                        f"{prefix}_entry_args_ptr_sweep_{field}_row_count_invalid"
+                    )
+                    continue
+                values.append(value)
+            if values:
+                if any(value != values[0] for value in values):
+                    failures.append(
+                        f"{prefix}_entry_args_ptr_sweep_field_row_counts_not_equal"
+                    )
+                if sweep_rows is not None and values[0] != sweep_rows:
+                    failures.append(
+                        f"{prefix}_entry_args_ptr_sweep_row_count_payloadless_mismatch"
+                    )
+                if values[0] <= 512:
+                    failures.append(
+                        f"{prefix}_entry_args_ptr_sweep_row_count_not_larger_than_window"
+                    )
+        field_reports = sweep.get("field_reports")
+        if not isinstance(field_reports, dict):
+            failures.append(f"{prefix}_entry_args_ptr_sweep_field_reports_missing")
+        else:
+            for field in ENTRY_ARGS_PTR_MIRROR_FIELDS:
+                report = field_reports.get(field)
+                if not isinstance(report, dict):
+                    failures.append(
+                        f"{prefix}_entry_args_ptr_sweep_{field}_field_report_missing"
+                    )
+                    continue
+                expected_report = {
+                    "passed": True,
+                    "sweep_failures": [],
+                    "check_failures": [],
+                    "row_count": sweep_rows,
+                    "window_size": 512,
+                    "windows_checked": ["full", "head", "middle", "tail"],
+                }
+                for key, expected in expected_report.items():
+                    if report.get(key) != expected:
+                        failures.append(
+                            f"{prefix}_entry_args_ptr_sweep_{field}_{key}_mismatch:"
+                            f"{report.get(key)!r}!={expected!r}"
+                        )
+                for key in ("sweep_json", "check_json"):
+                    if not isinstance(report.get(key), str) or not report.get(key):
+                        failures.append(
+                            f"{prefix}_entry_args_ptr_sweep_{field}_{key}_missing"
+                        )
+    if check_entry is not None:
+        check_path, check = check_entry
+        expected_check = {
+            "source": "online_merged_future_native_arg_slot_all_field_window_sweep_check",
+            "passed": True,
+            "failures": [],
+            "expected_window_size": 512,
+            "expected_block_threads": 256,
+            "min_row_count": 257,
+            "require_child_checks": True,
+            "require_child_field_masks": True,
+            "require_child_consumer_view": True,
+            "require_child_consumer_view_layout": True,
+            "require_child_consumer_view_row_layout": True,
+            "require_child_consumer_view_handle_projection": True,
+            "require_child_program_view_ptr_abi": True,
+            "require_child_kernel_arg_packet_abi": True,
+            "require_child_kernel_entry_args_abi": True,
+            "require_child_kernel_entry_args_ptr_abi": True,
+            "require_child_kernel_entry_row_metadata": True,
+            "mirror_fields_checked": list(ENTRY_ARGS_PTR_MIRROR_FIELDS),
+        }
+        for key, expected in expected_check.items():
+            if check.get(key) != expected:
+                failures.append(
+                    f"{prefix}_entry_args_ptr_check_{key}_mismatch:"
+                    f"{check.get(key)!r}!={expected!r}"
+                )
+        if check.get("row_count") != sweep_rows:
+            failures.append(f"{prefix}_entry_args_ptr_check_row_count_sweep_mismatch")
+        sweep_path_value = payloadless.get("entry_args_ptr_sweep_json")
+        check_sweep_path = check.get("all_field_window_sweep_json")
+        if not isinstance(check_sweep_path, str) or not check_sweep_path:
+            failures.append(f"{prefix}_entry_args_ptr_check_sweep_path_missing")
+        elif isinstance(sweep_path_value, str):
+            expected_path = _resolve(sweep_path_value).resolve()
+            actual_path = _resolve(check_sweep_path).resolve()
+            if actual_path != expected_path:
+                failures.append(
+                    f"{prefix}_entry_args_ptr_check_sweep_path_mismatch:"
+                    f"{actual_path}!={expected_path}"
+                )
+        if not check_path.is_file():
+            failures.append(f"{prefix}_entry_args_ptr_check_path_not_file")
+    return failures
+
+
 def _check_first_field(
     first: dict[str, Any],
     *,
@@ -450,6 +666,15 @@ def _check_first_field(
             failures.append(
                 "first_payloadless_field_read_row_ok_counts_artifact_mismatch"
             )
+        failures.extend(
+            _check_entry_args_ptr_payloadless_artifact(
+                payloadless,
+                source_count=source_count,
+                row_count=row_count,
+                min_row_count=min_row_count,
+                prefix="first_payloadless_execution",
+            )
+        )
     all_four_expected = {
         "payloadless_all_four_field_consumer_ready": True,
         "payloadless_all_four_field_consumer_fields_read": True,
@@ -611,6 +836,20 @@ def _check_first_native_runner(
     failures.extend(_native_top_level_safety_failures("first_runner", runner))
     failures.extend(_native_safety_failures("first_runner", runner))
     return input_paths, failures
+
+
+def _payloadless_artifact_for_summary(first: dict[str, Any]) -> dict[str, Any]:
+    path_value = first.get("payloadless_execution_json")
+    sha_value = first.get("payloadless_execution_sha256")
+    if not isinstance(path_value, str) or not path_value or not _is_sha256_hex(sha_value):
+        return {}
+    path = _resolve(path_value)
+    try:
+        if _sha256(path) != sha_value:
+            return {}
+        return _load_json(path)
+    except Exception:
+        return {}
 
 
 def _check_second_report(
@@ -895,6 +1134,7 @@ def run_second_field_handoff_canary(args: argparse.Namespace) -> dict[str, Any]:
         if second_report
         else None
     )
+    payloadless_summary = _payloadless_artifact_for_summary(first)
     report: dict[str, Any] = {
         "schema_version": 1,
         "artifact_kind": (
@@ -925,6 +1165,36 @@ def run_second_field_handoff_canary(args: argparse.Namespace) -> dict[str, Any]:
         "second_field_underlying_sha256": underlying_sha256,
         "payloadless_execution_json": first.get("payloadless_execution_json"),
         "payloadless_execution_sha256": first.get("payloadless_execution_sha256"),
+        "payloadless_execution_native_artifact_ready": payloadless_summary.get(
+            "payloadless_execution_native_artifact_ready"
+        ),
+        "payloadless_execution_lab_preflight_ready": payloadless_summary.get(
+            "payloadless_execution_lab_preflight_ready"
+        ),
+        "payloadless_entry_args_ptr_required": payloadless_summary.get(
+            "entry_args_ptr_required"
+        ),
+        "payloadless_entry_args_ptr_sweep_json": payloadless_summary.get(
+            "entry_args_ptr_sweep_json"
+        ),
+        "payloadless_entry_args_ptr_sweep_sha256": payloadless_summary.get(
+            "entry_args_ptr_sweep_sha256"
+        ),
+        "payloadless_entry_args_ptr_sweep_check_json": payloadless_summary.get(
+            "entry_args_ptr_sweep_check_json"
+        ),
+        "payloadless_entry_args_ptr_sweep_check_sha256": payloadless_summary.get(
+            "entry_args_ptr_sweep_check_sha256"
+        ),
+        "payloadless_entry_args_ptr_sweep_row_count": payloadless_summary.get(
+            "entry_args_ptr_sweep_row_count"
+        ),
+        "payloadless_entry_args_ptr_sweep_check_row_count": payloadless_summary.get(
+            "entry_args_ptr_sweep_check_row_count"
+        ),
+        "payloadless_entry_args_ptr_sweep_mirror_fields": payloadless_summary.get(
+            "entry_args_ptr_sweep_mirror_fields"
+        ),
         "payloadless_fourth_field_handoff_evidence_path": first.get(
             "payloadless_fourth_field_handoff_evidence_path"
         ),
@@ -1073,7 +1343,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--max-inputs", type=int, default=128)
     parser.add_argument("--min-source-count", type=int, default=128)
-    parser.add_argument("--min-row-count", type=int, default=1)
+    parser.add_argument("--min-row-count", type=int, default=513)
     parser.add_argument("--block-threads", type=int, default=256)
     parser.add_argument("--device", type=int, default=1)
     parser.add_argument("--hip-visible-devices")
