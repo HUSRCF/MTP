@@ -2,10 +2,75 @@
 
 ## Progress Version
 
-- Version: `v1.18-measured-copy-payload-cache-slack-gate`
+- Version: `v1.19-payload-cache-full-fetch-decision-gate`
 - Updated: 2026-06-20
 
-## Latest Update: Measured-Copy Payload Cache Slack Gate
+## Latest Update: Payload Cache Full-Fetch Decision Gate
+
+The measured-copy slack sweep is now wrapped by an explicit runtime decision
+gate:
+
+```text
+outputs/reports/premap_kernel_consumer/premap_payload_cache_full_fetch_decision_gate_dolly128_gen64_v1.json
+```
+
+Decision at the current decode deadline:
+
+```text
+current_deadline_us = 200.0
+first_model_passing_deadline_us = 14661.311949203082
+required_lookahead_slack_us = 14661.311949203082
+slack_deficit_us = 14461.311949203082
+ready_time_model_slack_satisfied = false
+full_fetch_runtime_allowed = false
+full_fetch_block_reason = insufficient_ready_time_slack
+metadata_premap_runtime_preferred = true
+descriptor_prep_runtime_preferred = true
+```
+
+The gate is intentionally conservative:
+
+```text
+payload_bytes = 0
+ready_credit = false
+real_ready_credit_granted = false
+payload_transfer_enabled = false
+payload_deref_allowed = false
+kernel_arg_pass_allowed = false
+passed_to_kernel = false
+changes_kernel_launch_args = false
+uses_current_wna16_args = false
+passes_current_wna16_args = false
+measures_tpot = false
+measures_vllm_latency = false
+```
+
+Interpretation:
+
+```text
+The issue-plan path is valid, but the current measured-copy envelope is not
+fast enough for same-step decode full-fetch.  The lab/default runtime must keep
+full_fetch disabled and continue with metadata/premap/descriptor-prep unless a
+future runtime provides at least ~14.66ms lookahead/slack, a faster copy path, or
+a real payload runtime with verified ready-before-demand semantics.
+```
+
+Validation:
+
+```text
+/home/husrcf/anaconda3/envs/TRY/bin/python -m pytest \
+  tests/test_build_premap_payload_cache_full_fetch_decision_gate.py \
+  tests/test_sweep_premap_payload_cache_issue_plan_executor_slack.py \
+  tests/test_run_premap_payload_cache_issue_plan_executor.py -q
+
+16 passed
+
+/home/husrcf/anaconda3/envs/TRY/bin/python \
+  scripts/build_premap_payload_cache_full_fetch_decision_gate.py \
+  --require-pass
+```
+
+## Previous Update: Measured-Copy Payload Cache Slack Gate
 
 The premap/prefetch mainline has moved from payloadless TPOT wrappers to a
 payload-cache issue-plan gate and a measured-copy ready-time executor.
