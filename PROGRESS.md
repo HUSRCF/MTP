@@ -2,10 +2,112 @@
 
 ## Progress Version
 
-- Version: `v1.12-payloadless-useful-production-like-tpot-gate`
+- Version: `v1.13-payloadless-useful-ab-comparison-gate`
 - Updated: 2026-06-20
 
-## Latest Update: Payloadless Useful Typed-Slot Chain Revalidated To Production-Like TPOT Gate
+## Latest Update: Payloadless Useful TPOT A/B Comparison Gate Added
+
+The payloadless useful typed-slot path now has a strict production-like A/B
+comparison gate:
+
+```text
+scripts/build_future_wna16_typed_slot_payloadless_useful_ab_comparison.py
+tests/test_build_future_wna16_typed_slot_payloadless_useful_ab_comparison.py
+outputs/reports/premap_kernel_consumer/production_like_tpot/future_wna16_typed_slot_payloadless_useful_ab_comparison_v1.json
+```
+
+The gate consumes two TPOT artifacts and does not launch vLLM:
+
+```text
+baseline:
+  future_wna16_typed_slot_payloadless_useful_production_like_tpot_baseline_dolly32_gen64_graph_v1.json
+
+candidate:
+  future_wna16_typed_slot_payloadless_useful_production_like_tpot_candidate_dolly32_gen64_graph_v1.json
+```
+
+It requires the baseline to be the current production-like vLLM path and the
+candidate to explicitly be the future payloadless useful typed-slot path:
+
+```text
+baseline:
+  benchmark_is_current_vllm_baseline = true
+  benchmark_is_future_typed_slot_useful_path = false
+  payloadless_useful_mode_enabled = false
+
+candidate:
+  benchmark_is_current_vllm_baseline = false
+  benchmark_is_future_typed_slot_useful_path = true
+  payloadless_useful_mode_enabled = true
+  production_like_tpot_candidate_ready = true
+```
+
+The comparison checks matched context before comparing TPOT:
+
+```text
+sample_count = 32
+requested_output_token_count = 2048
+input_token_count must be present and integral
+gpu = 1
+input_token_count must match
+```
+
+Safety boundary remains payloadless and disconnected from the current WNA16
+kernel ABI:
+
+```text
+payload_bytes = 0
+payload_deref_allowed = false
+kernel_arg_pass_allowed = false
+passed_to_kernel = false
+changes_kernel_launch_args = false
+uses_current_wna16_args = false
+passes_current_wna16_args = false
+current_wna16_arg_compatible = false
+requires_wna16_arg_reinterpretation = false
+```
+
+Current A/B gate status:
+
+```text
+passed = false
+comparison_ready = false
+failures = ["candidate_json_missing"]
+baseline_tpot = 0.006482441018066406
+candidate_tpot = null
+performance_claim_ready = false
+```
+
+This is the intended current state: the baseline TPOT artifact is valid, but no
+payloadless useful candidate TPOT artifact exists yet.  The gate therefore
+prevents any runtime speedup claim until an explicitly enabled candidate run is
+available and faster by default.
+
+Validation:
+
+```text
+/home/husrcf/anaconda3/envs/TRY/bin/python -m pytest \
+  tests/test_build_future_wna16_typed_slot_payloadless_useful_ab_comparison.py -q
+# 12 passed
+
+/home/husrcf/anaconda3/envs/TRY/bin/python -m pytest \
+  tests/test_run_future_wna16_typed_slot_payloadless_useful_runtime_gate.py \
+  tests/test_run_future_wna16_typed_slot_payloadless_useful_benchmark_harness.py \
+  tests/test_run_future_wna16_typed_slot_payloadless_useful_repeat_benchmark.py \
+  tests/test_run_future_wna16_typed_slot_payloadless_useful_runtime_ablation.py \
+  tests/test_run_future_wna16_typed_slot_payloadless_useful_production_like_timing_gate.py \
+  tests/test_run_future_wna16_typed_slot_payloadless_useful_production_like_tpot_benchmark.py \
+  tests/test_build_future_wna16_typed_slot_payloadless_useful_ab_comparison.py -q
+# 59 passed
+```
+
+Next stage:
+
+```text
+produce_or_fix_payloadless_useful_candidate_tpot_artifact
+```
+
+## Previous Update: Payloadless Useful Typed-Slot Chain Revalidated To Production-Like TPOT Gate
 
 The future WNA16 typed-slot payloadless chain has been revalidated from the
 strict lab preflight through native-stub repeat stability and into the
