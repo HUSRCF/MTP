@@ -1,0 +1,110 @@
+{
+  "artifact_kind": "future_wna16_typed_slot_payloadless_useful_ab_repeat_summary",
+  "changes_kernel_launch_args": false,
+  "claim_boundary": "Repeat summary for the payloadless live-config path only.  This is not a real WNA16 typed-slot kernel benchmark and does not pass or mutate kernel arguments.",
+  "current_wna16_arg_compatible": false,
+  "failures": [],
+  "improvement_pct_stats": {
+    "count": 3,
+    "max": 1.4465826773043866,
+    "mean": 1.4107462257704688,
+    "median": 1.4407531672952056,
+    "min": 1.344902832711814,
+    "sorted": [
+      1.344902832711814,
+      1.4407531672952056,
+      1.4465826773043866
+    ],
+    "stdev": 0.057096498174968355,
+    "values": [
+      1.4465826773043866,
+      1.4407531672952056,
+      1.344902832711814
+    ]
+  },
+  "kernel_arg_pass_allowed": false,
+  "min_repeats": 3,
+  "next_runtime_stage": "decide_payloadless_live_config_gate_or_promote_real_typed_slot_consumer",
+  "passed": true,
+  "passed_to_kernel": false,
+  "passes_current_wna16_args": false,
+  "payload_bytes": 0,
+  "payload_deref_allowed": false,
+  "positive_all_repeats": true,
+  "repeat_count": 3,
+  "requires_wna16_arg_reinterpretation": false,
+  "rows": [
+    {
+      "baseline_json": "/home/husrcf/Code/ProtBind/MTP/outputs/reports/premap_kernel_consumer/production_like_tpot/future_wna16_typed_slot_payloadless_useful_production_like_tpot_baseline_dolly32_gen64_graph_v1.json",
+      "baseline_sha256": "782c37ecbc1f60cc255576396ac9ce120e53245a60158938c2ef046dd2f23015",
+      "baseline_tpot": 0.003340399270996094,
+      "baseline_trace_dir": "/home/husrcf/Code/ProtBind/MTP/outputs/reports/premap_kernel_consumer/production_like_tpot/production_like_baseline/repeat_00",
+      "candidate_json": "/home/husrcf/Code/ProtBind/MTP/outputs/reports/premap_kernel_consumer/production_like_tpot/future_wna16_typed_slot_payloadless_useful_production_like_tpot_candidate_dolly32_gen64_graph_v1.json",
+      "candidate_sha256": "77bfd2fbe51ce830b05bd310d6d0188f43c12aadc7a7406f0676117e0e866d85",
+      "candidate_tpot": 0.0032920776337890625,
+      "candidate_trace_dir": "/home/husrcf/Code/ProtBind/MTP/outputs/reports/premap_kernel_consumer/production_like_tpot/payloadless_useful_candidate/repeat_00",
+      "expected_gpu": 1,
+      "expected_requested_output_token_count": 2048,
+      "expected_sample_count": 32,
+      "improvement_pct": 1.4465826773043866,
+      "path": "/home/husrcf/Code/ProtBind/MTP/outputs/reports/premap_kernel_consumer/production_like_tpot/future_wna16_typed_slot_payloadless_useful_ab_comparison_v1.json",
+      "payload_bytes": 0,
+      "speedup": 1.0146781584708302
+    },
+    {
+      "baseline_json": "/home/husrcf/Code/ProtBind/MTP/outputs/reports/premap_kernel_consumer/production_like_tpot/future_wna16_typed_slot_payloadless_useful_production_like_tpot_baseline_dolly32_gen64_graph_repeat1.json",
+      "baseline_sha256": "d6b696ad9ba6468b952abae68dd8461916bdbe37c49296d2b7012849143e7451",
+      "baseline_tpot": 0.003333818064453125,
+      "baseline_trace_dir": "/home/husrcf/Code/ProtBind/MTP/outputs/reports/premap_kernel_consumer/production_like_tpot/production_like_baseline/repeat_01",
+      "candidate_json": "/home/husrcf/Code/ProtBind/MTP/outputs/reports/premap_kernel_consumer/production_like_tpot/future_wna16_typed_slot_payloadless_useful_production_like_tpot_candidate_dolly32_gen64_graph_repeat1.json",
+      "candidate_sha256": "3cf54948a89ef649702ac4b55c06d83ecc06aa33bdee98718dc13c5015f4ec4b",
+      "candidate_tpot": 0.0032857859750976565,
+      "candidate_trace_dir": "/home/husrcf/Code/ProtBind/MTP/outputs/reports/premap_kernel_consumer/production_like_tpot/payloadless_useful_candidate/repeat_01",
+      "expected_gpu": 1,
+      "expected_requested_output_token_count": 2048,
+      "expected_sample_count": 32,
+      "improvement_pct": 1.4407531672952056,
+      "path": "/home/husrcf/Code/ProtBind/MTP/outputs/reports/premap_kernel_consumer/production_like_tpot/future_wna16_typed_slot_payloadless_useful_ab_comparison_repeat1.json",
+      "payload_bytes": 0,
+      "speedup": 1.0146181430316807
+    },
+    {
+      "baseline_json": "/home/husrcf/Code/ProtBind/MTP/outputs/reports/premap_kernel_consumer/production_like_tpot/future_wna16_typed_slot_payloadless_useful_production_like_tpot_baseline_dolly32_gen64_graph_repeat2.json",
+      "baseline_sha256": "d13a500d3b7ab1ad430491986701644c4dc9dd1133e08a3d984818f9e3391aa5",
+      "baseline_tpot": 0.003349614591308594,
+      "baseline_trace_dir": "/home/husrcf/Code/ProtBind/MTP/outputs/reports/premap_kernel_consumer/production_like_tpot/production_like_baseline/repeat_02",
+      "candidate_json": "/home/husrcf/Code/ProtBind/MTP/outputs/reports/premap_kernel_consumer/production_like_tpot/future_wna16_typed_slot_payloadless_useful_production_like_tpot_candidate_dolly32_gen64_graph_repeat2.json",
+      "candidate_sha256": "2d900e084db5efc2403de3040d1823c7624c7ba2af61d985a64b40d84687b7e5",
+      "candidate_tpot": 0.0033045655297851565,
+      "candidate_trace_dir": "/home/husrcf/Code/ProtBind/MTP/outputs/reports/premap_kernel_consumer/production_like_tpot/payloadless_useful_candidate/repeat_02",
+      "expected_gpu": 1,
+      "expected_requested_output_token_count": 2048,
+      "expected_sample_count": 32,
+      "improvement_pct": 1.344902832711814,
+      "path": "/home/husrcf/Code/ProtBind/MTP/outputs/reports/premap_kernel_consumer/production_like_tpot/future_wna16_typed_slot_payloadless_useful_ab_comparison_repeat2.json",
+      "payload_bytes": 0,
+      "speedup": 1.0136323704636496
+    }
+  ],
+  "speedup_stats": {
+    "count": 3,
+    "max": 1.0146781584708302,
+    "mean": 1.0143095573220535,
+    "median": 1.0146181430316807,
+    "min": 1.0136323704636496,
+    "sorted": [
+      1.0136323704636496,
+      1.0146181430316807,
+      1.0146781584708302
+    ],
+    "stdev": 0.000587228230018179,
+    "values": [
+      1.0146781584708302,
+      1.0146181430316807,
+      1.0136323704636496
+    ]
+  },
+  "summary_mode": "production_like_payloadless_live_config_vs_no_recorder_baseline_repeat_summary",
+  "summary_name": "premap_future_wna16_typed_slot_payloadless_useful_ab_repeat3_summary_v1",
+  "uses_current_wna16_args": false
+}

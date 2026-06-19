@@ -2,10 +2,129 @@
 
 ## Progress Version
 
-- Version: `v1.13-payloadless-useful-ab-comparison-gate`
+- Version: `v1.14-payloadless-live-config-repeat3-summary`
 - Updated: 2026-06-20
 
-## Latest Update: Payloadless Useful TPOT A/B Comparison Gate Added
+## Latest Update: Payloadless Live-Config TPOT Repeat3 Summary Passed
+
+The production-compatible payloadless live-config path now has a repeat-3
+paired A/B summary on GPU1 Dolly32/gen64:
+
+```text
+scripts/summarize_future_wna16_typed_slot_payloadless_useful_ab_repeats.py
+tests/test_summarize_future_wna16_typed_slot_payloadless_useful_ab_repeats.py
+outputs/reports/premap_kernel_consumer/production_like_tpot/future_wna16_typed_slot_payloadless_useful_ab_repeat3_summary_v1.json
+```
+
+The summary consumes three already materialized production-like TPOT A/B
+comparison artifacts:
+
+```text
+repeat0:
+  future_wna16_typed_slot_payloadless_useful_ab_comparison_v1.json
+
+repeat1:
+  future_wna16_typed_slot_payloadless_useful_ab_comparison_repeat1.json
+
+repeat2:
+  future_wna16_typed_slot_payloadless_useful_ab_comparison_repeat2.json
+```
+
+Measured paired TPOT:
+
+```text
+repeat0:
+  baseline_tpot  = 0.003340399270996094 s/token
+  candidate_tpot = 0.0032920776337890625 s/token
+  speedup         = 1.0146781584708302x
+  improvement     = 1.4465826773043866%
+
+repeat1:
+  baseline_tpot  = 0.003333818064453125 s/token
+  candidate_tpot = 0.0032857859750976565 s/token
+  speedup         = 1.0146181430316807x
+  improvement     = 1.4407531672952056%
+
+repeat2:
+  baseline_tpot  = 0.003349614591308594 s/token
+  candidate_tpot = 0.0033045655297851565 s/token
+  speedup         = 1.0136323704636496x
+  improvement     = 1.344902832711814%
+```
+
+Repeat summary:
+
+```text
+passed = true
+repeat_count = 3
+positive_all_repeats = true
+speedup_mean = 1.0143095573220535x
+speedup_median = 1.0146181430316807x
+speedup_min = 1.0136323704636496x
+improvement_pct_mean = 1.4107462257704688%
+```
+
+The summary gate remains conservative.  It rejects any repeat that lacks TPOT /
+vLLM latency evidence, is not faster than baseline, has failures, or crosses the
+payload/kernel-argument safety boundary.  It also rejects duplicate input
+artifacts, duplicate baseline/candidate provenance, and mismatched context:
+
+```text
+expected_gpu = 1
+expected_sample_count = 32
+expected_requested_output_token_count = 2048
+baseline_json / candidate_json must be unique
+baseline_sha256 / candidate_sha256 must be unique
+baseline_trace_dir / candidate_trace_dir must be unique
+```
+
+```text
+payload_bytes = 0
+payload_deref_allowed = false
+kernel_arg_pass_allowed = false
+passed_to_kernel = false
+changes_kernel_launch_args = false
+uses_current_wna16_args = false
+passes_current_wna16_args = false
+current_wna16_arg_compatible = false
+requires_wna16_arg_reinterpretation = false
+```
+
+Interpretation:
+
+```text
+This is a small stable production-compatible live-config signal.
+It is not a real WNA16 typed-slot kernel benchmark.
+It does not pass or mutate current WNA16 kernel arguments.
+It should not be claimed as a strong runtime acceleration result.
+```
+
+Validation:
+
+```text
+/home/husrcf/anaconda3/envs/TRY/bin/python -m pytest \
+  tests/test_summarize_future_wna16_typed_slot_payloadless_useful_ab_repeats.py \
+  tests/test_build_future_wna16_typed_slot_payloadless_useful_ab_comparison.py \
+  tests/test_run_future_wna16_typed_slot_payloadless_useful_candidate_tpot_benchmark.py \
+  tests/test_check_future_wna16_typed_slot_payloadless_useful_candidate_config.py \
+  tests/test_vllm_premap_capacity_gate.py -q
+# 118 passed
+
+/home/husrcf/anaconda3/envs/TRY/bin/python \
+  scripts/summarize_future_wna16_typed_slot_payloadless_useful_ab_repeats.py \
+  --require-pass
+# passed = true
+```
+
+Next stage:
+
+```text
+either repeat on heldout prompt split,
+or promote the independent future typed-slot consumer toward a real
+payloadless execution benchmark while keeping current WNA16 args untouched.
+```
+
+## Previous Update: Payloadless Useful TPOT A/B Comparison Gate Added
 
 The payloadless useful typed-slot path now has a strict production-like A/B
 comparison gate:
