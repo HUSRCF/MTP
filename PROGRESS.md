@@ -2,8 +2,93 @@
 
 ## Progress Version
 
-- Version: `v1.07-four-field-timing-stub-bound`
-- Updated: 2026-06-17
+- Version: `v1.08-payloadless-execution-required-preflight`
+- Updated: 2026-06-19
+
+## Latest Update: Payloadless Native Execution Added To Default Lab Preflight
+
+The default premap/future-WNA16 typed-slot lab gate now requires the
+entry-args-ptr payloadless native execution artifact in addition to the
+four-field handoff, all-four consumer, and kernel-side typed path artifacts.
+The default preflight path is now:
+
+```text
+fourth_field_handoff_canary_entry_args_ptr_default
+-> all_four_field_consumer_entry_args_ptr_default
+-> future_wna16_kernel_side_typed_consumer_path_v1
+-> payloadless_execution_entry_args_ptr_native_v1
+-> premap lab preflight summary/check
+```
+
+This is still not a vLLM TPOT or current WNA16 fused-MoE benchmark gate.  It is
+a stricter lab precondition proving that the independent typed-slot/native
+payloadless path remains safe and same-source before any future kernel-side
+handoff work.
+
+Latest strict preflight evidence:
+
+```text
+outputs/reports/premap_kernel_consumer/future_wna16_typed_slot_kernel_variant_payloadless_execution_entry_args_ptr_native_v1.json
+outputs/reports/premap_kernel_consumer/premap_lab_preflight_entry_args_ptr_all_four_default_gate.json
+outputs/reports/premap_kernel_consumer/premap_lab_preflight_entry_args_ptr_all_four_default_gate.check.json
+
+required_evidence = 49 / 49 passed
+source_count = 128
+row_count = row_ok_count = 5345
+payloadless_execution_native_artifact_ready = true
+payloadless_execution_native_executed = true
+payloadless_execution_native_passed = true
+default_kernel_consumer_future_wna16_payloadless_execution_gate_ready = true
+```
+
+Safety boundary remains closed:
+
+```text
+payload_bytes = 0
+payload_deref_allowed = false
+kernel_arg_pass_allowed = false
+passed_to_kernel = false
+changes_kernel_launch_args = false
+uses_current_wna16_args = false
+passes_current_wna16_args = false
+current_wna16_arg_compatible = false
+requires_wna16_arg_reinterpretation = false
+measures_tpot = false
+measures_vllm_latency = false
+wna16_benchmark_ready = false
+```
+
+Validation:
+
+```text
+/home/husrcf/anaconda3/envs/TRY/bin/python -m pytest tests/test_run_premap_lab_preflight.py -q
+# 192 passed
+
+/home/husrcf/anaconda3/envs/TRY/bin/python -m pytest \
+  tests/test_run_premap_lab_preflight.py \
+  tests/test_run_wna16_typed_slot_benchmark_harness.py \
+  tests/test_run_future_wna16_typed_slot_kernel_variant_payloadless_execution.py -q
+# 255 passed
+
+/home/husrcf/anaconda3/envs/TRY/bin/python scripts/run_premap_lab_preflight.py \
+  --summary-only \
+  --output-json outputs/reports/premap_kernel_consumer/premap_lab_preflight_entry_args_ptr_all_four_default_gate.json
+# passed = true
+
+/home/husrcf/anaconda3/envs/TRY/bin/python scripts/check_premap_lab_preflight_summary.py \
+  outputs/reports/premap_kernel_consumer/premap_lab_preflight_entry_args_ptr_all_four_default_gate.json \
+  --output-json outputs/reports/premap_kernel_consumer/premap_lab_preflight_entry_args_ptr_all_four_default_gate.check.json
+# passed = true
+```
+
+Next runtime stage remains conservative:
+
+```text
+Continue the independent future WNA16 typed-slot consumer path.
+Do not pass current WNA16 fused-MoE kernel args.
+Do not dereference payload.
+Do not claim TPOT/runtime speedup from this gate.
+```
 
 ## Latest Update: Entry-Args-Ptr All-Four Consumer Promoted Into Default Lab Gate
 
