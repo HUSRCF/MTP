@@ -36634,3 +36634,97 @@ This is a payloadless independent future typed-slot ABI/stub execution gate.
 It still does not pass current WNA16 fused-MoE kernel args, does not dereference
 payload, and does not measure vLLM TPOT/latency.
 ```
+
+## Latest Update: One-Field Handoff Canary Now Uses Kernel-Side Payloadless Gate
+
+The one-field handoff canary now consumes the kernel-side-path payloadless
+native artifact instead of the older four-field payloadless artifact:
+
+```text
+outputs/reports/premap_kernel_consumer/future_wna16_typed_slot_kernel_variant_payloadless_execution_kernel_side_path_native_v1.json
+```
+
+This stage now also validates the payloadless artifact's
+`future_wna16_kernel_side_typed_consumer_path` evidence file directly. The
+checker resolves the evidence path, recomputes SHA256, loads the JSON, and
+verifies the same safety and provenance fields as the upstream payloadless gate:
+
+```text
+artifact_kind = future_wna16_kernel_side_typed_consumer_path
+passed = true
+stage_type = lab_gate
+native_consumer_executed = true
+native_consumer_passed = true
+source_count / input_json_count / row_count / row_ok_count match
+all_four_sha256 matches
+selected_input_manifest_sha256 matches
+payload_bytes = 0
+kernel_arg_pass_allowed = false
+passed_to_kernel = false
+changes_kernel_launch_args = false
+uses_current_wna16_args = false
+measures_tpot = false
+measures_vllm_latency = false
+```
+
+Generated artifact:
+
+```text
+outputs/reports/premap_kernel_consumer/future_wna16_typed_slot_kernel_variant_one_field_handoff_canary_kernel_side_path_v1.json
+```
+
+Real-artifact validation:
+
+```text
+passed = true
+one_field_handoff_field_name = scale_metadata_handle
+one_field_handoff_canary_native_executed = true
+source_count = 128
+row_count = 5345
+row_ok_count = 5345
+one_field_handoff_live_enabled = false
+payload_bytes = 0
+kernel_arg_pass_allowed = false
+passed_to_kernel = false
+changes_kernel_launch_args = false
+uses_current_wna16_args = false
+measures_tpot = false
+measures_vllm_latency = false
+```
+
+Validation:
+
+```text
+conda run -n TRY python -m pytest \
+  tests/test_run_future_wna16_typed_slot_kernel_variant_one_field_handoff_canary.py -q
+# 39 passed
+
+conda run -n TRY python -m pytest \
+  tests/test_run_future_wna16_typed_slot_kernel_variant_one_field_handoff_canary.py \
+  tests/test_run_future_wna16_typed_slot_kernel_variant_payloadless_execution.py \
+  tests/test_run_future_wna16_typed_slot_kernel_variant_benchmark.py \
+  tests/test_run_future_wna16_typed_slot_kernel_timing_stub.py \
+  tests/test_run_future_wna16_typed_slot_kernel_variant_entrypoint.py \
+  tests/test_run_wna16_typed_slot_benchmark_harness.py \
+  tests/test_run_premap_lab_preflight.py -q
+# 342 passed
+```
+
+Review:
+
+```text
+Codex 5.3 spark caught that one-field initially only checked kernel-side
+evidence field shapes. Fixed by adding file-level evidence closure and negative
+tests for payloadless row-count drift and evidence SHA drift.
+Follow-up review found no remaining high/medium issue; a missing-evidence-file
+negative test was added.
+```
+
+Boundary remains unchanged:
+
+```text
+This is still a readonly one-field mirror canary on the independent future
+typed-slot ABI/stub path. Live handoff is disabled, current WNA16 fused-MoE args
+are not passed, payload is not dereferenced, and TPOT/vLLM latency are not
+measured.
+```

@@ -17,6 +17,11 @@ FOURTH_EVIDENCE_PATH = (
     / "fixtures"
     / "future_wna16_fourth_field_evidence.json"
 )
+KERNEL_SIDE_EVIDENCE_PATH = (
+    Path(__file__).resolve().parent
+    / "fixtures"
+    / "future_wna16_kernel_side_typed_path_evidence.json"
+)
 
 
 def _load_module():
@@ -52,6 +57,7 @@ def _payloadless_payload(
     timing_stub_json: str | None = None,
 ) -> dict:
     fourth_evidence_sha = _sha256(FOURTH_EVIDENCE_PATH)
+    kernel_side_evidence_sha = _sha256(KERNEL_SIDE_EVIDENCE_PATH)
     payload = {
         "artifact_kind": "future_wna16_typed_slot_kernel_variant_payloadless_execution",
         "payloadless_execution_name": (
@@ -128,6 +134,22 @@ def _payloadless_payload(
         "all_four_field_consumer_row_ok_count": row_count,
         "all_four_field_consumer_fourth_field_path_label": str(FOURTH_EVIDENCE_PATH),
         "all_four_field_consumer_fourth_field_sha256": fourth_evidence_sha,
+        "future_wna16_kernel_side_typed_consumer_path_ready": True,
+        "future_wna16_kernel_side_typed_consumer_path_hashes_valid": True,
+        "future_wna16_kernel_side_typed_consumer_path_evidence_path": str(
+            KERNEL_SIDE_EVIDENCE_PATH
+        ),
+        "future_wna16_kernel_side_typed_consumer_path_evidence_sha256": (
+            kernel_side_evidence_sha
+        ),
+        "future_wna16_kernel_side_typed_consumer_path_source_count": source_count,
+        "future_wna16_kernel_side_typed_consumer_path_input_json_count": source_count,
+        "future_wna16_kernel_side_typed_consumer_path_row_count": row_count,
+        "future_wna16_kernel_side_typed_consumer_path_row_ok_count": row_count,
+        "future_wna16_kernel_side_typed_consumer_path_all_four_sha256": "7" * 64,
+        "future_wna16_kernel_side_typed_consumer_path_selected_input_manifest_sha256": (
+            "6" * 64
+        ),
     }
     if timing_stub_json is not None:
         payload["payloadless_execution_timing_stub_json"] = timing_stub_json
@@ -268,6 +290,9 @@ def test_one_field_handoff_canary_runs_native_gate(tmp_path: Path, monkeypatch):
     assert result["payload_bytes"] == 0
     assert result["kernel_arg_pass_allowed"] is False
     assert result["measures_tpot"] is False
+    assert result["payloadless_future_wna16_kernel_side_typed_consumer_path_ready"] is True
+    assert result["payloadless_future_wna16_kernel_side_typed_consumer_path_source_count"] == 128
+    assert result["payloadless_future_wna16_kernel_side_typed_consumer_path_row_count"] == 257
     assert json.loads(output.read_text(encoding="utf-8"))["passed"] is True
 
 
@@ -710,9 +735,14 @@ def test_one_field_handoff_canary_defaults_to_four_field_payloadless_artifact():
     module = _load_module()
 
     assert (
-        "future_wna16_typed_slot_kernel_variant_payloadless_execution_four_field_v3_native_run.json"
+        "future_wna16_typed_slot_kernel_variant_payloadless_execution_kernel_side_path_native_v1.json"
         in str(module.DEFAULT_PAYLOADLESS_JSON)
     )
+    default_path = Path(module.DEFAULT_PAYLOADLESS_JSON)
+    assert default_path.exists()
+    payload = json.loads(default_path.read_text(encoding="utf-8"))
+    assert payload["future_wna16_kernel_side_typed_consumer_path_ready"] is True
+    assert payload["payloadless_execution_native_executed"] is True
 
 
 def test_one_field_handoff_canary_rejects_payloadless_failures(
@@ -759,6 +789,84 @@ def test_one_field_handoff_canary_rejects_all_four_not_ready(
 
     assert result["passed"] is False
     assert any("all_four_field_consumer_ready" in item for item in result["failures"])
+
+
+def test_one_field_handoff_canary_rejects_payloadless_kernel_side_row_drift(
+    tmp_path: Path,
+):
+    module = _load_module()
+    payloadless = tmp_path / "payloadless.json"
+    payload = _payloadless_payload(row_count=257)
+    payload["future_wna16_kernel_side_typed_consumer_path_row_count"] = 128
+    payload["future_wna16_kernel_side_typed_consumer_path_row_ok_count"] = 128
+    _write_json(payloadless, payload)
+
+    args = module.build_parser().parse_args(
+        [
+            "--payloadless-json",
+            str(payloadless),
+            "--output-json",
+            str(tmp_path / "one_field.json"),
+        ]
+    )
+    result = module.run_one_field_handoff_canary(args)
+
+    assert result["passed"] is False
+    assert "payloadless_kernel_side_typed_path_row_count_mismatch" in result[
+        "failures"
+    ]
+
+
+def test_one_field_handoff_canary_rejects_payloadless_kernel_side_evidence_sha_drift(
+    tmp_path: Path,
+):
+    module = _load_module()
+    payloadless = tmp_path / "payloadless.json"
+    payload = _payloadless_payload()
+    payload["future_wna16_kernel_side_typed_consumer_path_evidence_sha256"] = "8" * 64
+    _write_json(payloadless, payload)
+
+    args = module.build_parser().parse_args(
+        [
+            "--payloadless-json",
+            str(payloadless),
+            "--output-json",
+            str(tmp_path / "one_field.json"),
+        ]
+    )
+    result = module.run_one_field_handoff_canary(args)
+
+    assert result["passed"] is False
+    assert "payloadless_kernel_side_typed_path_evidence_sha_mismatch" in result[
+        "failures"
+    ]
+
+
+def test_one_field_handoff_canary_rejects_missing_kernel_side_evidence_file(
+    tmp_path: Path,
+):
+    module = _load_module()
+    payloadless = tmp_path / "payloadless.json"
+    payload = _payloadless_payload()
+    payload["future_wna16_kernel_side_typed_consumer_path_evidence_path"] = str(
+        tmp_path / "missing_kernel_side_evidence.json"
+    )
+    _write_json(payloadless, payload)
+
+    args = module.build_parser().parse_args(
+        [
+            "--payloadless-json",
+            str(payloadless),
+            "--output-json",
+            str(tmp_path / "one_field.json"),
+        ]
+    )
+    result = module.run_one_field_handoff_canary(args)
+
+    assert result["passed"] is False
+    assert "payloadless_kernel_side_typed_path_evidence_path_not_found" in result[
+        "failures"
+    ]
 
 
 def test_one_field_handoff_canary_rejects_unrelated_fourth_evidence(
@@ -980,6 +1088,50 @@ def test_one_field_handoff_canary_rejects_all_four_timing_stub_drift(
 
     assert result["passed"] is False
     assert any("all_four_field_consumer_row_count mismatch" in item for item in result["failures"])
+
+
+def test_one_field_handoff_canary_rejects_kernel_side_timing_stub_drift(
+    tmp_path: Path,
+):
+    module = _load_module()
+    runner = tmp_path / "runner.json"
+    timing_stub = tmp_path / "timing_stub.json"
+    payloadless = tmp_path / "payloadless.json"
+    input_json = tmp_path / "input.json"
+    _write_json(input_json, {"ok": True})
+    _write_json(runner, {"input_jsons": [str(input_json)]})
+    timing_payload = {
+        **_payloadless_payload(),
+        "runner_json": str(runner),
+        "runner_sha256": _sha256(runner),
+    }
+    timing_payload["future_wna16_kernel_side_typed_consumer_path_row_count"] = 123
+    _write_json(timing_stub, timing_payload)
+    payload = _payloadless_payload(timing_stub_json=str(timing_stub))
+    payload.update(
+        {
+            "payloadless_execution_timing_stub_sha256": _sha256(timing_stub),
+            "payloadless_execution_runner_json": str(runner),
+            "payloadless_execution_runner_sha256": _sha256(runner),
+        }
+    )
+    _write_json(payloadless, payload)
+
+    args = module.build_parser().parse_args(
+        [
+            "--payloadless-json",
+            str(payloadless),
+            "--output-json",
+            str(tmp_path / "one_field.json"),
+        ]
+    )
+    result = module.run_one_field_handoff_canary(args)
+
+    assert result["passed"] is False
+    assert any(
+        "future_wna16_kernel_side_typed_consumer_path_row_count mismatch" in item
+        for item in result["failures"]
+    )
 
 
 def test_one_field_handoff_canary_rejects_native_opt_out(tmp_path: Path):
