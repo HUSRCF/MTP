@@ -217,6 +217,8 @@ def _enable_payloadless_chain_ready(
             "default_kernel_consumer_future_wna16_kernel_side_typed_path_measures_vllm_latency": False,
             "default_kernel_consumer_future_wna16_kernel_side_typed_path_wna16_benchmark_ready": False,
             "default_kernel_consumer_future_wna16_payloadless_execution_evidence_passed": True,
+            "default_kernel_consumer_future_wna16_payloadless_execution_evidence_path": "outputs/reports/premap_kernel_consumer/future_wna16_typed_slot_kernel_variant_payloadless_execution_entry_args_ptr_native_v1.json",
+            "default_kernel_consumer_future_wna16_payloadless_execution_evidence_sha256": HEX,
             "default_kernel_consumer_future_wna16_payloadless_execution_ready": True,
             "default_kernel_consumer_future_wna16_payloadless_execution_gate_ready": True,
             "default_kernel_consumer_future_wna16_payloadless_execution_lab_preflight_ready": True,
@@ -242,6 +244,62 @@ def _enable_payloadless_chain_ready(
             "default_kernel_consumer_future_wna16_payloadless_execution_measures_tpot": False,
             "default_kernel_consumer_future_wna16_payloadless_execution_measures_vllm_latency": False,
             "default_kernel_consumer_future_wna16_payloadless_execution_wna16_benchmark_ready": False,
+        }
+    )
+
+
+def _enable_variant_execution_ready(
+    summary: dict[str, object],
+    *,
+    row_count: int | None = None,
+    source_count: int = 128,
+) -> None:
+    row_count = row_count or int(
+        summary["default_kernel_consumer_future_wna16_payloadless_execution_row_count"]
+    )
+    summary.update(
+        {
+            "default_kernel_consumer_future_wna16_variant_execution_evidence_passed": True,
+            "default_kernel_consumer_future_wna16_variant_execution_ready": True,
+            "default_kernel_consumer_future_wna16_variant_execution_gate_ready": True,
+            "default_kernel_consumer_future_wna16_variant_execution_payloadless_gate_ready": True,
+            "default_kernel_consumer_future_wna16_variant_execution_native_requested": True,
+            "default_kernel_consumer_future_wna16_variant_execution_native_executed": True,
+            "default_kernel_consumer_future_wna16_variant_execution_native_passed": True,
+            "default_kernel_consumer_future_wna16_variant_execution_native_artifact_ready": True,
+            "default_kernel_consumer_future_wna16_variant_execution_not_current_wna16_kernel": True,
+            "default_kernel_consumer_future_wna16_variant_execution_artifact_kind": "future_wna16_typed_slot_kernel_variant_execution",
+            "default_kernel_consumer_future_wna16_variant_execution_name": "premap_future_wna16_typed_slot_kernel_variant_execution_v1",
+            "default_kernel_consumer_future_wna16_variant_execution_mode": "independent_future_wna16_typed_slot_kernel_variant_execution",
+            "default_kernel_consumer_future_wna16_variant_execution_source": "premap_future_wna16_typed_slot_payloadless_execution_v1",
+            "default_kernel_consumer_future_wna16_variant_execution_scope": "independent_native_typed_slot_kernel_variant_execution",
+            "default_kernel_consumer_future_wna16_variant_execution_source_count": source_count,
+            "default_kernel_consumer_future_wna16_variant_execution_row_count": row_count,
+            "default_kernel_consumer_future_wna16_variant_execution_row_ok_count": row_count,
+            "default_kernel_consumer_future_wna16_variant_execution_evidence_path": "outputs/reports/premap_kernel_consumer/future_wna16_typed_slot_kernel_variant_execution_entry_args_ptr_native_v1.json",
+            "default_kernel_consumer_future_wna16_variant_execution_evidence_sha256": HEX,
+            "default_kernel_consumer_future_wna16_variant_execution_payloadless_json": summary[
+                "default_kernel_consumer_future_wna16_payloadless_execution_evidence_path"
+            ],
+            "default_kernel_consumer_future_wna16_variant_execution_payloadless_sha256": summary[
+                "default_kernel_consumer_future_wna16_payloadless_execution_evidence_sha256"
+            ],
+            "default_kernel_consumer_future_wna16_variant_execution_native_json": "outputs/reports/premap_kernel_consumer/future_wna16_variant_execution_timing_stub.json",
+            "default_kernel_consumer_future_wna16_variant_execution_native_sha256": HEX,
+            "default_kernel_consumer_future_wna16_variant_execution_native_host_wall_ms": 12.0,
+            "default_kernel_consumer_future_wna16_variant_execution_outer_wall_ms": 13.0,
+            "default_kernel_consumer_future_wna16_variant_execution_payload_bytes": 0,
+            "default_kernel_consumer_future_wna16_variant_execution_payload_deref_allowed": False,
+            "default_kernel_consumer_future_wna16_variant_execution_kernel_arg_pass_allowed": False,
+            "default_kernel_consumer_future_wna16_variant_execution_passed_to_kernel": False,
+            "default_kernel_consumer_future_wna16_variant_execution_changes_kernel_launch_args": False,
+            "default_kernel_consumer_future_wna16_variant_execution_current_wna16_arg_compatible": False,
+            "default_kernel_consumer_future_wna16_variant_execution_uses_current_wna16_args": False,
+            "default_kernel_consumer_future_wna16_variant_execution_passes_current_wna16_args": False,
+            "default_kernel_consumer_future_wna16_variant_execution_requires_wna16_arg_reinterpretation": False,
+            "default_kernel_consumer_future_wna16_variant_execution_measures_tpot": False,
+            "default_kernel_consumer_future_wna16_variant_execution_measures_vllm_latency": False,
+            "default_kernel_consumer_future_wna16_variant_execution_wna16_benchmark_ready": False,
         }
     )
 
@@ -826,6 +884,64 @@ def test_check_premap_lab_preflight_summary_accepts_payloadless_chain_next_stage
 
     assert result["passed"] is True
     assert result["failures"] == []
+
+
+def test_check_premap_lab_preflight_summary_accepts_variant_execution_next_stage() -> None:
+    summary = _summary()
+    summary[
+        "default_kernel_consumer_wna16_side_variant_online_source_identity_subset"
+    ] = True
+    summary[
+        "default_kernel_consumer_wna16_side_variant_online_source_identity_missing_count"
+    ] = 0
+    summary["default_kernel_consumer_wna16_side_variant_ready"] = True
+    _enable_wna16_kernel_side_execution_ready(summary)
+    _enable_payloadless_chain_ready(summary)
+    _enable_variant_execution_ready(summary)
+    summary[
+        "default_kernel_consumer_independent_typed_slot_payloadless_chain_ready"
+    ] = True
+    summary["default_kernel_consumer_next_runtime_stage"] = (
+        "implement_future_wna16_typed_slot_kernel_variant_useful_consumer"
+    )
+
+    result = check_premap_lab_preflight_summary(summary)
+
+    assert result["passed"] is True
+    assert result["failures"] == []
+
+
+def test_check_premap_lab_preflight_summary_rejects_variant_execution_without_payloadless_chain() -> None:
+    summary = _summary()
+    summary[
+        "default_kernel_consumer_wna16_side_variant_online_source_identity_subset"
+    ] = True
+    summary[
+        "default_kernel_consumer_wna16_side_variant_online_source_identity_missing_count"
+    ] = 0
+    summary["default_kernel_consumer_wna16_side_variant_ready"] = True
+    _enable_wna16_kernel_side_execution_ready(summary)
+    _enable_payloadless_chain_ready(summary)
+    _enable_variant_execution_ready(summary)
+    summary["default_kernel_consumer_future_wna16_payloadless_execution_ready"] = False
+    summary[
+        "default_kernel_consumer_independent_typed_slot_payloadless_chain_ready"
+    ] = True
+    summary["default_kernel_consumer_next_runtime_stage"] = (
+        "implement_future_wna16_typed_slot_kernel_variant_useful_consumer"
+    )
+
+    result = check_premap_lab_preflight_summary(summary)
+
+    assert result["passed"] is False
+    assert (
+        "future_wna16_variant_execution_ready_reported_without_valid_evidence"
+        in result["failures"]
+    )
+    assert (
+        "payloadless_chain_ready_reported_without_valid_evidence"
+        in result["failures"]
+    )
 
 
 def test_check_premap_lab_preflight_summary_rejects_payloadless_chain_flag_without_evidence() -> None:

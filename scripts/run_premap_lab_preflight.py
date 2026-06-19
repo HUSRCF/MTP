@@ -140,6 +140,8 @@ REQUIRED_DEFAULT_GATE_CONTRACT = {
     "future_wna16_kernel_side_typed_consumer_path_min_source_count": 128,
     "future_wna16_typed_slot_payloadless_execution_required": True,
     "future_wna16_typed_slot_payloadless_execution_min_source_count": 128,
+    "future_wna16_typed_slot_kernel_variant_execution_required": True,
+    "future_wna16_typed_slot_kernel_variant_execution_min_source_count": 128,
     "wna16_side_consumer_variant_execution_required": True,
     "wna16_side_consumer_variant_execution_min_source_count": 128,
     "single_field_handle_handoff_canary_required": True,
@@ -291,6 +293,7 @@ REQUIRED_DEFAULT_GATE_EVIDENCE_JSON_LABELS = {
     "future_wna16_typed_slot_all_four_field_consumer_json",
     "future_wna16_kernel_side_typed_consumer_path_json",
     "future_wna16_typed_slot_payloadless_execution_json",
+    "future_wna16_typed_slot_kernel_variant_execution_json",
     "wna16_side_consumer_variant_execution_128strict_runner_json",
     "payload_cache_producer_state_native_canary_json",
     "payload_cache_producer_state_online_nonempty_issue_canary_json",
@@ -2093,6 +2096,104 @@ def _validate_future_wna16_typed_slot_payloadless_execution(
     return failures
 
 
+def _validate_future_wna16_typed_slot_kernel_variant_execution(
+    evidence: dict[str, Any],
+) -> list[str]:
+    failures: list[str] = []
+    expected_values = {
+        "artifact_kind": "future_wna16_typed_slot_kernel_variant_execution",
+        "execution_name": "premap_future_wna16_typed_slot_kernel_variant_execution_v1",
+        "execution_mode": "independent_future_wna16_typed_slot_kernel_variant_execution",
+        "execution_source": "premap_future_wna16_typed_slot_payloadless_execution_v1",
+        "future_wna16_variant_execution_scope": (
+            "independent_native_typed_slot_kernel_variant_execution"
+        ),
+        "passed": True,
+        "failures": [],
+        "payloadless_gate_ready": True,
+        "future_wna16_variant_execution_ready": True,
+        "future_wna16_variant_execution_native_requested": True,
+        "future_wna16_variant_execution_native_executed": True,
+        "future_wna16_variant_execution_native_passed": True,
+        "future_wna16_variant_execution_native_artifact_ready": True,
+        "future_wna16_variant_execution_not_current_wna16_kernel": True,
+        "benchmark_is_current_wna16_fused_moe": False,
+        "payload_bytes": 0,
+        "payload_deref_allowed": False,
+        "kernel_arg_pass_allowed": False,
+        "passed_to_kernel": False,
+        "changes_kernel_launch_args": False,
+        "uses_current_wna16_args": False,
+        "passes_current_wna16_args": False,
+        "current_wna16_arg_compatible": False,
+        "requires_wna16_arg_reinterpretation": False,
+        "measures_tpot": False,
+        "measures_vllm_latency": False,
+        "wna16_benchmark_ready": False,
+        "next_runtime_stage": (
+            "implement_future_wna16_typed_slot_kernel_variant_useful_consumer"
+        ),
+    }
+    for key, expected in expected_values.items():
+        failures.extend(_check_metric_equals(evidence, key, expected))
+
+    min_source_count = int(
+        REQUIRED_DEFAULT_GATE_CONTRACT[
+            "future_wna16_typed_slot_kernel_variant_execution_min_source_count"
+        ]
+    )
+    source_count = _int_metric(evidence, "source_count")
+    row_count = _int_metric(evidence, "row_count")
+    row_ok_count = _int_metric(evidence, "row_ok_count")
+    if source_count is None or source_count < min_source_count:
+        failures.append("source_count_invalid")
+    if row_count is None or row_count <= 0:
+        failures.append("row_count_invalid")
+    elif row_ok_count != row_count:
+        failures.append("row_ok_count_mismatch")
+    if evidence.get("field_names") != list(ARG_SLOT_MIRROR_FIELDS):
+        failures.append("field_names_mismatch")
+    row_ok_counts = evidence.get("field_read_row_ok_counts")
+    if not isinstance(row_ok_counts, dict):
+        failures.append("field_read_row_ok_counts_missing")
+        row_ok_counts = {}
+    field_hashes = evidence.get("field_read_hashes")
+    if not isinstance(field_hashes, dict):
+        failures.append("field_read_hashes_missing")
+        field_hashes = {}
+    for field in ARG_SLOT_MIRROR_FIELDS:
+        if row_count is not None and row_ok_counts.get(field) != row_count:
+            failures.append(f"{field}_read_row_ok_count_mismatch")
+        if _hex64_metric(field_hashes, field) is None:
+            failures.append(f"{field}_read_hash_invalid")
+    for key in (
+        "row_hash_accumulator",
+        "handle_projection_hash_accumulator",
+        "payloadless_sha256",
+        "future_wna16_variant_execution_native_sha256",
+    ):
+        if key.endswith("_sha256"):
+            if _sha256_hex_metric(evidence, key) is None:
+                failures.append(f"{key}_invalid")
+        elif _hex64_metric(evidence, key) is None:
+            failures.append(f"{key}_invalid")
+    for key in (
+        "payloadless_json",
+        "future_wna16_variant_execution_native_json",
+    ):
+        value = evidence.get(key)
+        if not isinstance(value, str) or not value:
+            failures.append(f"{key}_missing")
+    for key in (
+        "future_wna16_variant_execution_native_host_wall_ms",
+        "future_wna16_variant_execution_outer_wall_ms",
+    ):
+        value = evidence.get(key)
+        if isinstance(value, bool) or not isinstance(value, (int, float)) or value <= 0:
+            failures.append(f"{key}_invalid")
+    return failures
+
+
 def _validate_future_native_arg_slot_all_field_entry_args_ptr_sweep(
     evidence: dict[str, Any],
 ) -> list[str]:
@@ -2401,6 +2502,7 @@ def _validate_required_evidence_payload(
         "future_wna16_typed_slot_all_four_field_consumer_json",
         "future_wna16_kernel_side_typed_consumer_path_json",
         "future_wna16_typed_slot_payloadless_execution_json",
+        "future_wna16_typed_slot_kernel_variant_execution_json",
         "wna16_side_consumer_variant_execution_128strict_runner_json",
         "payload_cache_producer_state_native_canary_json",
         "payload_cache_producer_state_nonempty_issue_stub_json",
@@ -2937,6 +3039,54 @@ def _validate_required_evidence_payload(
                     failures.append(
                         f"{evidence_label}:kernel_side_selected_input_manifest_sha256_invalid"
                     )
+        return failures
+    if evidence_label == "future_wna16_typed_slot_kernel_variant_execution_json":
+        failures = [
+            f"{evidence_label}:{failure}"
+            for failure in _validate_future_wna16_typed_slot_kernel_variant_execution(
+                evidence
+            )
+        ]
+        if evidence_paths is not None and root is not None:
+            expected_payloadless_path = evidence_paths.get(
+                "future_wna16_typed_slot_payloadless_execution_json"
+            )
+            observed_payloadless_path = evidence.get("payloadless_json")
+            if isinstance(expected_payloadless_path, str) and isinstance(
+                observed_payloadless_path,
+                str,
+            ):
+                expected_label = _path_label(
+                    _path_for_label(expected_payloadless_path, root),
+                    root=root,
+                )
+                observed_label = _path_label(
+                    _path_for_label(observed_payloadless_path, root),
+                    root=root,
+                )
+                if observed_label != expected_label:
+                    failures.append(
+                        f"{evidence_label}:payloadless_json_path_mismatch"
+                    )
+                expected_sha = _path_label_sha256(
+                    expected_payloadless_path,
+                    root=root,
+                )
+                if expected_sha != evidence.get("payloadless_sha256"):
+                    failures.append(f"{evidence_label}:payloadless_sha256_mismatch")
+            else:
+                failures.append(f"{evidence_label}:payloadless_json_path_invalid")
+            native_json = evidence.get("future_wna16_variant_execution_native_json")
+            if isinstance(native_json, str) and native_json:
+                native_sha = _path_label_sha256(native_json, root=root)
+                if native_sha != evidence.get(
+                    "future_wna16_variant_execution_native_sha256"
+                ):
+                    failures.append(
+                        f"{evidence_label}:native_execution_sha256_mismatch"
+                    )
+            else:
+                failures.append(f"{evidence_label}:native_execution_json_missing")
         return failures
     if evidence_label == "wna16_side_consumer_variant_execution_128strict_runner_json":
         return [
@@ -9018,6 +9168,18 @@ def run_premap_lab_preflight(
         future_wna16_payloadless_execution_evidence_label,
         root=root,
     )
+    future_wna16_variant_execution_evidence_label = (
+        "future_wna16_typed_slot_kernel_variant_execution_json"
+    )
+    future_wna16_variant_execution_evidence_row = _find_evidence_row(
+        default_gate_required_evidence_check,
+        future_wna16_variant_execution_evidence_label,
+    )
+    future_wna16_variant_execution_payload = _load_evidence_payload_from_check(
+        default_gate_required_evidence_check,
+        future_wna16_variant_execution_evidence_label,
+        root=root,
+    )
     all_four_field_consumer_fourth_field_json = (
         all_four_field_consumer_payload.get("fourth_field_json")
     )
@@ -12523,6 +12685,207 @@ def run_premap_lab_preflight(
                 "wna16_benchmark_ready",
             )
         ),
+        "default_kernel_consumer_future_wna16_variant_execution_evidence_label": (
+            future_wna16_variant_execution_evidence_label
+        ),
+        "default_kernel_consumer_future_wna16_variant_execution_evidence_path": (
+            future_wna16_variant_execution_evidence_row.get("path")
+        ),
+        "default_kernel_consumer_future_wna16_variant_execution_evidence_sha256": (
+            _evidence_row_sha256(future_wna16_variant_execution_evidence_row)
+        ),
+        "default_kernel_consumer_future_wna16_variant_execution_evidence_passed": (
+            _evidence_row_passed(future_wna16_variant_execution_evidence_row)
+        ),
+        "default_kernel_consumer_future_wna16_variant_execution_artifact_kind": (
+            future_wna16_variant_execution_payload.get("artifact_kind")
+        ),
+        "default_kernel_consumer_future_wna16_variant_execution_name": (
+            future_wna16_variant_execution_payload.get("execution_name")
+        ),
+        "default_kernel_consumer_future_wna16_variant_execution_mode": (
+            future_wna16_variant_execution_payload.get("execution_mode")
+        ),
+        "default_kernel_consumer_future_wna16_variant_execution_source": (
+            future_wna16_variant_execution_payload.get("execution_source")
+        ),
+        "default_kernel_consumer_future_wna16_variant_execution_scope": (
+            future_wna16_variant_execution_payload.get(
+                "future_wna16_variant_execution_scope"
+            )
+        ),
+        "default_kernel_consumer_future_wna16_variant_execution_source_count": (
+            _int_metric(future_wna16_variant_execution_payload, "source_count")
+        ),
+        "default_kernel_consumer_future_wna16_variant_execution_row_count": (
+            _int_metric(future_wna16_variant_execution_payload, "row_count")
+        ),
+        "default_kernel_consumer_future_wna16_variant_execution_row_ok_count": (
+            _int_metric(future_wna16_variant_execution_payload, "row_ok_count")
+        ),
+        "default_kernel_consumer_future_wna16_variant_execution_ready": (
+            _bool_metric(
+                future_wna16_variant_execution_payload,
+                "future_wna16_variant_execution_ready",
+            )
+        ),
+        "default_kernel_consumer_future_wna16_variant_execution_payloadless_gate_ready": (
+            _bool_metric(
+                future_wna16_variant_execution_payload,
+                "payloadless_gate_ready",
+            )
+        ),
+        "default_kernel_consumer_future_wna16_variant_execution_native_requested": (
+            _bool_metric(
+                future_wna16_variant_execution_payload,
+                "future_wna16_variant_execution_native_requested",
+            )
+        ),
+        "default_kernel_consumer_future_wna16_variant_execution_native_executed": (
+            _bool_metric(
+                future_wna16_variant_execution_payload,
+                "future_wna16_variant_execution_native_executed",
+            )
+        ),
+        "default_kernel_consumer_future_wna16_variant_execution_native_passed": (
+            _bool_metric(
+                future_wna16_variant_execution_payload,
+                "future_wna16_variant_execution_native_passed",
+            )
+        ),
+        "default_kernel_consumer_future_wna16_variant_execution_native_artifact_ready": (
+            _bool_metric(
+                future_wna16_variant_execution_payload,
+                "future_wna16_variant_execution_native_artifact_ready",
+            )
+        ),
+        "default_kernel_consumer_future_wna16_variant_execution_native_host_wall_ms": (
+            _float_metric(
+                future_wna16_variant_execution_payload,
+                "future_wna16_variant_execution_native_host_wall_ms",
+            )
+        ),
+        "default_kernel_consumer_future_wna16_variant_execution_outer_wall_ms": (
+            _float_metric(
+                future_wna16_variant_execution_payload,
+                "future_wna16_variant_execution_outer_wall_ms",
+            )
+        ),
+        "default_kernel_consumer_future_wna16_variant_execution_not_current_wna16_kernel": (
+            _bool_metric(
+                future_wna16_variant_execution_payload,
+                "future_wna16_variant_execution_not_current_wna16_kernel",
+            )
+        ),
+        "default_kernel_consumer_future_wna16_variant_execution_payload_bytes": (
+            _int_metric(future_wna16_variant_execution_payload, "payload_bytes")
+        ),
+        "default_kernel_consumer_future_wna16_variant_execution_payload_deref_allowed": (
+            _bool_metric(
+                future_wna16_variant_execution_payload,
+                "payload_deref_allowed",
+            )
+        ),
+        "default_kernel_consumer_future_wna16_variant_execution_kernel_arg_pass_allowed": (
+            _bool_metric(
+                future_wna16_variant_execution_payload,
+                "kernel_arg_pass_allowed",
+            )
+        ),
+        "default_kernel_consumer_future_wna16_variant_execution_passed_to_kernel": (
+            _bool_metric(future_wna16_variant_execution_payload, "passed_to_kernel")
+        ),
+        "default_kernel_consumer_future_wna16_variant_execution_changes_kernel_launch_args": (
+            _bool_metric(
+                future_wna16_variant_execution_payload,
+                "changes_kernel_launch_args",
+            )
+        ),
+        "default_kernel_consumer_future_wna16_variant_execution_current_wna16_arg_compatible": (
+            _bool_metric(
+                future_wna16_variant_execution_payload,
+                "current_wna16_arg_compatible",
+            )
+        ),
+        "default_kernel_consumer_future_wna16_variant_execution_uses_current_wna16_args": (
+            _bool_metric(
+                future_wna16_variant_execution_payload,
+                "uses_current_wna16_args",
+            )
+        ),
+        "default_kernel_consumer_future_wna16_variant_execution_passes_current_wna16_args": (
+            _bool_metric(
+                future_wna16_variant_execution_payload,
+                "passes_current_wna16_args",
+            )
+        ),
+        "default_kernel_consumer_future_wna16_variant_execution_requires_wna16_arg_reinterpretation": (
+            _bool_metric(
+                future_wna16_variant_execution_payload,
+                "requires_wna16_arg_reinterpretation",
+            )
+        ),
+        "default_kernel_consumer_future_wna16_variant_execution_measures_tpot": (
+            _bool_metric(future_wna16_variant_execution_payload, "measures_tpot")
+        ),
+        "default_kernel_consumer_future_wna16_variant_execution_measures_vllm_latency": (
+            _bool_metric(
+                future_wna16_variant_execution_payload,
+                "measures_vllm_latency",
+            )
+        ),
+        "default_kernel_consumer_future_wna16_variant_execution_wna16_benchmark_ready": (
+            _bool_metric(
+                future_wna16_variant_execution_payload,
+                "wna16_benchmark_ready",
+            )
+        ),
+        "default_kernel_consumer_future_wna16_variant_execution_payloadless_json": (
+            _path_label(
+                _path_for_label(
+                    future_wna16_variant_execution_payload.get("payloadless_json"),
+                    root,
+                ),
+                root=root,
+            )
+            if isinstance(
+                future_wna16_variant_execution_payload.get("payloadless_json"),
+                str,
+            )
+            and future_wna16_variant_execution_payload.get("payloadless_json")
+            else future_wna16_variant_execution_payload.get("payloadless_json")
+        ),
+        "default_kernel_consumer_future_wna16_variant_execution_payloadless_sha256": (
+            future_wna16_variant_execution_payload.get("payloadless_sha256")
+        ),
+        "default_kernel_consumer_future_wna16_variant_execution_native_json": (
+            _path_label(
+                _path_for_label(
+                    future_wna16_variant_execution_payload.get(
+                        "future_wna16_variant_execution_native_json"
+                    ),
+                    root,
+                ),
+                root=root,
+            )
+            if isinstance(
+                future_wna16_variant_execution_payload.get(
+                    "future_wna16_variant_execution_native_json"
+                ),
+                str,
+            )
+            and future_wna16_variant_execution_payload.get(
+                "future_wna16_variant_execution_native_json"
+            )
+            else future_wna16_variant_execution_payload.get(
+                "future_wna16_variant_execution_native_json"
+            )
+        ),
+        "default_kernel_consumer_future_wna16_variant_execution_native_sha256": (
+            future_wna16_variant_execution_payload.get(
+                "future_wna16_variant_execution_native_sha256"
+            )
+        ),
         "default_kernel_consumer_wna16_side_variant_evidence_label": (
             wna16_side_variant_evidence_label
         ),
@@ -14748,6 +15111,121 @@ def run_premap_lab_preflight(
         )
         is False
     )
+    future_wna16_variant_execution_source_count = _int_metric(
+        lab_gate_status_summary,
+        "default_kernel_consumer_future_wna16_variant_execution_source_count",
+    )
+    future_wna16_variant_execution_row_count = _int_metric(
+        lab_gate_status_summary,
+        "default_kernel_consumer_future_wna16_variant_execution_row_count",
+    )
+    future_wna16_variant_execution_ready = (
+        wna16_side_variant_ready
+        and future_wna16_payloadless_execution_ready
+        and lab_gate_status_summary.get(
+            "default_kernel_consumer_future_wna16_variant_execution_evidence_passed"
+        )
+        is True
+        and lab_gate_status_summary.get(
+            "default_kernel_consumer_future_wna16_variant_execution_ready"
+        )
+        is True
+        and lab_gate_status_summary.get(
+            "default_kernel_consumer_future_wna16_variant_execution_payloadless_gate_ready"
+        )
+        is True
+        and lab_gate_status_summary.get(
+            "default_kernel_consumer_future_wna16_variant_execution_native_requested"
+        )
+        is True
+        and lab_gate_status_summary.get(
+            "default_kernel_consumer_future_wna16_variant_execution_native_executed"
+        )
+        is True
+        and lab_gate_status_summary.get(
+            "default_kernel_consumer_future_wna16_variant_execution_native_passed"
+        )
+        is True
+        and lab_gate_status_summary.get(
+            "default_kernel_consumer_future_wna16_variant_execution_native_artifact_ready"
+        )
+        is True
+        and lab_gate_status_summary.get(
+            "default_kernel_consumer_future_wna16_variant_execution_not_current_wna16_kernel"
+        )
+        is True
+        and future_wna16_variant_execution_source_count is not None
+        and future_wna16_variant_execution_source_count
+        >= int(
+            REQUIRED_DEFAULT_GATE_CONTRACT[
+                "future_wna16_typed_slot_kernel_variant_execution_min_source_count"
+            ]
+        )
+        and future_wna16_variant_execution_source_count
+        == future_wna16_payloadless_execution_source_count
+        and future_wna16_variant_execution_row_count is not None
+        and future_wna16_variant_execution_row_count > 0
+        and lab_gate_status_summary.get(
+            "default_kernel_consumer_future_wna16_variant_execution_row_ok_count"
+        )
+        == future_wna16_variant_execution_row_count
+        and future_wna16_variant_execution_row_count
+        == future_wna16_payloadless_execution_row_count
+        and lab_gate_status_summary.get(
+            "default_kernel_consumer_future_wna16_variant_execution_payloadless_sha256"
+        )
+        == lab_gate_status_summary.get(
+            "default_kernel_consumer_future_wna16_payloadless_execution_evidence_sha256"
+        )
+        and lab_gate_status_summary.get(
+            "default_kernel_consumer_future_wna16_variant_execution_payload_bytes"
+        )
+        == 0
+        and lab_gate_status_summary.get(
+            "default_kernel_consumer_future_wna16_variant_execution_payload_deref_allowed"
+        )
+        is False
+        and lab_gate_status_summary.get(
+            "default_kernel_consumer_future_wna16_variant_execution_kernel_arg_pass_allowed"
+        )
+        is False
+        and lab_gate_status_summary.get(
+            "default_kernel_consumer_future_wna16_variant_execution_passed_to_kernel"
+        )
+        is False
+        and lab_gate_status_summary.get(
+            "default_kernel_consumer_future_wna16_variant_execution_changes_kernel_launch_args"
+        )
+        is False
+        and lab_gate_status_summary.get(
+            "default_kernel_consumer_future_wna16_variant_execution_current_wna16_arg_compatible"
+        )
+        is False
+        and lab_gate_status_summary.get(
+            "default_kernel_consumer_future_wna16_variant_execution_uses_current_wna16_args"
+        )
+        is False
+        and lab_gate_status_summary.get(
+            "default_kernel_consumer_future_wna16_variant_execution_passes_current_wna16_args"
+        )
+        is False
+        and lab_gate_status_summary.get(
+            "default_kernel_consumer_future_wna16_variant_execution_requires_wna16_arg_reinterpretation"
+        )
+        is False
+        and lab_gate_status_summary.get(
+            "default_kernel_consumer_future_wna16_variant_execution_measures_tpot"
+        )
+        is False
+        and lab_gate_status_summary.get(
+            "default_kernel_consumer_future_wna16_variant_execution_measures_vllm_latency"
+        )
+        is False
+        and lab_gate_status_summary.get(
+            "default_kernel_consumer_future_wna16_variant_execution_wna16_benchmark_ready"
+        )
+        is False
+    )
     wna16_benchmark_prerequisites_ready = (
         all_four_field_consumer_ready
         and future_wna16_kernel_side_typed_consumer_path_ready
@@ -14797,7 +15275,21 @@ def run_premap_lab_preflight(
         failures.append(
             "default_kernel_consumer_future_wna16_payloadless_execution_not_ready"
         )
-    if independent_typed_slot_payloadless_chain_ready:
+    if (
+        REQUIRED_DEFAULT_GATE_CONTRACT[
+            "future_wna16_typed_slot_kernel_variant_execution_required"
+        ]
+        and wna16_side_variant_ready
+        and not future_wna16_variant_execution_ready
+    ):
+        failures.append(
+            "default_kernel_consumer_future_wna16_variant_execution_not_ready"
+        )
+    if future_wna16_variant_execution_ready:
+        next_runtime_stage = (
+            "implement_future_wna16_typed_slot_kernel_variant_useful_consumer"
+        )
+    elif independent_typed_slot_payloadless_chain_ready:
         next_runtime_stage = "implement_future_wna16_typed_slot_kernel_variant_execution"
     elif future_wna16_kernel_side_typed_consumer_path_ready and wna16_side_variant_ready:
         next_runtime_stage = "implement_wna16_typed_slot_benchmark_harness"
@@ -14847,6 +15339,9 @@ def run_premap_lab_preflight(
     lab_gate_status_summary[
         "default_kernel_consumer_future_wna16_payloadless_execution_gate_ready"
     ] = future_wna16_payloadless_execution_ready
+    lab_gate_status_summary[
+        "default_kernel_consumer_future_wna16_variant_execution_gate_ready"
+    ] = future_wna16_variant_execution_ready
     lab_gate_status_summary[
         "default_kernel_consumer_wna16_side_variant_ready"
     ] = wna16_side_variant_ready
