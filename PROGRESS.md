@@ -61,6 +61,22 @@ Validation:
   --require-pass
 ```
 
+Cache-lab integration smoke:
+
+```text
+outputs/reports/prefetch_action_replay/full_fetch_decision_gate_ready_time_block_smoke.json
+
+cache_lab_gate_decision.reason = ready_time_payload_cache_gate_blocked
+cache_lab_gate_decision.ready_time_allow_full_fetch = false
+transition_top32 issued_fetch_count = 1748
+transition_top32_plus_score_keep50 issued_fetch_count = 1748
+transition_top32_plus_utility_keep50 issued_fetch_count = 1748
+```
+
+This confirms that the full-fetch decision artifact is not only a standalone
+report: when passed to the cache-lab replay path, it collapses MTP full_fetch
+extras back to the protected transition baseline.
+
 ## Previous Update: Payload Cache Full-Fetch Decision Gate
 
 The measured-copy slack sweep is now wrapped by an explicit runtime decision

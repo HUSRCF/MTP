@@ -94,8 +94,9 @@ def parse_args() -> argparse.Namespace:
         type=Path,
         help=(
             "Optional ready-time payload-cache checker report. When present, "
-            "its allow_full_fetch decision is used as a higher-priority gate "
-            "before replay-derived full_fetch admission."
+            "its full_fetch_runtime_allowed or legacy allow_full_fetch "
+            "decision is used as a higher-priority gate before replay-derived "
+            "full_fetch admission."
         ),
     )
     parser.add_argument("--cache-capacity", type=int, default=2048)
