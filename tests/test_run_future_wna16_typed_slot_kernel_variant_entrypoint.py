@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import importlib.util
 import json
 from pathlib import Path
@@ -35,7 +36,17 @@ def _write_json(path: Path, payload: dict) -> None:
     path.write_text(json.dumps(payload) + "\n", encoding="utf-8")
 
 
+def _sha256(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
 def _harness_payload(*, row_count: int = 257, source_count: int = 128) -> dict:
+    kernel_side_evidence_path = (
+        Path(__file__).resolve().parent
+        / "fixtures"
+        / "future_wna16_kernel_side_typed_path_evidence.json"
+    )
+    kernel_side_evidence_sha = _sha256(kernel_side_evidence_path)
     return {
         "artifact_kind": "wna16_typed_slot_benchmark_harness",
         "harness_name": "premap_wna16_typed_slot_benchmark_harness_v1",
@@ -94,6 +105,21 @@ def _harness_payload(*, row_count: int = 257, source_count: int = 128) -> dict:
             "future_wna16_typed_slot_kernel_variant_fourth_field_handoff_canary_v1.json"
         ),
         "all_four_field_consumer_fourth_field_sha256": "8" * 64,
+        "future_wna16_kernel_side_typed_consumer_path_ready": True,
+        "future_wna16_kernel_side_typed_consumer_path_hashes_valid": True,
+        "future_wna16_kernel_side_typed_consumer_path_evidence_path": str(
+            kernel_side_evidence_path
+        ),
+        "future_wna16_kernel_side_typed_consumer_path_evidence_sha256": (
+            kernel_side_evidence_sha
+        ),
+        "future_wna16_kernel_side_typed_consumer_path_source_count": source_count,
+        "future_wna16_kernel_side_typed_consumer_path_input_json_count": source_count,
+        "future_wna16_kernel_side_typed_consumer_path_row_count": row_count,
+        "future_wna16_kernel_side_typed_consumer_path_row_ok_count": row_count,
+        "future_wna16_kernel_side_typed_consumer_path_all_four_sha256": "7" * 64,
+        "future_wna16_kernel_side_typed_consumer_path_selected_input_manifest_sha256": "6"
+        * 64,
     }
 
 
@@ -132,6 +158,9 @@ def test_future_wna16_typed_slot_entrypoint_accepts_harness(tmp_path: Path):
     assert result["all_four_field_consumer_ready"] is True
     assert result["all_four_field_consumer_source_count"] == 128
     assert result["all_four_field_consumer_row_count"] == 257
+    assert result["future_wna16_kernel_side_typed_consumer_path_ready"] is True
+    assert result["future_wna16_kernel_side_typed_consumer_path_source_count"] == 128
+    assert result["future_wna16_kernel_side_typed_consumer_path_row_count"] == 257
     assert result["next_runtime_stage"] == (
         "implement_future_wna16_typed_slot_kernel_timing_stub"
     )
@@ -143,8 +172,111 @@ def test_future_wna16_typed_slot_entrypoint_defaults_to_four_field_harness():
 
     default_path = Path(module.build_parser().parse_args([]).harness_json)
 
-    assert default_path.name == "wna16_typed_slot_benchmark_harness_all_four_preflight_v2.json"
+    assert (
+        default_path.name
+        == "wna16_typed_slot_benchmark_harness_kernel_side_path_preflight_v1.json"
+    )
     assert "premap_kernel_consumer" in default_path.parts
+
+
+def test_future_wna16_typed_slot_entrypoint_rejects_missing_kernel_side_path(
+    tmp_path: Path,
+):
+    module = _load_module()
+    harness = tmp_path / "harness.json"
+    payload = _harness_payload()
+    payload["future_wna16_kernel_side_typed_consumer_path_ready"] = False
+    _write_json(harness, payload)
+
+    args = module.build_parser().parse_args(
+        [
+            "--harness-json",
+            str(harness),
+            "--output-json",
+            str(tmp_path / "entrypoint.json"),
+        ]
+    )
+    result = module.run_entrypoint(args)
+
+    assert result["passed"] is False
+    assert any(
+        "future_wna16_kernel_side_typed_consumer_path_ready" in item
+        for item in result["failures"]
+    )
+
+
+def test_future_wna16_typed_slot_entrypoint_rejects_kernel_side_path_row_mismatch(
+    tmp_path: Path,
+):
+    module = _load_module()
+    harness = tmp_path / "harness.json"
+    payload = _harness_payload()
+    payload["future_wna16_kernel_side_typed_consumer_path_row_count"] = 1
+    _write_json(harness, payload)
+
+    args = module.build_parser().parse_args(
+        [
+            "--harness-json",
+            str(harness),
+            "--output-json",
+            str(tmp_path / "entrypoint.json"),
+        ]
+    )
+    result = module.run_entrypoint(args)
+
+    assert result["passed"] is False
+    assert "harness_kernel_side_typed_path_row_count_mismatch" in result["failures"]
+
+
+def test_future_wna16_typed_slot_entrypoint_rejects_kernel_side_evidence_sha_mismatch(
+    tmp_path: Path,
+):
+    module = _load_module()
+    harness = tmp_path / "harness.json"
+    payload = _harness_payload()
+    payload["future_wna16_kernel_side_typed_consumer_path_evidence_sha256"] = "0" * 64
+    _write_json(harness, payload)
+
+    args = module.build_parser().parse_args(
+        [
+            "--harness-json",
+            str(harness),
+            "--output-json",
+            str(tmp_path / "entrypoint.json"),
+        ]
+    )
+    result = module.run_entrypoint(args)
+
+    assert result["passed"] is False
+    assert "harness_kernel_side_typed_path_evidence_sha_mismatch" in result["failures"]
+
+
+def test_future_wna16_typed_slot_entrypoint_rejects_kernel_side_evidence_manifest_mismatch(
+    tmp_path: Path,
+):
+    module = _load_module()
+    harness = tmp_path / "harness.json"
+    payload = _harness_payload()
+    payload["future_wna16_kernel_side_typed_consumer_path_selected_input_manifest_sha256"] = (
+        "0" * 64
+    )
+    _write_json(harness, payload)
+
+    args = module.build_parser().parse_args(
+        [
+            "--harness-json",
+            str(harness),
+            "--output-json",
+            str(tmp_path / "entrypoint.json"),
+        ]
+    )
+    result = module.run_entrypoint(args)
+
+    assert result["passed"] is False
+    assert (
+        "harness_kernel_side_typed_path_evidence_selected_manifest_mismatch"
+        in result["failures"]
+    )
 
 
 def test_future_wna16_typed_slot_entrypoint_rejects_harness_not_ready(

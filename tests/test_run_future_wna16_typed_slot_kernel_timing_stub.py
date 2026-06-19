@@ -43,6 +43,14 @@ def _entrypoint_payload(*, row_count: int = 257, source_count: int = 128) -> dic
         / "future_wna16_fourth_field_evidence.json"
     )
     evidence_sha = hashlib.sha256(evidence_path.read_bytes()).hexdigest()
+    kernel_side_evidence_path = (
+        Path(__file__).resolve().parent
+        / "fixtures"
+        / "future_wna16_kernel_side_typed_path_evidence.json"
+    )
+    kernel_side_evidence_sha = hashlib.sha256(
+        kernel_side_evidence_path.read_bytes()
+    ).hexdigest()
     return {
         "artifact_kind": "future_wna16_typed_slot_kernel_variant_entrypoint",
         "entrypoint_name": "premap_future_wna16_typed_slot_kernel_variant_entrypoint_v1",
@@ -93,6 +101,21 @@ def _entrypoint_payload(*, row_count: int = 257, source_count: int = 128) -> dic
         "all_four_field_consumer_row_ok_count": row_count,
         "all_four_field_consumer_fourth_field_path_label": str(evidence_path),
         "all_four_field_consumer_fourth_field_sha256": evidence_sha,
+        "future_wna16_kernel_side_typed_consumer_path_ready": True,
+        "future_wna16_kernel_side_typed_consumer_path_hashes_valid": True,
+        "future_wna16_kernel_side_typed_consumer_path_evidence_path": str(
+            kernel_side_evidence_path
+        ),
+        "future_wna16_kernel_side_typed_consumer_path_evidence_sha256": (
+            kernel_side_evidence_sha
+        ),
+        "future_wna16_kernel_side_typed_consumer_path_source_count": source_count,
+        "future_wna16_kernel_side_typed_consumer_path_input_json_count": source_count,
+        "future_wna16_kernel_side_typed_consumer_path_row_count": row_count,
+        "future_wna16_kernel_side_typed_consumer_path_row_ok_count": row_count,
+        "future_wna16_kernel_side_typed_consumer_path_all_four_sha256": "7" * 64,
+        "future_wna16_kernel_side_typed_consumer_path_selected_input_manifest_sha256": "6"
+        * 64,
     }
 
 
@@ -180,16 +203,125 @@ def test_future_wna16_typed_slot_timing_stub_accepts_entrypoint(tmp_path: Path):
         evidence_path
     )
     assert result["all_four_field_consumer_fourth_field_sha256"] == evidence_sha
+    assert result["future_wna16_kernel_side_typed_consumer_path_ready"] is True
+    assert result["future_wna16_kernel_side_typed_consumer_path_source_count"] == 128
+    assert result["future_wna16_kernel_side_typed_consumer_path_row_count"] == 257
     assert json.loads(output.read_text(encoding="utf-8"))["passed"] is True
 
 
-def test_future_wna16_typed_slot_timing_stub_defaults_to_four_field_entrypoint():
+def test_future_wna16_typed_slot_timing_stub_defaults_to_kernel_side_path_entrypoint():
     module = _load_module()
 
     default_path = Path(module.build_parser().parse_args([]).entrypoint_json)
 
-    assert default_path.name == "future_wna16_typed_slot_kernel_variant_entrypoint_four_field_v3.json"
+    assert (
+        default_path.name
+        == "future_wna16_typed_slot_kernel_variant_entrypoint_kernel_side_path_v1.json"
+    )
     assert "premap_kernel_consumer" in default_path.parts
+
+
+def test_future_wna16_typed_slot_timing_stub_rejects_missing_kernel_side_path(
+    tmp_path: Path,
+):
+    module = _load_module()
+    entrypoint = tmp_path / "entrypoint.json"
+    payload = _entrypoint_payload()
+    payload["future_wna16_kernel_side_typed_consumer_path_ready"] = False
+    _write_json(entrypoint, payload)
+
+    args = module.build_parser().parse_args(
+        [
+            "--entrypoint-json",
+            str(entrypoint),
+            "--output-json",
+            str(tmp_path / "timing.json"),
+        ]
+    )
+    result = module.run_timing_stub(args)
+
+    assert result["passed"] is False
+    assert any(
+        "future_wna16_kernel_side_typed_consumer_path_ready" in item
+        for item in result["failures"]
+    )
+
+
+def test_future_wna16_typed_slot_timing_stub_rejects_kernel_side_path_row_mismatch(
+    tmp_path: Path,
+):
+    module = _load_module()
+    entrypoint = tmp_path / "entrypoint.json"
+    payload = _entrypoint_payload()
+    payload["future_wna16_kernel_side_typed_consumer_path_row_count"] = 1
+    _write_json(entrypoint, payload)
+
+    args = module.build_parser().parse_args(
+        [
+            "--entrypoint-json",
+            str(entrypoint),
+            "--output-json",
+            str(tmp_path / "timing.json"),
+        ]
+    )
+    result = module.run_timing_stub(args)
+
+    assert result["passed"] is False
+    assert "entrypoint_kernel_side_typed_path_row_count_mismatch" in result["failures"]
+
+
+def test_future_wna16_typed_slot_timing_stub_rejects_kernel_side_evidence_sha_mismatch(
+    tmp_path: Path,
+):
+    module = _load_module()
+    entrypoint = tmp_path / "entrypoint.json"
+    payload = _entrypoint_payload()
+    payload["future_wna16_kernel_side_typed_consumer_path_evidence_sha256"] = "0" * 64
+    _write_json(entrypoint, payload)
+
+    args = module.build_parser().parse_args(
+        [
+            "--entrypoint-json",
+            str(entrypoint),
+            "--output-json",
+            str(tmp_path / "timing.json"),
+        ]
+    )
+    result = module.run_timing_stub(args)
+
+    assert result["passed"] is False
+    assert (
+        "entrypoint_kernel_side_typed_path_evidence_sha_mismatch"
+        in result["failures"]
+    )
+
+
+def test_future_wna16_typed_slot_timing_stub_rejects_kernel_side_evidence_manifest_mismatch(
+    tmp_path: Path,
+):
+    module = _load_module()
+    entrypoint = tmp_path / "entrypoint.json"
+    payload = _entrypoint_payload()
+    payload["future_wna16_kernel_side_typed_consumer_path_selected_input_manifest_sha256"] = (
+        "0" * 64
+    )
+    _write_json(entrypoint, payload)
+
+    args = module.build_parser().parse_args(
+        [
+            "--entrypoint-json",
+            str(entrypoint),
+            "--output-json",
+            str(tmp_path / "timing.json"),
+        ]
+    )
+    result = module.run_timing_stub(args)
+
+    assert result["passed"] is False
+    assert (
+        "entrypoint_kernel_side_typed_path_evidence_selected_manifest_mismatch"
+        in result["failures"]
+    )
 
 
 def test_future_wna16_typed_slot_timing_stub_rejects_entrypoint_not_ready(

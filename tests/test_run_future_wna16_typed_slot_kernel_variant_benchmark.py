@@ -52,6 +52,12 @@ def _timing_stub_payload(
         / "future_wna16_fourth_field_evidence.json"
     )
     evidence_sha = _sha256(evidence_path)
+    kernel_side_evidence_path = (
+        Path(__file__).resolve().parent
+        / "fixtures"
+        / "future_wna16_kernel_side_typed_path_evidence.json"
+    )
+    kernel_side_evidence_sha = _sha256(kernel_side_evidence_path)
     return {
         "schema_version": 1,
         "artifact_kind": "future_wna16_typed_slot_kernel_timing_stub",
@@ -93,6 +99,21 @@ def _timing_stub_payload(
         "all_four_field_consumer_row_ok_count": row_count,
         "all_four_field_consumer_fourth_field_path_label": str(evidence_path),
         "all_four_field_consumer_fourth_field_sha256": evidence_sha,
+        "future_wna16_kernel_side_typed_consumer_path_ready": True,
+        "future_wna16_kernel_side_typed_consumer_path_hashes_valid": True,
+        "future_wna16_kernel_side_typed_consumer_path_evidence_path": str(
+            kernel_side_evidence_path
+        ),
+        "future_wna16_kernel_side_typed_consumer_path_evidence_sha256": (
+            kernel_side_evidence_sha
+        ),
+        "future_wna16_kernel_side_typed_consumer_path_source_count": source_count,
+        "future_wna16_kernel_side_typed_consumer_path_input_json_count": source_count,
+        "future_wna16_kernel_side_typed_consumer_path_row_count": row_count,
+        "future_wna16_kernel_side_typed_consumer_path_row_ok_count": row_count,
+        "future_wna16_kernel_side_typed_consumer_path_all_four_sha256": "7" * 64,
+        "future_wna16_kernel_side_typed_consumer_path_selected_input_manifest_sha256": "6"
+        * 64,
         "timing_stub_ready": True,
         "native_stub_requested": True,
         "native_stub_executed": True,
@@ -168,16 +189,129 @@ def test_future_wna16_typed_slot_variant_benchmark_accepts_timing_stub(
     assert result["fourth_field_handoff_row_ok_count"] == 257
     assert result["fourth_field_handoff_field_read_hash"] == "3132333435363738"
     assert result["fourth_field_handoff_runner_hash"] == "8182838485868788"
+    assert result["future_wna16_kernel_side_typed_consumer_path_ready"] is True
+    assert result["future_wna16_kernel_side_typed_consumer_path_source_count"] == 128
+    assert result["future_wna16_kernel_side_typed_consumer_path_row_count"] == 257
     assert json.loads(output.read_text(encoding="utf-8"))["passed"] is True
 
 
-def test_future_wna16_typed_slot_variant_benchmark_defaults_to_four_field_native_stub():
+def test_future_wna16_typed_slot_variant_benchmark_defaults_to_kernel_side_native_stub():
     module = _load_module()
 
     default_path = Path(module.build_parser().parse_args([]).timing_stub_json)
 
-    assert default_path.name == "future_wna16_typed_slot_kernel_timing_stub_four_field_v3_native_run.json"
+    assert (
+        default_path.name
+        == "future_wna16_typed_slot_kernel_timing_stub_kernel_side_path_native_v1.json"
+    )
     assert "premap_kernel_consumer" in default_path.parts
+
+
+def test_future_wna16_typed_slot_variant_benchmark_rejects_missing_kernel_side_path(
+    tmp_path: Path,
+):
+    module = _load_module()
+    timing_stub = tmp_path / "timing_stub.json"
+    payload = _timing_stub_payload()
+    _attach_seed_artifacts(tmp_path, payload)
+    payload["future_wna16_kernel_side_typed_consumer_path_ready"] = False
+    _write_json(timing_stub, payload)
+
+    args = module.build_parser().parse_args(
+        [
+            "--timing-stub-json",
+            str(timing_stub),
+            "--output-json",
+            str(tmp_path / "benchmark.json"),
+        ]
+    )
+    result = module.run_benchmark(args)
+
+    assert result["passed"] is False
+    assert any(
+        "future_wna16_kernel_side_typed_consumer_path_ready" in item
+        for item in result["failures"]
+    )
+
+
+def test_future_wna16_typed_slot_variant_benchmark_rejects_kernel_side_path_row_mismatch(
+    tmp_path: Path,
+):
+    module = _load_module()
+    timing_stub = tmp_path / "timing_stub.json"
+    payload = _timing_stub_payload()
+    _attach_seed_artifacts(tmp_path, payload)
+    payload["future_wna16_kernel_side_typed_consumer_path_row_count"] = 1
+    _write_json(timing_stub, payload)
+
+    args = module.build_parser().parse_args(
+        [
+            "--timing-stub-json",
+            str(timing_stub),
+            "--output-json",
+            str(tmp_path / "benchmark.json"),
+        ]
+    )
+    result = module.run_benchmark(args)
+
+    assert result["passed"] is False
+    assert "timing_stub_kernel_side_typed_path_row_count_mismatch" in result["failures"]
+
+
+def test_future_wna16_typed_slot_variant_benchmark_rejects_kernel_side_evidence_sha_mismatch(
+    tmp_path: Path,
+):
+    module = _load_module()
+    timing_stub = tmp_path / "timing_stub.json"
+    payload = _timing_stub_payload()
+    _attach_seed_artifacts(tmp_path, payload)
+    payload["future_wna16_kernel_side_typed_consumer_path_evidence_sha256"] = "0" * 64
+    _write_json(timing_stub, payload)
+
+    args = module.build_parser().parse_args(
+        [
+            "--timing-stub-json",
+            str(timing_stub),
+            "--output-json",
+            str(tmp_path / "benchmark.json"),
+        ]
+    )
+    result = module.run_benchmark(args)
+
+    assert result["passed"] is False
+    assert (
+        "timing_stub_kernel_side_typed_path_evidence_sha_mismatch"
+        in result["failures"]
+    )
+
+
+def test_future_wna16_typed_slot_variant_benchmark_rejects_kernel_side_evidence_manifest_mismatch(
+    tmp_path: Path,
+):
+    module = _load_module()
+    timing_stub = tmp_path / "timing_stub.json"
+    payload = _timing_stub_payload()
+    _attach_seed_artifacts(tmp_path, payload)
+    payload["future_wna16_kernel_side_typed_consumer_path_selected_input_manifest_sha256"] = (
+        "0" * 64
+    )
+    _write_json(timing_stub, payload)
+
+    args = module.build_parser().parse_args(
+        [
+            "--timing-stub-json",
+            str(timing_stub),
+            "--output-json",
+            str(tmp_path / "benchmark.json"),
+        ]
+    )
+    result = module.run_benchmark(args)
+
+    assert result["passed"] is False
+    assert (
+        "timing_stub_kernel_side_typed_path_evidence_selected_manifest_mismatch"
+        in result["failures"]
+    )
 
 
 def test_future_wna16_typed_slot_variant_benchmark_rejects_non_native_stub(

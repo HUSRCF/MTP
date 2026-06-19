@@ -31,7 +31,7 @@ DEFAULT_TIMING_STUB_JSON = (
     / "outputs"
     / "reports"
     / "premap_kernel_consumer"
-    / "future_wna16_typed_slot_kernel_timing_stub_four_field_v3_native_run.json"
+    / "future_wna16_typed_slot_kernel_timing_stub_kernel_side_path_native_v1.json"
 )
 DEFAULT_OUTPUT_JSON = (
     REPO_ROOT
@@ -60,6 +60,7 @@ HANDLE_FIELDS = (
     "scale_metadata_handle",
     "aux_metadata_handle",
 )
+KERNEL_SIDE_TYPED_PATH_PREFIX = "future_wna16_kernel_side_typed_consumer_path"
 EXPECTED_TIMING_STUB_FLAGS: dict[str, Any] = {
     "artifact_kind": "future_wna16_typed_slot_kernel_timing_stub",
     "timing_stub_name": "premap_future_wna16_typed_slot_kernel_timing_stub_v1",
@@ -85,6 +86,8 @@ EXPECTED_TIMING_STUB_FLAGS: dict[str, Any] = {
     "changes_kernel_launch_args": False,
     "next_runtime_stage": "implement_future_wna16_typed_slot_kernel_variant_benchmark",
     "fourth_field_handoff_ready": True,
+    f"{KERNEL_SIDE_TYPED_PATH_PREFIX}_ready": True,
+    f"{KERNEL_SIDE_TYPED_PATH_PREFIX}_hashes_valid": True,
 }
 
 
@@ -142,6 +145,85 @@ def _is_sha256_hex(value: Any) -> bool:
     except ValueError:
         return False
     return True
+
+
+def _check_kernel_side_typed_path_evidence(
+    carrier: dict[str, Any],
+    failures: list[str],
+    *,
+    label: str,
+) -> None:
+    source_count = _int_metric(carrier, "source_count")
+    row_count = _int_metric(carrier, "row_count")
+    evidence_path_value = carrier.get(f"{KERNEL_SIDE_TYPED_PATH_PREFIX}_evidence_path")
+    evidence_sha_value = carrier.get(f"{KERNEL_SIDE_TYPED_PATH_PREFIX}_evidence_sha256")
+    evidence_payload: dict[str, Any] | None = None
+    if not isinstance(evidence_path_value, str) or not evidence_path_value:
+        failures.append(f"{label}_kernel_side_typed_path_evidence_path_missing")
+    else:
+        evidence_path = _resolve(evidence_path_value)
+        if not evidence_path.exists():
+            failures.append(f"{label}_kernel_side_typed_path_evidence_path_not_found")
+        else:
+            actual_sha = _sha256(evidence_path)
+            if not _is_sha256_hex(evidence_sha_value):
+                failures.append(f"{label}_kernel_side_typed_path_evidence_sha_invalid")
+            elif actual_sha != evidence_sha_value:
+                failures.append(f"{label}_kernel_side_typed_path_evidence_sha_mismatch")
+            try:
+                evidence_payload = _load_json(evidence_path)
+            except (OSError, json.JSONDecodeError, ValueError):
+                failures.append(f"{label}_kernel_side_typed_path_evidence_json_invalid")
+    if evidence_payload is None:
+        return
+    expected_values = {
+        "artifact_kind": "future_wna16_kernel_side_typed_consumer_path",
+        "passed": True,
+        "stage_type": "lab_gate",
+        "bench_semantics": False,
+        "all_four_gate_ready": True,
+        "native_consumer_executed": True,
+        "native_consumer_passed": True,
+        "payload_bytes": 0,
+        "payload_deref_allowed": False,
+        "kernel_arg_pass_allowed": False,
+        "passed_to_kernel": False,
+        "changes_kernel_launch_args": False,
+        "uses_current_wna16_args": False,
+        "measures_tpot": False,
+        "measures_vllm_latency": False,
+        "wna16_benchmark_ready": False,
+    }
+    for key, expected in expected_values.items():
+        if evidence_payload.get(key) != expected:
+            failures.append(
+                f"{label}_kernel_side_typed_path_evidence_{key}_mismatch:"
+                f"{evidence_payload.get(key)!r}!={expected!r}"
+            )
+    if evidence_payload.get("failures") != []:
+        failures.append(f"{label}_kernel_side_typed_path_evidence_failures_not_empty")
+    if source_count is not None and _int_metric(evidence_payload, "source_count") != source_count:
+        failures.append(f"{label}_kernel_side_typed_path_evidence_source_count_mismatch")
+    input_count = _int_metric(carrier, f"{KERNEL_SIDE_TYPED_PATH_PREFIX}_input_json_count")
+    if input_count is not None and _int_metric(evidence_payload, "input_json_count") != input_count:
+        failures.append(f"{label}_kernel_side_typed_path_evidence_input_json_count_mismatch")
+    if row_count is not None and _int_metric(evidence_payload, "row_count") != row_count:
+        failures.append(f"{label}_kernel_side_typed_path_evidence_row_count_mismatch")
+    if row_count is not None and _int_metric(evidence_payload, "row_ok_count") != row_count:
+        failures.append(f"{label}_kernel_side_typed_path_evidence_row_ok_count_mismatch")
+    all_four_sha = carrier.get(f"{KERNEL_SIDE_TYPED_PATH_PREFIX}_all_four_sha256")
+    if _is_sha256_hex(all_four_sha) and evidence_payload.get("all_four_sha256") != all_four_sha:
+        failures.append(f"{label}_kernel_side_typed_path_evidence_all_four_sha_mismatch")
+    selected_manifest = carrier.get(
+        f"{KERNEL_SIDE_TYPED_PATH_PREFIX}_selected_input_manifest_sha256"
+    )
+    if (
+        _is_sha256_hex(selected_manifest)
+        and evidence_payload.get("selected_input_manifest_sha256") != selected_manifest
+    ):
+        failures.append(
+            f"{label}_kernel_side_typed_path_evidence_selected_manifest_mismatch"
+        )
 
 
 def _numeric_ms(payload: dict[str, Any], key: str) -> float | None:
@@ -300,6 +382,59 @@ def _check_timing_stub(
         failures.append("timing_stub_all_four_field_consumer_fourth_sha_invalid")
     elif _is_sha256_hex(fourth_evidence_sha) and all_four_fourth_sha != fourth_evidence_sha:
         failures.append("timing_stub_all_four_field_consumer_fourth_sha_mismatch")
+    kernel_side_source_count = _int_metric(
+        timing_stub,
+        f"{KERNEL_SIDE_TYPED_PATH_PREFIX}_source_count",
+    )
+    if kernel_side_source_count is None:
+        failures.append("timing_stub_kernel_side_typed_path_source_count_invalid")
+    elif source_count is not None and kernel_side_source_count != source_count:
+        failures.append("timing_stub_kernel_side_typed_path_source_count_mismatch")
+    kernel_side_input_count = _int_metric(
+        timing_stub,
+        f"{KERNEL_SIDE_TYPED_PATH_PREFIX}_input_json_count",
+    )
+    if kernel_side_input_count is None:
+        failures.append("timing_stub_kernel_side_typed_path_input_json_count_invalid")
+    elif kernel_side_source_count is not None and kernel_side_input_count != kernel_side_source_count:
+        failures.append("timing_stub_kernel_side_typed_path_input_json_count_mismatch")
+    kernel_side_row_count = _int_metric(
+        timing_stub,
+        f"{KERNEL_SIDE_TYPED_PATH_PREFIX}_row_count",
+    )
+    kernel_side_row_ok_count = _int_metric(
+        timing_stub,
+        f"{KERNEL_SIDE_TYPED_PATH_PREFIX}_row_ok_count",
+    )
+    if kernel_side_row_count is None:
+        failures.append("timing_stub_kernel_side_typed_path_row_count_invalid")
+    elif row_count is not None and kernel_side_row_count != row_count:
+        failures.append("timing_stub_kernel_side_typed_path_row_count_mismatch")
+    if kernel_side_row_ok_count is None:
+        failures.append("timing_stub_kernel_side_typed_path_row_ok_count_invalid")
+    elif kernel_side_row_count is not None and kernel_side_row_ok_count != kernel_side_row_count:
+        failures.append("timing_stub_kernel_side_typed_path_row_ok_count_mismatch")
+    kernel_side_evidence_path = timing_stub.get(
+        f"{KERNEL_SIDE_TYPED_PATH_PREFIX}_evidence_path"
+    )
+    if not isinstance(kernel_side_evidence_path, str) or not kernel_side_evidence_path:
+        failures.append("timing_stub_kernel_side_typed_path_evidence_path_missing")
+    kernel_side_evidence_sha = timing_stub.get(
+        f"{KERNEL_SIDE_TYPED_PATH_PREFIX}_evidence_sha256"
+    )
+    if not _is_sha256_hex(kernel_side_evidence_sha):
+        failures.append("timing_stub_kernel_side_typed_path_evidence_sha_invalid")
+    kernel_side_all_four_sha = timing_stub.get(
+        f"{KERNEL_SIDE_TYPED_PATH_PREFIX}_all_four_sha256"
+    )
+    if not _is_sha256_hex(kernel_side_all_four_sha):
+        failures.append("timing_stub_kernel_side_typed_path_all_four_sha_invalid")
+    kernel_side_manifest = timing_stub.get(
+        f"{KERNEL_SIDE_TYPED_PATH_PREFIX}_selected_input_manifest_sha256"
+    )
+    if not _is_sha256_hex(kernel_side_manifest):
+        failures.append("timing_stub_kernel_side_typed_path_selected_manifest_invalid")
+    _check_kernel_side_typed_path_evidence(timing_stub, failures, label="timing_stub")
     if _numeric_ms(timing_stub, "native_stub_host_wall_ms") is None:
         failures.append("timing_stub_native_stub_host_wall_ms_invalid")
     return failures
@@ -614,6 +749,36 @@ def run_benchmark(args: argparse.Namespace) -> dict[str, Any]:
         ),
         "all_four_field_consumer_fourth_field_sha256": timing_stub.get(
             "all_four_field_consumer_fourth_field_sha256"
+        ),
+        "future_wna16_kernel_side_typed_consumer_path_ready": timing_stub.get(
+            f"{KERNEL_SIDE_TYPED_PATH_PREFIX}_ready"
+        ),
+        "future_wna16_kernel_side_typed_consumer_path_hashes_valid": timing_stub.get(
+            f"{KERNEL_SIDE_TYPED_PATH_PREFIX}_hashes_valid"
+        ),
+        "future_wna16_kernel_side_typed_consumer_path_evidence_path": timing_stub.get(
+            f"{KERNEL_SIDE_TYPED_PATH_PREFIX}_evidence_path"
+        ),
+        "future_wna16_kernel_side_typed_consumer_path_evidence_sha256": timing_stub.get(
+            f"{KERNEL_SIDE_TYPED_PATH_PREFIX}_evidence_sha256"
+        ),
+        "future_wna16_kernel_side_typed_consumer_path_source_count": timing_stub.get(
+            f"{KERNEL_SIDE_TYPED_PATH_PREFIX}_source_count"
+        ),
+        "future_wna16_kernel_side_typed_consumer_path_input_json_count": timing_stub.get(
+            f"{KERNEL_SIDE_TYPED_PATH_PREFIX}_input_json_count"
+        ),
+        "future_wna16_kernel_side_typed_consumer_path_row_count": timing_stub.get(
+            f"{KERNEL_SIDE_TYPED_PATH_PREFIX}_row_count"
+        ),
+        "future_wna16_kernel_side_typed_consumer_path_row_ok_count": timing_stub.get(
+            f"{KERNEL_SIDE_TYPED_PATH_PREFIX}_row_ok_count"
+        ),
+        "future_wna16_kernel_side_typed_consumer_path_all_four_sha256": timing_stub.get(
+            f"{KERNEL_SIDE_TYPED_PATH_PREFIX}_all_four_sha256"
+        ),
+        "future_wna16_kernel_side_typed_consumer_path_selected_input_manifest_sha256": timing_stub.get(
+            f"{KERNEL_SIDE_TYPED_PATH_PREFIX}_selected_input_manifest_sha256"
         ),
         "repeat_count_requested": int(args.repeat_count),
         "repeat_count_measured": len(native_stub_wall_ms),

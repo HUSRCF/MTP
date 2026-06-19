@@ -36432,3 +36432,106 @@ artifact and adding explicit evidence_path/evidence_sha256 checks.
 
 Follow-up review: no blocker / high / medium findings.
 ```
+
+## Latest Update: Kernel-Side Path Evidence Closure Extended Through Entry/Timing/Benchmark
+
+The future WNA16 typed-slot chain now carries the strict kernel-side typed
+consumer path evidence through the next three gates:
+
+```text
+benchmark harness
+  -> future WNA16 typed-slot entrypoint
+  -> future WNA16 typed-slot timing stub
+  -> independent native typed-slot benchmark harness
+```
+
+Each downstream gate now validates the referenced
+`future_wna16_kernel_side_typed_consumer_path` evidence file rather than only
+checking field names and sha-shaped strings:
+
+```text
+resolve evidence_path
+recompute evidence_sha256
+load evidence JSON
+verify artifact_kind / passed / stage_type / bench_semantics
+verify native_consumer_executed/native_consumer_passed
+verify source_count / input_json_count / row_count / row_ok_count
+verify all_four_sha256
+verify selected_input_manifest_sha256
+verify payload_bytes = 0
+verify kernel_arg_pass_allowed = false
+verify passed_to_kernel = false
+verify changes_kernel_launch_args = false
+verify uses_current_wna16_args = false
+verify measures_tpot = false
+verify measures_vllm_latency = false
+```
+
+Default artifacts now generated from the kernel-side-path chain:
+
+```text
+outputs/reports/premap_kernel_consumer/future_wna16_typed_slot_kernel_variant_entrypoint_kernel_side_path_v1.json
+outputs/reports/premap_kernel_consumer/future_wna16_typed_slot_kernel_timing_stub_kernel_side_path_v1.json
+outputs/reports/premap_kernel_consumer/future_wna16_typed_slot_kernel_timing_stub_kernel_side_path_native_v1.json
+outputs/reports/premap_kernel_consumer/future_wna16_typed_slot_kernel_variant_benchmark_kernel_side_path_v1.json
+```
+
+Real-artifact validation:
+
+```text
+entrypoint: passed = true, source_count = 128, row_count = 5345
+timing_stub no-native: passed = true, native_stub_executed = false
+timing_stub native: passed = true, native_stub_executed = true
+benchmark: passed = true, independent_kernel_variant_benchmark = true
+
+payload_bytes = 0
+kernel_arg_pass_allowed = false
+passed_to_kernel = false
+changes_kernel_launch_args = false
+uses_current_wna16_args = false
+measures_tpot = false
+measures_vllm_latency = false
+```
+
+Validation:
+
+```text
+conda run -n TRY python -m pytest \
+  tests/test_run_future_wna16_typed_slot_kernel_variant_entrypoint.py \
+  tests/test_run_future_wna16_typed_slot_kernel_timing_stub.py \
+  tests/test_run_future_wna16_typed_slot_kernel_variant_benchmark.py -q
+# 73 passed
+
+conda run -n TRY python -m pytest \
+  tests/test_run_future_wna16_typed_slot_kernel_variant_entrypoint.py \
+  tests/test_run_future_wna16_typed_slot_kernel_timing_stub.py \
+  tests/test_run_future_wna16_typed_slot_kernel_variant_benchmark.py \
+  tests/test_run_wna16_typed_slot_benchmark_harness.py \
+  tests/test_run_premap_lab_preflight.py \
+  tests/test_run_future_wna16_kernel_side_typed_consumer_path.py \
+  tests/test_run_future_wna16_typed_slot_kernel_variant_all_four_field_consumer.py \
+  tests/test_run_future_wna16_typed_slot_kernel_variant_payloadless_execution.py \
+  tests/test_run_future_wna16_typed_slot_kernel_variant_one_field_handoff_canary.py \
+  tests/test_run_future_wna16_typed_slot_kernel_variant_second_field_handoff_canary.py \
+  tests/test_run_future_wna16_typed_slot_kernel_variant_third_field_handoff_canary.py \
+  tests/test_run_future_wna16_typed_slot_kernel_variant_fourth_field_handoff_canary.py -q
+# 419 passed
+```
+
+Review:
+
+```text
+Codex 5.3 spark found the previous false-positive risk: entry/timing gates only
+checked field shape, not the underlying evidence file. Fixed by adding file-level
+evidence closure and negative tests for sha/manifest mismatch.
+
+Follow-up review: no blocker / high / medium findings.
+```
+
+Boundary remains unchanged:
+
+```text
+This is still an independent future typed-slot ABI/stub path.
+It does not pass typed slots to current WNA16 fused-MoE kernel args,
+does not move payload, and does not measure vLLM TPOT/latency.
+```
