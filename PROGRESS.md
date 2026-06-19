@@ -7,6 +7,62 @@
 
 ## Latest Update: Payload Cache Full-Fetch Decision Gate
 
+Follow-up lookahead sweep:
+
+```text
+outputs/reports/premap_kernel_consumer/premap_payload_cache_issue_plan_executor_measured_copy_lookahead_sweep_v1.json
+```
+
+Keeping the ready-time deadline at `200us` and sweeping issue-to-demand
+lookahead gives:
+
+```text
+first_model_passing_lookahead_us = 14461.311949203082
+queue_deadline_us = 200.0
+effective_ready_deadline_us at first pass = 14661.311949203082
+
+lookahead_us = 0 / 1000 / 5000 / 10000 / 14000 -> model_passed = false
+lookahead_us >= 14461.311949203082 -> model_passed = true
+```
+
+Boundary remains unchanged:
+
+```text
+full_fetch_allowed = false
+payload_transfer_enabled = false
+ready_credit = false
+kernel_arg_pass_allowed = false
+passed_to_kernel = false
+measures_tpot = false
+```
+
+Interpretation:
+
+```text
+The measured H2D full-fetch path needs about 14.46ms of issue-to-demand
+lookahead under the current 200us ready deadline.  Same-step decode issue is not
+viable for full payload fetch; any real full_fetch experiment must either issue
+much earlier, use a faster copy/cache path, or remain disabled in favor of
+metadata/premap/descriptor-prep.
+```
+
+Validation:
+
+```text
+/home/husrcf/anaconda3/envs/TRY/bin/python -m pytest \
+  tests/test_sweep_premap_payload_cache_issue_plan_executor_lookahead.py \
+  tests/test_run_premap_payload_cache_issue_plan_executor.py \
+  tests/test_cache_manager.py -q
+
+21 passed
+
+/home/husrcf/anaconda3/envs/TRY/bin/python \
+  scripts/sweep_premap_payload_cache_issue_plan_executor_lookahead.py \
+  --require-pass
+```
+
+## Previous Update: Payload Cache Full-Fetch Decision Gate
+
 The measured-copy slack sweep is now wrapped by an explicit runtime decision
 gate:
 
