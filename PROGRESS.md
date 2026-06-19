@@ -39015,3 +39015,156 @@ repeat the paired baseline/candidate run to estimate stability, then decide
 whether to promote this as a low-overhead runtime path or move directly to a
 real future WNA16 typed-slot consumer benchmark.
 ```
+
+## 2026-06-20 payloadless TPOT reporting paths frozen
+
+The payloadless live-config path is now explicitly frozen as safe participation
+evidence, not a performance claim.
+
+New default artifacts route stale TPOT entrypoints through a blocked decision
+gate:
+
+```text
+outputs/reports/premap_kernel_consumer/production_like_tpot/
+  future_wna16_typed_slot_payloadless_useful_production_like_timing_gate_dolly32_gen64_graph_v2.json
+  future_wna16_typed_slot_payloadless_useful_production_like_tpot_baseline_blocked_by_decision_gate_v2.json
+  future_wna16_typed_slot_payloadless_useful_production_like_tpot_candidate_blocked_by_decision_gate_v2.json
+  future_wna16_typed_slot_payloadless_useful_ab_comparison_blocked_by_decision_gate_v2.json
+  future_wna16_typed_slot_payloadless_useful_ab_repeat_summary_blocked_by_decision_gate_v2.json
+```
+
+The gate decision is:
+
+```text
+payloadless_live_config_status =
+  safe_participation_path_not_performance_mainline
+
+freeze_payloadless_live_config_performance_claim = true
+real_performance_next_path =
+  future_typed_slot_useful_consumer_or_payload_cache_manager
+```
+
+All stale TPOT wrappers now default to blocked artifacts:
+
+```text
+measures_tpot = false
+performance_claim_ready = false
+payloadless_*_allowed = false
+next_runtime_stage = future_typed_slot_useful_consumer_or_payload_cache_manager
+```
+
+Validation:
+
+```text
+/home/husrcf/anaconda3/envs/TRY/bin/python -m pytest \
+  tests/test_summarize_future_wna16_typed_slot_payloadless_useful_ab_repeats.py \
+  tests/test_build_future_wna16_typed_slot_payloadless_useful_ab_comparison.py \
+  tests/test_run_future_wna16_typed_slot_payloadless_useful_production_like_tpot_benchmark.py \
+  tests/test_run_future_wna16_typed_slot_payloadless_useful_candidate_tpot_benchmark.py \
+  tests/test_run_future_wna16_typed_slot_payloadless_useful_production_like_timing_gate.py \
+  tests/test_build_payloadless_live_config_decision_gate.py -q
+# 53 passed
+```
+
+GPT-5.5 review found no blocker or medium issue.  The remaining note is that
+old positive artifacts remain archived inputs to the freeze-decision builder;
+they are no longer default performance-claim entrypoints.
+
+## 2026-06-20 payload-cache producer issue-plan gate passed
+
+Added a stricter gate for the real useful path after freezing payloadless TPOT:
+
+```text
+script:
+  scripts/build_premap_payload_cache_issue_plan_gate.py
+
+tests:
+  tests/test_build_premap_payload_cache_issue_plan_gate.py
+
+artifact:
+  outputs/reports/premap_kernel_consumer/
+    premap_payload_cache_issue_plan_gate_dolly128_gen64_native_v1.json
+```
+
+The gate consumes the online native producer-state canary:
+
+```text
+outputs/reports/premap_kernel_consumer/
+  payload_cache_producer_state_online_canary_dolly128_gen64_nonempty_issue_minimal_summary_v2_20260620.json
+```
+
+It reopens the selected producer packet, recomputes the issue prefix from:
+
+```text
+previous_experts + transition_topk_count
+```
+
+and verifies native output agreement:
+
+```text
+issue_candidate_count = 8
+issue_candidate_first = 26
+issue_candidate_last  = 232
+issue_candidate_hash  = f3f1208c1026d557
+issue_candidate_experts =
+  [26, 37, 75, 77, 138, 173, 184, 232]
+```
+
+The v2 online canary was regenerated because the older archived canary did not
+carry native first/last fields.  The issue-plan gate now requires all native
+issue fields to be present and match the selected producer packet:
+
+```text
+issue_candidate_count
+issue_candidate_hash
+issue_candidate_first_expert
+issue_candidate_last_expert
+```
+
+It also validates selected-packet provenance against online export paths/index
+when available, and rejects unsafe safety-boundary fields if they appear in the
+online canary or producer packet.
+
+Safety boundary remains closed:
+
+```text
+payload_bytes = 0
+ready_credit = false
+ready_before_demand_credit = false
+payload_transfer_enabled = false
+payload_deref_allowed = false
+kernel_arg_pass_allowed = false
+passed_to_kernel = false
+changes_kernel_launch_args = false
+uses_current_wna16_args = false
+passes_current_wna16_args = false
+measures_tpot = false
+measures_vllm_latency = false
+```
+
+Validation:
+
+```text
+/home/husrcf/anaconda3/envs/TRY/bin/python -m pytest \
+  tests/test_build_premap_payload_cache_issue_plan_gate.py \
+  tests/test_run_premap_payload_cache_producer_state_online_canary.py -q
+# 142 passed when run with producer-state stub and shadow sink tests
+
+/home/husrcf/anaconda3/envs/TRY/bin/python \
+  scripts/build_premap_payload_cache_issue_plan_gate.py --require-pass
+# passed = true
+```
+
+Interpretation:
+
+```text
+This is not a latency result and not payload transfer.
+It promotes producer-side transition-state native evidence into a reusable
+payload-cache issue-plan contract.
+```
+
+Next gate:
+
+```text
+implement_payload_cache_manager_issue_executor
+```
