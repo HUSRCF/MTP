@@ -23,6 +23,7 @@ Latest artifacts:
 outputs/reports/premap_kernel_consumer/future_wna16_typed_slot_payloadless_useful_runtime_gate_entry_args_ptr_v1.json
 outputs/reports/premap_kernel_consumer/future_wna16_typed_slot_payloadless_useful_benchmark_harness_entry_args_ptr_v1.json
 outputs/reports/premap_kernel_consumer/future_wna16_typed_slot_payloadless_useful_repeat_benchmark_entry_args_ptr_seed_v1.json
+outputs/reports/premap_kernel_consumer/future_wna16_typed_slot_payloadless_useful_repeat_benchmark_entry_args_ptr_repeat1_gpu1_v1.json
 ```
 
 The runtime gate consumes the strict preflight summary/check and requires the
@@ -82,6 +83,16 @@ Validation:
 /home/husrcf/anaconda3/envs/TRY/bin/python \
   scripts/run_future_wna16_typed_slot_payloadless_useful_repeat_benchmark.py --require-pass
 # passed = true
+
+env HIP_VISIBLE_DEVICES=1 /home/husrcf/anaconda3/envs/TRY/bin/python \
+  scripts/run_future_wna16_typed_slot_payloadless_useful_repeat_benchmark.py \
+  --repeat-count 1 --device 0 --hip-visible-devices 1 --require-pass \
+  --output-json outputs/reports/premap_kernel_consumer/future_wna16_typed_slot_payloadless_useful_repeat_benchmark_entry_args_ptr_repeat1_gpu1_v1.json
+# passed = true
+# repeat_count_requested = 1
+# repeat_count_measured = 1
+# measurement_source = repeated_independent_native_typed_slot_timing_stub
+# native_stub_host_wall_ms = 577.908960
 ```
 
 Next stage:
