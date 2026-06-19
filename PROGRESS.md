@@ -38301,3 +38301,216 @@ Validation:
   tests/test_run_future_wna16_typed_slot_payloadless_useful_production_like_tpot_benchmark.py -q
 # 46 passed
 ```
+
+## 2026-06-20 payloadless useful candidate config gate passed
+
+Added a production-compatible candidate trace config gate:
+
+```text
+config:
+  configs/trace/
+    router_mtp_trace_external_prompt_gate_dolly_32_awq_vllm_gpu1_decode_gen64_payloadless_useful_candidate_graph.yaml
+
+checker:
+  scripts/check_future_wna16_typed_slot_payloadless_useful_candidate_config.py
+
+artifact:
+  outputs/reports/premap_kernel_consumer/production_like_tpot/
+    future_wna16_typed_slot_payloadless_useful_candidate_config_gate_dolly32_gen64_graph_v1.json
+```
+
+The config is intentionally narrower than the previous strict diagnostic
+configs.  It allows the lightweight premap live config object to be active
+without enabling router-recorder or runtime-shadow JSONL rows:
+
+```text
+use_router_logits_recorder = false
+allow_premap_live_config_without_router_recorder = true
+runtime_shadow.enabled = false
+runtime_shadow.record_router_topk = false
+emit_premap_consumer_mapping = false
+```
+
+Safety boundary:
+
+```text
+payload_bytes = 0
+payload_deref_allowed = false
+kernel_arg_pass_allowed = false
+passed_to_kernel = false
+changes_kernel_launch_args = false
+real_kernel_arg_mutation_enabled = false
+uses_current_wna16_args = false
+passes_current_wna16_args = false
+requires_wna16_arg_reinterpretation = false
+readonly_gate = configs/runtime/
+  premap_consumer_readonly_gate_dolly128_gen64_awq_w7900_gpu1_live_connected_readonly.yaml
+```
+
+The gate passed:
+
+```text
+/home/husrcf/anaconda3/envs/TRY/bin/python \
+  scripts/check_future_wna16_typed_slot_payloadless_useful_candidate_config.py \
+  --require-pass
+
+/home/husrcf/anaconda3/envs/TRY/bin/python -m pytest \
+  tests/test_check_future_wna16_typed_slot_payloadless_useful_candidate_config.py -q
+# 6 passed
+```
+
+Boundary:
+
+```text
+This is not a performance result and not a real WNA16 typed-slot speedup.
+It only proves that the next candidate TPOT run can use a production-compatible
+payloadless live-config path instead of heavy observed-evidence tracing.
+```
+
+Next gate:
+
+```text
+produce_or_fix_payloadless_useful_candidate_tpot_artifact
+```
+
+## 2026-06-20 payloadless useful candidate TPOT wrapper added
+
+Added a candidate TPOT wrapper that consumes the candidate config gate:
+
+```text
+script:
+  scripts/run_future_wna16_typed_slot_payloadless_useful_candidate_tpot_benchmark.py
+
+artifact:
+  outputs/reports/premap_kernel_consumer/production_like_tpot/
+    future_wna16_typed_slot_payloadless_useful_production_like_tpot_candidate_dolly32_gen64_graph_v1.json
+```
+
+The wrapper differs from the baseline wrapper in one intentional way:
+
+```text
+runtime_shadow_premap_live_config_without_router_recorder_enabled = true
+runtime_shadow_premap_live_config_without_router_recorder_allowed = true
+runtime_shadow_premap_kernel_arg_handoff_live_enabled = true
+runtime_shadow_premap_kernel_arg_handoff_live_consumer_connected = true
+```
+
+It still requires the production safety boundary:
+
+```text
+runtime_shadow.enabled = false
+runtime_shadow.record_router_topk = false
+emit_premap_consumer_mapping = false
+kernel_arg_pass = false
+real_kernel_arg_mutation = false
+single_field_replacement = false
+future_wna16_typed_slot_kernel_variant = false
+native_typed_consumer_input_export = false
+payload_cache_producer_state_packet_export = false
+```
+
+Before a real candidate run exists, the wrapper deliberately writes a failed
+placeholder instead of fabricating evidence:
+
+```text
+passed = false
+failures = ["performance_summary_missing"]
+measures_tpot = false
+production_like_tpot_candidate_ready = false
+```
+
+The A/B comparison gate was tightened so that a present-but-unmeasured candidate
+does not count as comparison-ready:
+
+```text
+comparison_ready = false
+measures_tpot = false
+measures_vllm_latency = false
+performance_claim_ready = false
+```
+
+Validation:
+
+```text
+/home/husrcf/anaconda3/envs/TRY/bin/python -m pytest \
+  tests/test_build_future_wna16_typed_slot_payloadless_useful_ab_comparison.py \
+  tests/test_run_future_wna16_typed_slot_payloadless_useful_candidate_tpot_benchmark.py \
+  tests/test_check_future_wna16_typed_slot_payloadless_useful_candidate_config.py -q
+# 23 passed
+```
+
+Next gate:
+
+```text
+run candidate TPOT with the production-compatible payloadless live-config path,
+then rebuild A/B against a fresh same-environment no-recorder baseline.
+```
+
+## 2026-06-20 payloadless live-config TPOT A/B measured
+
+Ran the production-compatible payloadless live-config candidate on GPU1:
+
+```text
+candidate config:
+  configs/trace/
+    router_mtp_trace_external_prompt_gate_dolly_32_awq_vllm_gpu1_decode_gen64_payloadless_useful_candidate_graph.yaml
+
+candidate performance:
+  outputs/reports/premap_kernel_consumer/production_like_tpot/
+    payloadless_useful_candidate/repeat_00/performance_summary.json
+
+candidate artifact:
+  outputs/reports/premap_kernel_consumer/production_like_tpot/
+    future_wna16_typed_slot_payloadless_useful_production_like_tpot_candidate_dolly32_gen64_graph_v1.json
+```
+
+The first comparison against the older archived baseline was misleadingly large,
+so a fresh same-environment baseline was rerun immediately:
+
+```text
+fresh baseline:
+  outputs/reports/premap_kernel_consumer/production_like_tpot/
+    production_like_baseline/repeat_00/performance_summary.json
+
+A/B artifact:
+  outputs/reports/premap_kernel_consumer/production_like_tpot/
+    future_wna16_typed_slot_payloadless_useful_ab_comparison_v1.json
+```
+
+Current paired result:
+
+```text
+baseline TPOT  = 0.003340399270996094 s/token
+candidate TPOT = 0.0032920776337890625 s/token
+speedup        = 1.0146781584708302x
+improvement    = 1.4465826773043866%
+```
+
+Boundary:
+
+```text
+payload_bytes = 0
+payload_deref_allowed = false
+kernel_arg_pass_allowed = false
+passed_to_kernel = false
+changes_kernel_launch_args = false
+uses_current_wna16_args = false
+passes_current_wna16_args = false
+```
+
+Interpretation:
+
+```text
+This is a small positive production-compatible live-config signal, not yet a
+strong runtime acceleration claim.  The result proves that the payloadless
+live-config path can run without the heavy observed-evidence tracing path and
+without kernel-arg mutation.
+```
+
+Next gate:
+
+```text
+repeat the paired baseline/candidate run to estimate stability, then decide
+whether to promote this as a low-overhead runtime path or move directly to a
+real future WNA16 typed-slot consumer benchmark.
+```

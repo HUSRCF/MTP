@@ -18562,6 +18562,35 @@ def _apply_premap_consumer_readonly_gate(
         producer_minimal_identity_envelope_enabled
         or producer_future_wna16_typed_slot_envelope_enabled
     )
+    live_config_only_no_rows_enabled = bool(
+        options.get("premap_consumer_readonly_gate_live_config_only_no_rows", False)
+    )
+    if live_config_only_no_rows_enabled:
+        if not live_handoff_enabled or not live_consumer_connected:
+            msg = (
+                "premap_consumer_readonly_gate_live_config_only_no_rows=True "
+                "requires premap_kernel_arg_handoff_live_enabled=True and "
+                "premap_kernel_arg_handoff_live_consumer_connected=True."
+            )
+            raise ValueError(msg)
+        if kernel_arg_pass_enabled or real_kernel_arg_mutation_enabled:
+            msg = (
+                "premap_consumer_readonly_gate_live_config_only_no_rows=True "
+                "requires kernel-arg pass and real kernel-arg mutation to remain disabled."
+            )
+            raise ValueError(msg)
+        if bool(options.get("emit_premap_consumer_mapping", False)):
+            msg = (
+                "premap_consumer_readonly_gate_live_config_only_no_rows=True "
+                "requires emit_premap_consumer_mapping=False."
+            )
+            raise ValueError(msg)
+        if bool(options.get("premap_consumer_resolve_real_handles", False)):
+            msg = (
+                "premap_consumer_readonly_gate_live_config_only_no_rows=True "
+                "requires premap_consumer_resolve_real_handles=False."
+            )
+            raise ValueError(msg)
     if producer_fast_envelope_enabled and (
         not minimal_identity_envelope_enabled
         or not live_handoff_enabled
@@ -19249,15 +19278,18 @@ def _apply_premap_consumer_readonly_gate(
     if require_gate:
         if (
             not producer_fast_envelope_enabled
+            and not live_config_only_no_rows_enabled
             and not bool(options.get("emit_premap_consumer_mapping", False))
         ):
             msg = (
                 "premap_consumer_require_readonly_gate=True requires "
-                "emit_premap_consumer_mapping=True."
+                "emit_premap_consumer_mapping=True unless "
+                "premap_consumer_readonly_gate_live_config_only_no_rows=True."
             )
             raise ValueError(msg)
         if (
             not producer_fast_envelope_enabled
+            and not live_config_only_no_rows_enabled
             and str(options.get("premap_consumer_mapping_mode", "noop_assertion"))
             != "noop_assertion"
         ):
@@ -19268,6 +19300,7 @@ def _apply_premap_consumer_readonly_gate(
             raise ValueError(msg)
         if (
             not producer_fast_envelope_enabled
+            and not live_config_only_no_rows_enabled
             and not bool(options.get("premap_consumer_resolve_real_handles", False))
         ):
             msg = (
@@ -19278,6 +19311,7 @@ def _apply_premap_consumer_readonly_gate(
         policy = str(options.get("premap_policy", "premap_only_with_consumer_mapping_noop"))
         if (
             not producer_fast_envelope_enabled
+            and not live_config_only_no_rows_enabled
             and policy != "premap_only_with_consumer_mapping_noop"
         ):
             msg = (

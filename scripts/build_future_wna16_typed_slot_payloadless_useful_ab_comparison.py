@@ -276,6 +276,22 @@ def _check_context(
         failures.append("candidate_expected_gpu_mismatch")
 
 
+def _artifact_has_valid_tpot(artifact: dict[str, Any], facts: dict[str, Any]) -> bool:
+    return bool(
+        artifact.get("passed") is True
+        and artifact.get("failures") == []
+        and artifact.get("measures_tpot") is True
+        and artifact.get("measures_vllm_latency") is True
+        and isinstance(facts.get("tpot"), float)
+        and facts["tpot"] > 0
+        and isinstance(facts.get("generate_wall_seconds"), float)
+        and facts["generate_wall_seconds"] > 0
+        and isinstance(facts.get("sample_count"), int)
+        and isinstance(facts.get("requested_output_token_count"), int)
+        and isinstance(facts.get("input_token_count"), int)
+    )
+
+
 def build_comparison(args: argparse.Namespace) -> dict[str, Any]:
     baseline_path = _resolve(args.baseline_json)
     candidate_path = _resolve(args.candidate_json)
@@ -312,6 +328,10 @@ def build_comparison(args: argparse.Namespace) -> dict[str, Any]:
         elif args.allow_nonpositive_candidate and not candidate_faster:
             failures.append("candidate_not_faster_than_baseline_diagnostic_only")
 
+    comparison_ready = bool(
+        _artifact_has_valid_tpot(baseline_artifact, baseline)
+        and _artifact_has_valid_tpot(candidate_artifact, candidate)
+    )
     passed = not failures
     result: dict[str, Any] = {
         "artifact_kind": ARTIFACT_KIND,
@@ -320,7 +340,7 @@ def build_comparison(args: argparse.Namespace) -> dict[str, Any]:
         "comparison_source": COMPARISON_SOURCE,
         "passed": passed,
         "failures": failures,
-        "comparison_ready": bool(baseline and candidate),
+        "comparison_ready": comparison_ready,
         "baseline_json": str(baseline_path),
         "baseline_sha256": _sha256(baseline_path),
         "candidate_json": str(candidate_path),
@@ -334,8 +354,8 @@ def build_comparison(args: argparse.Namespace) -> dict[str, Any]:
         "expected_gpu": args.expected_gpu,
         "require_same_trace_config_sha": bool(args.require_same_trace_config_sha),
         "require_same_performance_summary_sha": bool(args.require_same_performance_summary_sha),
-        "measures_tpot": bool(baseline and candidate),
-        "measures_vllm_latency": bool(baseline and candidate),
+        "measures_tpot": comparison_ready,
+        "measures_vllm_latency": comparison_ready,
         "payloadless_useful_candidate_required": True,
         "baseline_is_current_vllm": baseline_artifact.get("benchmark_is_current_vllm_baseline"),
         "candidate_is_future_typed_slot_useful_path": candidate_artifact.get(

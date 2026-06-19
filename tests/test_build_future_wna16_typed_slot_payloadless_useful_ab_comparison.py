@@ -113,6 +113,40 @@ def test_ab_comparison_rejects_missing_candidate(tmp_path: Path) -> None:
     assert "candidate_json_missing" in result["failures"]
 
 
+def test_ab_comparison_rejects_unmeasured_candidate_as_not_ready(tmp_path: Path) -> None:
+    module = _load_module()
+    baseline = tmp_path / "baseline.json"
+    candidate = tmp_path / "candidate.json"
+    _write_json(baseline, _artifact(role="baseline", tpot=0.010))
+    candidate_payload = _artifact(role="candidate", tpot=0.009)
+    candidate_payload.update(
+        {
+            "passed": False,
+            "failures": ["performance_summary_missing"],
+            "measures_tpot": False,
+            "measures_vllm_latency": False,
+            "production_like_tpot_candidate_ready": False,
+            "generate_seconds_per_requested_output_token": None,
+            "generate_wall_seconds": None,
+            "tokens_per_second": None,
+            "sample_count": None,
+            "requested_output_token_count": None,
+            "input_token_count": None,
+        }
+    )
+    _write_json(candidate, candidate_payload)
+
+    result = _run(module, baseline, candidate, tmp_path / "out.json")
+
+    assert result["passed"] is False
+    assert result["comparison_ready"] is False
+    assert result["measures_tpot"] is False
+    assert result["measures_vllm_latency"] is False
+    assert result["performance_claim_ready"] is False
+    assert "candidate_passed_not_true" in result["failures"]
+    assert "candidate_measures_tpot_not_true" in result["failures"]
+
+
 def test_ab_comparison_rejects_baseline_only_candidate(tmp_path: Path) -> None:
     module = _load_module()
     baseline = tmp_path / "baseline.json"

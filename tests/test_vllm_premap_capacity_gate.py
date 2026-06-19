@@ -1106,6 +1106,95 @@ def test_apply_premap_consumer_readonly_gate_accepts_producer_identity_envelope_
     )
 
 
+def test_apply_premap_consumer_readonly_gate_accepts_live_config_only_no_rows(
+    tmp_path,
+):
+    gate = tmp_path / "readonly_gate.yaml"
+    _write_readonly_gate(
+        gate,
+        lab_precondition=True,
+        descriptor_prep_execution_mode="readonly_descriptor_address_object",
+        descriptor_prep_payload_bytes=0,
+        descriptor_prep_kernel_arg_mutation=False,
+        kernel_arg_handoff_live_toggle_required=True,
+        kernel_arg_handoff_live_toggle_enabled_required=True,
+        kernel_arg_handoff_live_toggle_block_reason=(
+            "kernel_arg_handoff_kernel_consumer_not_connected"
+        ),
+        kernel_arg_handoff_live_toggle_live_eligible_required=True,
+        require_kernel_arg_handoff_live_toggle=True,
+        extra_contract_lines=_kernel_arg_handoff_adapter_contract_lines(
+            live_enabled=True,
+            consumer_connected_required=True,
+            kernel_arg_pass_required=False,
+            real_kernel_arg_mutation_required=False,
+        ),
+        extra_check_lines=_kernel_arg_handoff_adapter_check_lines(),
+    )
+
+    options = _apply_premap_consumer_readonly_gate(
+        {
+            "enabled": False,
+            "emit_premap_consumer_mapping": False,
+            "premap_consumer_require_readonly_gate": True,
+            "premap_consumer_readonly_gate_live_config_only_no_rows": True,
+            "premap_consumer_readonly_gate_path": str(gate),
+            "premap_consumer_mapping_mode": "noop_assertion",
+            "premap_consumer_resolve_real_handles": False,
+            "premap_descriptor_bytes": 4096,
+            "premap_descriptor_prep_execution_mode": (
+                "readonly_descriptor_address_object"
+            ),
+            "premap_kernel_arg_handoff_live_enabled": True,
+            "premap_kernel_arg_handoff_live_consumer_connected": True,
+            "premap_kernel_arg_handoff_kernel_arg_pass_enabled": False,
+            "premap_kernel_arg_handoff_real_kernel_arg_mutation_enabled": False,
+        },
+        project_root=tmp_path,
+    )
+
+    assert options["premap_consumer_readonly_gate_passed"] is True
+    assert options["premap_consumer_readonly_gate_live_config_only_no_rows"] is True
+    assert options["emit_premap_consumer_mapping"] is False
+
+
+def test_apply_premap_consumer_readonly_gate_rejects_live_config_only_kernel_arg_pass(
+    tmp_path,
+):
+    with pytest.raises(ValueError, match="live_config_only_no_rows=True"):
+        _apply_premap_consumer_readonly_gate(
+            {
+                "enabled": False,
+                "premap_consumer_require_readonly_gate": True,
+                "premap_consumer_readonly_gate_live_config_only_no_rows": True,
+                "premap_kernel_arg_handoff_live_enabled": True,
+                "premap_kernel_arg_handoff_live_consumer_connected": True,
+                "premap_kernel_arg_handoff_kernel_arg_pass_enabled": True,
+                "premap_kernel_arg_handoff_real_kernel_arg_mutation_enabled": False,
+            },
+            project_root=tmp_path,
+        )
+
+
+def test_apply_premap_consumer_readonly_gate_rejects_live_config_only_emit_rows(
+    tmp_path,
+):
+    with pytest.raises(ValueError, match="live_config_only_no_rows=True"):
+        _apply_premap_consumer_readonly_gate(
+            {
+                "enabled": False,
+                "emit_premap_consumer_mapping": True,
+                "premap_consumer_require_readonly_gate": True,
+                "premap_consumer_readonly_gate_live_config_only_no_rows": True,
+                "premap_kernel_arg_handoff_live_enabled": True,
+                "premap_kernel_arg_handoff_live_consumer_connected": True,
+                "premap_kernel_arg_handoff_kernel_arg_pass_enabled": False,
+                "premap_kernel_arg_handoff_real_kernel_arg_mutation_enabled": False,
+            },
+            project_root=tmp_path,
+        )
+
+
 def test_apply_premap_consumer_readonly_gate_accepts_prepared_handle_table_live_canary(
     tmp_path,
 ):
