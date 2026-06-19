@@ -437,9 +437,9 @@ def build_cache_lab_gate_decision(
     config: CacheLabConfig,
     ready_time_gate_report: Path | None = None,
 ):
-    if path is None:
+    if path is None and ready_time_gate_report is None:
         return None
-    payload = load_yaml(path)
+    payload = {} if path is None else load_yaml(path)
     gate_config = CacheLabGateConfig(**payload)
     ready_time_allow = _load_ready_time_payload_cache_gate_allow(
         ready_time_gate_report
@@ -468,6 +468,11 @@ def _load_ready_time_payload_cache_gate_allow(path: Path | None) -> bool | None:
         return False
     if payload.get("passed") is not True:
         return False
+    runtime_allow_full_fetch = payload.get("full_fetch_runtime_allowed")
+    if isinstance(runtime_allow_full_fetch, bool):
+        if payload.get("artifact_kind") != "premap_payload_cache_full_fetch_decision_gate":
+            return False
+        return runtime_allow_full_fetch
     allow_full_fetch = payload.get("allow_full_fetch")
     return allow_full_fetch if isinstance(allow_full_fetch, bool) else False
 

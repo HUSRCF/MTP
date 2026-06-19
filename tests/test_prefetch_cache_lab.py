@@ -674,6 +674,181 @@ def test_build_cache_lab_gate_decision_applies_ready_time_block_report(tmp_path)
     assert decision.ready_time_allow_full_fetch is False
 
 
+def test_build_cache_lab_gate_decision_applies_full_fetch_decision_gate(
+    tmp_path,
+) -> None:
+    gate = tmp_path / "gate.yaml"
+    gate.write_text(
+        "\n".join(
+            [
+                "min_payload_capacity: 10240",
+                "min_overlap_factor: 0.5",
+                "max_manager_us_per_issue: 50.0",
+                "min_bandwidth_gbps: 3.0",
+                "max_bandwidth_gbps: 12.0",
+                "require_stress_fallback_clear: true",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    report = tmp_path / "full_fetch_decision_gate.json"
+    report.write_text(
+        json.dumps(
+            {
+                "artifact_kind": "premap_payload_cache_full_fetch_decision_gate",
+                "passed": True,
+                "full_fetch_runtime_allowed": False,
+                "full_fetch_block_reason": "insufficient_ready_time_and_lookahead",
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    decision = build_cache_lab_gate_decision(
+        gate,
+        config=_config(
+            cache_capacity=10240,
+            overlap_factor=0.8,
+            manager_us_per_issue=0.0,
+            bandwidth_gbps=6.589,
+        ),
+        ready_time_gate_report=report,
+    )
+
+    assert decision is not None
+    assert decision.allow_full_fetch_mtp is False
+    assert decision.reason == "ready_time_payload_cache_gate_blocked"
+    assert decision.ready_time_allow_full_fetch is False
+
+
+def test_build_cache_lab_gate_decision_applies_report_without_config(
+    tmp_path,
+) -> None:
+    report = tmp_path / "full_fetch_decision_gate.json"
+    report.write_text(
+        json.dumps(
+            {
+                "artifact_kind": "premap_payload_cache_full_fetch_decision_gate",
+                "passed": True,
+                "full_fetch_runtime_allowed": False,
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    decision = build_cache_lab_gate_decision(
+        None,
+        config=_config(
+            cache_capacity=10240,
+            overlap_factor=0.8,
+            manager_us_per_issue=0.0,
+            bandwidth_gbps=6.589,
+        ),
+        ready_time_gate_report=report,
+    )
+
+    assert decision is not None
+    assert decision.allow_full_fetch_mtp is False
+    assert decision.reason == "ready_time_payload_cache_gate_blocked"
+    assert decision.ready_time_allow_full_fetch is False
+
+
+def test_build_cache_lab_gate_decision_prefers_full_fetch_runtime_allowed(
+    tmp_path,
+) -> None:
+    gate = tmp_path / "gate.yaml"
+    gate.write_text(
+        "\n".join(
+            [
+                "min_payload_capacity: 10240",
+                "min_overlap_factor: 0.5",
+                "max_manager_us_per_issue: 50.0",
+                "min_bandwidth_gbps: 3.0",
+                "max_bandwidth_gbps: 12.0",
+                "require_stress_fallback_clear: true",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    report = tmp_path / "full_fetch_decision_gate.json"
+    report.write_text(
+        json.dumps(
+            {
+                "artifact_kind": "premap_payload_cache_full_fetch_decision_gate",
+                "passed": True,
+                "full_fetch_runtime_allowed": False,
+                "allow_full_fetch": True,
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    decision = build_cache_lab_gate_decision(
+        gate,
+        config=_config(
+            cache_capacity=10240,
+            overlap_factor=0.8,
+            manager_us_per_issue=0.0,
+            bandwidth_gbps=6.589,
+        ),
+        ready_time_gate_report=report,
+    )
+
+    assert decision is not None
+    assert decision.allow_full_fetch_mtp is False
+    assert decision.reason == "ready_time_payload_cache_gate_blocked"
+    assert decision.ready_time_allow_full_fetch is False
+
+
+def test_build_cache_lab_gate_decision_blocks_malformed_full_fetch_decision_gate(
+    tmp_path,
+) -> None:
+    gate = tmp_path / "gate.yaml"
+    gate.write_text(
+        "\n".join(
+            [
+                "min_payload_capacity: 10240",
+                "min_overlap_factor: 0.5",
+                "max_manager_us_per_issue: 50.0",
+                "min_bandwidth_gbps: 3.0",
+                "max_bandwidth_gbps: 12.0",
+                "require_stress_fallback_clear: true",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    report = tmp_path / "malformed_decision_gate.json"
+    report.write_text(
+        json.dumps(
+            {
+                "artifact_kind": "not_the_full_fetch_decision_gate",
+                "passed": True,
+                "full_fetch_runtime_allowed": True,
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    decision = build_cache_lab_gate_decision(
+        gate,
+        config=_config(
+            cache_capacity=10240,
+            overlap_factor=0.8,
+            manager_us_per_issue=0.0,
+            bandwidth_gbps=6.589,
+        ),
+        ready_time_gate_report=report,
+    )
+
+    assert decision is not None
+    assert decision.allow_full_fetch_mtp is False
+    assert decision.reason == "ready_time_payload_cache_gate_blocked"
+    assert decision.ready_time_allow_full_fetch is False
+
+
 def test_build_cache_lab_gate_decision_blocks_invalid_ready_time_report(tmp_path) -> None:
     gate = tmp_path / "gate.yaml"
     gate.write_text(
