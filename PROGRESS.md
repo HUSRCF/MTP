@@ -2,10 +2,93 @@
 
 ## Progress Version
 
-- Version: `v1.17-payloadless-production-tpot-blocked-by-decision-gate`
+- Version: `v1.18-measured-copy-payload-cache-slack-gate`
 - Updated: 2026-06-20
 
-## Latest Update: Payloadless Production TPOT Blocked by Decision Gate
+## Latest Update: Measured-Copy Payload Cache Slack Gate
+
+The premap/prefetch mainline has moved from payloadless TPOT wrappers to a
+payload-cache issue-plan gate and a measured-copy ready-time executor.
+
+Artifacts:
+
+```text
+outputs/reports/premap_kernel_consumer/premap_payload_cache_issue_plan_gate_dolly128_gen64_native_v1.json
+outputs/reports/premap_kernel_consumer/premap_payload_cache_issue_plan_executor_dolly128_gen64_measured_copy_blocked_v1.json
+outputs/reports/premap_kernel_consumer/premap_payload_cache_issue_plan_executor_measured_copy_slack_sweep_v1.json
+```
+
+The issue-plan gate is valid under the native producer-state evidence:
+
+```text
+payload_cache_issue_plan_candidate = true
+issue_candidate_count = 8
+payload_bytes = 0
+ready_credit = false
+payload_transfer_enabled = false
+kernel_arg_pass_allowed = false
+passed_to_kernel = false
+changes_kernel_launch_args = false
+measures_tpot = false
+```
+
+The measured-copy executor uses the existing GPU1 H2D microbench envelope.  At
+the default decode deadline (`200us`) the issue plan is correctly blocked:
+
+```text
+measured_copy_us_per_batch = 14661.311949203082
+measured_copy_us_per_issue = 1832.6639936503852
+demand_hit_count = 0
+ready_late_miss_count = 8
+full_fetch_allowed = false
+full_fetch_block_reason = measured_copy_deadline_miss
+passed = false
+```
+
+The slack sweep shows the first model-passing deadline:
+
+```text
+first_model_passing_deadline_us = 14661.311949203082
+deadline_us = 200 / 1000 / 5000 / 10000 -> model_passed = false
+deadline_us >= 14661.311949203082 -> model_passed = true
+```
+
+Boundary:
+
+```text
+This is a ready-time model over measured copy service time.
+It does not move real payload, grant ready credit, pass kernel args,
+or measure endpoint TPOT/vLLM latency.
+Even when model_passed=true, full_fetch_allowed remains false until a real
+payload runtime is implemented.
+```
+
+Interpretation:
+
+```text
+The native issue plan is valid, but measured H2D payload fetch is too slow for
+the current same-step decode deadline.  Full-fetch must remain disabled unless
+the runtime provides enough lookahead/slack (about 14.66ms for this batch copy
+envelope), a faster copy path, or a queue model that can complete before demand.
+The lower-risk metadata/premap/descriptor-prep path remains the safer near-term
+runtime integration track.
+```
+
+Validation:
+
+```text
+/home/husrcf/anaconda3/envs/TRY/bin/python -m pytest \
+  tests/test_sweep_premap_payload_cache_issue_plan_executor_slack.py \
+  tests/test_run_premap_payload_cache_issue_plan_executor.py -q
+
+12 passed
+
+/home/husrcf/anaconda3/envs/TRY/bin/python \
+  scripts/sweep_premap_payload_cache_issue_plan_executor_slack.py \
+  --require-pass
+```
+
+## Previous Update: Payloadless Production TPOT Blocked by Decision Gate
 
 The payloadless useful production-like timing readiness gate now consumes the
 payloadless live-config performance decision gate.  The config/runtime-ablation
