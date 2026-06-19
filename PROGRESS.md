@@ -37757,3 +37757,113 @@ Validation:
 This is still not a vLLM TPOT result and not a current WNA16 fused-MoE arg-pass
 path. It is a lab-gated, independent typed-slot/native payloadless consumer
 chain intended to support the next useful native/kernel-side consumer step.
+
+## 2026-06-20 payloadless useful production-like timing gate
+
+Added a production-like timing readiness gate for the payloadless useful
+typed-slot path:
+
+```text
+script:
+  scripts/run_future_wna16_typed_slot_payloadless_useful_production_like_timing_gate.py
+
+artifact:
+  outputs/reports/premap_kernel_consumer/
+    future_wna16_typed_slot_payloadless_useful_production_like_timing_gate_dolly32_gen64_graph_v1.json
+
+trace config:
+  configs/trace/
+    router_mtp_trace_external_prompt_gate_dolly_32_awq_vllm_gpu1_decode_gen64_production_no_recorder_graph.yaml
+```
+
+This gate does not run vLLM and does not measure TPOT.  It binds the latest
+payloadless useful runtime-ablation artifact to a production-like Dolly32/gen64
+graph config and rejects heavy telemetry:
+
+```text
+capture_router_topk = false
+record_router_topk = false
+runtime_shadow.enabled = false
+outcome_logging_mode = off
+decoder_source_timing_mode = off
+moe_source_timing_mode = off
+decoder/component/MoE/engine/WNA16 timing emits = false
+descriptor-order mapping/prelaunch/reorder paths = off
+```
+
+The bound runtime-ablation evidence remains strictly payloadless/native-stub
+only.  The gate also checks row parity, consumed-row parity, four field hash
+presence, and the bound repeat-benchmark artifact SHA256:
+
+```text
+source_count = 128
+row_count = 5345
+repeat_count_measured = 3
+fields =
+  descriptor_ptr
+  packed_weight_descriptor
+  scale_metadata_handle
+  aux_metadata_handle
+
+payload_bytes = 0
+payload_deref_allowed = false
+kernel_arg_pass_allowed = false
+passed_to_kernel = false
+changes_kernel_launch_args = false
+uses_current_wna16_args = false
+passes_current_wna16_args = false
+current_wna16_arg_compatible = false
+measures_tpot = false
+measures_vllm_latency = false
+wna16_benchmark_ready = false
+```
+
+Result:
+
+```text
+production_like_timing_ready = true
+production_like_benchmark_config_ready = true
+benchmark_run_ready = false
+trace_config_is_production_like = true
+next_runtime_stage = run_production_like_vllm_paired_tpot_benchmark
+```
+
+Review hardening:
+
+```text
+The gate rejects non-shadow telemetry and live/export paths such as:
+  trace.decode_workload_trace.enabled
+  trace.allow_premap_live_config_without_router_recorder
+  emit_premap_* summaries/counters/consumer mapping
+  premap payload-cache producer/export flags
+  premap native typed consumer input export flags
+
+`trace.allow_premap_live_config_without_router_recorder` is checked as
+strict-false-or-absent, not as a nested `{enabled: false}` mapping, because the
+runtime treats any non-empty value as truthy.
+
+The output also carries bound_runtime_ablation_safety and keeps
+wna16_benchmark_ready = false, current_wna16_benchmark_ready = false,
+current_artifact_is_tpot_benchmark = false, and benchmark_run_ready = false.
+Only production_like_benchmark_config_ready is true, so this artifact cannot be
+confused with a current WNA16 or TPOT benchmark result.
+```
+
+Validation:
+
+```text
+/home/husrcf/anaconda3/envs/TRY/bin/python -m pytest \
+  tests/test_run_future_wna16_typed_slot_payloadless_useful_production_like_timing_gate.py -q
+# 11 passed
+
+/home/husrcf/anaconda3/envs/TRY/bin/python -m pytest \
+  tests/test_run_future_wna16_typed_slot_payloadless_useful_runtime_gate.py \
+  tests/test_run_future_wna16_typed_slot_payloadless_useful_benchmark_harness.py \
+  tests/test_run_future_wna16_typed_slot_payloadless_useful_repeat_benchmark.py \
+  tests/test_run_future_wna16_typed_slot_payloadless_useful_runtime_ablation.py \
+  tests/test_run_future_wna16_typed_slot_payloadless_useful_production_like_timing_gate.py -q
+# 39 passed
+```
+
+This artifact is the final readiness check before a real production-like paired
+vLLM timing run.  It is not itself a performance result.
