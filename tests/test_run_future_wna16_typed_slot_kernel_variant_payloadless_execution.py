@@ -52,6 +52,12 @@ def _timing_stub_payload(
         / "future_wna16_fourth_field_evidence.json"
     )
     evidence_sha = _sha256(evidence_path)
+    kernel_side_evidence_path = (
+        Path(__file__).resolve().parent
+        / "fixtures"
+        / "future_wna16_kernel_side_typed_path_evidence.json"
+    )
+    kernel_side_evidence_sha = _sha256(kernel_side_evidence_path)
     return {
         "artifact_kind": "future_wna16_typed_slot_kernel_timing_stub",
         "failures": [],
@@ -104,6 +110,22 @@ def _timing_stub_payload(
         "all_four_field_consumer_row_ok_count": row_count,
         "all_four_field_consumer_fourth_field_path_label": str(evidence_path),
         "all_four_field_consumer_fourth_field_sha256": evidence_sha,
+        "future_wna16_kernel_side_typed_consumer_path_ready": True,
+        "future_wna16_kernel_side_typed_consumer_path_hashes_valid": True,
+        "future_wna16_kernel_side_typed_consumer_path_evidence_path": str(
+            kernel_side_evidence_path
+        ),
+        "future_wna16_kernel_side_typed_consumer_path_evidence_sha256": (
+            kernel_side_evidence_sha
+        ),
+        "future_wna16_kernel_side_typed_consumer_path_source_count": source_count,
+        "future_wna16_kernel_side_typed_consumer_path_input_json_count": source_count,
+        "future_wna16_kernel_side_typed_consumer_path_row_count": row_count,
+        "future_wna16_kernel_side_typed_consumer_path_row_ok_count": row_count,
+        "future_wna16_kernel_side_typed_consumer_path_all_four_sha256": "7" * 64,
+        "future_wna16_kernel_side_typed_consumer_path_selected_input_manifest_sha256": (
+            "6" * 64
+        ),
         "native_stub_host_wall_ms": host_wall_ms,
     }
 
@@ -193,6 +215,28 @@ def _benchmark_payload(
         "all_four_field_consumer_fourth_field_sha256": timing_payload[
             "all_four_field_consumer_fourth_field_sha256"
         ],
+        "future_wna16_kernel_side_typed_consumer_path_ready": timing_payload[
+            "future_wna16_kernel_side_typed_consumer_path_ready"
+        ],
+        "future_wna16_kernel_side_typed_consumer_path_hashes_valid": timing_payload[
+            "future_wna16_kernel_side_typed_consumer_path_hashes_valid"
+        ],
+        "future_wna16_kernel_side_typed_consumer_path_evidence_path": timing_payload[
+            "future_wna16_kernel_side_typed_consumer_path_evidence_path"
+        ],
+        "future_wna16_kernel_side_typed_consumer_path_evidence_sha256": timing_payload[
+            "future_wna16_kernel_side_typed_consumer_path_evidence_sha256"
+        ],
+        "future_wna16_kernel_side_typed_consumer_path_source_count": source_count,
+        "future_wna16_kernel_side_typed_consumer_path_input_json_count": source_count,
+        "future_wna16_kernel_side_typed_consumer_path_row_count": row_count,
+        "future_wna16_kernel_side_typed_consumer_path_row_ok_count": row_count,
+        "future_wna16_kernel_side_typed_consumer_path_all_four_sha256": timing_payload[
+            "future_wna16_kernel_side_typed_consumer_path_all_four_sha256"
+        ],
+        "future_wna16_kernel_side_typed_consumer_path_selected_input_manifest_sha256": timing_payload[
+            "future_wna16_kernel_side_typed_consumer_path_selected_input_manifest_sha256"
+        ],
         "repeat_count_measured": repeat_count,
         "repeat_output_jsons": repeat_output_jsons,
         "repeat_output_sha256s": repeat_output_sha256s,
@@ -253,6 +297,9 @@ def test_payloadless_execution_accepts_benchmark_without_native_run(tmp_path: Pa
     assert result["payload_bytes"] == 0
     assert result["kernel_arg_pass_allowed"] is False
     assert result["measures_tpot"] is False
+    assert result["future_wna16_kernel_side_typed_consumer_path_ready"] is True
+    assert result["future_wna16_kernel_side_typed_consumer_path_source_count"] == 128
+    assert result["future_wna16_kernel_side_typed_consumer_path_row_count"] == 257
     assert json.loads(output.read_text(encoding="utf-8"))["passed"] is True
 
 
@@ -444,6 +491,66 @@ def test_payloadless_execution_rejects_benchmark_seed_all_four_drift(tmp_path: P
     ]
 
 
+def test_payloadless_execution_rejects_kernel_side_evidence_sha_drift(
+    tmp_path: Path,
+):
+    module = _load_module()
+    _, _, timing_stub, _ = _write_seed_artifacts(tmp_path)
+    benchmark = tmp_path / "benchmark.json"
+    payload = _benchmark_payload(timing_stub)
+    payload["future_wna16_kernel_side_typed_consumer_path_evidence_sha256"] = "8" * 64
+    _write_json(benchmark, payload)
+
+    args = module.build_parser().parse_args(
+        [
+            "--benchmark-json",
+            str(benchmark),
+            "--output-json",
+            str(tmp_path / "payloadless.json"),
+        ]
+    )
+    result = module.run_payloadless_execution(args)
+
+    assert result["passed"] is False
+    assert "benchmark_kernel_side_typed_path_evidence_sha_mismatch" in result[
+        "failures"
+    ]
+    assert "benchmark_seed_future_wna16_kernel_side_typed_consumer_path_evidence_sha256_mismatch" in result[
+        "failures"
+    ]
+
+
+def test_payloadless_execution_rejects_kernel_side_selected_manifest_drift(
+    tmp_path: Path,
+):
+    module = _load_module()
+    _, _, timing_stub, _ = _write_seed_artifacts(tmp_path)
+    benchmark = tmp_path / "benchmark.json"
+    payload = _benchmark_payload(timing_stub)
+    payload[
+        "future_wna16_kernel_side_typed_consumer_path_selected_input_manifest_sha256"
+    ] = "9" * 64
+    _write_json(benchmark, payload)
+
+    args = module.build_parser().parse_args(
+        [
+            "--benchmark-json",
+            str(benchmark),
+            "--output-json",
+            str(tmp_path / "payloadless.json"),
+        ]
+    )
+    result = module.run_payloadless_execution(args)
+
+    assert result["passed"] is False
+    assert "benchmark_kernel_side_typed_path_evidence_selected_manifest_mismatch" in result[
+        "failures"
+    ]
+    assert "benchmark_seed_future_wna16_kernel_side_typed_consumer_path_selected_input_manifest_sha256_mismatch" in result[
+        "failures"
+    ]
+
+
 def test_payloadless_execution_rejects_missing_fourth_field_handoff(
     tmp_path: Path,
 ):
@@ -620,15 +727,48 @@ def test_payloadless_execution_defaults_to_four_field_repeat3_benchmark():
     default_path = Path(module.DEFAULT_BENCHMARK_JSON)
 
     assert (
-        "future_wna16_typed_slot_kernel_variant_benchmark_four_field_repeat3_v3.json"
+        "future_wna16_typed_slot_kernel_variant_benchmark_kernel_side_path_repeat3_v1.json"
         in str(default_path)
     )
     if default_path.exists():
         payload = json.loads(default_path.read_text(encoding="utf-8"))
         assert payload["fourth_field_handoff_ready"] is True
+        assert payload["future_wna16_kernel_side_typed_consumer_path_ready"] is True
+        assert payload["repeat_count_measured"] >= module.build_parser().get_default(
+            "min_repeat_count"
+        )
+        assert len(payload["repeat_output_jsons"]) == payload["repeat_count_measured"]
+        assert len(payload["repeat_output_sha256s"]) == payload["repeat_count_measured"]
+        assert module._check_benchmark(  # noqa: SLF001
+            payload,
+            min_source_count=module.build_parser().get_default("min_source_count"),
+            min_row_count=module.build_parser().get_default("min_row_count"),
+            min_repeat_count=module.build_parser().get_default("min_repeat_count"),
+        ) == []
         assert payload["field_read_hashes"]["descriptor_ptr"] == payload[
             "fourth_field_handoff_field_read_hash"
         ]
+
+
+def test_payloadless_execution_default_entrypoint_passes_without_native_run(
+    tmp_path: Path,
+):
+    module = _load_module()
+    default_path = Path(module.DEFAULT_BENCHMARK_JSON)
+    assert default_path.exists()
+    output = tmp_path / "payloadless_default.json"
+    args = module.build_parser().parse_args(["--output-json", str(output)])
+
+    result = module.run_payloadless_execution(args)
+
+    assert result["passed"] is True
+    assert result["benchmark_json"] == str(default_path)
+    assert result["payloadless_execution_gate_ready"] is True
+    assert result["payloadless_execution_native_executed"] is False
+    assert result["benchmark_repeat_count_measured"] >= module.build_parser().get_default(
+        "min_repeat_count"
+    )
+    assert json.loads(output.read_text(encoding="utf-8"))["passed"] is True
 
 
 def test_payloadless_execution_runs_fake_native_execution(tmp_path: Path, monkeypatch):

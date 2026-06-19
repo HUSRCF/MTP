@@ -36535,3 +36535,102 @@ This is still an independent future typed-slot ABI/stub path.
 It does not pass typed slots to current WNA16 fused-MoE kernel args,
 does not move payload, and does not measure vLLM TPOT/latency.
 ```
+
+## Latest Update: Payloadless Execution Gate Now Closes Kernel-Side Evidence
+
+The payloadless execution stage now consumes the strict kernel-side-path
+benchmark artifact and validates the referenced
+`future_wna16_kernel_side_typed_consumer_path` evidence file directly. This
+extends the previous entrypoint/timing/benchmark evidence closure into:
+
+```text
+scripts/run_future_wna16_typed_slot_kernel_variant_payloadless_execution.py
+```
+
+The checker now verifies:
+
+```text
+future_wna16_kernel_side_typed_consumer_path_ready = true
+future_wna16_kernel_side_typed_consumer_path_hashes_valid = true
+evidence_path exists
+evidence_sha256 matches recomputed file SHA
+artifact_kind = future_wna16_kernel_side_typed_consumer_path
+stage_type = lab_gate
+source_count / input_json_count / row_count / row_ok_count match
+all_four_sha256 matches
+selected_input_manifest_sha256 matches
+payload_bytes = 0
+kernel_arg_pass_allowed = false
+passed_to_kernel = false
+changes_kernel_launch_args = false
+uses_current_wna16_args = false
+measures_tpot = false
+measures_vllm_latency = false
+```
+
+A review caught that the initial default pointed at a kernel-side-path benchmark
+artifact with only one measurement while payloadless execution requires
+`repeat_count >= 3`. The default now points to a newly generated repeat-3
+artifact:
+
+```text
+outputs/reports/premap_kernel_consumer/future_wna16_typed_slot_kernel_variant_benchmark_kernel_side_path_repeat3_v1.json
+```
+
+Generated payloadless artifacts:
+
+```text
+outputs/reports/premap_kernel_consumer/future_wna16_typed_slot_kernel_variant_payloadless_execution_kernel_side_path_repeat3_v1.json
+outputs/reports/premap_kernel_consumer/future_wna16_typed_slot_kernel_variant_payloadless_execution_kernel_side_path_native_v1.json
+```
+
+Real-artifact validation:
+
+```text
+benchmark repeat3: passed = true, repeat_count_measured = 3
+payloadless no-native: passed = true
+payloadless native: passed = true, native_stub_executed = true
+source_count = 128
+row_count = 5345
+row_ok_count = 5345
+payload_bytes = 0
+kernel_arg_pass_allowed = false
+passed_to_kernel = false
+changes_kernel_launch_args = false
+uses_current_wna16_args = false
+measures_tpot = false
+measures_vllm_latency = false
+```
+
+Validation:
+
+```text
+conda run -n TRY python -m pytest \
+  tests/test_run_future_wna16_typed_slot_kernel_variant_payloadless_execution.py -q
+# 26 passed
+
+conda run -n TRY python -m pytest \
+  tests/test_run_future_wna16_typed_slot_kernel_variant_payloadless_execution.py \
+  tests/test_run_future_wna16_typed_slot_kernel_variant_benchmark.py \
+  tests/test_run_future_wna16_typed_slot_kernel_timing_stub.py \
+  tests/test_run_future_wna16_typed_slot_kernel_variant_entrypoint.py \
+  tests/test_run_wna16_typed_slot_benchmark_harness.py \
+  tests/test_run_premap_lab_preflight.py -q
+# 304 passed
+```
+
+Review:
+
+```text
+Codex 5.3 spark found the repeat-count/default-artifact mismatch.
+Fixed by generating a repeat-3 kernel-side-path benchmark artifact and updating
+the default plus the default-artifact test to exercise the main checker.
+```
+
+Boundary remains unchanged:
+
+```text
+This is a payloadless independent future typed-slot ABI/stub execution gate.
+It still does not pass current WNA16 fused-MoE kernel args, does not dereference
+payload, and does not measure vLLM TPOT/latency.
+```
