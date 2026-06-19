@@ -242,6 +242,45 @@ no payload is moved, no ready credit is granted, no kernel args are touched, and
 no endpoint latency is measured.
 ```
 
+Producer-side lead-token sweep:
+
+```text
+script:
+  scripts/sweep_premap_payload_cache_stream_earlier_issue_lead_tokens.py
+
+artifact:
+  outputs/reports/premap_kernel_consumer/premap_payload_cache_stream_earlier_issue_lead_tokens_dolly4_gen64_decode75ms_v1_20260620.json
+
+decode_token_us = 75000.0
+lead_tokens 0:
+  demand_hit_rate = 0.40625
+  ready_late_miss_rate = 0.59375
+  used_per_issued_fetch = 0.0
+lead_tokens 1:
+  demand_hit_rate = 0.5848214285714286
+  ready_late_miss_rate = 0.41517857142857145
+  used_per_issued_fetch = 0.3007518796992481
+lead_tokens 2:
+  demand_hit_rate = 0.7678571428571429
+  ready_late_miss_rate = 0.23214285714285715
+  used_per_issued_fetch = 0.6090225563909775
+lead_tokens 3:
+  demand_hit_rate = 0.9464285714285714
+  ready_late_miss_rate = 0.05357142857142857
+  used_per_issued_fetch = 0.9097744360902256
+lead_tokens 4:
+  demand_hit_rate = 1.0
+  ready_late_miss_rate = 0.0
+  used_per_issued_fetch = 1.0
+
+first_model_passing_lead_tokens = 3
+full_fetch_runtime_allowed = false
+next_runtime_stage = export_real_token_provenance_for_shifted_producer_replay
+```
+
+Boundary remains unchanged: this is a producer-side lead-time model only, not
+real payload movement or endpoint TPOT evidence.
+
 ## Previous Update: Payload Cache Full-Fetch Slack/Lookahead Decision Gate
 
 Follow-up lookahead sweep:
