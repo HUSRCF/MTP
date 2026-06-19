@@ -1,0 +1,312 @@
+{
+  "artifact_kind": "future_wna16_assignment_variant_paired_tpot_summary",
+  "baseline_chunk_tpot": {
+    "available": true,
+    "count": 3,
+    "max": 0.0035354596752929686,
+    "min": 0.003515174790039062,
+    "p50": 0.003524630336425781,
+    "p95": 0.0035354596752929686,
+    "p99": 0.0035354596752929686
+  },
+  "baseline_mode": "production_batch_reuse_llm",
+  "baseline_runs": [
+    {
+      "chunk_tpot": {
+        "available": true,
+        "count": 1,
+        "max": 0.003515174790039062,
+        "min": 0.003515174790039062,
+        "p50": 0.003515174790039062,
+        "p95": 0.003515174790039062,
+        "p99": 0.003515174790039062
+      },
+      "effective_max_tokens": 64,
+      "generate_wall_seconds": 7.199077969999999,
+      "mode": "production_batch_reuse_llm",
+      "performance_summary_checked": true,
+      "repeat": 0,
+      "requested_output_token_count": 2048,
+      "row_failures": [],
+      "sample_count": 32,
+      "sample_tpot": {
+        "available": false,
+        "count": 0
+      },
+      "split_id": "external_prompt_gate_dolly_32_gen64_utilization",
+      "tokens_per_second": 284.48087498627274,
+      "tpot": 0.003515174790039062,
+      "trace_dir": "/home/husrcf/Code/ProtBind/MTP/outputs/reports/awq_telemetry_ladder/gpu1_assignment_kernel_variant_repeat3_current_20260611/production_batch_reuse_llm/repeat_00"
+    },
+    {
+      "chunk_tpot": {
+        "available": true,
+        "count": 1,
+        "max": 0.003524630336425781,
+        "min": 0.003524630336425781,
+        "p50": 0.003524630336425781,
+        "p95": 0.003524630336425781,
+        "p99": 0.003524630336425781
+      },
+      "effective_max_tokens": 64,
+      "generate_wall_seconds": 7.218442928999999,
+      "mode": "production_batch_reuse_llm",
+      "performance_summary_checked": true,
+      "repeat": 1,
+      "requested_output_token_count": 2048,
+      "row_failures": [],
+      "sample_count": 32,
+      "sample_tpot": {
+        "available": false,
+        "count": 0
+      },
+      "split_id": "external_prompt_gate_dolly_32_gen64_utilization",
+      "tokens_per_second": 283.7176964816314,
+      "tpot": 0.003524630336425781,
+      "trace_dir": "/home/husrcf/Code/ProtBind/MTP/outputs/reports/awq_telemetry_ladder/gpu1_assignment_kernel_variant_repeat3_current_20260611/production_batch_reuse_llm/repeat_01"
+    },
+    {
+      "chunk_tpot": {
+        "available": true,
+        "count": 1,
+        "max": 0.0035354596752929686,
+        "min": 0.0035354596752929686,
+        "p50": 0.0035354596752929686,
+        "p95": 0.0035354596752929686,
+        "p99": 0.0035354596752929686
+      },
+      "effective_max_tokens": 64,
+      "generate_wall_seconds": 7.240621415,
+      "mode": "production_batch_reuse_llm",
+      "performance_summary_checked": true,
+      "repeat": 2,
+      "requested_output_token_count": 2048,
+      "row_failures": [],
+      "sample_count": 32,
+      "sample_tpot": {
+        "available": false,
+        "count": 0
+      },
+      "split_id": "external_prompt_gate_dolly_32_gen64_utilization",
+      "tokens_per_second": 282.8486510504845,
+      "tpot": 0.0035354596752929686,
+      "trace_dir": "/home/husrcf/Code/ProtBind/MTP/outputs/reports/awq_telemetry_ladder/gpu1_assignment_kernel_variant_repeat3_current_20260611/production_batch_reuse_llm/repeat_02"
+    }
+  ],
+  "baseline_sample_tpot": {
+    "available": false,
+    "count": 0
+  },
+  "baseline_tpot": {
+    "count": 3,
+    "max": 0.0035354596752929686,
+    "mean": 0.0035250882672526037,
+    "median": 0.003524630336425781,
+    "min": 0.003515174790039062,
+    "stdev": 1.0150192999281017e-05,
+    "values": [
+      0.003515174790039062,
+      0.003524630336425781,
+      0.0035354596752929686
+    ]
+  },
+  "benchmark_is_current_vllm_baseline": false,
+  "benchmark_is_future_assignment_variant_config_enabled_path": true,
+  "benchmark_is_future_typed_slot_useful_path": false,
+  "benchmark_scope": "existing_telemetry_ladder_paired_repeat_summary",
+  "candidate_chunk_tpot": {
+    "available": true,
+    "count": 3,
+    "max": 0.0035172938115234373,
+    "min": 0.0034962203232421873,
+    "p50": 0.0035075796528320313,
+    "p95": 0.0035172938115234373,
+    "p99": 0.0035172938115234373
+  },
+  "candidate_enables_gpu_assignment_kernel_variant": true,
+  "candidate_enables_live_kernel_arg_handoff": true,
+  "candidate_enables_single_field_replacement_live": true,
+  "candidate_mode": "production_batch_premap_live_future_wna16_gpu_assignment_kernel_variant_counter_off_reuse_llm",
+  "candidate_positive_all_repeats": true,
+  "candidate_runs": [
+    {
+      "chunk_tpot": {
+        "available": true,
+        "count": 1,
+        "max": 0.0034962203232421873,
+        "min": 0.0034962203232421873,
+        "p50": 0.0034962203232421873,
+        "p95": 0.0034962203232421873,
+        "p99": 0.0034962203232421873
+      },
+      "effective_max_tokens": 64,
+      "generate_wall_seconds": 7.160259222,
+      "mode": "production_batch_premap_live_future_wna16_gpu_assignment_kernel_variant_counter_off_reuse_llm",
+      "performance_summary_checked": true,
+      "repeat": 0,
+      "requested_output_token_count": 2048,
+      "row_failures": [],
+      "sample_count": 32,
+      "sample_tpot": {
+        "available": false,
+        "count": 0
+      },
+      "split_id": "external_prompt_gate_dolly_32_gen64_utilization",
+      "tokens_per_second": 286.0231643161033,
+      "tpot": 0.0034962203232421873,
+      "trace_dir": "/home/husrcf/Code/ProtBind/MTP/outputs/reports/awq_telemetry_ladder/gpu1_assignment_kernel_variant_repeat3_current_20260611/production_batch_premap_live_future_wna16_gpu_assignment_kernel_variant_counter_off_reuse_llm/repeat_00"
+    },
+    {
+      "chunk_tpot": {
+        "available": true,
+        "count": 1,
+        "max": 0.0035075796528320313,
+        "min": 0.0035075796528320313,
+        "p50": 0.0035075796528320313,
+        "p95": 0.0035075796528320313,
+        "p99": 0.0035075796528320313
+      },
+      "effective_max_tokens": 64,
+      "generate_wall_seconds": 7.183523129,
+      "mode": "production_batch_premap_live_future_wna16_gpu_assignment_kernel_variant_counter_off_reuse_llm",
+      "performance_summary_checked": true,
+      "repeat": 1,
+      "requested_output_token_count": 2048,
+      "row_failures": [],
+      "sample_count": 32,
+      "sample_tpot": {
+        "available": false,
+        "count": 0
+      },
+      "split_id": "external_prompt_gate_dolly_32_gen64_utilization",
+      "tokens_per_second": 285.0968756169505,
+      "tpot": 0.0035075796528320313,
+      "trace_dir": "/home/husrcf/Code/ProtBind/MTP/outputs/reports/awq_telemetry_ladder/gpu1_assignment_kernel_variant_repeat3_current_20260611/production_batch_premap_live_future_wna16_gpu_assignment_kernel_variant_counter_off_reuse_llm/repeat_01"
+    },
+    {
+      "chunk_tpot": {
+        "available": true,
+        "count": 1,
+        "max": 0.0035172938115234373,
+        "min": 0.0035172938115234373,
+        "p50": 0.0035172938115234373,
+        "p95": 0.0035172938115234373,
+        "p99": 0.0035172938115234373
+      },
+      "effective_max_tokens": 64,
+      "generate_wall_seconds": 7.203417726,
+      "mode": "production_batch_premap_live_future_wna16_gpu_assignment_kernel_variant_counter_off_reuse_llm",
+      "performance_summary_checked": true,
+      "repeat": 2,
+      "requested_output_token_count": 2048,
+      "row_failures": [],
+      "sample_count": 32,
+      "sample_tpot": {
+        "available": false,
+        "count": 0
+      },
+      "split_id": "external_prompt_gate_dolly_32_gen64_utilization",
+      "tokens_per_second": 284.3094872324221,
+      "tpot": 0.0035172938115234373,
+      "trace_dir": "/home/husrcf/Code/ProtBind/MTP/outputs/reports/awq_telemetry_ladder/gpu1_assignment_kernel_variant_repeat3_current_20260611/production_batch_premap_live_future_wna16_gpu_assignment_kernel_variant_counter_off_reuse_llm/repeat_02"
+    }
+  ],
+  "candidate_runtime_participation_counters_available": false,
+  "candidate_sample_tpot": {
+    "available": false,
+    "count": 0
+  },
+  "candidate_single_field": "B_scale",
+  "candidate_tpot": {
+    "count": 3,
+    "max": 0.0035172938115234373,
+    "mean": 0.003507031262532552,
+    "median": 0.0035075796528320313,
+    "min": 0.0034962203232421873,
+    "stdev": 1.0547441681536688e-05,
+    "values": [
+      0.0034962203232421873,
+      0.0035075796528320313,
+      0.0035172938115234373
+    ]
+  },
+  "claim_boundary": "Existing paired endpoint/chunk TPOT summary for a config-enabled GPU assignment-kernel variant. Runtime participation counters are not available in this counter-off artifact. This is not a prepared-table path and not a current WNA16 fused-MoE typed-table replacement claim.",
+  "context_consistent": true,
+  "current_wna16_fused_moe_arg_reinterpretation": false,
+  "endpoint_or_chunk_tpot_only": true,
+  "expected_effective_max_tokens": 64,
+  "expected_requested_output_token_count": 2048,
+  "expected_sample_count": 32,
+  "expected_split_id": "external_prompt_gate_dolly_32_gen64_utilization",
+  "failures": [],
+  "max_allowed_p95_delta_pct": 1.0,
+  "max_allowed_p99_delta_pct": 2.0,
+  "measures_tpot": true,
+  "measures_vllm_latency": true,
+  "min_repeats": 3,
+  "next_runtime_stage": "rerun_clean_paired_repeat_or_build_native_typed_slot_consumer_variant",
+  "pair_rows": [
+    {
+      "baseline_tokens_per_second": 284.48087498627274,
+      "baseline_tpot": 0.003515174790039062,
+      "candidate_tokens_per_second": 286.0231643161033,
+      "candidate_tpot": 0.0034962203232421873,
+      "improvement_pct": 0.5392183299273268,
+      "repeat": 0,
+      "speedup": 1.0054214165711666
+    },
+    {
+      "baseline_tokens_per_second": 283.7176964816314,
+      "baseline_tpot": 0.003524630336425781,
+      "candidate_tokens_per_second": 285.0968756169505,
+      "candidate_tpot": 0.0035075796528320313,
+      "improvement_pct": 0.4837580672655717,
+      "repeat": 1,
+      "speedup": 1.0048610966197111
+    },
+    {
+      "baseline_tokens_per_second": 282.8486510504845,
+      "baseline_tpot": 0.0035354596752929686,
+      "candidate_tokens_per_second": 284.3094872324221,
+      "candidate_tpot": 0.0035172938115234373,
+      "improvement_pct": 0.5138190062378811,
+      "repeat": 2,
+      "speedup": 1.0051647274134494
+    }
+  ],
+  "paired_repeats": [
+    0,
+    1,
+    2
+  ],
+  "paired_speedup": {
+    "count": 3,
+    "max": 1.0054214165711666,
+    "mean": 1.0051490802014424,
+    "median": 1.0051647274134494,
+    "min": 1.0048610966197111,
+    "stdev": 0.00028048750138366847,
+    "values": [
+      1.0048610966197111,
+      1.0051647274134494,
+      1.0054214165711666
+    ]
+  },
+  "passed": true,
+  "payload_bytes": 0,
+  "payload_deref_allowed": false,
+  "performance_claim_strength": "weak_positive_existing_repeat3",
+  "prepared_table_path_enabled": false,
+  "repeat_count": 3,
+  "requires_new_gpu_run": false,
+  "results_json": "/home/husrcf/Code/ProtBind/MTP/outputs/reports/awq_telemetry_ladder/gpu1_assignment_kernel_variant_repeat3_current_20260611/results.json",
+  "sample_tail_available": false,
+  "sample_tail_gate_pass": null,
+  "sample_tail_p95_delta_pct": null,
+  "sample_tail_p99_delta_pct": null,
+  "sample_tail_required": false,
+  "strict_context_match": true,
+  "summary_name": "future_wna16_assignment_variant_paired_tpot_repeat3_v1",
+  "tail_latency_claim_supported": false,
+  "uses_existing_results_only": true
+}

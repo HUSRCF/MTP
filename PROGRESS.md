@@ -5,7 +5,86 @@
 - Version: `v1.11-payloadless-useful-runtime-ablation-gate`
 - Updated: 2026-06-20
 
-## Latest Update: Payloadless Useful Runtime Ablation Gate Added
+## Latest Update: Assignment Variant Paired TPOT Summary Added
+
+The first production-like TPOT evidence for the live assignment-kernel variant
+has been formalized as a paired repeat3 artifact:
+
+```text
+outputs/reports/premap_kernel_consumer/production_like_tpot/future_wna16_assignment_variant_paired_tpot_repeat3_v1.json
+```
+
+This summary consumes existing `run_awq_telemetry_ladder.py` results only; it
+does not launch vLLM.  It verifies that baseline and candidate rows are paired
+by repeat, that the context matches (`32 samples × gen64 = 2048 requested output
+tokens`, split `external_prompt_gate_dolly_32_gen64_utilization`), and that the
+candidate configuration enables the GPU assignment-kernel variant while the
+prepared-table path remains disabled.
+
+Measured endpoint TPOT on GPU1:
+
+```text
+baseline production_batch_reuse_llm:
+  TPOT values = [0.003515174790039062, 0.003524630336425781, 0.0035354596752929686]
+  median = 0.003524630336425781
+
+candidate production_batch_premap_live_future_wna16_gpu_assignment_kernel_variant_counter_off_reuse_llm:
+  TPOT values = [0.0034962203232421873, 0.0035075796528320313, 0.0035172938115234373]
+  median = 0.0035075796528320313
+
+paired speedup values = [1.0048610966197111, 1.0051647274134494, 1.0054214165711666]
+paired median speedup = 1.0051647274134494
+```
+
+Gate status:
+
+```text
+passed = true
+performance_claim_strength = weak_positive_existing_repeat3
+candidate_positive_all_repeats = true
+sample_tail_available = false
+tail_latency_claim_supported = false
+endpoint_or_chunk_tpot_only = true
+candidate_runtime_participation_counters_available = false
+payload_bytes = 0
+prepared_table_path_enabled = false
+candidate_enables_live_kernel_arg_handoff = true
+candidate_enables_gpu_assignment_kernel_variant = true
+candidate_enables_single_field_replacement_live = true
+candidate_single_field = B_scale
+```
+
+Boundary:
+
+```text
+This is a weak positive paired endpoint/chunk TPOT summary for an existing
+config-enabled assignment-kernel variant result.  The artifact is counter-off,
+so runtime participation counters are not available.  It is not a prepared-table
+path, not a p95/p99 latency claim, and not a claim that the future typed table
+has replaced the current WNA16 fused-MoE kernel ABI.
+```
+
+Validation:
+
+```text
+/home/husrcf/anaconda3/envs/TRY/bin/python -m pytest \
+  tests/test_summarize_future_wna16_assignment_variant_paired_tpot.py -q
+# 14 passed
+
+/home/husrcf/anaconda3/envs/TRY/bin/python \
+  scripts/summarize_future_wna16_assignment_variant_paired_tpot.py --require-pass
+# passed = true
+```
+
+Next stage:
+
+```text
+rerun clean paired repeat with sample-tail timing, or build the independent
+native typed-slot consumer variant instead of relying on the live assignment
+kernel variant path.
+```
+
+## Previous Update: Payloadless Useful Runtime Ablation Gate Added
 
 The future-WNA16 typed-slot path now has the payloadless useful repeat benchmark
 bound into the default lab preflight as a required evidence gate, and an
