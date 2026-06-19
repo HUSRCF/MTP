@@ -12,6 +12,7 @@ has been formalized as a paired repeat3 artifact:
 
 ```text
 outputs/reports/premap_kernel_consumer/production_like_tpot/future_wna16_assignment_variant_paired_tpot_repeat3_v1.json
+outputs/reports/premap_kernel_consumer/production_like_tpot/future_wna16_assignment_variant_participation_smoke32_v1.json
 ```
 
 This summary consumes existing `run_awq_telemetry_ladder.py` results only; it
@@ -82,6 +83,51 @@ Next stage:
 rerun clean paired repeat with sample-tail timing, or build the independent
 native typed-slot consumer variant instead of relying on the live assignment
 kernel variant path.
+```
+
+Companion participation evidence:
+
+```text
+artifact_kind = future_wna16_assignment_variant_participation_summary
+participation_gate_ready = true
+performance_claim = false
+measures_vllm_latency = false
+diagnostic_counter_path = true
+counter_mode = detailed
+
+gpu_assignment_kernel_variant_participated = true
+single_field_replacement_live_participated = true
+expected_launch_count = 5120
+launch_count = 5120
+package_seen_count = 5120
+package_producer_future_wna16_typed_slot_envelope_count = 2560
+package_producer_gpu_assignment_envelope_count = 2560
+envelope_seen_count = 5120
+expert_ids_identity_ok_count = 5120
+sorted_token_ids_identity_ok_count = 5120
+num_tokens_post_padded_identity_ok_count = 5120
+single_field_live_replaced_count = 5120
+single_field_live_payload_bytes = 0
+fallback_count = 0
+identity_blocked_count = 0
+prepared_table_candidate_source_count = 0
+```
+
+This companion artifact is intentionally not a performance claim.  It uses the
+detailed counter path to prove participation, while the counter-off paired TPOT
+artifact above provides the low-overhead weak-positive endpoint/chunk TPOT
+evidence.
+
+Validation:
+
+```text
+/home/husrcf/anaconda3/envs/TRY/bin/python -m pytest \
+  tests/test_summarize_future_wna16_assignment_variant_participation.py -q
+# 9 passed
+
+/home/husrcf/anaconda3/envs/TRY/bin/python \
+  scripts/summarize_future_wna16_assignment_variant_participation.py --require-pass
+# passed = true
 ```
 
 ## Previous Update: Payloadless Useful Runtime Ablation Gate Added
