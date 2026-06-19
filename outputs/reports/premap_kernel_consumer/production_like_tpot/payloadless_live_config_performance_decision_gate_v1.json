@@ -1,0 +1,49 @@
+{
+  "artifact_kind": "payloadless_live_config_performance_decision_gate",
+  "changes_kernel_launch_args": false,
+  "claim_boundary": "Decision gate only.  It freezes the payloadless live-config path as safe/participation evidence when heldout TPOT is negative.  It is not a speedup claim and does not pass kernel arguments.",
+  "current_wna16_arg_compatible": false,
+  "decision_mode": "original_positive_heldout_negative_useful_consumer_ready",
+  "decision_name": "premap_payloadless_live_config_performance_decision_v1",
+  "failures": [],
+  "freeze_payloadless_live_config_performance_claim": true,
+  "heldout_comparison_json": "/home/husrcf/Code/ProtBind/MTP/outputs/reports/premap_kernel_consumer/production_like_tpot_heldout32/future_wna16_typed_slot_payloadless_useful_ab_comparison_dolly32_heldout32_gen64_graph_v1.json",
+  "heldout_comparison_sha256": "470585479af60875bbcf0dae844a37be7c9ecf634b8d5a121fc3c275dc342d2d",
+  "heldout_summary": {
+    "improvement_pct": -2.3535698715600795,
+    "performance_signal": "negative_heldout32",
+    "speedup": 0.9770054930715804
+  },
+  "kernel_arg_pass_allowed": false,
+  "next_runtime_stage": "focus_real_useful_consumer_or_payload_cache_manager_path",
+  "passed": true,
+  "passed_to_kernel": false,
+  "passes_current_wna16_args": false,
+  "payload_bytes": 0,
+  "payload_deref_allowed": false,
+  "payloadless_live_config_status": "safe_participation_path_not_performance_mainline",
+  "real_performance_next_path": "future_typed_slot_useful_consumer_or_payload_cache_manager",
+  "repeat_summary": {
+    "performance_signal": "small_positive_original_split",
+    "repeat_count": 3,
+    "speedup_mean": 1.0143095573220535,
+    "speedup_min": 1.0136323704636496
+  },
+  "repeat_summary_json": "/home/husrcf/Code/ProtBind/MTP/outputs/reports/premap_kernel_consumer/production_like_tpot/future_wna16_typed_slot_payloadless_useful_ab_repeat3_summary_v1.json",
+  "repeat_summary_sha256": "5ec2f8d64ff125117946e8e61c0c918e6d9e2d6ca1a9e127dc4732dbbd83495e",
+  "requires_wna16_arg_reinterpretation": false,
+  "useful_consumer_json": "/home/husrcf/Code/ProtBind/MTP/outputs/reports/premap_kernel_consumer/future_wna16_typed_slot_kernel_variant_useful_consumer_entry_args_ptr_native_v1.json",
+  "useful_consumer_sha256": "6bb2b045b3c4547d219c14fab46f5dc85c1a3708f8c2602a75d8da37112d640a",
+  "useful_consumer_summary": {
+    "consumer_signal": "ready_but_not_tpot_measured",
+    "fields_consumed": [
+      "descriptor_ptr",
+      "packed_weight_descriptor",
+      "scale_metadata_handle",
+      "aux_metadata_handle"
+    ],
+    "row_count": 5345,
+    "rows_consumed": 5345
+  },
+  "uses_current_wna16_args": false
+}

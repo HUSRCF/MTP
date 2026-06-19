@@ -2,10 +2,98 @@
 
 ## Progress Version
 
-- Version: `v1.14-payloadless-live-config-repeat3-summary`
+- Version: `v1.15-payloadless-live-config-decision-gate`
 - Updated: 2026-06-20
 
-## Latest Update: Heldout32 Payloadless Live-Config TPOT Check Failed Positive Gate
+## Latest Update: Payloadless Live-Config Performance Decision Gate
+
+The payloadless live-config path now has an explicit performance decision gate
+that combines three pieces of evidence:
+
+```text
+outputs/reports/premap_kernel_consumer/production_like_tpot/future_wna16_typed_slot_payloadless_useful_ab_repeat3_summary_v1.json
+outputs/reports/premap_kernel_consumer/production_like_tpot_heldout32/future_wna16_typed_slot_payloadless_useful_ab_comparison_dolly32_heldout32_gen64_graph_v1.json
+outputs/reports/premap_kernel_consumer/future_wna16_typed_slot_kernel_variant_useful_consumer_entry_args_ptr_native_v1.json
+```
+
+Decision artifact:
+
+```text
+outputs/reports/premap_kernel_consumer/production_like_tpot/payloadless_live_config_performance_decision_gate_v1.json
+```
+
+Decision:
+
+```text
+passed = true
+freeze_payloadless_live_config_performance_claim = true
+payloadless_live_config_status = safe_participation_path_not_performance_mainline
+real_performance_next_path = future_typed_slot_useful_consumer_or_payload_cache_manager
+```
+
+Evidence summary:
+
+```text
+original repeat3:
+  repeat_count = 3
+  speedup_min  = 1.0136323704636496x
+  speedup_mean = 1.0143095573220535x
+
+heldout32:
+  speedup     = 0.9770054930715804x
+  improvement = -2.3535698715600795%
+
+useful native consumer:
+  row_count = 5345
+  rows_consumed = 5345
+  fields_consumed = descriptor_ptr / packed_weight_descriptor / scale_metadata_handle / aux_metadata_handle
+```
+
+Safety boundary:
+
+```text
+payload_bytes = 0
+payload_deref_allowed = false
+kernel_arg_pass_allowed = false
+passed_to_kernel = false
+changes_kernel_launch_args = false
+uses_current_wna16_args = false
+passes_current_wna16_args = false
+current_wna16_arg_compatible = false
+requires_wna16_arg_reinterpretation = false
+```
+
+Interpretation:
+
+```text
+The original split's small positive TPOT signal is not heldout-robust.  The
+payloadless live-config path remains useful as a safety/participation path, but
+its performance claim is disabled.  Performance work should move to a real
+future typed-slot/native consumer path or payload/cache-manager action with
+non-trivial useful work.
+```
+
+Validation:
+
+```text
+/home/husrcf/anaconda3/envs/TRY/bin/python -m pytest \
+  tests/test_build_payloadless_live_config_decision_gate.py \
+  tests/test_summarize_future_wna16_typed_slot_payloadless_useful_ab_repeats.py \
+  tests/test_build_future_wna16_typed_slot_payloadless_useful_ab_comparison.py \
+  tests/test_run_future_wna16_typed_slot_kernel_variant_useful_consumer.py -q
+
+33 passed
+```
+
+Next stage:
+
+```text
+keep payloadless live-config as safe but not performance-robust;
+continue with real useful native typed-slot consumption or payload/cache-manager
+runtime work rather than more payloadless TPOT repeats.
+```
+
+## Previous Update: Heldout32 Payloadless Live-Config TPOT Check Failed Positive Gate
 
 The heldout32 paired TPOT run is complete.  It does not reproduce the original
 split's small positive signal:
@@ -42,48 +130,6 @@ uses_current_wna16_args = false
 passes_current_wna16_args = false
 current_wna16_arg_compatible = false
 requires_wna16_arg_reinterpretation = false
-```
-
-Interpretation:
-
-```text
-The payloadless live-config path is safe and low-overhead, but its small
-original-split positive signal is not robust enough to claim a runtime win.
-
-Do not promote payloadless live-config to a performance feature based on the
-current evidence.  Keep it as a safety/participation path, and move performance
-work toward a real future typed-slot/native consumer path or another useful
-payload/cache-manager action with a stronger Amdahl target.
-```
-
-Validation:
-
-```text
-baseline run:
-  passed = true
-  sample_count = 32
-  requested_output_token_count = 2048
-  input_token_count = 1727
-
-candidate run:
-  passed = true
-  sample_count = 32
-  requested_output_token_count = 2048
-  input_token_count = 1727
-
-comparison:
-  comparison_ready = true
-  measures_tpot = true
-  measures_vllm_latency = true
-  performance_claim_ready = false
-```
-
-Next stage:
-
-```text
-freeze payloadless live-config as safe but not performance-robust;
-continue with a real future WNA16 typed-slot/native consumer benchmark or a
-payload/cache-manager path that can create non-trivial useful work.
 ```
 
 ## Previous Update: Heldout32 Payloadless Live-Config Readiness Gate Added
