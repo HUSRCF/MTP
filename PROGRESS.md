@@ -36728,3 +36728,84 @@ typed-slot ABI/stub path. Live handoff is disabled, current WNA16 fused-MoE args
 are not passed, payload is not dereferenced, and TPOT/vLLM latency are not
 measured.
 ```
+
+## Latest Update: Second-Field Canary Uses Kernel-Side One-Field Gate
+
+The second-field handoff canary now consumes the kernel-side-path one-field
+artifact instead of the older one-field default:
+
+```text
+outputs/reports/premap_kernel_consumer/future_wna16_typed_slot_kernel_variant_one_field_handoff_canary_kernel_side_path_v1.json
+```
+
+It also validates the first artifact's flattened payloadless
+`future_wna16_kernel_side_typed_consumer_path` evidence. This includes file-level
+evidence closure:
+
+```text
+evidence_path exists
+evidence_sha256 matches recomputed file SHA
+artifact_kind = future_wna16_kernel_side_typed_consumer_path
+passed = true
+stage_type = lab_gate
+native_consumer_executed = true
+native_consumer_passed = true
+source_count / input_json_count / row_count / row_ok_count match
+all_four_sha256 matches
+selected_input_manifest_sha256 matches
+payload_bytes = 0
+kernel_arg_pass_allowed = false
+passed_to_kernel = false
+changes_kernel_launch_args = false
+uses_current_wna16_args = false
+measures_tpot = false
+measures_vllm_latency = false
+```
+
+Generated artifact:
+
+```text
+outputs/reports/premap_kernel_consumer/future_wna16_typed_slot_kernel_variant_second_field_handoff_canary_kernel_side_path_v1.json
+```
+
+Real-artifact validation:
+
+```text
+passed = true
+first_field_name = scale_metadata_handle
+second_field_name = aux_metadata_handle
+second_field_handoff_canary_native_executed = true
+source_count = 128
+row_count = 5345
+row_ok_count = 5345
+second_field_handoff_live_enabled = false
+payload_bytes = 0
+kernel_arg_pass_allowed = false
+passed_to_kernel = false
+changes_kernel_launch_args = false
+uses_current_wna16_args = false
+measures_tpot = false
+measures_vllm_latency = false
+```
+
+Validation:
+
+```text
+conda run -n TRY python -m pytest \
+  tests/test_run_future_wna16_typed_slot_kernel_variant_second_field_handoff_canary.py -q
+# 24 passed
+
+conda run -n TRY python -m pytest \
+  tests/test_run_future_wna16_typed_slot_kernel_variant_second_field_handoff_canary.py \
+  tests/test_run_future_wna16_typed_slot_kernel_variant_one_field_handoff_canary.py \
+  tests/test_run_future_wna16_typed_slot_kernel_variant_payloadless_execution.py -q
+# 89 passed
+```
+
+Boundary remains unchanged:
+
+```text
+Second-field remains a readonly independent typed-slot ABI/stub canary. It does
+not pass current WNA16 fused-MoE args, does not dereference payload, and does not
+measure TPOT/vLLM latency.
+```

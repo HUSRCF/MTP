@@ -34,7 +34,7 @@ DEFAULT_FIRST_FIELD_JSON = (
     / "outputs"
     / "reports"
     / "premap_kernel_consumer"
-    / "future_wna16_typed_slot_kernel_variant_one_field_handoff_canary_v3_default.json"
+    / "future_wna16_typed_slot_kernel_variant_one_field_handoff_canary_kernel_side_path_v1.json"
 )
 DEFAULT_OUTPUT_JSON = (
     REPO_ROOT
@@ -65,6 +65,7 @@ HANDLE_FIELDS = (
     "scale_metadata_handle",
     "aux_metadata_handle",
 )
+KERNEL_SIDE_TYPED_PATH_PREFIX = "payloadless_future_wna16_kernel_side_typed_consumer_path"
 FIELD_KINDS = {
     "descriptor_ptr": 1,
     "packed_weight_descriptor": 2,
@@ -231,6 +232,117 @@ def _check_bound_evidence_file(
     return failures
 
 
+def _check_payloadless_kernel_side_evidence(first: dict[str, Any]) -> list[str]:
+    failures: list[str] = []
+    source_count = _int_metric(first, "source_count")
+    row_count = _int_metric(first, "row_count")
+    expected_scalars = {
+        f"{KERNEL_SIDE_TYPED_PATH_PREFIX}_ready": True,
+        f"{KERNEL_SIDE_TYPED_PATH_PREFIX}_hashes_valid": True,
+    }
+    for key, expected in expected_scalars.items():
+        if first.get(key) != expected:
+            failures.append(f"first_{key}_mismatch:{first.get(key)!r}!={expected!r}")
+    kernel_source_count = _int_metric(first, f"{KERNEL_SIDE_TYPED_PATH_PREFIX}_source_count")
+    if kernel_source_count is None:
+        failures.append("first_payloadless_kernel_side_source_count_invalid")
+    elif source_count is not None and kernel_source_count != source_count:
+        failures.append("first_payloadless_kernel_side_source_count_mismatch")
+    kernel_input_count = _int_metric(first, f"{KERNEL_SIDE_TYPED_PATH_PREFIX}_input_json_count")
+    if kernel_input_count is None:
+        failures.append("first_payloadless_kernel_side_input_count_invalid")
+    elif source_count is not None and kernel_input_count != source_count:
+        failures.append("first_payloadless_kernel_side_input_count_mismatch")
+    kernel_row_count = _int_metric(first, f"{KERNEL_SIDE_TYPED_PATH_PREFIX}_row_count")
+    kernel_row_ok_count = _int_metric(first, f"{KERNEL_SIDE_TYPED_PATH_PREFIX}_row_ok_count")
+    if kernel_row_count is None:
+        failures.append("first_payloadless_kernel_side_row_count_invalid")
+    elif row_count is not None and kernel_row_count != row_count:
+        failures.append("first_payloadless_kernel_side_row_count_mismatch")
+    if kernel_row_ok_count is None:
+        failures.append("first_payloadless_kernel_side_row_ok_count_invalid")
+    elif kernel_row_count is not None and kernel_row_ok_count != kernel_row_count:
+        failures.append("first_payloadless_kernel_side_row_ok_count_mismatch")
+    path_key = f"{KERNEL_SIDE_TYPED_PATH_PREFIX}_evidence_path"
+    sha_key = f"{KERNEL_SIDE_TYPED_PATH_PREFIX}_evidence_sha256"
+    evidence_path_value = first.get(path_key)
+    evidence_sha_value = first.get(sha_key)
+    evidence_payload: dict[str, Any] | None = None
+    if not isinstance(evidence_path_value, str) or not evidence_path_value:
+        failures.append("first_payloadless_kernel_side_evidence_path_missing")
+    elif not _is_sha256_hex(evidence_sha_value):
+        failures.append("first_payloadless_kernel_side_evidence_sha_invalid")
+    else:
+        evidence_path = _resolve(evidence_path_value)
+        try:
+            actual_sha = _sha256(evidence_path)
+        except Exception as exc:
+            failures.append(
+                "first_payloadless_kernel_side_evidence_sha_failed:"
+                f"{exc.__class__.__name__}:{exc}"
+            )
+        else:
+            if actual_sha != evidence_sha_value:
+                failures.append("first_payloadless_kernel_side_evidence_sha_mismatch")
+            else:
+                try:
+                    evidence_payload = _load_json(evidence_path)
+                except Exception as exc:
+                    failures.append(
+                        "first_payloadless_kernel_side_evidence_json_invalid:"
+                        f"{exc.__class__.__name__}:{exc}"
+                    )
+    if evidence_payload is None:
+        return failures
+    expected_evidence = {
+        "artifact_kind": "future_wna16_kernel_side_typed_consumer_path",
+        "passed": True,
+        "stage_type": "lab_gate",
+        "bench_semantics": False,
+        "all_four_gate_ready": True,
+        "native_consumer_executed": True,
+        "native_consumer_passed": True,
+        "payload_bytes": 0,
+        "payload_deref_allowed": False,
+        "kernel_arg_pass_allowed": False,
+        "passed_to_kernel": False,
+        "changes_kernel_launch_args": False,
+        "uses_current_wna16_args": False,
+        "measures_tpot": False,
+        "measures_vllm_latency": False,
+        "wna16_benchmark_ready": False,
+    }
+    for key, expected in expected_evidence.items():
+        if evidence_payload.get(key) != expected:
+            failures.append(
+                f"first_payloadless_kernel_side_evidence_{key}_mismatch:"
+                f"{evidence_payload.get(key)!r}!={expected!r}"
+            )
+    if evidence_payload.get("failures") != []:
+        failures.append("first_payloadless_kernel_side_evidence_failures_not_empty")
+    if source_count is not None and _int_metric(evidence_payload, "source_count") != source_count:
+        failures.append("first_payloadless_kernel_side_evidence_source_count_mismatch")
+    if kernel_input_count is not None and _int_metric(evidence_payload, "input_json_count") != kernel_input_count:
+        failures.append("first_payloadless_kernel_side_evidence_input_count_mismatch")
+    if row_count is not None and _int_metric(evidence_payload, "row_count") != row_count:
+        failures.append("first_payloadless_kernel_side_evidence_row_count_mismatch")
+    if row_count is not None and _int_metric(evidence_payload, "row_ok_count") != row_count:
+        failures.append("first_payloadless_kernel_side_evidence_row_ok_count_mismatch")
+    all_four_sha = first.get(f"{KERNEL_SIDE_TYPED_PATH_PREFIX}_all_four_sha256")
+    if not _is_sha256_hex(all_four_sha):
+        failures.append("first_payloadless_kernel_side_all_four_sha_invalid")
+    elif evidence_payload.get("all_four_sha256") != all_four_sha:
+        failures.append("first_payloadless_kernel_side_evidence_all_four_sha_mismatch")
+    selected_manifest = first.get(
+        f"{KERNEL_SIDE_TYPED_PATH_PREFIX}_selected_input_manifest_sha256"
+    )
+    if not _is_sha256_hex(selected_manifest):
+        failures.append("first_payloadless_kernel_side_selected_manifest_invalid")
+    elif evidence_payload.get("selected_input_manifest_sha256") != selected_manifest:
+        failures.append("first_payloadless_kernel_side_evidence_selected_manifest_mismatch")
+    return failures
+
+
 def _check_first_field(
     first: dict[str, Any],
     *,
@@ -384,6 +496,7 @@ def _check_first_field(
             sha_key="payloadless_fourth_field_handoff_evidence_sha256",
         )
     )
+    failures.extend(_check_payloadless_kernel_side_evidence(first))
     failures.extend(_required_false_failures("first", first))
     return failures
 
@@ -841,6 +954,36 @@ def run_second_field_handoff_canary(args: argparse.Namespace) -> dict[str, Any]:
         ),
         "payloadless_all_four_field_consumer_fourth_field_sha256": first.get(
             "payloadless_all_four_field_consumer_fourth_field_sha256"
+        ),
+        "payloadless_future_wna16_kernel_side_typed_consumer_path_ready": first.get(
+            f"{KERNEL_SIDE_TYPED_PATH_PREFIX}_ready"
+        ),
+        "payloadless_future_wna16_kernel_side_typed_consumer_path_hashes_valid": first.get(
+            f"{KERNEL_SIDE_TYPED_PATH_PREFIX}_hashes_valid"
+        ),
+        "payloadless_future_wna16_kernel_side_typed_consumer_path_evidence_path": first.get(
+            f"{KERNEL_SIDE_TYPED_PATH_PREFIX}_evidence_path"
+        ),
+        "payloadless_future_wna16_kernel_side_typed_consumer_path_evidence_sha256": first.get(
+            f"{KERNEL_SIDE_TYPED_PATH_PREFIX}_evidence_sha256"
+        ),
+        "payloadless_future_wna16_kernel_side_typed_consumer_path_source_count": first.get(
+            f"{KERNEL_SIDE_TYPED_PATH_PREFIX}_source_count"
+        ),
+        "payloadless_future_wna16_kernel_side_typed_consumer_path_input_json_count": first.get(
+            f"{KERNEL_SIDE_TYPED_PATH_PREFIX}_input_json_count"
+        ),
+        "payloadless_future_wna16_kernel_side_typed_consumer_path_row_count": first.get(
+            f"{KERNEL_SIDE_TYPED_PATH_PREFIX}_row_count"
+        ),
+        "payloadless_future_wna16_kernel_side_typed_consumer_path_row_ok_count": first.get(
+            f"{KERNEL_SIDE_TYPED_PATH_PREFIX}_row_ok_count"
+        ),
+        "payloadless_future_wna16_kernel_side_typed_consumer_path_all_four_sha256": first.get(
+            f"{KERNEL_SIDE_TYPED_PATH_PREFIX}_all_four_sha256"
+        ),
+        "payloadless_future_wna16_kernel_side_typed_consumer_path_selected_input_manifest_sha256": first.get(
+            f"{KERNEL_SIDE_TYPED_PATH_PREFIX}_selected_input_manifest_sha256"
         ),
         "source_count": second_source_count,
         "row_count": second_row_count,
