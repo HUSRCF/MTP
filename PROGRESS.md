@@ -214,6 +214,34 @@ full_fetch_block_reason = insufficient_stream_lookahead
 next_runtime_stage = implement_earlier_producer_issue_before_real_payload_runtime
 ```
 
+Earlier-issue feasibility:
+
+```text
+script:
+  scripts/build_premap_payload_cache_stream_earlier_issue_feasibility.py
+
+artifact:
+  outputs/reports/premap_kernel_consumer/premap_payload_cache_stream_earlier_issue_feasibility_dolly4_gen64_v1_20260620.json
+
+required_stream_lookahead_us = 200000.0
+current_lookahead_us = 0.0
+decode_token_us_values = 50000 / 75000 / 100000
+required_lead_tokens = 4 / 3 / 2
+required_lead_layer_stages = 160 / 107 / 80  (with decoder_layer_count=40)
+full_fetch_runtime_allowed = false
+next_runtime_stage = producer_side_earlier_issue_model
+```
+
+Interpretation:
+
+```text
+The measured-copy stream model is not compatible with same-step issue, but it
+is plausible if the producer can issue 2-4 decode tokens earlier, depending on
+the actual TPOT envelope.  This is still a lead-time feasibility model only:
+no payload is moved, no ready credit is granted, no kernel args are touched, and
+no endpoint latency is measured.
+```
+
 ## Previous Update: Payload Cache Full-Fetch Slack/Lookahead Decision Gate
 
 Follow-up lookahead sweep:
