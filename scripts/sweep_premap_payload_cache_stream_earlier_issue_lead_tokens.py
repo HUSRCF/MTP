@@ -17,7 +17,7 @@ DEFAULT_OUTPUT_JSON = (
     / "outputs"
     / "reports"
     / "premap_kernel_consumer"
-    / "premap_payload_cache_stream_earlier_issue_lead_tokens_dolly4_gen64_v1_20260620.json"
+    / "premap_payload_cache_stream_earlier_issue_lead_tokens_dolly4_gen64_decode75ms_v1_20260620.json"
 )
 SAFE_FALSE_FLAGS = (
     "ready_credit",
