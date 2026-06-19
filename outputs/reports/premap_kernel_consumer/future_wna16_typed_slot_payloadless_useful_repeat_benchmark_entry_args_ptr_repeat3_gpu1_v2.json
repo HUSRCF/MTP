@@ -1,0 +1,84 @@
+{
+  "artifact_kind": "future_wna16_typed_slot_payloadless_useful_repeat_benchmark",
+  "benchmark_is_current_wna16_fused_moe": false,
+  "benchmark_mode": "payloadless_useful_native_stub_repeat_benchmark",
+  "benchmark_name": "premap_future_wna16_typed_slot_payloadless_useful_repeat_benchmark_v1",
+  "benchmark_outer_wall_ms_stats": {
+    "count": 3,
+    "max_ms": 341.655032,
+    "mean_ms": 338.07395033333336,
+    "median_ms": 336.872049,
+    "min_ms": 335.69477
+  },
+  "benchmark_outer_wall_ms_values": [
+    335.69477,
+    336.872049,
+    341.655032
+  ],
+  "benchmark_scope": "payloadless_useful_independent_native_stub_host_wall",
+  "benchmark_source": "premap_future_wna16_typed_slot_payloadless_useful_benchmark_harness_v1",
+  "changes_kernel_launch_args": false,
+  "current_wna16_arg_compatible": false,
+  "failures": [],
+  "field_names": [
+    "descriptor_ptr",
+    "packed_weight_descriptor",
+    "scale_metadata_handle",
+    "aux_metadata_handle"
+  ],
+  "field_read_hashes": {
+    "aux_metadata_handle": "a04665434ccddb4b",
+    "descriptor_ptr": "6e08db27babecb6a",
+    "packed_weight_descriptor": "c5ca7b791f2fef98",
+    "scale_metadata_handle": "564bfdbd0fc6aecb"
+  },
+  "harness_json": "/home/husrcf/Code/ProtBind/MTP/outputs/reports/premap_kernel_consumer/future_wna16_typed_slot_payloadless_useful_benchmark_harness_entry_args_ptr_v1.json",
+  "harness_sha256": "b9b67f8f8d753b7f0dad09f95885ae50820988d2f1cdb3c9123bad684ac65b86",
+  "kernel_arg_pass_allowed": false,
+  "measurement_source": "repeated_independent_native_typed_slot_timing_stub",
+  "measures_native_stub_host_wall_time": true,
+  "measures_tpot": false,
+  "measures_vllm_latency": false,
+  "native_stub_host_wall_ms_stats": {
+    "count": 3,
+    "max_ms": 339.6817,
+    "mean_ms": 336.017158,
+    "median_ms": 334.658144,
+    "min_ms": 333.71163
+  },
+  "native_stub_host_wall_ms_values": [
+    333.71163,
+    334.658144,
+    339.6817
+  ],
+  "native_timing_seed_json": "/home/husrcf/Code/ProtBind/MTP/outputs/reports/premap_kernel_consumer/future_wna16_typed_slot_kernel_variant_execution_entry_args_ptr_native_v1/future_wna16_variant_execution_timing_stub.json",
+  "native_timing_seed_sha256": "e78f179ec2310df2f37c6049cecde51e1bd0570c224b49ff9e3a2fff6f57194d",
+  "next_runtime_stage": "implement_future_wna16_typed_slot_payloadless_useful_runtime_ablation",
+  "passed": true,
+  "passed_to_kernel": false,
+  "passes_current_wna16_args": false,
+  "payload_bytes": 0,
+  "payload_deref_allowed": false,
+  "payloadless_useful_repeat_benchmark_ready": true,
+  "repeat_count_measured": 3,
+  "repeat_count_requested": 3,
+  "repeat_output_jsons": [
+    "/home/husrcf/Code/ProtBind/MTP/outputs/reports/premap_kernel_consumer/future_wna16_typed_slot_payloadless_useful_repeat_benchmark_repeats_gpu1_repeat3_v2/timing_stub_repeat_000.json",
+    "/home/husrcf/Code/ProtBind/MTP/outputs/reports/premap_kernel_consumer/future_wna16_typed_slot_payloadless_useful_repeat_benchmark_repeats_gpu1_repeat3_v2/timing_stub_repeat_001.json",
+    "/home/husrcf/Code/ProtBind/MTP/outputs/reports/premap_kernel_consumer/future_wna16_typed_slot_payloadless_useful_repeat_benchmark_repeats_gpu1_repeat3_v2/timing_stub_repeat_002.json"
+  ],
+  "repeat_output_sha256s": [
+    "b3b93e5c969e0dacacd8669b2e85a9be645372390f7600b7cfe9c5793d66321f",
+    "586e8361832ee6853e33d4600c505d487f8b11e7be73698de869daee00e2df64",
+    "fd76d9f36d435fcbc660d875b6429cf412b960cf7f5c01907bf2739d973b4ca0"
+  ],
+  "requires_wna16_arg_reinterpretation": false,
+  "row_count": 5345,
+  "row_ok_count": 5345,
+  "rows_consumed": 5345,
+  "schema_version": 1,
+  "seed_only": false,
+  "source_count": 128,
+  "uses_current_wna16_args": false,
+  "wna16_benchmark_ready": false
+}

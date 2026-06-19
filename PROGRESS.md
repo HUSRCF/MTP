@@ -2,10 +2,100 @@
 
 ## Progress Version
 
-- Version: `v1.15-payloadless-live-config-decision-gate`
+- Version: `v1.16-payloadless-useful-native-stub-repeat-gate`
 - Updated: 2026-06-20
 
-## Latest Update: Payloadless Live-Config Performance Decision Gate
+## Latest Update: Payloadless Useful Native-Stub Repeat Gate
+
+The independent typed-slot useful-consumer path now has a repeat/stability gate
+on GPU1.  This is not a vLLM TPOT result and not a current WNA16 fused-MoE
+benchmark.  It validates the native stub cost/stability for the payloadless
+useful-consumer chain:
+
+```text
+outputs/reports/premap_kernel_consumer/future_wna16_typed_slot_payloadless_useful_repeat_benchmark_entry_args_ptr_repeat3_gpu1_v2.json
+outputs/reports/premap_kernel_consumer/future_wna16_typed_slot_payloadless_useful_runtime_ablation_entry_args_ptr_repeat3_gpu1_v2.json
+```
+
+Result:
+
+```text
+passed = true
+payloadless_useful_runtime_ablation_ready = true
+repeat_count_measured = 3
+row_count = 5345
+rows_consumed = 5345
+
+native_stub_host_wall_ms:
+  min    = 333.711630
+  median = 334.658144
+  mean   = 336.017158
+  max    = 339.681700
+  relative_range = 0.017839308879929617
+  coefficient_of_variation = 0.009549153322676151
+```
+
+Boundary:
+
+```text
+measures_tpot = false
+measures_vllm_latency = false
+wna16_benchmark_ready = false
+benchmark_is_current_wna16_fused_moe = false
+payload_bytes = 0
+payload_deref_allowed = false
+kernel_arg_pass_allowed = false
+passed_to_kernel = false
+changes_kernel_launch_args = false
+uses_current_wna16_args = false
+passes_current_wna16_args = false
+current_wna16_arg_compatible = false
+requires_wna16_arg_reinterpretation = false
+```
+
+Interpretation:
+
+```text
+The future typed-slot useful-consumer native stub is stable enough as an
+independent payloadless ABI/stub path.  It is not a speedup claim.  It should be
+used as a cost/stability gate before attempting useful production-like timing or
+real payload/cache-manager work.
+```
+
+Operational note:
+
+```text
+ROCm device access is not available inside the restricted sandbox because
+/dev/kfd and /dev/dri are hidden.  GPU native stub repeats must run outside the
+sandbox.  The failed in-sandbox repeat attempts are not experiment failures.
+```
+
+Validation:
+
+```text
+/home/husrcf/anaconda3/envs/TRY/bin/python \
+  scripts/run_future_wna16_typed_slot_payloadless_useful_repeat_benchmark.py \
+  --repeat-count 3 --device 1 \
+  --output-json outputs/reports/premap_kernel_consumer/future_wna16_typed_slot_payloadless_useful_repeat_benchmark_entry_args_ptr_repeat3_gpu1_v2.json \
+  --repeat-output-dir outputs/reports/premap_kernel_consumer/future_wna16_typed_slot_payloadless_useful_repeat_benchmark_repeats_gpu1_repeat3_v2 \
+  --require-pass
+
+/home/husrcf/anaconda3/envs/TRY/bin/python \
+  scripts/run_future_wna16_typed_slot_payloadless_useful_runtime_ablation.py \
+  --repeat-benchmark-json outputs/reports/premap_kernel_consumer/future_wna16_typed_slot_payloadless_useful_repeat_benchmark_entry_args_ptr_repeat3_gpu1_v2.json \
+  --output-json outputs/reports/premap_kernel_consumer/future_wna16_typed_slot_payloadless_useful_runtime_ablation_entry_args_ptr_repeat3_gpu1_v2.json \
+  --require-pass
+```
+
+Next stage:
+
+```text
+do not use this as a TPOT/performance claim;
+continue toward useful production-like timing or a real payload/cache-manager
+runtime path with non-trivial useful work.
+```
+
+## Previous Update: Payloadless Live-Config Performance Decision Gate
 
 The payloadless live-config path now has an explicit performance decision gate
 that combines three pieces of evidence:
