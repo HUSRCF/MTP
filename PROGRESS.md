@@ -2,19 +2,20 @@
 
 ## Progress Version
 
-- Version: `v1.09-payloadless-useful-repeat-benchmark-gate`
+- Version: `v1.10-payloadless-useful-repeat3-default-preflight-gate`
 - Updated: 2026-06-19
 
-## Latest Update: Payloadless Useful Runtime/Harness/Repeat Gates Added
+## Latest Update: Payloadless Useful Repeat3 Gate Promoted To Default Lab Preflight
 
-The future-WNA16 typed-slot path now has three additional payloadless useful
-gates after the default lab preflight:
+The future-WNA16 typed-slot path now has the payloadless useful repeat benchmark
+bound into the default lab preflight as a required evidence gate:
 
 ```text
 premap lab preflight summary/check
--> payloadless useful runtime gate
--> payloadless useful benchmark harness
--> payloadless useful repeat benchmark gate
+-> payloadless useful runtime gate evidence
+-> payloadless useful benchmark harness evidence
+-> payloadless useful repeat3 benchmark evidence
+-> default lab preflight required evidence
 ```
 
 Latest artifacts:
@@ -27,21 +28,36 @@ outputs/reports/premap_kernel_consumer/future_wna16_typed_slot_payloadless_usefu
 outputs/reports/premap_kernel_consumer/future_wna16_typed_slot_payloadless_useful_repeat_benchmark_entry_args_ptr_repeat3_gpu1_v1.json
 ```
 
-The runtime gate consumes the strict preflight summary/check and requires the
-payloadless useful execution chain to be a passed lab precondition.  The
-benchmark harness then binds the runtime gate to the native timing/stub
-evidence, including timing-to-stub path/SHA consistency.  The repeat benchmark
-currently runs in seed-only mode:
+The default lab preflight now requires:
 
 ```text
-seed_only = true
-measurement_source = validated_harness_seed_native_stub_host_wall
-repeat_count_requested = 0
-repeat_count_measured = 1
-seed_native_stub_host_wall_ms_values = [323.854801]
+future_wna16_typed_slot_payloadless_useful_repeat_benchmark_required = true
+future_wna16_typed_slot_payloadless_useful_repeat_benchmark_min_source_count = 128
+future_wna16_typed_slot_payloadless_useful_repeat_benchmark_min_repeat_count = 3
 ```
 
-This is a native-stub host-wall measurement only.  It is not a vLLM TPOT
+The required repeat evidence is not accepted as a standalone self-report.  The
+preflight validator loads and SHA-checks the child harness artifact, native
+timing seed artifact, every repeat timing artifact, and each native stub output.
+It also binds the repeat result back to the payloadless useful execution
+artifact by source count, row count, row-ok count, and all four field read
+hashes.
+
+Current default preflight result:
+
+```text
+default_kernel_consumer_future_wna16_payloadless_useful_repeat_benchmark_gate_ready = true
+repeat_count_requested = 3
+repeat_count_measured = 3
+seed_only = false
+measurement_source = repeated_independent_native_typed_slot_timing_stub
+native_stub_host_wall_ms median = 337.903546
+next_runtime_stage = implement_future_wna16_typed_slot_payloadless_useful_runtime_ablation
+required_evidence.required_count = 53
+required_evidence.passed_count = 53
+```
+
+This remains a native-stub host-wall measurement only.  It is not a vLLM TPOT
 benchmark, not a current AWQ WNA16 fused-MoE benchmark, and not a payload or
 kernel-argument handoff.
 
@@ -67,57 +83,36 @@ Validation:
 
 ```text
 /home/husrcf/anaconda3/envs/TRY/bin/python -m pytest \
-  tests/test_run_future_wna16_typed_slot_payloadless_useful_repeat_benchmark.py \
-  tests/test_run_future_wna16_typed_slot_payloadless_useful_benchmark_harness.py \
+  tests/test_run_premap_lab_preflight.py \
+  tests/test_check_premap_lab_preflight_summary.py \
   tests/test_run_future_wna16_typed_slot_payloadless_useful_runtime_gate.py \
-  tests/test_run_future_wna16_typed_slot_kernel_variant_payloadless_useful_execution.py -q
-# 29 passed
+  tests/test_run_future_wna16_typed_slot_payloadless_useful_benchmark_harness.py \
+  tests/test_run_future_wna16_typed_slot_payloadless_useful_repeat_benchmark.py -q
+# 276 passed
 
-/home/husrcf/anaconda3/envs/TRY/bin/python \
-  scripts/run_future_wna16_typed_slot_payloadless_useful_runtime_gate.py --require-pass
-# passed = true
+/home/husrcf/anaconda3/envs/TRY/bin/python scripts/run_premap_lab_preflight.py \
+  --summary-only \
+  --output-json outputs/reports/premap_kernel_consumer/premap_lab_preflight_entry_args_ptr_all_four_default_gate.json
 
-/home/husrcf/anaconda3/envs/TRY/bin/python \
-  scripts/run_future_wna16_typed_slot_payloadless_useful_benchmark_harness.py --require-pass
-# passed = true
-
-/home/husrcf/anaconda3/envs/TRY/bin/python \
-  scripts/run_future_wna16_typed_slot_payloadless_useful_repeat_benchmark.py --require-pass
-# passed = true
-
-env HIP_VISIBLE_DEVICES=1 /home/husrcf/anaconda3/envs/TRY/bin/python \
-  scripts/run_future_wna16_typed_slot_payloadless_useful_repeat_benchmark.py \
-  --repeat-count 1 --device 0 --hip-visible-devices 1 --require-pass \
-  --output-json outputs/reports/premap_kernel_consumer/future_wna16_typed_slot_payloadless_useful_repeat_benchmark_entry_args_ptr_repeat1_gpu1_v1.json
-# passed = true
-# repeat_count_requested = 1
-# repeat_count_measured = 1
-# measurement_source = repeated_independent_native_typed_slot_timing_stub
-# native_stub_host_wall_ms = 577.908960
-
-env HIP_VISIBLE_DEVICES=1 /home/husrcf/anaconda3/envs/TRY/bin/python \
-  scripts/run_future_wna16_typed_slot_payloadless_useful_repeat_benchmark.py \
-  --repeat-count 3 --device 0 --hip-visible-devices 1 --require-pass \
-  --repeat-output-dir outputs/reports/premap_kernel_consumer/future_wna16_typed_slot_payloadless_useful_repeat_benchmark_repeats_gpu1_repeat3 \
-  --output-json outputs/reports/premap_kernel_consumer/future_wna16_typed_slot_payloadless_useful_repeat_benchmark_entry_args_ptr_repeat3_gpu1_v1.json
-# passed = true
-# repeat_count_requested = 3
-# repeat_count_measured = 3
-# measurement_source = repeated_independent_native_typed_slot_timing_stub
-# native_stub_host_wall_ms median = 337.903546
+/home/husrcf/anaconda3/envs/TRY/bin/python scripts/check_premap_lab_preflight_summary.py \
+  outputs/reports/premap_kernel_consumer/premap_lab_preflight_entry_args_ptr_all_four_default_gate.json \
+  --output-json outputs/reports/premap_kernel_consumer/premap_lab_preflight_entry_args_ptr_all_four_default_gate.check.json
+# check passed = true
 ```
 
 For the explicit repeat runs, `--device 0` is the logical ROCm ordinal after
 `HIP_VISIBLE_DEVICES=1`, so it corresponds to physical GPU1.
 
-Next stage:
+Next stage remains:
 
 ```text
 implement_future_wna16_typed_slot_payloadless_useful_runtime_ablation
 ```
 
-The next useful step is to decide whether to promote the seed-only repeat gate
-into the default preflight summary/checker, or first run explicit repeat_count>0
+The next useful step is to run the payloadless useful runtime ablation and then
+decide whether this native typed-slot path is worth moving toward production-like
+vLLM timing, while keeping the current WNA16 kernel-argument path untouched until
+a real compatible consumer variant exists.
 native-stub repeats.  Neither path should open current WNA16 args or payload
 movement yet.
 

@@ -146,6 +146,9 @@ REQUIRED_DEFAULT_GATE_CONTRACT = {
     "future_wna16_typed_slot_kernel_variant_useful_consumer_min_source_count": 128,
     "future_wna16_typed_slot_kernel_variant_payloadless_useful_execution_required": True,
     "future_wna16_typed_slot_kernel_variant_payloadless_useful_execution_min_source_count": 128,
+    "future_wna16_typed_slot_payloadless_useful_repeat_benchmark_required": True,
+    "future_wna16_typed_slot_payloadless_useful_repeat_benchmark_min_source_count": 128,
+    "future_wna16_typed_slot_payloadless_useful_repeat_benchmark_min_repeat_count": 3,
     "wna16_side_consumer_variant_execution_required": True,
     "wna16_side_consumer_variant_execution_min_source_count": 128,
     "single_field_handle_handoff_canary_required": True,
@@ -300,6 +303,7 @@ REQUIRED_DEFAULT_GATE_EVIDENCE_JSON_LABELS = {
     "future_wna16_typed_slot_kernel_variant_execution_json",
     "future_wna16_typed_slot_kernel_variant_useful_consumer_json",
     "future_wna16_typed_slot_kernel_variant_payloadless_useful_execution_json",
+    "future_wna16_typed_slot_payloadless_useful_repeat_benchmark_json",
     "wna16_side_consumer_variant_execution_128strict_runner_json",
     "payload_cache_producer_state_native_canary_json",
     "payload_cache_producer_state_online_nonempty_issue_canary_json",
@@ -2424,6 +2428,134 @@ def _validate_future_wna16_typed_slot_kernel_variant_payloadless_useful_executio
     return failures
 
 
+def _validate_future_wna16_typed_slot_payloadless_useful_repeat_benchmark(
+    evidence: dict[str, Any],
+) -> list[str]:
+    failures: list[str] = []
+    expected_values = {
+        "artifact_kind": "future_wna16_typed_slot_payloadless_useful_repeat_benchmark",
+        "benchmark_name": (
+            "premap_future_wna16_typed_slot_payloadless_useful_repeat_benchmark_v1"
+        ),
+        "benchmark_mode": "payloadless_useful_native_stub_repeat_benchmark",
+        "benchmark_source": (
+            "premap_future_wna16_typed_slot_payloadless_useful_benchmark_harness_v1"
+        ),
+        "benchmark_scope": "payloadless_useful_independent_native_stub_host_wall",
+        "passed": True,
+        "failures": [],
+        "payloadless_useful_repeat_benchmark_ready": True,
+        "measurement_source": "repeated_independent_native_typed_slot_timing_stub",
+        "seed_only": False,
+        "benchmark_is_current_wna16_fused_moe": False,
+        "payload_bytes": 0,
+        "payload_deref_allowed": False,
+        "kernel_arg_pass_allowed": False,
+        "passed_to_kernel": False,
+        "changes_kernel_launch_args": False,
+        "uses_current_wna16_args": False,
+        "passes_current_wna16_args": False,
+        "current_wna16_arg_compatible": False,
+        "requires_wna16_arg_reinterpretation": False,
+        "measures_tpot": False,
+        "measures_vllm_latency": False,
+        "wna16_benchmark_ready": False,
+        "next_runtime_stage": (
+            "implement_future_wna16_typed_slot_payloadless_useful_runtime_ablation"
+        ),
+    }
+    for key, expected in expected_values.items():
+        failures.extend(_check_metric_equals(evidence, key, expected))
+
+    min_source_count = int(
+        REQUIRED_DEFAULT_GATE_CONTRACT[
+            "future_wna16_typed_slot_payloadless_useful_repeat_benchmark_min_source_count"
+        ]
+    )
+    min_repeat_count = int(
+        REQUIRED_DEFAULT_GATE_CONTRACT[
+            "future_wna16_typed_slot_payloadless_useful_repeat_benchmark_min_repeat_count"
+        ]
+    )
+    source_count = _int_metric(evidence, "source_count")
+    row_count = _int_metric(evidence, "row_count")
+    row_ok_count = _int_metric(evidence, "row_ok_count")
+    rows_consumed = _int_metric(evidence, "rows_consumed")
+    repeat_count_requested = _int_metric(evidence, "repeat_count_requested")
+    repeat_count_measured = _int_metric(evidence, "repeat_count_measured")
+    if source_count is None or source_count < min_source_count:
+        failures.append("source_count_invalid")
+    if row_count is None or row_count <= 0:
+        failures.append("row_count_invalid")
+    elif row_ok_count != row_count or rows_consumed != row_count:
+        failures.append("row_coverage_mismatch")
+    if (
+        repeat_count_requested is None
+        or repeat_count_requested < min_repeat_count
+        or repeat_count_measured != repeat_count_requested
+    ):
+        failures.append("repeat_count_invalid")
+    if evidence.get("field_names") != list(ARG_SLOT_MIRROR_FIELDS):
+        failures.append("field_names_mismatch")
+    field_hashes = evidence.get("field_read_hashes")
+    if not isinstance(field_hashes, dict):
+        failures.append("field_read_hashes_missing")
+        field_hashes = {}
+    for field in ARG_SLOT_MIRROR_FIELDS:
+        if _hex64_metric(field_hashes, field) is None:
+            failures.append(f"{field}_read_hash_invalid")
+    stats = evidence.get("native_stub_host_wall_ms_stats")
+    values = evidence.get("native_stub_host_wall_ms_values")
+    if not isinstance(stats, dict):
+        failures.append("native_stub_host_wall_ms_stats_missing")
+        stats = {}
+    if not isinstance(values, list):
+        failures.append("native_stub_host_wall_ms_values_missing")
+        values = []
+    if repeat_count_measured is not None:
+        if _int_metric(stats, "count") != repeat_count_measured:
+            failures.append("native_stub_host_wall_ms_stats_count_mismatch")
+        if len(values) != repeat_count_measured:
+            failures.append("native_stub_host_wall_ms_values_count_mismatch")
+    for key in ("min_ms", "median_ms", "mean_ms", "max_ms"):
+        value = stats.get(key)
+        if not isinstance(value, (int, float)) or value <= 0:
+            failures.append(f"native_stub_host_wall_ms_stats_{key}_invalid")
+    if any(not isinstance(value, (int, float)) or value <= 0 for value in values):
+        failures.append("native_stub_host_wall_ms_values_invalid")
+    for key in (
+        "harness_sha256",
+        "native_timing_seed_sha256",
+    ):
+        if _sha256_hex_metric(evidence, key) is None:
+            failures.append(f"{key}_invalid")
+    repeat_sha256s = evidence.get("repeat_output_sha256s")
+    if not isinstance(repeat_sha256s, list):
+        failures.append("repeat_output_sha256s_missing")
+        repeat_sha256s = []
+    if repeat_count_measured is not None and len(repeat_sha256s) != repeat_count_measured:
+        failures.append("repeat_output_sha256s_count_mismatch")
+    for idx, value in enumerate(repeat_sha256s):
+        if not isinstance(value, str) or _sha256_hex_metric({"v": value}, "v") is None:
+            failures.append(f"repeat_output_sha256_{idx}_invalid")
+    for key in (
+        "harness_json",
+        "native_timing_seed_json",
+    ):
+        value = evidence.get(key)
+        if not isinstance(value, str) or not value:
+            failures.append(f"{key}_missing")
+    repeat_jsons = evidence.get("repeat_output_jsons")
+    if not isinstance(repeat_jsons, list):
+        failures.append("repeat_output_jsons_missing")
+        repeat_jsons = []
+    if repeat_count_measured is not None and len(repeat_jsons) != repeat_count_measured:
+        failures.append("repeat_output_jsons_count_mismatch")
+    if any(not isinstance(value, str) or not value for value in repeat_jsons):
+        failures.append("repeat_output_jsons_invalid")
+    return failures
+
+
 def _validate_future_native_arg_slot_all_field_entry_args_ptr_sweep(
     evidence: dict[str, Any],
 ) -> list[str]:
@@ -2734,6 +2866,7 @@ def _validate_required_evidence_payload(
         "future_wna16_typed_slot_payloadless_execution_json",
         "future_wna16_typed_slot_kernel_variant_execution_json",
         "future_wna16_typed_slot_kernel_variant_useful_consumer_json",
+        "future_wna16_typed_slot_payloadless_useful_repeat_benchmark_json",
         "wna16_side_consumer_variant_execution_128strict_runner_json",
         "payload_cache_producer_state_native_canary_json",
         "payload_cache_producer_state_nonempty_issue_stub_json",
@@ -3599,6 +3732,341 @@ def _validate_required_evidence_payload(
             for key in ("source_count", "row_count", "row_ok_count"):
                 if evidence.get(key) != useful_payload.get(key):
                     failures.append(f"{evidence_label}:{key}_useful_mismatch")
+        return failures
+    if (
+        evidence_label
+        == "future_wna16_typed_slot_payloadless_useful_repeat_benchmark_json"
+    ):
+        failures = [
+            f"{evidence_label}:{failure}"
+            for failure in _validate_future_wna16_typed_slot_payloadless_useful_repeat_benchmark(
+                evidence
+            )
+        ]
+        if root is None:
+            failures.append(f"{evidence_label}:root_missing_for_child_validation")
+            return failures
+        row_count = _int_metric(evidence, "row_count")
+        source_count = _int_metric(evidence, "source_count")
+        field_hashes = evidence.get("field_read_hashes")
+        if not isinstance(field_hashes, dict):
+            field_hashes = {}
+        timing_seed_path = evidence.get("native_timing_seed_json")
+        expected_wna16_field_hashes: dict[str, Any] = {}
+        expected_wna16_hash_accumulator: Any = None
+        expected_wna16_handle_projection_hash_accumulator: Any = None
+        if evidence_paths is not None:
+            execution_path = evidence_paths.get(
+                "future_wna16_typed_slot_kernel_variant_payloadless_useful_execution_json"
+            )
+            if isinstance(execution_path, str) and execution_path:
+                execution_payload = _load_json_object_path(execution_path, root=root)
+                if _int_metric(execution_payload, "source_count") != source_count:
+                    failures.append(f"{evidence_label}:execution_source_count_mismatch")
+                if _int_metric(execution_payload, "row_count") != row_count:
+                    failures.append(f"{evidence_label}:execution_row_count_mismatch")
+                if _int_metric(execution_payload, "row_ok_count") != row_count:
+                    failures.append(f"{evidence_label}:execution_row_ok_count_mismatch")
+                execution_hashes = execution_payload.get("field_read_hashes")
+                if not isinstance(execution_hashes, dict):
+                    failures.append(f"{evidence_label}:execution_field_hashes_missing")
+                    execution_hashes = {}
+                for field in ARG_SLOT_MIRROR_FIELDS:
+                    if execution_hashes.get(field) != field_hashes.get(field):
+                        failures.append(
+                            f"{evidence_label}:execution_{field}_hash_mismatch"
+                        )
+                execution_timing_path = execution_payload.get("native_timing_json")
+                execution_timing_sha = execution_payload.get("native_timing_sha256")
+                if isinstance(execution_timing_path, str) and execution_timing_path:
+                    if not isinstance(timing_seed_path, str) or not timing_seed_path:
+                        failures.append(f"{evidence_label}:native_timing_seed_json_missing")
+                    else:
+                        execution_timing_label = _path_label(
+                            _path_for_label(execution_timing_path, root),
+                            root=root,
+                        )
+                        seed_timing_label = _path_label(
+                            _path_for_label(timing_seed_path, root),
+                            root=root,
+                        )
+                        if execution_timing_label != seed_timing_label:
+                            failures.append(
+                                f"{evidence_label}:native_timing_seed_json_execution_mismatch"
+                            )
+                else:
+                    failures.append(f"{evidence_label}:execution_native_timing_json_missing")
+                if evidence.get("native_timing_seed_sha256") != execution_timing_sha:
+                    failures.append(
+                        f"{evidence_label}:native_timing_seed_sha256_execution_mismatch"
+                    )
+                useful_hashes = execution_payload.get("useful_consumer_field_read_hashes")
+                if isinstance(useful_hashes, dict):
+                    expected_wna16_field_hashes = useful_hashes
+                else:
+                    failures.append(
+                        f"{evidence_label}:execution_useful_consumer_field_hashes_missing"
+                    )
+                expected_wna16_hash_accumulator = execution_payload.get(
+                    "wna16_side_consumer_variant_execution_hash_accumulator"
+                )
+                expected_wna16_handle_projection_hash_accumulator = execution_payload.get(
+                    "wna16_side_consumer_variant_execution_handle_projection_hash_accumulator"
+                )
+            else:
+                failures.append(f"{evidence_label}:execution_json_path_missing")
+        else:
+            failures.append(f"{evidence_label}:evidence_paths_missing")
+
+        def _check_child_payload(
+            *,
+            child_label: str,
+            child_path: Any,
+            child_sha: Any,
+            payload: dict[str, Any],
+            require_ready_key: str | None = None,
+        ) -> None:
+            if not isinstance(child_path, str) or not child_path:
+                failures.append(f"{evidence_label}:{child_label}_json_missing")
+                return
+            if _path_label_sha256(child_path, root=root) != child_sha:
+                failures.append(f"{evidence_label}:{child_label}_sha256_mismatch")
+            for key, expected in {
+                "passed": True,
+                "failures": [],
+                "payload_bytes": 0,
+                "payload_deref_allowed": False,
+                "kernel_arg_pass_allowed": False,
+                "passed_to_kernel": False,
+                "changes_kernel_launch_args": False,
+                "uses_current_wna16_args": False,
+                "passes_current_wna16_args": False,
+                "current_wna16_arg_compatible": False,
+                "requires_wna16_arg_reinterpretation": False,
+                "measures_tpot": False,
+                "measures_vllm_latency": False,
+                "wna16_benchmark_ready": False,
+            }.items():
+                if payload.get(key) != expected:
+                    failures.append(f"{evidence_label}:{child_label}_{key}_mismatch")
+            if require_ready_key is not None and payload.get(require_ready_key) is not True:
+                failures.append(f"{evidence_label}:{child_label}_{require_ready_key}_mismatch")
+            if child_label == "harness":
+                for key, expected in {
+                    "artifact_kind": "future_wna16_typed_slot_payloadless_useful_benchmark_harness",
+                    "harness_name": (
+                        "premap_future_wna16_typed_slot_payloadless_useful_benchmark_harness_v1"
+                    ),
+                    "harness_mode": (
+                        "independent_payloadless_useful_native_stub_benchmark_harness"
+                    ),
+                    "harness_source": (
+                        "premap_future_wna16_typed_slot_payloadless_useful_runtime_gate_v1"
+                    ),
+                    "benchmark_harness_kind": (
+                        "future_payloadless_useful_typed_slot_native_stub_harness"
+                    ),
+                    "benchmark_harness_ready": True,
+                    "measures_native_stub_host_wall_time": True,
+                }.items():
+                    if payload.get(key) != expected:
+                        failures.append(
+                            f"{evidence_label}:{child_label}_{key}_mismatch"
+                        )
+            else:
+                for key, expected in {
+                    "artifact_kind": "future_wna16_typed_slot_kernel_timing_stub",
+                    "timing_stub_name": (
+                        "premap_future_wna16_typed_slot_kernel_timing_stub_v1"
+                    ),
+                    "timing_stub_mode": (
+                        "independent_future_wna16_typed_slot_native_stub_timing"
+                    ),
+                    "timing_stub_source": (
+                        "premap_future_wna16_typed_slot_kernel_variant_entrypoint_v1"
+                    ),
+                    "native_stub_requested": True,
+                    "native_stub_executed": True,
+                    "native_stub_passed": True,
+                    "measures_native_stub_host_wall_time": True,
+                }.items():
+                    if payload.get(key) != expected:
+                        failures.append(
+                            f"{evidence_label}:{child_label}_{key}_mismatch"
+                        )
+                stub_path = payload.get("native_stub_output_json")
+                stub_sha = payload.get("native_stub_output_sha256")
+                if not isinstance(stub_path, str) or not stub_path:
+                    failures.append(f"{evidence_label}:{child_label}_native_stub_output_json_missing")
+                elif _path_label_sha256(stub_path, root=root) != stub_sha:
+                    failures.append(f"{evidence_label}:{child_label}_native_stub_output_sha256_mismatch")
+                else:
+                    stub_payload = _load_json_object_path(stub_path, root=root)
+                    for key, expected in {
+                        "passed": True,
+                        "failures": [],
+                        "payload_bytes": 0,
+                        "passed_to_kernel": False,
+                        "changes_kernel_launch_args": False,
+                    }.items():
+                        if stub_payload.get(key) != expected:
+                            failures.append(
+                                f"{evidence_label}:{child_label}_native_stub_{key}_mismatch"
+                            )
+                    for key, expected in {
+                        "wna16_side_consumer_variant_execution_payload_bytes": 0,
+                        "wna16_side_consumer_variant_execution_payload_deref_allowed": False,
+                        "wna16_side_consumer_variant_execution_kernel_arg_pass_allowed": False,
+                        "wna16_side_consumer_variant_execution_passed_to_kernel": False,
+                        "wna16_side_consumer_variant_execution_changes_kernel_launch_args": False,
+                        "wna16_side_consumer_variant_execution_current_wna16_arg_compatible": False,
+                        "wna16_side_consumer_variant_execution_requires_wna16_arg_reinterpretation": False,
+                        "wna16_side_consumer_variant_execution_reuses_current_wna16_arg_slot": False,
+                    }.items():
+                        if stub_payload.get(key) != expected:
+                            failures.append(
+                                f"{evidence_label}:{child_label}_native_stub_{key}_mismatch"
+                            )
+                    stub_row_count = _int_metric(stub_payload, "row_count")
+                    if stub_row_count is None:
+                        stub_row_count = _int_metric(
+                            stub_payload,
+                            "wna16_side_consumer_variant_execution_row_count",
+                        )
+                    stub_row_ok_count = _int_metric(stub_payload, "row_ok_count")
+                    if stub_row_ok_count is None:
+                        stub_row_ok_count = _int_metric(
+                            stub_payload,
+                            "wna16_side_consumer_variant_execution_row_ok_count",
+                        )
+                    if stub_row_count != row_count:
+                        failures.append(
+                            f"{evidence_label}:{child_label}_native_stub_row_count_mismatch"
+                        )
+                    if stub_row_ok_count != row_count:
+                        failures.append(
+                            f"{evidence_label}:{child_label}_native_stub_row_ok_count_mismatch"
+                        )
+                    if _int_metric(
+                        stub_payload,
+                        "wna16_side_consumer_variant_execution_error_count",
+                    ) != 0:
+                        failures.append(
+                            f"{evidence_label}:{child_label}_native_stub_wna16_error_count_mismatch"
+                        )
+                    if (
+                        expected_wna16_hash_accumulator is not None
+                        and stub_payload.get(
+                            "wna16_side_consumer_variant_execution_hash_accumulator"
+                        )
+                        != expected_wna16_hash_accumulator
+                    ):
+                        failures.append(
+                            f"{evidence_label}:{child_label}_native_stub_wna16_hash_mismatch"
+                        )
+                    if (
+                        expected_wna16_handle_projection_hash_accumulator is not None
+                        and stub_payload.get(
+                            "wna16_side_consumer_variant_execution_handle_projection_hash_accumulator"
+                        )
+                        != expected_wna16_handle_projection_hash_accumulator
+                    ):
+                        failures.append(
+                            f"{evidence_label}:{child_label}_native_stub_wna16_handle_projection_hash_mismatch"
+                        )
+                    for field in ARG_SLOT_MIRROR_FIELDS:
+                        field_prefix = (
+                            f"wna16_side_consumer_variant_execution_{field}_read"
+                        )
+                        if _int_metric(stub_payload, f"{field_prefix}_row_count") != row_count:
+                            failures.append(
+                                f"{evidence_label}:{child_label}_native_stub_{field}_row_count_mismatch"
+                            )
+                        if (
+                            _int_metric(stub_payload, f"{field_prefix}_row_ok_count")
+                            != row_count
+                        ):
+                            failures.append(
+                                f"{evidence_label}:{child_label}_native_stub_{field}_row_ok_count_mismatch"
+                            )
+                        if _int_metric(stub_payload, f"{field_prefix}_error_count") != 0:
+                            failures.append(
+                                f"{evidence_label}:{child_label}_native_stub_{field}_error_count_mismatch"
+                            )
+                        observed_hash = stub_payload.get(
+                            f"{field_prefix}_hash_accumulator"
+                        )
+                        if expected_wna16_field_hashes:
+                            if observed_hash != expected_wna16_field_hashes.get(field):
+                                failures.append(
+                                    f"{evidence_label}:{child_label}_native_stub_{field}_hash_mismatch"
+                                )
+                        elif not isinstance(observed_hash, str) or _hex64_metric(
+                            {"v": observed_hash},
+                            "v",
+                        ) is None:
+                            failures.append(
+                                f"{evidence_label}:{child_label}_native_stub_{field}_hash_invalid"
+                            )
+            if _int_metric(payload, "source_count") != source_count:
+                failures.append(f"{evidence_label}:{child_label}_source_count_mismatch")
+            if _int_metric(payload, "row_count") != row_count:
+                failures.append(f"{evidence_label}:{child_label}_row_count_mismatch")
+            if _int_metric(payload, "row_ok_count") != row_count:
+                failures.append(f"{evidence_label}:{child_label}_row_ok_count_mismatch")
+            payload_rows_consumed = _int_metric(payload, "rows_consumed")
+            if payload_rows_consumed is not None and payload_rows_consumed != row_count:
+                failures.append(f"{evidence_label}:{child_label}_rows_consumed_mismatch")
+            if payload.get("field_names") != list(ARG_SLOT_MIRROR_FIELDS):
+                failures.append(f"{evidence_label}:{child_label}_field_names_mismatch")
+            payload_field_hashes = payload.get("field_read_hashes")
+            if not isinstance(payload_field_hashes, dict):
+                failures.append(f"{evidence_label}:{child_label}_field_hashes_missing")
+                payload_field_hashes = {}
+            for field in ARG_SLOT_MIRROR_FIELDS:
+                if payload_field_hashes.get(field) != field_hashes.get(field):
+                    failures.append(f"{evidence_label}:{child_label}_{field}_hash_mismatch")
+
+        harness_path = evidence.get("harness_json")
+        harness_payload = _load_json_object_path(harness_path, root=root)
+        _check_child_payload(
+            child_label="harness",
+            child_path=harness_path,
+            child_sha=evidence.get("harness_sha256"),
+            payload=harness_payload,
+            require_ready_key="payloadless_useful_benchmark_harness_ready",
+        )
+        timing_seed_payload = _load_json_object_path(timing_seed_path, root=root)
+        _check_child_payload(
+            child_label="native_timing_seed",
+            child_path=timing_seed_path,
+            child_sha=evidence.get("native_timing_seed_sha256"),
+            payload=timing_seed_payload,
+            require_ready_key="timing_stub_ready",
+        )
+        repeat_jsons = evidence.get("repeat_output_jsons")
+        repeat_sha256s = evidence.get("repeat_output_sha256s")
+        repeat_values = evidence.get("native_stub_host_wall_ms_values")
+        if not isinstance(repeat_jsons, list):
+            repeat_jsons = []
+        if not isinstance(repeat_sha256s, list):
+            repeat_sha256s = []
+        if not isinstance(repeat_values, list):
+            repeat_values = []
+        for idx, child_path in enumerate(repeat_jsons):
+            child_sha = repeat_sha256s[idx] if idx < len(repeat_sha256s) else None
+            child_payload = _load_json_object_path(child_path, root=root)
+            _check_child_payload(
+                child_label=f"repeat_{idx}",
+                child_path=child_path,
+                child_sha=child_sha,
+                payload=child_payload,
+                require_ready_key="timing_stub_ready",
+            )
+            child_wall = child_payload.get("native_stub_host_wall_ms")
+            expected_wall = repeat_values[idx] if idx < len(repeat_values) else None
+            if child_wall != expected_wall:
+                failures.append(f"{evidence_label}:repeat_{idx}_host_wall_mismatch")
         return failures
     if evidence_label == "wna16_side_consumer_variant_execution_128strict_runner_json":
         return [
@@ -9730,6 +10198,20 @@ def run_premap_lab_preflight(
             root=root,
         )
     )
+    future_wna16_payloadless_useful_repeat_benchmark_evidence_label = (
+        "future_wna16_typed_slot_payloadless_useful_repeat_benchmark_json"
+    )
+    future_wna16_payloadless_useful_repeat_benchmark_evidence_row = _find_evidence_row(
+        default_gate_required_evidence_check,
+        future_wna16_payloadless_useful_repeat_benchmark_evidence_label,
+    )
+    future_wna16_payloadless_useful_repeat_benchmark_payload = (
+        _load_evidence_payload_from_check(
+            default_gate_required_evidence_check,
+            future_wna16_payloadless_useful_repeat_benchmark_evidence_label,
+            root=root,
+        )
+    )
     all_four_field_consumer_fourth_field_json = (
         all_four_field_consumer_payload.get("fourth_field_json")
     )
@@ -14010,6 +14492,261 @@ def run_premap_lab_preflight(
                 "wna16_benchmark_ready",
             )
         ),
+        "default_kernel_consumer_future_wna16_payloadless_useful_repeat_benchmark_evidence_label": (
+            future_wna16_payloadless_useful_repeat_benchmark_evidence_label
+        ),
+        "default_kernel_consumer_future_wna16_payloadless_useful_repeat_benchmark_evidence_path": (
+            future_wna16_payloadless_useful_repeat_benchmark_evidence_row.get("path")
+        ),
+        "default_kernel_consumer_future_wna16_payloadless_useful_repeat_benchmark_evidence_sha256": (
+            _evidence_row_sha256(
+                future_wna16_payloadless_useful_repeat_benchmark_evidence_row
+            )
+        ),
+        "default_kernel_consumer_future_wna16_payloadless_useful_repeat_benchmark_evidence_passed": (
+            _evidence_row_passed(
+                future_wna16_payloadless_useful_repeat_benchmark_evidence_row
+            )
+        ),
+        "default_kernel_consumer_future_wna16_payloadless_useful_repeat_benchmark_artifact_kind": (
+            future_wna16_payloadless_useful_repeat_benchmark_payload.get(
+                "artifact_kind"
+            )
+        ),
+        "default_kernel_consumer_future_wna16_payloadless_useful_repeat_benchmark_name": (
+            future_wna16_payloadless_useful_repeat_benchmark_payload.get(
+                "benchmark_name"
+            )
+        ),
+        "default_kernel_consumer_future_wna16_payloadless_useful_repeat_benchmark_mode": (
+            future_wna16_payloadless_useful_repeat_benchmark_payload.get(
+                "benchmark_mode"
+            )
+        ),
+        "default_kernel_consumer_future_wna16_payloadless_useful_repeat_benchmark_source": (
+            future_wna16_payloadless_useful_repeat_benchmark_payload.get(
+                "benchmark_source"
+            )
+        ),
+        "default_kernel_consumer_future_wna16_payloadless_useful_repeat_benchmark_scope": (
+            future_wna16_payloadless_useful_repeat_benchmark_payload.get(
+                "benchmark_scope"
+            )
+        ),
+        "default_kernel_consumer_future_wna16_payloadless_useful_repeat_benchmark_ready": (
+            _bool_metric(
+                future_wna16_payloadless_useful_repeat_benchmark_payload,
+                "payloadless_useful_repeat_benchmark_ready",
+            )
+        ),
+        "default_kernel_consumer_future_wna16_payloadless_useful_repeat_benchmark_source_count": (
+            _int_metric(
+                future_wna16_payloadless_useful_repeat_benchmark_payload,
+                "source_count",
+            )
+        ),
+        "default_kernel_consumer_future_wna16_payloadless_useful_repeat_benchmark_row_count": (
+            _int_metric(
+                future_wna16_payloadless_useful_repeat_benchmark_payload,
+                "row_count",
+            )
+        ),
+        "default_kernel_consumer_future_wna16_payloadless_useful_repeat_benchmark_row_ok_count": (
+            _int_metric(
+                future_wna16_payloadless_useful_repeat_benchmark_payload,
+                "row_ok_count",
+            )
+        ),
+        "default_kernel_consumer_future_wna16_payloadless_useful_repeat_benchmark_rows_consumed": (
+            _int_metric(
+                future_wna16_payloadless_useful_repeat_benchmark_payload,
+                "rows_consumed",
+            )
+        ),
+        "default_kernel_consumer_future_wna16_payloadless_useful_repeat_benchmark_repeat_count_requested": (
+            _int_metric(
+                future_wna16_payloadless_useful_repeat_benchmark_payload,
+                "repeat_count_requested",
+            )
+        ),
+        "default_kernel_consumer_future_wna16_payloadless_useful_repeat_benchmark_repeat_count_measured": (
+            _int_metric(
+                future_wna16_payloadless_useful_repeat_benchmark_payload,
+                "repeat_count_measured",
+            )
+        ),
+        "default_kernel_consumer_future_wna16_payloadless_useful_repeat_benchmark_measurement_source": (
+            future_wna16_payloadless_useful_repeat_benchmark_payload.get(
+                "measurement_source"
+            )
+        ),
+        "default_kernel_consumer_future_wna16_payloadless_useful_repeat_benchmark_seed_only": (
+            _bool_metric(
+                future_wna16_payloadless_useful_repeat_benchmark_payload,
+                "seed_only",
+            )
+        ),
+        "default_kernel_consumer_future_wna16_payloadless_useful_repeat_benchmark_native_stub_host_wall_ms_min": (
+            (
+                future_wna16_payloadless_useful_repeat_benchmark_payload.get(
+                    "native_stub_host_wall_ms_stats"
+                )
+                or {}
+            ).get("min_ms")
+        ),
+        "default_kernel_consumer_future_wna16_payloadless_useful_repeat_benchmark_native_stub_host_wall_ms_median": (
+            (
+                future_wna16_payloadless_useful_repeat_benchmark_payload.get(
+                    "native_stub_host_wall_ms_stats"
+                )
+                or {}
+            ).get("median_ms")
+        ),
+        "default_kernel_consumer_future_wna16_payloadless_useful_repeat_benchmark_native_stub_host_wall_ms_mean": (
+            (
+                future_wna16_payloadless_useful_repeat_benchmark_payload.get(
+                    "native_stub_host_wall_ms_stats"
+                )
+                or {}
+            ).get("mean_ms")
+        ),
+        "default_kernel_consumer_future_wna16_payloadless_useful_repeat_benchmark_native_stub_host_wall_ms_max": (
+            (
+                future_wna16_payloadless_useful_repeat_benchmark_payload.get(
+                    "native_stub_host_wall_ms_stats"
+                )
+                or {}
+            ).get("max_ms")
+        ),
+        "default_kernel_consumer_future_wna16_payloadless_useful_repeat_benchmark_descriptor_ptr_field_hash": (
+            (
+                future_wna16_payloadless_useful_repeat_benchmark_payload.get(
+                    "field_read_hashes"
+                )
+                or {}
+            ).get("descriptor_ptr")
+        ),
+        "default_kernel_consumer_future_wna16_payloadless_useful_repeat_benchmark_packed_weight_descriptor_field_hash": (
+            (
+                future_wna16_payloadless_useful_repeat_benchmark_payload.get(
+                    "field_read_hashes"
+                )
+                or {}
+            ).get("packed_weight_descriptor")
+        ),
+        "default_kernel_consumer_future_wna16_payloadless_useful_repeat_benchmark_scale_metadata_handle_field_hash": (
+            (
+                future_wna16_payloadless_useful_repeat_benchmark_payload.get(
+                    "field_read_hashes"
+                )
+                or {}
+            ).get("scale_metadata_handle")
+        ),
+        "default_kernel_consumer_future_wna16_payloadless_useful_repeat_benchmark_aux_metadata_handle_field_hash": (
+            (
+                future_wna16_payloadless_useful_repeat_benchmark_payload.get(
+                    "field_read_hashes"
+                )
+                or {}
+            ).get("aux_metadata_handle")
+        ),
+        "default_kernel_consumer_future_wna16_payloadless_useful_repeat_benchmark_harness_json": (
+            future_wna16_payloadless_useful_repeat_benchmark_payload.get(
+                "harness_json"
+            )
+        ),
+        "default_kernel_consumer_future_wna16_payloadless_useful_repeat_benchmark_harness_sha256": (
+            future_wna16_payloadless_useful_repeat_benchmark_payload.get(
+                "harness_sha256"
+            )
+        ),
+        "default_kernel_consumer_future_wna16_payloadless_useful_repeat_benchmark_native_timing_seed_json": (
+            future_wna16_payloadless_useful_repeat_benchmark_payload.get(
+                "native_timing_seed_json"
+            )
+        ),
+        "default_kernel_consumer_future_wna16_payloadless_useful_repeat_benchmark_native_timing_seed_sha256": (
+            future_wna16_payloadless_useful_repeat_benchmark_payload.get(
+                "native_timing_seed_sha256"
+            )
+        ),
+        "default_kernel_consumer_future_wna16_payloadless_useful_repeat_benchmark_payload_bytes": (
+            _int_metric(
+                future_wna16_payloadless_useful_repeat_benchmark_payload,
+                "payload_bytes",
+            )
+        ),
+        "default_kernel_consumer_future_wna16_payloadless_useful_repeat_benchmark_payload_deref_allowed": (
+            _bool_metric(
+                future_wna16_payloadless_useful_repeat_benchmark_payload,
+                "payload_deref_allowed",
+            )
+        ),
+        "default_kernel_consumer_future_wna16_payloadless_useful_repeat_benchmark_kernel_arg_pass_allowed": (
+            _bool_metric(
+                future_wna16_payloadless_useful_repeat_benchmark_payload,
+                "kernel_arg_pass_allowed",
+            )
+        ),
+        "default_kernel_consumer_future_wna16_payloadless_useful_repeat_benchmark_passed_to_kernel": (
+            _bool_metric(
+                future_wna16_payloadless_useful_repeat_benchmark_payload,
+                "passed_to_kernel",
+            )
+        ),
+        "default_kernel_consumer_future_wna16_payloadless_useful_repeat_benchmark_changes_kernel_launch_args": (
+            _bool_metric(
+                future_wna16_payloadless_useful_repeat_benchmark_payload,
+                "changes_kernel_launch_args",
+            )
+        ),
+        "default_kernel_consumer_future_wna16_payloadless_useful_repeat_benchmark_current_wna16_arg_compatible": (
+            _bool_metric(
+                future_wna16_payloadless_useful_repeat_benchmark_payload,
+                "current_wna16_arg_compatible",
+            )
+        ),
+        "default_kernel_consumer_future_wna16_payloadless_useful_repeat_benchmark_uses_current_wna16_args": (
+            _bool_metric(
+                future_wna16_payloadless_useful_repeat_benchmark_payload,
+                "uses_current_wna16_args",
+            )
+        ),
+        "default_kernel_consumer_future_wna16_payloadless_useful_repeat_benchmark_passes_current_wna16_args": (
+            _bool_metric(
+                future_wna16_payloadless_useful_repeat_benchmark_payload,
+                "passes_current_wna16_args",
+            )
+        ),
+        "default_kernel_consumer_future_wna16_payloadless_useful_repeat_benchmark_requires_wna16_arg_reinterpretation": (
+            _bool_metric(
+                future_wna16_payloadless_useful_repeat_benchmark_payload,
+                "requires_wna16_arg_reinterpretation",
+            )
+        ),
+        "default_kernel_consumer_future_wna16_payloadless_useful_repeat_benchmark_measures_tpot": (
+            _bool_metric(
+                future_wna16_payloadless_useful_repeat_benchmark_payload,
+                "measures_tpot",
+            )
+        ),
+        "default_kernel_consumer_future_wna16_payloadless_useful_repeat_benchmark_measures_vllm_latency": (
+            _bool_metric(
+                future_wna16_payloadless_useful_repeat_benchmark_payload,
+                "measures_vllm_latency",
+            )
+        ),
+        "default_kernel_consumer_future_wna16_payloadless_useful_repeat_benchmark_wna16_benchmark_ready": (
+            _bool_metric(
+                future_wna16_payloadless_useful_repeat_benchmark_payload,
+                "wna16_benchmark_ready",
+            )
+        ),
+        "default_kernel_consumer_future_wna16_payloadless_useful_repeat_benchmark_next_runtime_stage": (
+            future_wna16_payloadless_useful_repeat_benchmark_payload.get(
+                "next_runtime_stage"
+            )
+        ),
         "default_kernel_consumer_wna16_side_variant_evidence_label": (
             wna16_side_variant_evidence_label
         ),
@@ -16572,6 +17309,132 @@ def run_premap_lab_preflight(
         )
         is False
     )
+    future_wna16_payloadless_useful_repeat_benchmark_source_count = _int_metric(
+        lab_gate_status_summary,
+        "default_kernel_consumer_future_wna16_payloadless_useful_repeat_benchmark_source_count",
+    )
+    future_wna16_payloadless_useful_repeat_benchmark_row_count = _int_metric(
+        lab_gate_status_summary,
+        "default_kernel_consumer_future_wna16_payloadless_useful_repeat_benchmark_row_count",
+    )
+    future_wna16_payloadless_useful_repeat_benchmark_repeat_count_requested = (
+        _int_metric(
+            lab_gate_status_summary,
+            "default_kernel_consumer_future_wna16_payloadless_useful_repeat_benchmark_repeat_count_requested",
+        )
+    )
+    future_wna16_payloadless_useful_repeat_benchmark_repeat_count_measured = (
+        _int_metric(
+            lab_gate_status_summary,
+            "default_kernel_consumer_future_wna16_payloadless_useful_repeat_benchmark_repeat_count_measured",
+        )
+    )
+    future_wna16_payloadless_useful_repeat_benchmark_ready = (
+        future_wna16_payloadless_useful_execution_ready
+        and lab_gate_status_summary.get(
+            "default_kernel_consumer_future_wna16_payloadless_useful_repeat_benchmark_evidence_passed"
+        )
+        is True
+        and lab_gate_status_summary.get(
+            "default_kernel_consumer_future_wna16_payloadless_useful_repeat_benchmark_ready"
+        )
+        is True
+        and future_wna16_payloadless_useful_repeat_benchmark_source_count is not None
+        and future_wna16_payloadless_useful_repeat_benchmark_source_count
+        >= int(
+            REQUIRED_DEFAULT_GATE_CONTRACT[
+                "future_wna16_typed_slot_payloadless_useful_repeat_benchmark_min_source_count"
+            ]
+        )
+        and future_wna16_payloadless_useful_repeat_benchmark_source_count
+        == future_wna16_payloadless_useful_execution_source_count
+        and future_wna16_payloadless_useful_repeat_benchmark_row_count is not None
+        and future_wna16_payloadless_useful_repeat_benchmark_row_count > 0
+        and lab_gate_status_summary.get(
+            "default_kernel_consumer_future_wna16_payloadless_useful_repeat_benchmark_row_ok_count"
+        )
+        == future_wna16_payloadless_useful_repeat_benchmark_row_count
+        and lab_gate_status_summary.get(
+            "default_kernel_consumer_future_wna16_payloadless_useful_repeat_benchmark_rows_consumed"
+        )
+        == future_wna16_payloadless_useful_repeat_benchmark_row_count
+        and future_wna16_payloadless_useful_repeat_benchmark_row_count
+        == future_wna16_payloadless_useful_execution_row_count
+        and future_wna16_payloadless_useful_repeat_benchmark_repeat_count_requested
+        is not None
+        and future_wna16_payloadless_useful_repeat_benchmark_repeat_count_requested
+        >= int(
+            REQUIRED_DEFAULT_GATE_CONTRACT[
+                "future_wna16_typed_slot_payloadless_useful_repeat_benchmark_min_repeat_count"
+            ]
+        )
+        and future_wna16_payloadless_useful_repeat_benchmark_repeat_count_measured
+        == future_wna16_payloadless_useful_repeat_benchmark_repeat_count_requested
+        and lab_gate_status_summary.get(
+            "default_kernel_consumer_future_wna16_payloadless_useful_repeat_benchmark_measurement_source"
+        )
+        == "repeated_independent_native_typed_slot_timing_stub"
+        and lab_gate_status_summary.get(
+            "default_kernel_consumer_future_wna16_payloadless_useful_repeat_benchmark_seed_only"
+        )
+        is False
+        and lab_gate_status_summary.get(
+            "default_kernel_consumer_future_wna16_payloadless_useful_repeat_benchmark_harness_sha256"
+        )
+        is not None
+        and lab_gate_status_summary.get(
+            "default_kernel_consumer_future_wna16_payloadless_useful_repeat_benchmark_native_timing_seed_sha256"
+        )
+        is not None
+        and lab_gate_status_summary.get(
+            "default_kernel_consumer_future_wna16_payloadless_useful_repeat_benchmark_payload_bytes"
+        )
+        == 0
+        and lab_gate_status_summary.get(
+            "default_kernel_consumer_future_wna16_payloadless_useful_repeat_benchmark_payload_deref_allowed"
+        )
+        is False
+        and lab_gate_status_summary.get(
+            "default_kernel_consumer_future_wna16_payloadless_useful_repeat_benchmark_kernel_arg_pass_allowed"
+        )
+        is False
+        and lab_gate_status_summary.get(
+            "default_kernel_consumer_future_wna16_payloadless_useful_repeat_benchmark_passed_to_kernel"
+        )
+        is False
+        and lab_gate_status_summary.get(
+            "default_kernel_consumer_future_wna16_payloadless_useful_repeat_benchmark_changes_kernel_launch_args"
+        )
+        is False
+        and lab_gate_status_summary.get(
+            "default_kernel_consumer_future_wna16_payloadless_useful_repeat_benchmark_current_wna16_arg_compatible"
+        )
+        is False
+        and lab_gate_status_summary.get(
+            "default_kernel_consumer_future_wna16_payloadless_useful_repeat_benchmark_uses_current_wna16_args"
+        )
+        is False
+        and lab_gate_status_summary.get(
+            "default_kernel_consumer_future_wna16_payloadless_useful_repeat_benchmark_passes_current_wna16_args"
+        )
+        is False
+        and lab_gate_status_summary.get(
+            "default_kernel_consumer_future_wna16_payloadless_useful_repeat_benchmark_requires_wna16_arg_reinterpretation"
+        )
+        is False
+        and lab_gate_status_summary.get(
+            "default_kernel_consumer_future_wna16_payloadless_useful_repeat_benchmark_measures_tpot"
+        )
+        is False
+        and lab_gate_status_summary.get(
+            "default_kernel_consumer_future_wna16_payloadless_useful_repeat_benchmark_measures_vllm_latency"
+        )
+        is False
+        and lab_gate_status_summary.get(
+            "default_kernel_consumer_future_wna16_payloadless_useful_repeat_benchmark_wna16_benchmark_ready"
+        )
+        is False
+    )
     wna16_benchmark_prerequisites_ready = (
         all_four_field_consumer_ready
         and future_wna16_kernel_side_typed_consumer_path_ready
@@ -16651,7 +17514,21 @@ def run_premap_lab_preflight(
         failures.append(
             "default_kernel_consumer_future_wna16_payloadless_useful_execution_not_ready"
         )
-    if future_wna16_payloadless_useful_execution_ready:
+    if (
+        REQUIRED_DEFAULT_GATE_CONTRACT[
+            "future_wna16_typed_slot_payloadless_useful_repeat_benchmark_required"
+        ]
+        and future_wna16_payloadless_useful_execution_ready
+        and not future_wna16_payloadless_useful_repeat_benchmark_ready
+    ):
+        failures.append(
+            "default_kernel_consumer_future_wna16_payloadless_useful_repeat_benchmark_not_ready"
+        )
+    if future_wna16_payloadless_useful_repeat_benchmark_ready:
+        next_runtime_stage = (
+            "implement_future_wna16_typed_slot_payloadless_useful_runtime_ablation"
+        )
+    elif future_wna16_payloadless_useful_execution_ready:
         next_runtime_stage = "implement_future_wna16_typed_slot_payloadless_useful_runtime_gate"
     elif future_wna16_useful_consumer_ready:
         next_runtime_stage = (
@@ -16720,6 +17597,9 @@ def run_premap_lab_preflight(
     lab_gate_status_summary[
         "default_kernel_consumer_future_wna16_payloadless_useful_execution_gate_ready"
     ] = future_wna16_payloadless_useful_execution_ready
+    lab_gate_status_summary[
+        "default_kernel_consumer_future_wna16_payloadless_useful_repeat_benchmark_gate_ready"
+    ] = future_wna16_payloadless_useful_repeat_benchmark_ready
     lab_gate_status_summary[
         "default_kernel_consumer_wna16_side_variant_ready"
     ] = wna16_side_variant_ready

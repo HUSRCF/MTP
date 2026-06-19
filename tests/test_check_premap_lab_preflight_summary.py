@@ -474,6 +474,96 @@ def _enable_payloadless_useful_execution_ready(
         ]
 
 
+def _enable_payloadless_useful_repeat_benchmark_ready(
+    summary: dict[str, object],
+    *,
+    row_count: int | None = None,
+    source_count: int = 128,
+    repeat_count: int = 3,
+) -> None:
+    row_count = row_count or int(
+        summary[
+            "default_kernel_consumer_future_wna16_payloadless_useful_execution_row_count"
+        ]
+    )
+    prefix = (
+        "default_kernel_consumer_future_wna16_payloadless_useful_repeat_benchmark"
+    )
+    summary.update(
+        {
+            f"{prefix}_evidence_passed": True,
+            f"{prefix}_ready": True,
+            f"{prefix}_artifact_kind": (
+                "future_wna16_typed_slot_payloadless_useful_repeat_benchmark"
+            ),
+            f"{prefix}_name": (
+                "premap_future_wna16_typed_slot_payloadless_useful_repeat_benchmark_v1"
+            ),
+            f"{prefix}_mode": "payloadless_useful_native_stub_repeat_benchmark",
+            f"{prefix}_source": (
+                "premap_future_wna16_typed_slot_payloadless_useful_benchmark_harness_v1"
+            ),
+            f"{prefix}_scope": "payloadless_useful_independent_native_stub_host_wall",
+            f"{prefix}_source_count": source_count,
+            f"{prefix}_row_count": row_count,
+            f"{prefix}_row_ok_count": row_count,
+            f"{prefix}_rows_consumed": row_count,
+            f"{prefix}_repeat_count_requested": repeat_count,
+            f"{prefix}_repeat_count_measured": repeat_count,
+            f"{prefix}_measurement_source": (
+                "repeated_independent_native_typed_slot_timing_stub"
+            ),
+            f"{prefix}_seed_only": False,
+            f"{prefix}_evidence_path": (
+                "outputs/reports/premap_kernel_consumer/"
+                "future_wna16_typed_slot_payloadless_useful_repeat_benchmark_entry_args_ptr_repeat3_gpu1_v1.json"
+            ),
+            f"{prefix}_evidence_sha256": HEX,
+            f"{prefix}_harness_json": (
+                "outputs/reports/premap_kernel_consumer/"
+                "future_wna16_typed_slot_payloadless_useful_benchmark_harness_entry_args_ptr_v1.json"
+            ),
+            f"{prefix}_harness_sha256": HEX,
+            f"{prefix}_native_timing_seed_json": (
+                "outputs/reports/premap_kernel_consumer/"
+                "future_wna16_variant_execution_timing_stub.json"
+            ),
+            f"{prefix}_native_timing_seed_sha256": HEX,
+            f"{prefix}_native_stub_host_wall_ms_min": 10.0,
+            f"{prefix}_native_stub_host_wall_ms_median": 11.0,
+            f"{prefix}_native_stub_host_wall_ms_mean": 11.0,
+            f"{prefix}_native_stub_host_wall_ms_max": 12.0,
+            f"{prefix}_payload_bytes": 0,
+            f"{prefix}_payload_deref_allowed": False,
+            f"{prefix}_kernel_arg_pass_allowed": False,
+            f"{prefix}_passed_to_kernel": False,
+            f"{prefix}_changes_kernel_launch_args": False,
+            f"{prefix}_current_wna16_arg_compatible": False,
+            f"{prefix}_uses_current_wna16_args": False,
+            f"{prefix}_passes_current_wna16_args": False,
+            f"{prefix}_requires_wna16_arg_reinterpretation": False,
+            f"{prefix}_measures_tpot": False,
+            f"{prefix}_measures_vllm_latency": False,
+            f"{prefix}_wna16_benchmark_ready": False,
+            f"{prefix}_next_runtime_stage": (
+                "implement_future_wna16_typed_slot_payloadless_useful_runtime_ablation"
+            ),
+        }
+    )
+    execution_prefix = (
+        "default_kernel_consumer_future_wna16_payloadless_useful_execution"
+    )
+    for field in (
+        "descriptor_ptr",
+        "packed_weight_descriptor",
+        "scale_metadata_handle",
+        "aux_metadata_handle",
+    ):
+        summary[f"{prefix}_{field}_field_hash"] = summary[
+            f"{execution_prefix}_{field}_field_hash"
+        ]
+
+
 def _summary() -> dict[str, object]:
     return {
         "passed": True,
@@ -1132,6 +1222,78 @@ def test_check_premap_lab_preflight_summary_accepts_payloadless_useful_execution
 
     assert result["passed"] is True
     assert result["failures"] == []
+
+
+def test_check_premap_lab_preflight_summary_accepts_payloadless_useful_repeat_next_stage() -> None:
+    summary = _summary()
+    summary[
+        "default_kernel_consumer_wna16_side_variant_online_source_identity_subset"
+    ] = True
+    summary[
+        "default_kernel_consumer_wna16_side_variant_online_source_identity_missing_count"
+    ] = 0
+    summary["default_kernel_consumer_wna16_side_variant_ready"] = True
+    _enable_wna16_kernel_side_execution_ready(summary)
+    _enable_payloadless_chain_ready(summary)
+    _enable_variant_execution_ready(summary)
+    _enable_useful_consumer_ready(summary)
+    _enable_payloadless_useful_execution_ready(summary)
+    _enable_payloadless_useful_repeat_benchmark_ready(summary)
+    summary[
+        "default_kernel_consumer_independent_typed_slot_payloadless_chain_ready"
+    ] = True
+    summary[
+        "default_kernel_consumer_future_wna16_payloadless_useful_repeat_benchmark_gate_ready"
+    ] = True
+    summary["default_kernel_consumer_next_runtime_stage"] = (
+        "implement_future_wna16_typed_slot_payloadless_useful_runtime_ablation"
+    )
+
+    result = check_premap_lab_preflight_summary(summary)
+
+    assert result["passed"] is True
+    assert result["failures"] == []
+
+
+def test_check_premap_lab_preflight_summary_rejects_payloadless_useful_repeat_hash_mismatch() -> None:
+    summary = _summary()
+    summary[
+        "default_kernel_consumer_wna16_side_variant_online_source_identity_subset"
+    ] = True
+    summary[
+        "default_kernel_consumer_wna16_side_variant_online_source_identity_missing_count"
+    ] = 0
+    summary["default_kernel_consumer_wna16_side_variant_ready"] = True
+    _enable_wna16_kernel_side_execution_ready(summary)
+    _enable_payloadless_chain_ready(summary)
+    _enable_variant_execution_ready(summary)
+    _enable_useful_consumer_ready(summary)
+    _enable_payloadless_useful_execution_ready(summary)
+    _enable_payloadless_useful_repeat_benchmark_ready(summary)
+    summary[
+        "default_kernel_consumer_independent_typed_slot_payloadless_chain_ready"
+    ] = True
+    summary[
+        "default_kernel_consumer_future_wna16_payloadless_useful_repeat_benchmark_gate_ready"
+    ] = True
+    summary["default_kernel_consumer_next_runtime_stage"] = (
+        "implement_future_wna16_typed_slot_payloadless_useful_runtime_ablation"
+    )
+    summary[
+        "default_kernel_consumer_future_wna16_payloadless_useful_repeat_benchmark_descriptor_ptr_field_hash"
+    ] = "ffffffffffffffff"
+
+    result = check_premap_lab_preflight_summary(summary)
+
+    assert result["passed"] is False
+    assert (
+        "future_wna16_payloadless_useful_repeat_benchmark_ready_reported_without_valid_evidence"
+        in result["failures"]
+    )
+    assert (
+        "default_kernel_consumer_future_wna16_payloadless_useful_repeat_benchmark_descriptor_ptr_execution_field_hash_mismatch"
+        in result["failures"]
+    )
 
 
 def test_check_premap_lab_preflight_summary_rejects_payloadless_useful_unbound_paths() -> None:
