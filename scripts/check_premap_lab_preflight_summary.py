@@ -78,6 +78,24 @@ def _is_hex_u64(value: Any) -> bool:
     return 0 <= parsed <= 0xFFFFFFFFFFFFFFFF
 
 
+def _path_label(value: Any) -> str | None:
+    if not isinstance(value, str) or not value:
+        return None
+    path = Path(value)
+    if path.is_absolute():
+        try:
+            return path.resolve(strict=False).relative_to(Path.cwd()).as_posix()
+        except ValueError:
+            return path.resolve(strict=False).as_posix()
+    return path.as_posix()
+
+
+def _same_path_label(lhs: Any, rhs: Any) -> bool:
+    lhs_label = _path_label(lhs)
+    rhs_label = _path_label(rhs)
+    return lhs_label is not None and lhs_label == rhs_label
+
+
 def _int_metric(summary: dict[str, Any], key: str) -> int | None:
     value = summary.get(key)
     return value if isinstance(value, int) and not isinstance(value, bool) else None
@@ -380,6 +398,142 @@ def _future_wna16_useful_consumer_ready(
         f"{prefix}_native_timing_json",
         f"{prefix}_native_stub_json",
         f"{prefix}_timing_native_stub_json",
+    ):
+        if not isinstance(summary.get(key), str) or not summary.get(key):
+            failures.append(f"{key}_missing")
+            ready = False
+    return ready
+
+
+def _future_wna16_payloadless_useful_execution_ready(
+    summary: dict[str, Any],
+    failures: list[str],
+) -> bool:
+    prefix = "default_kernel_consumer_future_wna16_payloadless_useful_execution"
+    useful_prefix = "default_kernel_consumer_future_wna16_useful_consumer"
+    expected_values = {
+        f"{prefix}_evidence_passed": True,
+        f"{prefix}_ready": True,
+        f"{prefix}_gate_ready": True,
+        f"{prefix}_chain_checked": True,
+        f"{prefix}_native_stub_checked": True,
+        f"{prefix}_payload_bytes": 0,
+        f"{prefix}_payload_deref_allowed": False,
+        f"{prefix}_kernel_arg_pass_allowed": False,
+        f"{prefix}_passed_to_kernel": False,
+        f"{prefix}_changes_kernel_launch_args": False,
+        f"{prefix}_current_wna16_arg_compatible": False,
+        f"{prefix}_uses_current_wna16_args": False,
+        f"{prefix}_passes_current_wna16_args": False,
+        f"{prefix}_requires_wna16_arg_reinterpretation": False,
+        f"{prefix}_measures_tpot": False,
+        f"{prefix}_measures_vllm_latency": False,
+        f"{prefix}_wna16_benchmark_ready": False,
+    }
+    ready = True
+    for key, expected in expected_values.items():
+        if summary.get(key) != expected:
+            failures.append(f"{key}_mismatch")
+            ready = False
+    for key, expected in {
+        f"{prefix}_artifact_kind": (
+            "future_wna16_typed_slot_kernel_variant_payloadless_useful_execution"
+        ),
+        f"{prefix}_name": (
+            "premap_future_wna16_typed_slot_payloadless_useful_execution_v1"
+        ),
+        f"{prefix}_mode": (
+            "independent_future_wna16_typed_slot_payloadless_useful_execution"
+        ),
+        f"{prefix}_source": (
+            "premap_future_wna16_typed_slot_kernel_variant_useful_consumer_v1"
+        ),
+    }.items():
+        if summary.get(key) != expected:
+            failures.append(f"{key}_mismatch")
+            ready = False
+    source_count = _int_metric(summary, f"{prefix}_source_count")
+    row_count = _int_metric(summary, f"{prefix}_row_count")
+    row_ok_count = _int_metric(summary, f"{prefix}_row_ok_count")
+    rows_consumed = _int_metric(summary, f"{prefix}_rows_consumed")
+    useful_source_count = _int_metric(summary, f"{useful_prefix}_source_count")
+    useful_row_count = _int_metric(summary, f"{useful_prefix}_row_count")
+    if source_count is None or source_count < 128:
+        failures.append(f"{prefix}_source_count_invalid")
+        ready = False
+    if useful_source_count is not None and source_count != useful_source_count:
+        failures.append(f"{prefix}_useful_source_count_mismatch")
+        ready = False
+    if row_count is None or row_count <= 0:
+        failures.append(f"{prefix}_row_count_invalid")
+        ready = False
+    elif row_ok_count != row_count or rows_consumed != row_count:
+        failures.append(f"{prefix}_row_coverage_mismatch")
+        ready = False
+    if useful_row_count is not None and row_count != useful_row_count:
+        failures.append(f"{prefix}_useful_row_count_mismatch")
+        ready = False
+    for field in REQUIRED_ROW_FIELDS:
+        if row_count is not None and summary.get(
+            f"{prefix}_{field}_row_ok_count"
+        ) != row_count:
+            failures.append(f"{prefix}_{field}_row_ok_count_mismatch")
+            ready = False
+        if not _is_hex_u64(summary.get(f"{prefix}_{field}_field_hash")):
+            failures.append(f"{prefix}_{field}_field_hash_invalid")
+            ready = False
+        if summary.get(f"{prefix}_{field}_field_hash") != summary.get(
+            f"{useful_prefix}_{field}_field_hash"
+        ):
+            failures.append(f"{prefix}_{field}_useful_field_hash_mismatch")
+            ready = False
+    if summary.get(f"{prefix}_useful_consumer_sha256") != summary.get(
+        f"{useful_prefix}_evidence_sha256"
+    ):
+        failures.append(f"{prefix}_useful_consumer_sha256_mismatch")
+        ready = False
+    if not _same_path_label(
+        summary.get(f"{prefix}_useful_consumer_json"),
+        summary.get(f"{useful_prefix}_evidence_path"),
+    ):
+        failures.append(f"{prefix}_useful_consumer_json_mismatch")
+        ready = False
+    for child, useful_key in {
+        "execution_sha256": "execution_sha256",
+        "native_timing_sha256": "native_timing_sha256",
+        "native_stub_sha256": "native_stub_sha256",
+    }.items():
+        if summary.get(f"{prefix}_{child}") != summary.get(f"{useful_prefix}_{useful_key}"):
+            failures.append(f"{prefix}_{child}_useful_mismatch")
+            ready = False
+    for child, useful_key in {
+        "execution_json": "execution_json",
+        "native_timing_json": "native_timing_json",
+        "native_stub_json": "native_stub_json",
+    }.items():
+        if not _same_path_label(
+            summary.get(f"{prefix}_{child}"),
+            summary.get(f"{useful_prefix}_{useful_key}"),
+        ):
+            failures.append(f"{prefix}_{child}_useful_mismatch")
+            ready = False
+    for key in (
+        f"{prefix}_evidence_sha256",
+        f"{prefix}_useful_consumer_sha256",
+        f"{prefix}_execution_sha256",
+        f"{prefix}_native_timing_sha256",
+        f"{prefix}_native_stub_sha256",
+        f"{prefix}_chain_hash",
+    ):
+        if not _is_hex64(summary.get(key)):
+            failures.append(f"{key}_invalid")
+            ready = False
+    for key in (
+        f"{prefix}_evidence_path",
+        f"{prefix}_useful_consumer_json",
+        f"{prefix}_execution_json",
+        f"{prefix}_native_timing_json",
+        f"{prefix}_native_stub_json",
     ):
         if not isinstance(summary.get(key), str) or not summary.get(key):
             failures.append(f"{key}_missing")
@@ -1442,6 +1596,17 @@ def check_premap_lab_preflight_summary(
             future_wna16_variant_execution_ready
             and useful_consumer_structural_ready
         )
+        payloadless_useful_execution_failures: list[str] = []
+        payloadless_useful_execution_structural_ready = (
+            _future_wna16_payloadless_useful_execution_ready(
+                summary,
+                payloadless_useful_execution_failures,
+            )
+        )
+        future_wna16_payloadless_useful_execution_ready = (
+            future_wna16_useful_consumer_ready
+            and payloadless_useful_execution_structural_ready
+        )
         reported_payloadless_chain_ready = summary.get(
             "default_kernel_consumer_independent_typed_slot_payloadless_chain_ready"
         )
@@ -1493,8 +1658,30 @@ def check_premap_lab_preflight_summary(
             failures.append("future_wna16_useful_consumer_ready_not_reported")
         elif reported_useful_consumer_ready not in (False, None, True):
             failures.append("future_wna16_useful_consumer_ready_invalid")
+        reported_payloadless_useful_execution_ready = summary.get(
+            "default_kernel_consumer_future_wna16_payloadless_useful_execution_gate_ready"
+        )
+        if (
+            reported_payloadless_useful_execution_ready is True
+            and not future_wna16_payloadless_useful_execution_ready
+        ):
+            failures.append(
+                "future_wna16_payloadless_useful_execution_ready_reported_without_valid_evidence"
+            )
+            failures.extend(payloadless_useful_execution_failures)
+            if not future_wna16_useful_consumer_ready:
+                failures.extend(useful_consumer_failures)
+        elif (
+            future_wna16_payloadless_useful_execution_ready
+            and reported_payloadless_useful_execution_ready is not True
+        ):
+            failures.append("future_wna16_payloadless_useful_execution_ready_not_reported")
+        elif reported_payloadless_useful_execution_ready not in (False, None, True):
+            failures.append("future_wna16_payloadless_useful_execution_ready_invalid")
         expected_stage = (
-            "implement_future_wna16_typed_slot_kernel_variant_payloadless_useful_execution"
+            "implement_future_wna16_typed_slot_payloadless_useful_runtime_gate"
+            if future_wna16_payloadless_useful_execution_ready
+            else "implement_future_wna16_typed_slot_kernel_variant_payloadless_useful_execution"
             if future_wna16_useful_consumer_ready
             else "implement_future_wna16_typed_slot_kernel_variant_useful_consumer"
             if future_wna16_variant_execution_ready
