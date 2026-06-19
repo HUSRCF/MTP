@@ -39,14 +39,14 @@ DEFAULT_OUTPUT_JSON = (
     / "outputs"
     / "reports"
     / "premap_kernel_consumer"
-    / "future_wna16_typed_slot_kernel_variant_one_field_handoff_canary_v1.json"
+    / "future_wna16_typed_slot_kernel_variant_one_field_handoff_canary_entry_args_ptr_default.json"
 )
 DEFAULT_CANARY_OUTPUT_DIR = (
     REPO_ROOT
     / "outputs"
     / "reports"
     / "premap_kernel_consumer"
-    / "future_wna16_typed_slot_kernel_variant_one_field_handoff_canary"
+    / "future_wna16_typed_slot_kernel_variant_one_field_handoff_canary_entry_args_ptr_default"
 )
 
 CANARY_NAME = "premap_future_wna16_typed_slot_one_field_handoff_canary_v1"

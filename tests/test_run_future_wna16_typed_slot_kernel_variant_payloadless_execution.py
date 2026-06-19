@@ -997,10 +997,20 @@ def test_payloadless_execution_rejects_fourth_runner_hash_invalid(tmp_path: Path
 def test_payloadless_execution_defaults_to_four_field_repeat3_benchmark():
     module = _load_module()
     default_path = Path(module.DEFAULT_BENCHMARK_JSON)
+    default_output = Path(module.DEFAULT_OUTPUT_JSON)
+    default_execution_dir = Path(module.DEFAULT_EXECUTION_DIR)
 
     assert (
         "future_wna16_typed_slot_kernel_variant_benchmark_entry_args_ptr_repeat3_v1.json"
         in str(default_path)
+    )
+    assert (
+        default_output.name
+        == "future_wna16_typed_slot_kernel_variant_payloadless_execution_entry_args_ptr_native_v1.json"
+    )
+    assert (
+        default_execution_dir.name
+        == "future_wna16_typed_slot_kernel_variant_payloadless_execution_entry_args_ptr_native"
     )
     if default_path.exists():
         payload = json.loads(default_path.read_text(encoding="utf-8"))

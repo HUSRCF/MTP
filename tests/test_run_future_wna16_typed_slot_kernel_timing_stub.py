@@ -227,11 +227,17 @@ def test_future_wna16_typed_slot_timing_stub_accepts_entrypoint(tmp_path: Path):
 def test_future_wna16_typed_slot_timing_stub_defaults_to_kernel_side_path_entrypoint():
     module = _load_module()
 
-    default_path = Path(module.build_parser().parse_args([]).entrypoint_json)
+    args = module.build_parser().parse_args([])
+    default_path = Path(args.entrypoint_json)
+    default_output = Path(args.output_json)
 
     assert (
         default_path.name
         == "future_wna16_typed_slot_kernel_variant_entrypoint_entry_args_ptr_v1.json"
+    )
+    assert (
+        default_output.name
+        == "future_wna16_typed_slot_kernel_timing_stub_entry_args_ptr_native_v1.json"
     )
     assert "premap_kernel_consumer" in default_path.parts
 
@@ -613,6 +619,97 @@ def test_future_wna16_typed_slot_timing_stub_rejects_fourth_evidence_sha_mismatc
     assert "entrypoint_fourth_field_handoff_evidence_sha_mismatch" in result[
         "failures"
     ]
+
+
+def test_fourth_evidence_allows_bootstrap_payloadless_root_sha_drift(
+    tmp_path: Path,
+):
+    module = _load_module()
+    fixture_dir = Path(__file__).resolve().parent / "fixtures"
+    root = json.loads(
+        (fixture_dir / "future_wna16_payloadless_root_evidence.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    root["payloadless_execution_provenance_mode"] = "bootstrap_cycle_breaker_root"
+    root["payloadless_execution_cycle_breaker_root"] = True
+    root_path = tmp_path / "payloadless_root.json"
+    _write_json(root_path, root)
+    fourth = json.loads(
+        (fixture_dir / "future_wna16_fourth_field_evidence.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    fourth["payloadless_execution_json"] = str(root_path)
+    fourth["payloadless_execution_sha256"] = "0" * 64
+
+    failures = module._check_fourth_evidence(  # noqa: SLF001
+        fourth,
+        entrypoint=_entrypoint_payload(),
+    )
+
+    assert "fourth_evidence_payloadless_root_sha_mismatch" not in failures
+    assert failures == []
+
+
+def test_fourth_evidence_rejects_non_bootstrap_payloadless_root_sha_drift(
+    tmp_path: Path,
+):
+    module = _load_module()
+    fixture_dir = Path(__file__).resolve().parent / "fixtures"
+    root = json.loads(
+        (fixture_dir / "future_wna16_payloadless_root_evidence.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    root_path = tmp_path / "payloadless_root.json"
+    _write_json(root_path, root)
+    fourth = json.loads(
+        (fixture_dir / "future_wna16_fourth_field_evidence.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    fourth["payloadless_execution_json"] = str(root_path)
+    fourth["payloadless_execution_sha256"] = "0" * 64
+
+    failures = module._check_fourth_evidence(  # noqa: SLF001
+        fourth,
+        entrypoint=_entrypoint_payload(),
+    )
+
+    assert "fourth_evidence_payloadless_root_sha_mismatch" in failures
+
+
+def test_fourth_evidence_rejects_bootstrap_payloadless_root_with_payload(
+    tmp_path: Path,
+):
+    module = _load_module()
+    fixture_dir = Path(__file__).resolve().parent / "fixtures"
+    root = json.loads(
+        (fixture_dir / "future_wna16_payloadless_root_evidence.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    root["payloadless_execution_provenance_mode"] = "bootstrap_cycle_breaker_root"
+    root["payloadless_execution_cycle_breaker_root"] = True
+    root["payload_bytes"] = 1
+    root_path = tmp_path / "payloadless_root.json"
+    _write_json(root_path, root)
+    fourth = json.loads(
+        (fixture_dir / "future_wna16_fourth_field_evidence.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    fourth["payloadless_execution_json"] = str(root_path)
+    fourth["payloadless_execution_sha256"] = "0" * 64
+
+    failures = module._check_fourth_evidence(  # noqa: SLF001
+        fourth,
+        entrypoint=_entrypoint_payload(),
+    )
+
+    assert "fourth_evidence_payloadless_root_sha_mismatch" not in failures
+    assert "fourth_evidence_payloadless_root_payload_bytes_unsafe_nonzero" in failures
 
 
 def test_future_wna16_typed_slot_timing_stub_rejects_unrelated_existing_evidence_file(

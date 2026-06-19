@@ -1,7 +1,7 @@
 {
   "all_four_gate_ready": true,
   "all_four_json": "/home/husrcf/Code/ProtBind/MTP/outputs/reports/premap_kernel_consumer/future_wna16_typed_slot_kernel_variant_all_four_field_consumer_entry_args_ptr_default.json",
-  "all_four_sha256": "6f8183f6c5310f9e11d98e644c155e29344e39aeb3327c1ce0be8688ecf0ab1d",
+  "all_four_sha256": "2652411a1faadecbcf76b5cccb8c1e40ab1a7921d7041d97b504fc4dea4cd926",
   "artifact_kind": "future_wna16_kernel_side_typed_consumer_path",
   "bench_semantics": false,
   "changes_kernel_launch_args": false,
@@ -25,7 +25,7 @@
   "merged_input_sha256": "8fcc5fe1b83a0b59f87c383e43e8f2d5f86d706eaa56462ee6a69fe66f3b6702",
   "native_consumer_executed": true,
   "native_consumer_json": "/home/husrcf/Code/ProtBind/MTP/outputs/reports/premap_kernel_consumer/future_wna16_kernel_side_typed_consumer_path_v1/kernel_side_consumer_path_native_runner.json",
-  "native_consumer_outer_wall_ms": 333.686392,
+  "native_consumer_outer_wall_ms": 335.906067,
   "native_consumer_passed": true,
   "native_consumer_sha256": "cb5695c50f0db23f542deef7bdca5780a0e7782d67d69b97cdd93b951dc092fc",
   "native_consumer_wall_ms_observed_only": true,

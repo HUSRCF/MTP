@@ -33,13 +33,15 @@ DEFAULT_PREFLIGHT_JSON = (
     REPO_ROOT
     / "outputs"
     / "reports"
-    / "premap_lab_preflight_default_strict_20260619_entry_args_ptr_required_abs_python_portable.json"
+    / "premap_kernel_consumer"
+    / "premap_lab_preflight_entry_args_ptr_all_four_default_gate.json"
 )
 DEFAULT_PREFLIGHT_CHECK_JSON = (
     REPO_ROOT
     / "outputs"
     / "reports"
-    / "premap_lab_preflight_strict_future_wna16_kernel_side_path_gate.check.json"
+    / "premap_kernel_consumer"
+    / "premap_lab_preflight_entry_args_ptr_all_four_default_gate.check.json"
 )
 DEFAULT_RUNNER_JSON = (
     REPO_ROOT
@@ -352,12 +354,51 @@ def _path_label_matches(value: Any, expected_suffix: str) -> bool:
 
 def _required_evidence_rows(preflight: dict[str, Any]) -> list[dict[str, Any]]:
     check = preflight.get("default_readonly_gate_required_evidence_check")
-    if not isinstance(check, dict):
+    if isinstance(check, dict):
+        rows = check.get("rows")
+        if isinstance(rows, list):
+            return [row for row in rows if isinstance(row, dict)]
+
+    # Newer summary-only preflight artifacts store required evidence as a
+    # label-indexed map instead of the older row list.  Convert just the fields
+    # this harness consumes so the benchmark gate can remain compatible with
+    # both artifact layouts.
+    required = preflight.get("required_evidence")
+    if not isinstance(required, dict):
         return []
-    rows = check.get("rows")
-    if not isinstance(rows, list):
+    evidence = required.get("evidence")
+    if not isinstance(evidence, dict):
         return []
-    return [row for row in rows if isinstance(row, dict)]
+    aggregate_failure = None
+    if required.get("passed") is not True:
+        aggregate_failure = "required_evidence_aggregate_not_passed"
+    converted: list[dict[str, Any]] = []
+    for label, entry in evidence.items():
+        if not isinstance(label, str) or not isinstance(entry, dict):
+            continue
+        failure = entry.get("failure")
+        failures_value = [] if failure is None else [failure]
+        if aggregate_failure is not None:
+            failures_value.append(aggregate_failure)
+        converted.append(
+            {
+                "exists": entry.get("present") is True,
+                "failures_value": failures_value,
+                "label": label,
+                "passed_value": (
+                    entry.get("passed") is True and aggregate_failure is None
+                ),
+                "path": entry.get("path"),
+                "path_label": entry.get("path_label") or entry.get("path"),
+                "sha256": entry.get("sha256"),
+                "valid_json": (
+                    entry.get("present") is True
+                    and failure is None
+                    and aggregate_failure is None
+                ),
+            }
+        )
+    return converted
 
 
 def _find_evidence_row(rows: list[dict[str, Any]], label: str) -> dict[str, Any] | None:

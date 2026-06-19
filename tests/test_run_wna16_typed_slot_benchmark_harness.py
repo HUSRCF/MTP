@@ -139,6 +139,54 @@ def _add_entry_args_ptr_required_evidence(
     }
 
 
+def _add_entry_args_ptr_summary_required_evidence(
+    payload: dict,
+    tmp_path: Path,
+    *,
+    row_count: int = 1025,
+    required_passed: bool = True,
+    sweep_entry_updates: dict | None = None,
+    check_entry_updates: dict | None = None,
+) -> None:
+    sweep = tmp_path / "online_merged_future_native_arg_slot_all_field_window_sweep_kernel_entry_args_ptr_strict_20260619.json"
+    check = tmp_path / "online_merged_future_native_arg_slot_all_field_window_sweep_kernel_entry_args_ptr_strict_20260619.check.json"
+    _write_json(sweep, _entry_args_ptr_sweep_payload(row_count=row_count))
+    _write_json(check, _entry_args_ptr_sweep_check_payload(sweep, row_count=row_count))
+    sweep_entry = {
+        "present": True,
+        "failure": None,
+        "passed": True,
+        "path": str(sweep),
+        "path_label": (
+            "outputs/reports/premap_kernel_consumer/"
+            "online_merged_future_native_arg_slot_all_field_window_sweep_kernel_entry_args_ptr_strict_20260619.json"
+        ),
+        "sha256": _sha256(sweep),
+    }
+    check_entry = {
+        "present": True,
+        "failure": None,
+        "passed": True,
+        "path": str(check),
+        "path_label": (
+            "outputs/reports/premap_kernel_consumer/"
+            "online_merged_future_native_arg_slot_all_field_window_sweep_kernel_entry_args_ptr_strict_20260619.check.json"
+        ),
+        "sha256": _sha256(check),
+    }
+    if sweep_entry_updates:
+        sweep_entry.update(sweep_entry_updates)
+    if check_entry_updates:
+        check_entry.update(check_entry_updates)
+    payload["required_evidence"] = {
+        "passed": required_passed,
+        "evidence": {
+            "future_kernel_native_arg_slot_all_field_entry_args_ptr_sweep_json": sweep_entry,
+            "future_kernel_native_arg_slot_all_field_entry_args_ptr_sweep_check_json": check_entry,
+        },
+    }
+
+
 def _preflight_payload(*, row_count: int = 1025) -> dict:
     prefix = "default_kernel_consumer_wna16_kernel_side_execution"
     fourth_prefix = "default_kernel_consumer_future_wna16_fourth_field_handoff"
@@ -412,6 +460,158 @@ def _runner_payload_real_like(*, row_count: int = 1025, source_count: int = 128)
             stub_summary[key] = value
     top["stub_summary"] = stub_summary
     return top
+
+
+def test_wna16_typed_slot_benchmark_harness_defaults_to_entry_args_all_four_gate() -> None:
+    module = _load_module()
+    args = module.build_parser().parse_args([])
+
+    assert Path(args.preflight_json).name == (
+        "premap_lab_preflight_entry_args_ptr_all_four_default_gate.json"
+    )
+    assert Path(args.preflight_check_json).name == (
+        "premap_lab_preflight_entry_args_ptr_all_four_default_gate.check.json"
+    )
+    assert Path(args.preflight_json).exists()
+    assert Path(args.preflight_check_json).exists()
+
+
+def test_wna16_typed_slot_benchmark_harness_accepts_summary_required_evidence(
+    tmp_path: Path,
+):
+    module = _load_module()
+    preflight = tmp_path / "preflight.json"
+    runner = tmp_path / "runner.json"
+    payload = _preflight_payload()
+    _add_entry_args_ptr_summary_required_evidence(payload, tmp_path)
+    _write_json(preflight, payload)
+    _write_json(runner, _runner_payload())
+
+    args = module.build_parser().parse_args(
+        [
+            "--preflight-json",
+            str(preflight),
+            "--runner-json",
+            str(runner),
+            "--output-json",
+            str(tmp_path / "out.json"),
+        ]
+    )
+    result = module.run_harness(args)
+
+    assert result["passed"] is True
+    assert result["entry_args_ptr_sweep_row_count"] == 1025
+    assert result["entry_args_ptr_sweep_check_row_count"] == 1025
+
+
+def test_wna16_typed_slot_benchmark_harness_rejects_summary_required_evidence_failure(
+    tmp_path: Path,
+):
+    module = _load_module()
+    preflight = tmp_path / "preflight.json"
+    runner = tmp_path / "runner.json"
+    payload = _preflight_payload()
+    _add_entry_args_ptr_summary_required_evidence(
+        payload,
+        tmp_path,
+        check_entry_updates={"passed": False, "failure": "stale_artifact"},
+    )
+    _write_json(preflight, payload)
+    _write_json(runner, _runner_payload())
+
+    args = module.build_parser().parse_args(
+        [
+            "--preflight-json",
+            str(preflight),
+            "--runner-json",
+            str(runner),
+            "--output-json",
+            str(tmp_path / "out.json"),
+        ]
+    )
+    result = module.run_harness(args)
+
+    assert result["passed"] is False
+    assert (
+        "future_kernel_native_arg_slot_all_field_entry_args_ptr_sweep_check_json_required_evidence_not_passed"
+        in result["failures"]
+    )
+    assert (
+        "future_kernel_native_arg_slot_all_field_entry_args_ptr_sweep_check_json_required_evidence_failures_not_empty"
+        in result["failures"]
+    )
+
+
+def test_wna16_typed_slot_benchmark_harness_rejects_summary_required_evidence_aggregate_failure(
+    tmp_path: Path,
+):
+    module = _load_module()
+    preflight = tmp_path / "preflight.json"
+    runner = tmp_path / "runner.json"
+    payload = _preflight_payload()
+    _add_entry_args_ptr_summary_required_evidence(
+        payload,
+        tmp_path,
+        required_passed=False,
+    )
+    _write_json(preflight, payload)
+    _write_json(runner, _runner_payload())
+
+    args = module.build_parser().parse_args(
+        [
+            "--preflight-json",
+            str(preflight),
+            "--runner-json",
+            str(runner),
+            "--output-json",
+            str(tmp_path / "out.json"),
+        ]
+    )
+    result = module.run_harness(args)
+
+    assert result["passed"] is False
+    assert any(
+        item.endswith("_required_evidence_not_passed")
+        for item in result["failures"]
+    )
+    assert any(
+        item.endswith("_required_evidence_failures_not_empty")
+        for item in result["failures"]
+    )
+
+
+def test_wna16_typed_slot_benchmark_harness_rejects_summary_required_evidence_stale_sha(
+    tmp_path: Path,
+):
+    module = _load_module()
+    preflight = tmp_path / "preflight.json"
+    runner = tmp_path / "runner.json"
+    payload = _preflight_payload()
+    _add_entry_args_ptr_summary_required_evidence(
+        payload,
+        tmp_path,
+        sweep_entry_updates={"sha256": "0" * 64},
+    )
+    _write_json(preflight, payload)
+    _write_json(runner, _runner_payload())
+
+    args = module.build_parser().parse_args(
+        [
+            "--preflight-json",
+            str(preflight),
+            "--runner-json",
+            str(runner),
+            "--output-json",
+            str(tmp_path / "out.json"),
+        ]
+    )
+    result = module.run_harness(args)
+
+    assert result["passed"] is False
+    assert (
+        "future_kernel_native_arg_slot_all_field_entry_args_ptr_sweep_json_artifact_sha256_mismatch"
+        in result["failures"]
+    )
 
 
 def test_wna16_typed_slot_benchmark_harness_accepts_strict_artifacts(tmp_path: Path):

@@ -37451,3 +37451,92 @@ Validation:
 Safety boundary remains strict: payload bytes are zero, payload dereference is
 disabled, kernel arg pass is disabled, current WNA16 fused-MoE args are not
 used or reinterpreted, and vLLM latency/TPOT is not measured.
+
+## 2026-06-19 entry-args default chain refreshed through payloadless execution
+
+The future WNA16 typed-slot default chain now consistently points at the
+entry-args-ptr artifacts rather than the older kernel-side-path defaults:
+
+```text
+lab preflight:
+  premap_lab_preflight_entry_args_ptr_all_four_default_gate.json
+  premap_lab_preflight_entry_args_ptr_all_four_default_gate.check.json
+
+harness:
+  wna16_typed_slot_benchmark_harness_entry_args_ptr_preflight_v1.json
+
+entrypoint:
+  future_wna16_typed_slot_kernel_variant_entrypoint_entry_args_ptr_v1.json
+
+timing stub:
+  future_wna16_typed_slot_kernel_timing_stub_entry_args_ptr_native_v1.json
+
+benchmark:
+  future_wna16_typed_slot_kernel_variant_benchmark_entry_args_ptr_repeat3_v1.json
+
+payloadless execution:
+  future_wna16_typed_slot_kernel_variant_payloadless_execution_entry_args_ptr_native_v1.json
+```
+
+Refreshed evidence is aligned across the chain:
+
+```text
+source_count = 128
+row_count = 5345
+row_ok_count = 5345
+fields =
+  descriptor_ptr
+  packed_weight_descriptor
+  scale_metadata_handle
+  aux_metadata_handle
+
+payload_bytes = 0
+payload_deref_allowed = false
+kernel_arg_pass_allowed = false
+passed_to_kernel = false
+changes_kernel_launch_args = false
+uses_current_wna16_args = false
+passes_current_wna16_args = false
+current_wna16_arg_compatible = false
+measures_tpot = false
+measures_vllm_latency = false
+```
+
+The self-referential payloadless bootstrap root cannot have a stable SHA256
+after it is regenerated from the benchmark artifact.  The checker now permits
+only this narrow case:
+
+```text
+root payload has:
+  payloadless_execution_provenance_mode = bootstrap_cycle_breaker_root
+  payloadless_execution_cycle_breaker_root = true
+
+and still must pass:
+  artifact_kind
+  passed/failures
+  source_count/row_count/row_ok_count
+  no payload
+  no kernel arg pass
+  no current WNA16 arg reuse/reinterpretation
+```
+
+Non-bootstrap payloadless-root SHA drift is still rejected.
+Compact preflight `required_evidence.passed = false` is also rejected even if
+individual evidence entries look present/passed, so summary-only preflight
+artifacts cannot bypass the entry-args required-evidence gate.
+
+Validation:
+
+```text
+/home/husrcf/anaconda3/envs/TRY/bin/python -m pytest \
+  tests/test_run_wna16_typed_slot_benchmark_harness.py \
+  tests/test_run_future_wna16_typed_slot_kernel_variant_entrypoint.py \
+  tests/test_run_future_wna16_typed_slot_kernel_timing_stub.py \
+  tests/test_run_future_wna16_typed_slot_kernel_variant_benchmark.py \
+  tests/test_run_future_wna16_typed_slot_kernel_variant_payloadless_execution.py -q
+# 139 passed
+```
+
+This is still not a vLLM TPOT result and not a current WNA16 fused-MoE arg-pass
+path. It is a lab-gated, independent typed-slot/native payloadless consumer
+chain intended to support the next useful native/kernel-side consumer step.

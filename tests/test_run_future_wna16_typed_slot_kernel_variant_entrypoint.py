@@ -185,11 +185,17 @@ def test_future_wna16_typed_slot_entrypoint_accepts_harness(tmp_path: Path):
 def test_future_wna16_typed_slot_entrypoint_defaults_to_four_field_harness():
     module = _load_module()
 
-    default_path = Path(module.build_parser().parse_args([]).harness_json)
+    args = module.build_parser().parse_args([])
+    default_path = Path(args.harness_json)
+    default_output = Path(args.output_json)
 
     assert (
         default_path.name
         == "wna16_typed_slot_benchmark_harness_entry_args_ptr_preflight_v1.json"
+    )
+    assert (
+        default_output.name
+        == "future_wna16_typed_slot_kernel_variant_entrypoint_entry_args_ptr_v1.json"
     )
     assert "premap_kernel_consumer" in default_path.parts
 

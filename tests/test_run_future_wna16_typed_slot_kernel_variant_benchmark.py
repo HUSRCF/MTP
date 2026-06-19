@@ -210,14 +210,25 @@ def test_future_wna16_typed_slot_variant_benchmark_accepts_timing_stub(
     assert json.loads(output.read_text(encoding="utf-8"))["passed"] is True
 
 
-def test_future_wna16_typed_slot_variant_benchmark_defaults_to_kernel_side_native_stub():
+def test_future_wna16_typed_slot_variant_benchmark_defaults_to_entry_args_native_stub():
     module = _load_module()
 
-    default_path = Path(module.build_parser().parse_args([]).timing_stub_json)
+    args = module.build_parser().parse_args([])
+    default_path = Path(args.timing_stub_json)
+    default_output = Path(args.output_json)
+    default_repeat_dir = Path(args.repeat_output_dir)
 
     assert (
         default_path.name
-        == "future_wna16_typed_slot_kernel_timing_stub_kernel_side_path_native_v1.json"
+        == "future_wna16_typed_slot_kernel_timing_stub_entry_args_ptr_native_v1.json"
+    )
+    assert (
+        default_output.name
+        == "future_wna16_typed_slot_kernel_variant_benchmark_entry_args_ptr_repeat3_v1.json"
+    )
+    assert (
+        default_repeat_dir.name
+        == "future_wna16_typed_slot_kernel_variant_benchmark_entry_args_ptr_repeats"
     )
     assert "premap_kernel_consumer" in default_path.parts
 

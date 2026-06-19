@@ -37,14 +37,14 @@ DEFAULT_OUTPUT_JSON = (
     / "outputs"
     / "reports"
     / "premap_kernel_consumer"
-    / "future_wna16_typed_slot_kernel_variant_payloadless_execution_v1.json"
+    / "future_wna16_typed_slot_kernel_variant_payloadless_execution_entry_args_ptr_native_v1.json"
 )
 DEFAULT_EXECUTION_DIR = (
     REPO_ROOT
     / "outputs"
     / "reports"
     / "premap_kernel_consumer"
-    / "future_wna16_typed_slot_kernel_variant_payloadless_execution"
+    / "future_wna16_typed_slot_kernel_variant_payloadless_execution_entry_args_ptr_native"
 )
 
 EXECUTION_NAME = "premap_future_wna16_typed_slot_payloadless_execution_v1"

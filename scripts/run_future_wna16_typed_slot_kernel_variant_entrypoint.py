@@ -34,7 +34,7 @@ DEFAULT_OUTPUT_JSON = (
     / "outputs"
     / "reports"
     / "premap_kernel_consumer"
-    / "future_wna16_typed_slot_kernel_variant_entrypoint_v1.json"
+    / "future_wna16_typed_slot_kernel_variant_entrypoint_entry_args_ptr_v1.json"
 )
 
 ENTRYPOINT_NAME = "premap_future_wna16_typed_slot_kernel_variant_entrypoint_v1"

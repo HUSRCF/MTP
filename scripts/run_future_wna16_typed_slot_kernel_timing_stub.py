@@ -38,35 +38,35 @@ DEFAULT_OUTPUT_JSON = (
     / "outputs"
     / "reports"
     / "premap_kernel_consumer"
-    / "future_wna16_typed_slot_kernel_timing_stub_v1.json"
+    / "future_wna16_typed_slot_kernel_timing_stub_entry_args_ptr_native_v1.json"
 )
 DEFAULT_CANARY_OUTPUT_JSON = (
     REPO_ROOT
     / "outputs"
     / "reports"
     / "premap_kernel_consumer"
-    / "future_wna16_typed_slot_kernel_timing_stub_canary_runner.json"
+    / "future_wna16_typed_slot_kernel_timing_stub_entry_args_ptr_canary_runner.json"
 )
 DEFAULT_MERGED_OUTPUT_JSON = (
     REPO_ROOT
     / "outputs"
     / "reports"
     / "premap_kernel_consumer"
-    / "future_wna16_typed_slot_kernel_timing_stub_merged_input.json"
+    / "future_wna16_typed_slot_kernel_timing_stub_entry_args_ptr_merged_input.json"
 )
 DEFAULT_STUB_OUTPUT_JSON = (
     REPO_ROOT
     / "outputs"
     / "reports"
     / "premap_kernel_consumer"
-    / "typed_consumer_stub_gpu1_future_wna16_typed_slot_kernel_timing_stub.json"
+    / "typed_consumer_stub_gpu1_future_wna16_typed_slot_kernel_timing_stub_entry_args_ptr.json"
 )
 DEFAULT_SOURCE_MANIFEST_JSON = (
     REPO_ROOT
     / "outputs"
     / "reports"
     / "premap_kernel_consumer"
-    / "future_wna16_typed_slot_kernel_timing_stub_source_manifest.json"
+    / "future_wna16_typed_slot_kernel_timing_stub_entry_args_ptr_source_manifest.json"
 )
 
 TIMING_STUB_NAME = "premap_future_wna16_typed_slot_kernel_timing_stub_v1"
@@ -365,16 +365,26 @@ def _check_fourth_evidence(
                     f"{exc.__class__.__name__}:{exc}"
                 )
             else:
-                if root_sha != payloadless_root_sha:
-                    failures.append("fourth_evidence_payloadless_root_sha_mismatch")
+                try:
+                    root_payload = _load_json(resolved_root_path)
+                except Exception as exc:
+                    failures.append(
+                        "fourth_evidence_payloadless_root_json_invalid:"
+                        f"{exc.__class__.__name__}:{exc}"
+                    )
                 else:
-                    try:
-                        root_payload = _load_json(resolved_root_path)
-                    except Exception as exc:
-                        failures.append(
-                            "fourth_evidence_payloadless_root_json_invalid:"
-                            f"{exc.__class__.__name__}:{exc}"
-                        )
+                    bootstrap_root_sha_drift_allowed = (
+                        root_sha != payloadless_root_sha
+                        and root_payload.get("payloadless_execution_provenance_mode")
+                        == "bootstrap_cycle_breaker_root"
+                        and root_payload.get("payloadless_execution_cycle_breaker_root")
+                        is True
+                    )
+                    if (
+                        root_sha != payloadless_root_sha
+                        and not bootstrap_root_sha_drift_allowed
+                    ):
+                        failures.append("fourth_evidence_payloadless_root_sha_mismatch")
                     else:
                         if (
                             root_payload.get("artifact_kind")

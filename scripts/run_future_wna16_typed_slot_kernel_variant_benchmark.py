@@ -31,21 +31,21 @@ DEFAULT_TIMING_STUB_JSON = (
     / "outputs"
     / "reports"
     / "premap_kernel_consumer"
-    / "future_wna16_typed_slot_kernel_timing_stub_kernel_side_path_native_v1.json"
+    / "future_wna16_typed_slot_kernel_timing_stub_entry_args_ptr_native_v1.json"
 )
 DEFAULT_OUTPUT_JSON = (
     REPO_ROOT
     / "outputs"
     / "reports"
     / "premap_kernel_consumer"
-    / "future_wna16_typed_slot_kernel_variant_benchmark_v1.json"
+    / "future_wna16_typed_slot_kernel_variant_benchmark_entry_args_ptr_repeat3_v1.json"
 )
 DEFAULT_REPEAT_DIR = (
     REPO_ROOT
     / "outputs"
     / "reports"
     / "premap_kernel_consumer"
-    / "future_wna16_typed_slot_kernel_variant_benchmark_repeats"
+    / "future_wna16_typed_slot_kernel_variant_benchmark_entry_args_ptr_repeats"
 )
 
 BENCHMARK_NAME = "premap_future_wna16_typed_slot_kernel_variant_benchmark_v1"
