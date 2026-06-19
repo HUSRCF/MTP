@@ -24,7 +24,9 @@ from mtp_expert_prefetch.runtime.shadow_log import (
 )
 from mtp_expert_prefetch.tracing.vllm_router_trace import VllmRouterRecorder
 from mtp_expert_prefetch.tracing.vllm_router_trace import (
+    DecodeWorkloadTraceCollector,
     SharedExpertFusedGateUnsupportedError,
+    _ACTIVE_DECODE_WORKLOAD_TRACE,
     _add_premap_payload_cache_manager_snapshot_to_performance,
     _add_runtime_shadow_aggregate_to_performance,
     _apply_premap_payload_cache_measured_copy_envelope,
@@ -71,6 +73,337 @@ class _OutcomeOnlySink:
 
     def write_outcome(self, event) -> None:
         self.events.append(event)
+
+
+def test_recorder_adopts_decode_workload_token_provenance(tmp_path: Path):
+    collector = DecodeWorkloadTraceCollector(
+        path=tmp_path / "decode.jsonl",
+        run_id="unit",
+    )
+    collector.set_sample(3, {"id": "rec-3", "prompt_len": 100})
+    collector._remember_decode_token_indices(
+        phase="decode",
+        seq_lens=[105],
+        query_lens=[1],
+        call_index=9,
+    )
+    recorder = VllmRouterRecorder(
+        top_k=2,
+        shadow_premap_event_token_index=17,
+        shadow_descriptor_order_event_token_index=19,
+    )
+
+    token = _ACTIVE_DECODE_WORKLOAD_TRACE.set(collector)
+    try:
+        recorder.record_topk(
+            layer_id=0,
+            topk_ids=torch.tensor([[1, 2]], dtype=torch.long),
+            topk_weights=torch.tensor([[0.7, 0.3]], dtype=torch.float32),
+        )
+    finally:
+        _ACTIVE_DECODE_WORKLOAD_TRACE.reset(token)
+
+    assert recorder.shadow_premap_event_token_index == 5
+    assert recorder.shadow_descriptor_order_event_token_index == 5
+    assert recorder.shadow_premap_event_token_index_source == (
+        "decode_workload_collector"
+    )
+    assert recorder.shadow_descriptor_order_event_token_index_source == (
+        "decode_workload_collector"
+    )
+    assert recorder.shadow_premap_event_sample_idx == 3
+    assert recorder.shadow_premap_event_record_id == "rec-3"
+
+    recorder.clear()
+    assert recorder.shadow_premap_event_token_index == 17
+    assert recorder.shadow_descriptor_order_event_token_index == 19
+    assert recorder.shadow_premap_event_token_index_source == "config"
+    assert recorder.shadow_descriptor_order_event_token_index_source == "config"
+    assert recorder.shadow_premap_event_sample_idx is None
+    assert recorder.shadow_premap_event_record_id is None
+
+
+def test_recorder_does_not_adopt_batched_decode_token_provenance(tmp_path: Path):
+    collector = DecodeWorkloadTraceCollector(
+        path=tmp_path / "decode.jsonl",
+        run_id="unit",
+    )
+    collector.set_batch_samples(
+        [
+            (1, {"id": "rec-1", "prompt_len": 100}, None, None),
+            (2, {"id": "rec-2", "prompt_len": 200}, None, None),
+        ]
+    )
+    collector._remember_decode_token_indices(
+        phase="decode",
+        seq_lens=[101, 202],
+        query_lens=[1, 1],
+        call_index=9,
+    )
+    recorder = VllmRouterRecorder(
+        top_k=2,
+        shadow_premap_event_token_index=17,
+        shadow_descriptor_order_event_token_index=19,
+    )
+
+    token = _ACTIVE_DECODE_WORKLOAD_TRACE.set(collector)
+    try:
+        recorder.record_topk(
+            layer_id=0,
+            topk_ids=torch.tensor([[1, 2], [3, 0]], dtype=torch.long),
+            topk_weights=torch.tensor(
+                [[0.7, 0.3], [0.6, 0.4]],
+                dtype=torch.float32,
+            ),
+        )
+    finally:
+        _ACTIVE_DECODE_WORKLOAD_TRACE.reset(token)
+
+    assert recorder.shadow_premap_event_token_index == 17
+    assert recorder.shadow_descriptor_order_event_token_index == 19
+    assert recorder.shadow_premap_event_token_index_source == "config"
+    assert recorder.shadow_descriptor_order_event_token_index_source == "config"
+    assert recorder.shadow_premap_event_sample_idx is None
+    assert recorder.shadow_premap_event_record_id is None
+
+
+def test_recorder_resets_stale_decode_token_on_batched_fallback(tmp_path: Path):
+    collector = DecodeWorkloadTraceCollector(
+        path=tmp_path / "decode.jsonl",
+        run_id="unit",
+    )
+    collector.set_sample(3, {"id": "rec-3", "prompt_len": 100})
+    collector._remember_decode_token_indices(
+        phase="decode",
+        seq_lens=[105],
+        query_lens=[1],
+        call_index=9,
+    )
+    recorder = VllmRouterRecorder(
+        top_k=2,
+        shadow_premap_event_token_index=17,
+        shadow_descriptor_order_event_token_index=19,
+    )
+
+    token = _ACTIVE_DECODE_WORKLOAD_TRACE.set(collector)
+    try:
+        recorder.record_topk(
+            layer_id=0,
+            topk_ids=torch.tensor([[1, 2]], dtype=torch.long),
+            topk_weights=torch.tensor([[0.7, 0.3]], dtype=torch.float32),
+        )
+        assert recorder.shadow_premap_event_token_index == 5
+        recorder.record_topk(
+            layer_id=0,
+            topk_ids=torch.tensor([[1, 2], [3, 0]], dtype=torch.long),
+            topk_weights=torch.tensor(
+                [[0.7, 0.3], [0.6, 0.4]],
+                dtype=torch.float32,
+            ),
+        )
+    finally:
+        _ACTIVE_DECODE_WORKLOAD_TRACE.reset(token)
+
+    assert recorder.shadow_premap_event_token_index == 17
+    assert recorder.shadow_descriptor_order_event_token_index == 19
+    assert recorder.shadow_premap_event_token_index_source == "config"
+    assert recorder.shadow_descriptor_order_event_token_index_source == "config"
+    assert recorder.shadow_premap_event_sample_idx is None
+    assert recorder.shadow_premap_event_record_id is None
+
+
+def test_collector_clears_decode_token_when_prefill_filtered(tmp_path: Path):
+    collector = DecodeWorkloadTraceCollector(
+        path=tmp_path / "decode.jsonl",
+        run_id="unit",
+    )
+    collector.set_sample(3, {"id": "rec-3", "prompt_len": 100})
+    collector._remember_decode_token_indices(
+        phase="decode",
+        seq_lens=[105],
+        query_lens=[1],
+        call_index=9,
+    )
+    assert collector.current_single_decode_token_index() == 5
+
+    collector.clear_decode_token_provenance()
+    assert collector.current_single_decode_token_index() is None
+
+
+def test_collector_skip_clears_stale_decode_token(tmp_path: Path):
+    collector = DecodeWorkloadTraceCollector(
+        path=tmp_path / "decode.jsonl",
+        run_id="unit",
+    )
+    collector.set_sample(3, {"id": "rec-3", "prompt_len": 100})
+    collector._remember_decode_token_indices(
+        phase="decode",
+        seq_lens=[105],
+        query_lens=[1],
+        call_index=9,
+    )
+    assert collector.current_single_decode_token_index() == 5
+
+    collector._skip("max_rows")
+    assert collector.current_single_decode_token_index() is None
+
+
+def test_collector_exception_path_clears_stale_decode_token(tmp_path: Path):
+    collector = DecodeWorkloadTraceCollector(
+        path=tmp_path / "decode.jsonl",
+        run_id="unit",
+    )
+    collector.set_sample(3, {"id": "rec-3", "prompt_len": 100})
+    collector._remember_decode_token_indices(
+        phase="decode",
+        seq_lens=[105],
+        query_lens=[1],
+        call_index=9,
+    )
+    assert collector.current_single_decode_token_index() == 5
+
+    def _boom(*, builder, common_attn_metadata):
+        collector._remember_decode_token_indices(
+            phase="decode",
+            seq_lens=[106],
+            query_lens=[1],
+            call_index=10,
+        )
+        raise RuntimeError("synthetic metadata failure")
+
+    collector._handle = object()
+    collector._record_common_attention_metadata_impl = _boom
+    collector.record_common_attention_metadata(
+        builder=object(),
+        common_attn_metadata=object(),
+    )
+    assert collector.error_count == 1
+    assert collector.current_single_decode_token_index() is None
+
+
+def test_native_input_export_refreshes_decode_token_without_record_topk(
+    tmp_path: Path,
+):
+    class _Table:
+        row_count = 1
+        column_count = 4
+        object_hash = "table-hash"
+        schema_hash = PREMAP_DESCRIPTOR_CONSUMER_HANDLE_TABLE_SCHEMA_HASH
+        payload_bytes = 0
+        ready_credit = False
+        changes_router = False
+        changes_descriptor_order = False
+        passed_to_kernel = False
+        changes_kernel_launch_args = False
+
+        def to_native_typed_consumer_input_dict(self):
+            return {
+                "descriptor_ptr": [11],
+                "packed_weight_descriptor": [33],
+                "scale_metadata_handle": [55],
+                "aux_metadata_handle": [0],
+                "expert_id": [3],
+                "address_key_hash": [77],
+                "_meta": {
+                    "schema_hash": PREMAP_DESCRIPTOR_CONSUMER_HANDLE_TABLE_SCHEMA_HASH,
+                    "row_count": 1,
+                    "column_count": 4,
+                    "table_object_hash": "table-hash",
+                    "payload_bytes": 0,
+                    "ready_credit": False,
+                    "changes_router": False,
+                    "changes_descriptor_order": False,
+                    "passed_to_kernel": False,
+                    "changes_kernel_launch_args": False,
+                },
+            }
+
+    collector = DecodeWorkloadTraceCollector(
+        path=tmp_path / "decode.jsonl",
+        run_id="unit",
+    )
+    collector.set_sample(4, {"id": "rec-4", "prompt_len": 128})
+    collector._remember_decode_token_indices(
+        phase="decode",
+        seq_lens=[131],
+        query_lens=[1],
+        call_index=10,
+    )
+    recorder = VllmRouterRecorder(
+        top_k=2,
+        shadow_premap_native_typed_consumer_input_export_enabled=True,
+        shadow_premap_native_typed_consumer_input_export_dir=str(tmp_path),
+        shadow_premap_native_typed_consumer_input_export_max_tables=1,
+    )
+
+    token = _ACTIVE_DECODE_WORKLOAD_TRACE.set(collector)
+    try:
+        path = recorder._maybe_export_native_typed_consumer_input(
+            _Table(),
+            layer_id=0,
+        )
+    finally:
+        _ACTIVE_DECODE_WORKLOAD_TRACE.reset(token)
+
+    assert path is not None
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    assert payload["_export_context"]["token_index"] == 3
+    assert payload["_export_context"]["token_index_source"] == (
+        "decode_workload_collector"
+    )
+    assert payload["_export_context"]["sample_idx"] == 4
+    assert payload["_export_context"]["record_id"] == "rec-4"
+
+
+def test_producer_state_packet_export_refreshes_decode_token_without_record_topk(
+    tmp_path: Path,
+):
+    collector = DecodeWorkloadTraceCollector(
+        path=tmp_path / "decode.jsonl",
+        run_id="unit",
+    )
+    collector.set_sample(5, {"id": "rec-5", "prompt_len": 256})
+    collector._remember_decode_token_indices(
+        phase="decode",
+        seq_lens=[260],
+        query_lens=[1],
+        call_index=12,
+    )
+    recorder = VllmRouterRecorder(
+        top_k=2,
+        shadow_num_experts=8,
+        shadow_premap_payload_cache_producer_state_packet_export_enabled=True,
+        shadow_premap_payload_cache_producer_state_packet_export_dir=str(tmp_path),
+        shadow_premap_payload_cache_producer_state_packet_export_max_packets=1,
+    )
+    packet = PremapPayloadCacheProducerTransitionStatePacket(
+        layer_id=0,
+        previous_experts=(1,),
+        current_experts=(2,),
+        state_owner="producer",
+        issue_source="prelaunch_observed_transition_premap_shadow",
+        transition_summary_mode="matrix_topk",
+        transition_topk_count=1,
+        max_num_experts=8,
+    )
+
+    token = _ACTIVE_DECODE_WORKLOAD_TRACE.set(collector)
+    try:
+        path = recorder._maybe_export_premap_payload_cache_producer_state_packet(
+            packet,
+            layer_id=0,
+        )
+    finally:
+        _ACTIVE_DECODE_WORKLOAD_TRACE.reset(token)
+
+    assert path is not None
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    assert payload["_export_context"]["token_index"] == 4
+    assert payload["_export_context"]["token_index_source"] == (
+        "decode_workload_collector"
+    )
+    assert payload["_export_context"]["sample_idx"] == 5
+    assert payload["_export_context"]["record_id"] == "rec-5"
 
 
 def test_premap_payload_cache_manager_id_keeps_resident_legacy_format():

@@ -500,6 +500,11 @@ class DecodeWorkloadTraceCollector:
     _layer_ordinals: dict[int, int] = field(default_factory=dict)
     _skip_reasons: dict[str, int] = field(default_factory=dict)
     _handle: Any = None
+    _last_decode_generated_token_indices: list[int] = field(default_factory=list)
+    _last_decode_sample_indices: list[int | None] = field(default_factory=list)
+    _last_decode_record_ids: list[str | None] = field(default_factory=list)
+    _last_decode_phase: str | None = None
+    _last_decode_call_index: int | None = None
 
     def open(self) -> None:
         self.path.parent.mkdir(parents=True, exist_ok=True)
@@ -519,6 +524,7 @@ class DecodeWorkloadTraceCollector:
         self._batch_sample_indices = None
         self._batch_record_ids = None
         self._batch_prompt_lens = None
+        self._clear_latest_decode_token_index()
         if record is None:
             self._current_record_id = None
             self._current_prompt_len = None
@@ -540,6 +546,7 @@ class DecodeWorkloadTraceCollector:
         self._current_sample_idx = None
         self._current_record_id = None
         self._current_prompt_len = None
+        self._clear_latest_decode_token_index()
         sample_indices: list[int] = []
         record_ids: list[str] = []
         prompt_lens: list[int | None] = []
@@ -609,6 +616,72 @@ class DecodeWorkloadTraceCollector:
             else [],
         }
 
+    def _clear_latest_decode_token_index(self) -> None:
+        self._last_decode_generated_token_indices = []
+        self._last_decode_sample_indices = []
+        self._last_decode_record_ids = []
+        self._last_decode_phase = None
+        self._last_decode_call_index = None
+
+    def _remember_decode_token_indices(
+        self,
+        *,
+        phase: str,
+        seq_lens: Sequence[int],
+        query_lens: Sequence[int],
+        call_index: int,
+    ) -> None:
+        self._last_decode_phase = str(phase)
+        self._last_decode_call_index = int(call_index)
+        if str(phase) != "decode":
+            self._last_decode_generated_token_indices = []
+            self._last_decode_sample_indices = []
+            self._last_decode_record_ids = []
+            return
+        batch_size = min(len(seq_lens), len(query_lens))
+        generated: list[int] = []
+        sample_indices: list[int | None] = []
+        record_ids: list[str | None] = []
+        for row_index in range(batch_size):
+            generated.append(
+                _generated_token_index_from_cache_len(
+                    int(seq_lens[row_index]),
+                    self._row_prompt_len(row_index),
+                    int(call_index),
+                )
+            )
+            sample_indices.append(self._row_sample_idx(row_index))
+            record_ids.append(self._row_record_id(row_index))
+        self._last_decode_generated_token_indices = generated
+        self._last_decode_sample_indices = sample_indices
+        self._last_decode_record_ids = record_ids
+
+    def current_single_decode_token_index(self) -> int | None:
+        if self._last_decode_phase != "decode":
+            return None
+        if len(self._last_decode_generated_token_indices) != 1:
+            return None
+        return int(self._last_decode_generated_token_indices[0])
+
+    def current_single_decode_sample_idx(self) -> int | None:
+        if self._last_decode_phase != "decode":
+            return None
+        if len(self._last_decode_sample_indices) != 1:
+            return None
+        value = self._last_decode_sample_indices[0]
+        return int(value) if value is not None else None
+
+    def current_single_decode_record_id(self) -> str | None:
+        if self._last_decode_phase != "decode":
+            return None
+        if len(self._last_decode_record_ids) != 1:
+            return None
+        value = self._last_decode_record_ids[0]
+        return str(value) if value is not None else None
+
+    def clear_decode_token_provenance(self) -> None:
+        self._clear_latest_decode_token_index()
+
     def stats(self) -> dict[str, Any]:
         return {
             "enabled": True,
@@ -647,6 +720,7 @@ class DecodeWorkloadTraceCollector:
         return int(self._current_sample_idx) % int(self.sample_period) != 0
 
     def _skip(self, reason: str) -> None:
+        self._clear_latest_decode_token_index()
         self.skipped_rows += 1
         self._skip_reasons[reason] = int(self._skip_reasons.get(reason, 0)) + 1
 
@@ -680,6 +754,7 @@ class DecodeWorkloadTraceCollector:
                 attn_metadata=attn_metadata,
             )
         except Exception:
+            self._clear_latest_decode_token_index()
             self.error_count += 1
             if bool(os.environ.get("MTP_DECODE_WORKLOAD_TRACE_STRICT", "")):
                 raise
@@ -722,6 +797,7 @@ class DecodeWorkloadTraceCollector:
                 kv_cache_dtype=kv_cache_dtype,
             )
         except Exception:
+            self._clear_latest_decode_token_index()
             self.error_count += 1
             if bool(os.environ.get("MTP_DECODE_WORKLOAD_TRACE_STRICT", "")):
                 raise
@@ -746,6 +822,7 @@ class DecodeWorkloadTraceCollector:
                 common_attn_metadata=common_attn_metadata,
             )
         except Exception:
+            self._clear_latest_decode_token_index()
             self.error_count += 1
             if bool(os.environ.get("MTP_DECODE_WORKLOAD_TRACE_STRICT", "")):
                 raise
@@ -787,6 +864,7 @@ class DecodeWorkloadTraceCollector:
         max_q_len = max(query_lens) if query_lens else 0
         phase = "decode" if max_q_len <= int(self.decode_max_q_len) else "prefill"
         if self.phase_filter and self.phase_filter != "all" and phase != self.phase_filter:
+            self._clear_latest_decode_token_index()
             self._skip("phase_filter")
             return
 
@@ -837,6 +915,12 @@ class DecodeWorkloadTraceCollector:
         layer_ordinal = self._layer_ordinal(builder)
         call_index = self._call_index
         self._call_index += 1
+        self._remember_decode_token_indices(
+            phase=phase,
+            seq_lens=seq_lens,
+            query_lens=query_lens,
+            call_index=call_index,
+        )
         trace_id = (
             f"{self.run_id}_sample_{self._current_sample_idx}_"
             f"call_{call_index:08d}_builder_{layer_ordinal}"
@@ -998,6 +1082,7 @@ class DecodeWorkloadTraceCollector:
         max_q_len = max(query_lens) if query_lens else 0
         phase = "decode" if max_q_len <= int(self.decode_max_q_len) else "prefill"
         if self.phase_filter and self.phase_filter != "all" and phase != self.phase_filter:
+            self._clear_latest_decode_token_index()
             self._skip("phase_filter")
             return
 
@@ -1044,6 +1129,12 @@ class DecodeWorkloadTraceCollector:
         layer_ordinal = self._layer_ordinal(layer)
         call_index = self._call_index
         self._call_index += 1
+        self._remember_decode_token_indices(
+            phase=phase,
+            seq_lens=seq_lens,
+            query_lens=query_lens,
+            call_index=call_index,
+        )
         trace_id = (
             f"{self.run_id}_sample_{self._current_sample_idx}_"
             f"call_{call_index:08d}_layer_{layer_ordinal}"
@@ -1199,6 +1290,7 @@ class DecodeWorkloadTraceCollector:
             else "prefill"
         )
         if self.phase_filter and self.phase_filter != "all" and phase != self.phase_filter:
+            self._clear_latest_decode_token_index()
             self._skip("chunked_decode_phase_filter")
             return
         block_size = _infer_block_size_from_key_cache(key_cache)
@@ -1240,6 +1332,12 @@ class DecodeWorkloadTraceCollector:
         )
         call_index = self._call_index
         self._call_index += 1
+        self._remember_decode_token_indices(
+            phase=phase,
+            seq_lens=seq_values,
+            query_lens=query_lens,
+            call_index=call_index,
+        )
         layer_ordinal = (
             int(call_index) % int(self.inferred_layer_count)
             if self.inferred_layer_count is not None
@@ -2976,6 +3074,9 @@ class VllmRouterRecorder:
     shadow_premap_priority: int = 2
     shadow_transition_premap_priority: int = 3
     shadow_premap_event_token_index: int = -1
+    shadow_premap_event_token_index_source: str = "config"
+    shadow_premap_event_sample_idx: int | None = None
+    shadow_premap_event_record_id: str | None = None
     shadow_emit_descriptor_order_summary: bool = False
     shadow_descriptor_order_prior: LayerTilePrior | None = None
     shadow_descriptor_order_prior_id: str | None = None
@@ -3078,6 +3179,21 @@ class VllmRouterRecorder:
         init=False,
         repr=False,
     )
+    _configured_shadow_premap_event_token_index: int = field(
+        default=-1,
+        init=False,
+        repr=False,
+    )
+    _configured_shadow_descriptor_order_event_token_index: int = field(
+        default=-1,
+        init=False,
+        repr=False,
+    )
+    _shadow_event_token_index_dynamic: bool = field(
+        default=False,
+        init=False,
+        repr=False,
+    )
     shadow_descriptor_order_device: int | None = None
     shadow_descriptor_order_runtime_gate: DescriptorOrderRuntimeGate | None = None
     shadow_descriptor_order_evidence: (
@@ -3087,6 +3203,7 @@ class VllmRouterRecorder:
     shadow_descriptor_order_same_multiset_evidence: bool | None = None
     shadow_descriptor_order_checksum_delta_evidence: float | None = None
     shadow_descriptor_order_event_token_index: int = -1
+    shadow_descriptor_order_event_token_index_source: str = "config"
     shadow_wna16_config_override: dict[str, Any] | None = None
     shadow_wna16_config_override_preserve_dynamic_nk: bool = True
     shadow_wna16_config_override_max_tokens: int | None = None
@@ -3220,6 +3337,12 @@ class VllmRouterRecorder:
     def __post_init__(self) -> None:
         if self.shadow_capture_router_topk is None:
             self.shadow_capture_router_topk = bool(self.shadow_record_router_topk)
+        self._configured_shadow_premap_event_token_index = int(
+            self.shadow_premap_event_token_index
+        )
+        self._configured_shadow_descriptor_order_event_token_index = int(
+            self.shadow_descriptor_order_event_token_index
+        )
         owner = str(
             self.shadow_premap_payload_cache_transition_state_owner or "consumer"
         ).strip().lower()
@@ -3241,6 +3364,69 @@ class VllmRouterRecorder:
             )
             raise ValueError(msg)
         self.shadow_premap_payload_cache_transition_state_owner = owner
+
+    def _refresh_event_token_index_from_decode_workload(
+        self,
+        *,
+        topk_ids: torch.Tensor | None = None,
+    ) -> None:
+        """Adopt the current decode generated-token index when trace metadata exists.
+
+        The premap/native packet export path is intentionally payloadless and often
+        runs with record_topk disabled.  When the lightweight decode workload
+        collector is active, it already derives generated-token provenance from
+        attention metadata before MoE launch.  Use that single-row decode value for
+        subsequent prelaunch/premap events; fall back to configured static indices
+        for prefill, batch rows, or runs without the collector.
+        """
+
+        def reset_to_config() -> None:
+            if not bool(self._shadow_event_token_index_dynamic):
+                self.shadow_premap_event_token_index_source = "config"
+                self.shadow_descriptor_order_event_token_index_source = "config"
+                self.shadow_premap_event_sample_idx = None
+                self.shadow_premap_event_record_id = None
+                return
+            self.shadow_premap_event_token_index = int(
+                self._configured_shadow_premap_event_token_index
+            )
+            self.shadow_descriptor_order_event_token_index = int(
+                self._configured_shadow_descriptor_order_event_token_index
+            )
+            self.shadow_premap_event_token_index_source = "config"
+            self.shadow_descriptor_order_event_token_index_source = "config"
+            self.shadow_premap_event_sample_idx = None
+            self.shadow_premap_event_record_id = None
+            self._shadow_event_token_index_dynamic = False
+
+        if topk_ids is not None:
+            try:
+                if int(topk_ids.ndim) != 2 or int(topk_ids.shape[0]) != 1:
+                    reset_to_config()
+                    return
+            except Exception:
+                reset_to_config()
+                return
+        collector = _ACTIVE_DECODE_WORKLOAD_TRACE.get()
+        if collector is None:
+            reset_to_config()
+            return
+        token_index = collector.current_single_decode_token_index()
+        if token_index is None:
+            reset_to_config()
+            return
+        self.shadow_premap_event_token_index = int(token_index)
+        self.shadow_descriptor_order_event_token_index = int(token_index)
+        self.shadow_premap_event_token_index_source = "decode_workload_collector"
+        self.shadow_descriptor_order_event_token_index_source = (
+            "decode_workload_collector"
+        )
+        self._shadow_event_token_index_dynamic = True
+        sample_idx = collector.current_single_decode_sample_idx()
+        self.shadow_premap_event_sample_idx = (
+            int(sample_idx) if sample_idx is not None else None
+        )
+        self.shadow_premap_event_record_id = collector.current_single_decode_record_id()
 
     def clear(self) -> None:
         self.calls.clear()
@@ -3267,6 +3453,17 @@ class VllmRouterRecorder:
         self._premap_payload_cache_transition_native_packet_last_hash = None
         self._premap_payload_cache_transition_native_packet_last_previous_count = 0
         self._premap_payload_cache_transition_native_packet_last_current_count = 0
+        self.shadow_premap_event_token_index = int(
+            self._configured_shadow_premap_event_token_index
+        )
+        self.shadow_descriptor_order_event_token_index = int(
+            self._configured_shadow_descriptor_order_event_token_index
+        )
+        self.shadow_premap_event_token_index_source = "config"
+        self.shadow_descriptor_order_event_token_index_source = "config"
+        self.shadow_premap_event_sample_idx = None
+        self.shadow_premap_event_record_id = None
+        self._shadow_event_token_index_dynamic = False
 
     def _maybe_export_premap_payload_cache_producer_state_packet(
         self,
@@ -3303,6 +3500,7 @@ class VllmRouterRecorder:
         )
         if not export_dir_raw:
             return None
+        self._refresh_event_token_index_from_decode_workload()
         export_dir = Path(export_dir_raw)
         export_dir.mkdir(parents=True, exist_ok=True)
         prefix = str(
@@ -3330,6 +3528,13 @@ class VllmRouterRecorder:
             "request_id": str(self.request_id),
             "sequence_id": int(self.sequence_id),
             "token_index": int(self.shadow_premap_event_token_index),
+            "token_index_source": str(self.shadow_premap_event_token_index_source),
+            "sample_idx": (
+                None
+                if self.shadow_premap_event_sample_idx is None
+                else int(self.shadow_premap_event_sample_idx)
+            ),
+            "record_id": self.shadow_premap_event_record_id,
             "layer_id": int(layer_id),
             "export_index": export_idx,
             "ready": bool(packet.ready),
@@ -3428,6 +3633,7 @@ class VllmRouterRecorder:
         export_dir_raw = self.shadow_premap_native_typed_consumer_input_export_dir
         if not export_dir_raw:
             return None
+        self._refresh_event_token_index_from_decode_workload()
         export_dir = Path(export_dir_raw)
         export_dir.mkdir(parents=True, exist_ok=True)
         prefix = str(
@@ -3451,6 +3657,13 @@ class VllmRouterRecorder:
             "request_id": str(self.request_id),
             "sequence_id": int(self.sequence_id),
             "token_index": int(self.shadow_premap_event_token_index),
+            "token_index_source": str(self.shadow_premap_event_token_index_source),
+            "sample_idx": (
+                None
+                if self.shadow_premap_event_sample_idx is None
+                else int(self.shadow_premap_event_sample_idx)
+            ),
+            "record_id": self.shadow_premap_event_record_id,
             "layer_id": int(layer_id),
             "export_index": export_idx,
             "row_count": row_count,
@@ -3572,6 +3785,7 @@ class VllmRouterRecorder:
         captured_hidden = None
         if self.capture_router_input_hidden and router_input_hidden is not None:
             captured_hidden = router_input_hidden.detach().cpu().to(torch.bfloat16)
+        self._refresh_event_token_index_from_decode_workload(topk_ids=topk_ids)
         self.calls.append(
             VllmRouterCall(
                 layer_id=layer_id,
@@ -4426,6 +4640,7 @@ class VllmRouterRecorder:
     ) -> CacheManagerSnapshot | None:
         if not bool(self.shadow_emit_premap_payload_cache_manager_counters):
             return None
+        self._refresh_event_token_index_from_decode_workload()
         if not self._premap_payload_cache_transition_state_owner_allows(owner):
             return None
         normalized_owner = str(owner or "").strip().lower()
