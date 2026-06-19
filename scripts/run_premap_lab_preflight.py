@@ -14765,6 +14765,11 @@ def run_premap_lab_preflight(
     # relax the current-WNA16-arg compatibility contract; until then, do not
     # advertise benchmark readiness from this checker-compatible preflight.
     wna16_benchmark_ready = False
+    independent_typed_slot_payloadless_chain_ready = (
+        wna16_side_variant_ready
+        and future_wna16_kernel_side_typed_consumer_path_ready
+        and future_wna16_payloadless_execution_ready
+    )
     if (
         REQUIRED_DEFAULT_GATE_CONTRACT[
             "future_wna16_typed_slot_all_four_field_consumer_required"
@@ -14792,7 +14797,9 @@ def run_premap_lab_preflight(
         failures.append(
             "default_kernel_consumer_future_wna16_payloadless_execution_not_ready"
         )
-    if future_wna16_kernel_side_typed_consumer_path_ready and wna16_side_variant_ready:
+    if independent_typed_slot_payloadless_chain_ready:
+        next_runtime_stage = "implement_future_wna16_typed_slot_kernel_variant_execution"
+    elif future_wna16_kernel_side_typed_consumer_path_ready and wna16_side_variant_ready:
         next_runtime_stage = "implement_wna16_typed_slot_benchmark_harness"
     elif wna16_kernel_side_execution_ready:
         next_runtime_stage = "promote_all_four_field_typed_slot_consumer_gate"
@@ -14816,6 +14823,9 @@ def run_premap_lab_preflight(
     lab_gate_status_summary[
         "default_kernel_consumer_wna16_benchmark_prerequisites_ready"
     ] = wna16_benchmark_prerequisites_ready
+    lab_gate_status_summary[
+        "default_kernel_consumer_independent_typed_slot_payloadless_chain_ready"
+    ] = independent_typed_slot_payloadless_chain_ready
     lab_gate_status_summary[
         "default_kernel_consumer_wna16_kernel_side_execution_ready"
     ] = wna16_kernel_side_execution_ready

@@ -92,6 +92,361 @@ def _float_metric(summary: dict[str, Any], key: str) -> float | None:
     return None
 
 
+def _payloadless_execution_ready(summary: dict[str, Any], failures: list[str]) -> bool:
+    prefix = "default_kernel_consumer_future_wna16_payloadless_execution"
+    expected_values = {
+        f"{prefix}_evidence_passed": True,
+        f"{prefix}_ready": True,
+        f"{prefix}_gate_ready": True,
+        f"{prefix}_lab_preflight_ready": True,
+        f"{prefix}_native_ready": True,
+        f"{prefix}_native_requested": True,
+        f"{prefix}_native_executed": True,
+        f"{prefix}_native_passed": True,
+        f"{prefix}_all_four_ready": True,
+        f"{prefix}_all_four_fields_read": True,
+        f"{prefix}_kernel_side_ready": True,
+        f"{prefix}_kernel_side_hashes_valid": True,
+        f"{prefix}_payload_bytes": 0,
+        f"{prefix}_payload_deref_allowed": False,
+        f"{prefix}_kernel_arg_pass_allowed": False,
+        f"{prefix}_passed_to_kernel": False,
+        f"{prefix}_changes_kernel_launch_args": False,
+        f"{prefix}_current_wna16_arg_compatible": False,
+        f"{prefix}_uses_current_wna16_args": False,
+        f"{prefix}_measures_tpot": False,
+        f"{prefix}_measures_vllm_latency": False,
+        f"{prefix}_wna16_benchmark_ready": False,
+    }
+    ready = True
+    for key, expected in expected_values.items():
+        if summary.get(key) != expected:
+            failures.append(f"{key}_mismatch")
+            ready = False
+    source_count = _int_metric(summary, f"{prefix}_source_count")
+    row_count = _int_metric(summary, f"{prefix}_row_count")
+    row_ok_count = _int_metric(summary, f"{prefix}_row_ok_count")
+    benchmark_repeat_count = _int_metric(summary, f"{prefix}_benchmark_repeat_count")
+    if source_count is None or source_count < 128:
+        failures.append(f"{prefix}_source_count_invalid")
+        ready = False
+    if row_count is None or row_count <= 0:
+        failures.append(f"{prefix}_row_count_invalid")
+        ready = False
+    elif row_ok_count != row_count:
+        failures.append(f"{prefix}_row_ok_count_mismatch")
+        ready = False
+    if benchmark_repeat_count != 3:
+        failures.append(f"{prefix}_benchmark_repeat_count_mismatch")
+        ready = False
+    return ready
+
+
+def _future_kernel_side_typed_path_ready(
+    summary: dict[str, Any],
+    failures: list[str],
+) -> bool:
+    all_four_failures: list[str] = []
+    all_four_ready = _future_wna16_all_four_consumer_ready(
+        summary,
+        all_four_failures,
+    )
+    prefix = "default_kernel_consumer_future_wna16_kernel_side_typed_path"
+    expected_values = {
+        "default_kernel_consumer_future_wna16_kernel_side_typed_consumer_path_ready": True,
+        "default_kernel_consumer_future_wna16_kernel_side_typed_consumer_path_hashes_valid": True,
+        f"{prefix}_evidence_passed": True,
+        f"{prefix}_artifact_kind": "future_wna16_kernel_side_typed_consumer_path",
+        f"{prefix}_name": "premap_future_wna16_kernel_side_typed_consumer_path_v1",
+        f"{prefix}_mode": "independent_future_wna16_kernel_side_typed_consumer_path",
+        f"{prefix}_source": "premap_future_wna16_typed_slot_all_four_field_consumer_v1",
+        f"{prefix}_stage_type": "lab_gate",
+        f"{prefix}_bench_semantics": False,
+        f"{prefix}_all_four_gate_ready": True,
+        f"{prefix}_native_executed": True,
+        f"{prefix}_native_passed": True,
+        f"{prefix}_independent_path": True,
+        f"{prefix}_explicit_typed_abi_slot": True,
+        f"{prefix}_future_kernel_side_checked": True,
+        f"{prefix}_future_kernel_side_all_fields_read": True,
+        f"{prefix}_wna16_side_checked": True,
+        f"{prefix}_wna16_side_all_fields_read": True,
+        f"{prefix}_payload_bytes": 0,
+        f"{prefix}_payload_deref_allowed": False,
+        f"{prefix}_kernel_arg_pass_allowed": False,
+        f"{prefix}_passed_to_kernel": False,
+        f"{prefix}_changes_kernel_launch_args": False,
+        f"{prefix}_current_wna16_arg_compatible": False,
+        f"{prefix}_requires_wna16_arg_reinterpretation": False,
+        f"{prefix}_uses_current_wna16_args": False,
+        f"{prefix}_measures_tpot": False,
+        f"{prefix}_measures_vllm_latency": False,
+        f"{prefix}_wna16_benchmark_ready": False,
+    }
+    ready = True
+    if not all_four_ready:
+        failures.append("future_wna16_all_four_consumer_not_ready")
+        failures.extend(all_four_failures)
+        ready = False
+    for key, expected in expected_values.items():
+        if summary.get(key) != expected:
+            failures.append(f"{key}_mismatch")
+            ready = False
+    source_count = _int_metric(summary, f"{prefix}_source_count")
+    input_count = _int_metric(summary, f"{prefix}_input_json_count")
+    row_count = _int_metric(summary, f"{prefix}_row_count")
+    row_ok_count = _int_metric(summary, f"{prefix}_row_ok_count")
+    if source_count is None or source_count < 128:
+        failures.append(f"{prefix}_source_count_invalid")
+        ready = False
+    if input_count != source_count:
+        failures.append(f"{prefix}_input_json_count_mismatch")
+        ready = False
+    if row_count is None or row_count <= 0:
+        failures.append(f"{prefix}_row_count_invalid")
+        ready = False
+    elif row_ok_count != row_count:
+        failures.append(f"{prefix}_row_ok_count_mismatch")
+        ready = False
+    for key in (
+        f"{prefix}_evidence_sha256",
+        f"{prefix}_all_four_sha256",
+        f"{prefix}_selected_input_manifest_sha256",
+    ):
+        if not _is_hex64(summary.get(key)):
+            failures.append(f"{key}_invalid")
+            ready = False
+    all_four_path = summary.get(
+        "default_kernel_consumer_future_wna16_all_four_consumer_evidence_path"
+    )
+    if not isinstance(all_four_path, str) or not all_four_path:
+        failures.append(f"{prefix}_all_four_consumer_evidence_path_missing")
+        ready = False
+    elif summary.get(f"{prefix}_all_four_path_label") != all_four_path:
+        failures.append(f"{prefix}_all_four_path_label_mismatch")
+        ready = False
+    all_four_sha = summary.get(
+        "default_kernel_consumer_future_wna16_all_four_consumer_evidence_sha256"
+    )
+    if not _is_hex64(all_four_sha):
+        failures.append(f"{prefix}_all_four_consumer_evidence_sha256_invalid")
+        ready = False
+    elif summary.get(f"{prefix}_all_four_sha256") != all_four_sha:
+        failures.append(f"{prefix}_all_four_sha256_mismatch")
+        ready = False
+    all_four_source_count = _int_metric(
+        summary,
+        "default_kernel_consumer_future_wna16_all_four_consumer_source_count",
+    )
+    all_four_row_count = _int_metric(
+        summary,
+        "default_kernel_consumer_future_wna16_all_four_consumer_row_count",
+    )
+    if source_count is not None and all_four_source_count != source_count:
+        failures.append(f"{prefix}_all_four_source_count_mismatch")
+        ready = False
+    if row_count is not None and all_four_row_count != row_count:
+        failures.append(f"{prefix}_all_four_row_count_mismatch")
+        ready = False
+    path_value = summary.get(f"{prefix}_evidence_path")
+    if not isinstance(path_value, str) or not path_value:
+        failures.append(f"{prefix}_evidence_path_missing")
+        ready = False
+    return ready
+
+
+def _future_wna16_fourth_field_handoff_ready(
+    summary: dict[str, Any],
+    failures: list[str],
+) -> bool:
+    prefix = "default_kernel_consumer_future_wna16_fourth_field_handoff"
+    expected_values = {
+        f"{prefix}_evidence_passed": True,
+        f"{prefix}_previous_gate_ready": True,
+        f"{prefix}_ready": True,
+        f"{prefix}_fourth_field": "descriptor_ptr",
+        f"{prefix}_native_requested": True,
+        f"{prefix}_native_executed": True,
+        f"{prefix}_native_passed": True,
+        f"{prefix}_payload_bytes": 0,
+        f"{prefix}_expected_payload_bytes": 0,
+        f"{prefix}_payload_deref_allowed": False,
+        f"{prefix}_kernel_arg_pass_allowed": False,
+        f"{prefix}_passed_to_kernel": False,
+        f"{prefix}_changes_kernel_launch_args": False,
+        f"{prefix}_current_wna16_arg_compatible": False,
+        f"{prefix}_requires_wna16_arg_reinterpretation": False,
+        f"{prefix}_passes_current_wna16_args": False,
+        f"{prefix}_uses_current_wna16_args": False,
+        f"{prefix}_measures_tpot": False,
+        f"{prefix}_measures_vllm_latency": False,
+        f"{prefix}_wna16_benchmark_ready": False,
+    }
+    ready = True
+    for key, expected in expected_values.items():
+        if summary.get(key) != expected:
+            failures.append(f"{key}_mismatch")
+            ready = False
+    source_count = _int_metric(summary, f"{prefix}_source_count")
+    previous_source_count = _int_metric(summary, f"{prefix}_previous_source_count")
+    row_count = _int_metric(summary, f"{prefix}_row_count")
+    if source_count is None or source_count < 128:
+        failures.append(f"{prefix}_source_count_invalid")
+        ready = False
+    if previous_source_count is None or previous_source_count < 128:
+        failures.append(f"{prefix}_previous_source_count_invalid")
+        ready = False
+    if row_count is None or row_count <= 0:
+        failures.append(f"{prefix}_row_count_invalid")
+        ready = False
+    else:
+        for suffix in (
+            "row_ok_count",
+            "field_read_row_ok_count",
+            "runner_row_count",
+            "runner_row_ok_count",
+        ):
+            if _int_metric(summary, f"{prefix}_{suffix}") != row_count:
+                failures.append(f"{prefix}_{suffix}_mismatch")
+                ready = False
+    for suffix in (
+        "field_read_hash",
+        "runner_hash",
+        "third_field_read_hash",
+        "third_field_native_hash",
+    ):
+        if not _is_hex_u64(summary.get(f"{prefix}_{suffix}")):
+            failures.append(f"{prefix}_{suffix}_invalid")
+            ready = False
+    if not _is_hex64(summary.get(f"{prefix}_evidence_sha256")):
+        failures.append(f"{prefix}_evidence_sha256_invalid")
+        ready = False
+    path_value = summary.get(f"{prefix}_evidence_path")
+    if not isinstance(path_value, str) or not path_value:
+        failures.append(f"{prefix}_evidence_path_missing")
+        ready = False
+    return ready
+
+
+def _future_wna16_all_four_consumer_ready(
+    summary: dict[str, Any],
+    failures: list[str],
+) -> bool:
+    fourth_handoff_failures: list[str] = []
+    fourth_handoff_ready = _future_wna16_fourth_field_handoff_ready(
+        summary,
+        fourth_handoff_failures,
+    )
+    prefix = "default_kernel_consumer_future_wna16_all_four_consumer"
+    expected_values = {
+        "default_kernel_consumer_future_wna16_all_four_field_consumer_ready": True,
+        "default_kernel_consumer_future_wna16_all_four_field_consumer_fields_read": True,
+        "default_kernel_consumer_future_wna16_all_four_field_consumer_hashes_valid": True,
+        f"{prefix}_evidence_passed": True,
+        f"{prefix}_artifact_kind": (
+            "future_wna16_typed_slot_kernel_variant_all_four_field_consumer"
+        ),
+        f"{prefix}_stage_type": "lab_gate",
+        f"{prefix}_bench_semantics": False,
+        f"{prefix}_native_executed": True,
+        f"{prefix}_native_passed": True,
+        f"{prefix}_future_kernel_side_all_fields_read": True,
+        f"{prefix}_wna16_side_all_fields_read": True,
+        f"{prefix}_payload_bytes": 0,
+        f"{prefix}_payload_deref_allowed": False,
+        f"{prefix}_kernel_arg_pass_allowed": False,
+        f"{prefix}_passed_to_kernel": False,
+        f"{prefix}_changes_kernel_launch_args": False,
+        f"{prefix}_current_wna16_arg_compatible": False,
+        f"{prefix}_requires_wna16_arg_reinterpretation": False,
+        f"{prefix}_measures_tpot": False,
+        f"{prefix}_measures_vllm_latency": False,
+        f"{prefix}_wna16_benchmark_ready": False,
+    }
+    ready = True
+    if not fourth_handoff_ready:
+        failures.append("future_wna16_fourth_field_handoff_not_ready")
+        failures.extend(fourth_handoff_failures)
+        ready = False
+    for key, expected in expected_values.items():
+        if summary.get(key) != expected:
+            failures.append(f"{key}_mismatch")
+            ready = False
+    source_count = _int_metric(summary, f"{prefix}_source_count")
+    selected_count = _int_metric(summary, f"{prefix}_selected_input_count")
+    row_count = _int_metric(summary, f"{prefix}_row_count")
+    row_ok_count = _int_metric(summary, f"{prefix}_row_ok_count")
+    if source_count is None or source_count < 128:
+        failures.append(f"{prefix}_source_count_invalid")
+        ready = False
+    if selected_count != source_count:
+        failures.append(f"{prefix}_selected_input_count_mismatch")
+        ready = False
+    if row_count is None or row_count <= 0:
+        failures.append(f"{prefix}_row_count_invalid")
+        ready = False
+    elif row_ok_count != row_count:
+        failures.append(f"{prefix}_row_ok_count_mismatch")
+        ready = False
+    for key in (
+        f"{prefix}_evidence_sha256",
+        f"{prefix}_fourth_field_sha256",
+        f"{prefix}_selected_input_manifest_sha256",
+        f"{prefix}_post_native_input_manifest_sha256",
+    ):
+        if not _is_hex64(summary.get(key)):
+            failures.append(f"{key}_invalid")
+            ready = False
+    for key in (f"{prefix}_evidence_path", f"{prefix}_fourth_field_path_label"):
+        value = summary.get(key)
+        if not isinstance(value, str) or not value:
+            failures.append(f"{key}_missing")
+            ready = False
+    fourth_handoff_prefix = (
+        "default_kernel_consumer_future_wna16_fourth_field_handoff"
+    )
+    fourth_handoff_path = summary.get(f"{fourth_handoff_prefix}_evidence_path")
+    fourth_handoff_sha = summary.get(f"{fourth_handoff_prefix}_evidence_sha256")
+    fourth_handoff_source_count = _int_metric(
+        summary, f"{fourth_handoff_prefix}_source_count"
+    )
+    fourth_handoff_row_count = _int_metric(
+        summary, f"{fourth_handoff_prefix}_row_count"
+    )
+    fourth_handoff_row_ok_count = _int_metric(
+        summary, f"{fourth_handoff_prefix}_row_ok_count"
+    )
+    if not isinstance(fourth_handoff_path, str) or not fourth_handoff_path:
+        failures.append(f"{fourth_handoff_prefix}_evidence_path_missing")
+        ready = False
+    elif summary.get(f"{prefix}_fourth_field_path_label") != fourth_handoff_path:
+        failures.append(f"{prefix}_fourth_field_path_label_mismatch")
+        ready = False
+    if not _is_hex64(fourth_handoff_sha):
+        failures.append(f"{fourth_handoff_prefix}_evidence_sha256_invalid")
+        ready = False
+    elif summary.get(f"{prefix}_fourth_field_sha256") != fourth_handoff_sha:
+        failures.append(f"{prefix}_fourth_field_sha256_mismatch")
+        ready = False
+    if fourth_handoff_source_count != source_count:
+        failures.append(f"{prefix}_fourth_field_source_count_mismatch")
+        ready = False
+    if fourth_handoff_row_count != row_count:
+        failures.append(f"{prefix}_fourth_field_row_count_mismatch")
+        ready = False
+    if fourth_handoff_row_ok_count != row_count:
+        failures.append(f"{prefix}_fourth_field_row_ok_count_mismatch")
+        ready = False
+    if (
+        _is_hex64(summary.get(f"{prefix}_selected_input_manifest_sha256"))
+        and summary.get(f"{prefix}_post_native_input_manifest_sha256")
+        != summary.get(f"{prefix}_selected_input_manifest_sha256")
+    ):
+        failures.append(f"{prefix}_post_native_input_manifest_sha256_mismatch")
+        ready = False
+    return ready
+
+
 def _check_kernel_consumer_handle_summary(
     summary: dict[str, Any],
     failures: list[str],
@@ -761,10 +1116,88 @@ def check_premap_lab_preflight_summary(
         )
         if wna16_benchmark_ready:
             failures.append("wna16_benchmark_ready_not_allowed_in_no_mutation_gate")
+        payloadless_ready_failures: list[str] = []
+        payloadless_execution_ready = _payloadless_execution_ready(
+            summary,
+            payloadless_ready_failures,
+        )
+        typed_path_failures: list[str] = []
+        future_kernel_side_typed_path_ready = _future_kernel_side_typed_path_ready(
+            summary,
+            typed_path_failures,
+        )
+        if (
+            summary.get(
+                "default_kernel_consumer_future_wna16_kernel_side_typed_consumer_path_ready"
+            )
+            is True
+            or summary.get(
+                "default_kernel_consumer_future_wna16_kernel_side_typed_consumer_path_hashes_valid"
+            )
+            is True
+        ) and not future_kernel_side_typed_path_ready:
+            failures.append("future_kernel_side_typed_path_reported_without_valid_evidence")
+            failures.extend(typed_path_failures)
+        chain_consistency_failures: list[str] = []
+        typed_path_source_count = _int_metric(
+            summary,
+            "default_kernel_consumer_future_wna16_kernel_side_typed_path_source_count",
+        )
+        typed_path_row_count = _int_metric(
+            summary,
+            "default_kernel_consumer_future_wna16_kernel_side_typed_path_row_count",
+        )
+        payloadless_source_count = _int_metric(
+            summary,
+            "default_kernel_consumer_future_wna16_payloadless_execution_source_count",
+        )
+        payloadless_row_count = _int_metric(
+            summary,
+            "default_kernel_consumer_future_wna16_payloadless_execution_row_count",
+        )
+        if (
+            typed_path_source_count is not None
+            and payloadless_source_count is not None
+            and typed_path_source_count != payloadless_source_count
+        ):
+            chain_consistency_failures.append(
+                "payloadless_typed_path_source_count_mismatch"
+            )
+        if (
+            typed_path_row_count is not None
+            and payloadless_row_count is not None
+            and typed_path_row_count != payloadless_row_count
+        ):
+            chain_consistency_failures.append(
+                "payloadless_typed_path_row_count_mismatch"
+            )
+        chain_consistent = not chain_consistency_failures
+        computed_payloadless_chain_ready = (
+            summary.get("default_kernel_consumer_wna16_side_variant_ready") is True
+            and future_kernel_side_typed_path_ready
+            and payloadless_execution_ready
+            and chain_consistent
+        )
+        reported_payloadless_chain_ready = summary.get(
+            "default_kernel_consumer_independent_typed_slot_payloadless_chain_ready"
+        )
+        if reported_payloadless_chain_ready is True and not computed_payloadless_chain_ready:
+            failures.append("payloadless_chain_ready_reported_without_valid_evidence")
+            failures.extend(typed_path_failures)
+            failures.extend(payloadless_ready_failures)
+            failures.extend(chain_consistency_failures)
+        elif computed_payloadless_chain_ready and reported_payloadless_chain_ready is not True:
+            failures.append("payloadless_chain_ready_not_reported")
+        elif reported_payloadless_chain_ready not in (False, None, True):
+            failures.append("payloadless_chain_ready_invalid")
         expected_stage = (
-            "implement_wna16_typed_slot_benchmark_harness"
-            if wna16_kernel_side_execution_ready is True
-            else "implement_real_wna16_typed_slot_kernel_variant"
+            "implement_future_wna16_typed_slot_kernel_variant_execution"
+            if computed_payloadless_chain_ready
+            else (
+                "implement_wna16_typed_slot_benchmark_harness"
+                if wna16_kernel_side_execution_ready is True
+                else "implement_real_wna16_typed_slot_kernel_variant"
+            )
         )
         if summary.get("default_kernel_consumer_next_runtime_stage") != expected_stage:
             failures.append("wna16_side_variant_next_stage_mismatch")

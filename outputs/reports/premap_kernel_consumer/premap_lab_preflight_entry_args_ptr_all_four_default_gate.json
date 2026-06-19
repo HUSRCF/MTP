@@ -524,6 +524,7 @@
   "default_kernel_consumer_future_wna16_payloadless_execution_source_count": 128,
   "default_kernel_consumer_future_wna16_payloadless_execution_uses_current_wna16_args": false,
   "default_kernel_consumer_future_wna16_payloadless_execution_wna16_benchmark_ready": false,
+  "default_kernel_consumer_independent_typed_slot_payloadless_chain_ready": true,
   "default_kernel_consumer_kernel_arg_packet_layout_expected": {
     "future_kernel_native_consumer_kernel_arg_packet_offset_abi_version": 8,
     "future_kernel_native_consumer_kernel_arg_packet_offset_flags": 24,
@@ -653,7 +654,7 @@
   "default_kernel_consumer_launch_required_field_mask": null,
   "default_kernel_consumer_native_field_mask": null,
   "default_kernel_consumer_native_required_field_mask": null,
-  "default_kernel_consumer_next_runtime_stage": "implement_wna16_typed_slot_benchmark_harness",
+  "default_kernel_consumer_next_runtime_stage": "implement_future_wna16_typed_slot_kernel_variant_execution",
   "default_kernel_consumer_online_merged_multiprogram_all_handle_fields_checked": true,
   "default_kernel_consumer_online_merged_multiprogram_changes_kernel_launch_args": false,
   "default_kernel_consumer_online_merged_multiprogram_current_wna16_arg_compatible": false,

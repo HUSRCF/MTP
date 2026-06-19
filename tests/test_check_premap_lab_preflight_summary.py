@@ -102,6 +102,150 @@ def _enable_wna16_kernel_side_execution_ready(
             f"default_kernel_consumer_wna16_kernel_side_execution_{field}_read_row_ok_count"
         ] = row_count
 
+
+def _enable_payloadless_chain_ready(
+    summary: dict[str, object],
+    *,
+    row_count: int | None = None,
+    source_count: int = 128,
+) -> None:
+    row_count = row_count or int(
+        summary["default_kernel_consumer_wna16_side_variant_row_count"]
+    )
+    summary.update(
+        {
+            "default_kernel_consumer_future_wna16_kernel_side_typed_consumer_path_ready": True,
+            "default_kernel_consumer_future_wna16_kernel_side_typed_consumer_path_hashes_valid": True,
+            "default_kernel_consumer_future_wna16_kernel_side_typed_path_evidence_passed": True,
+            "default_kernel_consumer_future_wna16_kernel_side_typed_path_artifact_kind": "future_wna16_kernel_side_typed_consumer_path",
+            "default_kernel_consumer_future_wna16_kernel_side_typed_path_name": "premap_future_wna16_kernel_side_typed_consumer_path_v1",
+            "default_kernel_consumer_future_wna16_kernel_side_typed_path_mode": "independent_future_wna16_kernel_side_typed_consumer_path",
+            "default_kernel_consumer_future_wna16_kernel_side_typed_path_source": "premap_future_wna16_typed_slot_all_four_field_consumer_v1",
+            "default_kernel_consumer_future_wna16_kernel_side_typed_path_stage_type": "lab_gate",
+            "default_kernel_consumer_future_wna16_kernel_side_typed_path_bench_semantics": False,
+            "default_kernel_consumer_future_wna16_kernel_side_typed_path_all_four_gate_ready": True,
+            "default_kernel_consumer_future_wna16_kernel_side_typed_path_native_executed": True,
+            "default_kernel_consumer_future_wna16_kernel_side_typed_path_native_passed": True,
+            "default_kernel_consumer_future_wna16_kernel_side_typed_path_independent_path": True,
+            "default_kernel_consumer_future_wna16_kernel_side_typed_path_explicit_typed_abi_slot": True,
+            "default_kernel_consumer_future_wna16_kernel_side_typed_path_future_kernel_side_checked": True,
+            "default_kernel_consumer_future_wna16_kernel_side_typed_path_future_kernel_side_all_fields_read": True,
+            "default_kernel_consumer_future_wna16_kernel_side_typed_path_wna16_side_checked": True,
+            "default_kernel_consumer_future_wna16_kernel_side_typed_path_wna16_side_all_fields_read": True,
+            "default_kernel_consumer_future_wna16_kernel_side_typed_path_source_count": source_count,
+            "default_kernel_consumer_future_wna16_kernel_side_typed_path_input_json_count": source_count,
+            "default_kernel_consumer_future_wna16_kernel_side_typed_path_row_count": row_count,
+            "default_kernel_consumer_future_wna16_kernel_side_typed_path_row_ok_count": row_count,
+            "default_kernel_consumer_future_wna16_kernel_side_typed_path_evidence_sha256": HEX,
+            "default_kernel_consumer_future_wna16_kernel_side_typed_path_all_four_sha256": HEX,
+            "default_kernel_consumer_future_wna16_kernel_side_typed_path_selected_input_manifest_sha256": HEX,
+            "default_kernel_consumer_future_wna16_kernel_side_typed_path_evidence_path": "outputs/reports/premap_kernel_consumer/future_wna16_kernel_side_typed_consumer_path_v1.json",
+            "default_kernel_consumer_future_wna16_kernel_side_typed_path_all_four_path_label": "outputs/reports/premap_kernel_consumer/future_wna16_typed_slot_kernel_variant_all_four_field_consumer_entry_args_ptr_default.json",
+            "default_kernel_consumer_future_wna16_all_four_field_consumer_ready": True,
+            "default_kernel_consumer_future_wna16_all_four_field_consumer_fields_read": True,
+            "default_kernel_consumer_future_wna16_all_four_field_consumer_hashes_valid": True,
+            "default_kernel_consumer_future_wna16_all_four_consumer_evidence_passed": True,
+            "default_kernel_consumer_future_wna16_all_four_consumer_artifact_kind": "future_wna16_typed_slot_kernel_variant_all_four_field_consumer",
+            "default_kernel_consumer_future_wna16_all_four_consumer_stage_type": "lab_gate",
+            "default_kernel_consumer_future_wna16_all_four_consumer_bench_semantics": False,
+            "default_kernel_consumer_future_wna16_all_four_consumer_native_executed": True,
+            "default_kernel_consumer_future_wna16_all_four_consumer_native_passed": True,
+            "default_kernel_consumer_future_wna16_all_four_consumer_future_kernel_side_all_fields_read": True,
+            "default_kernel_consumer_future_wna16_all_four_consumer_wna16_side_all_fields_read": True,
+            "default_kernel_consumer_future_wna16_all_four_consumer_evidence_path": "outputs/reports/premap_kernel_consumer/future_wna16_typed_slot_kernel_variant_all_four_field_consumer_entry_args_ptr_default.json",
+            "default_kernel_consumer_future_wna16_all_four_consumer_evidence_sha256": HEX,
+            "default_kernel_consumer_future_wna16_all_four_consumer_source_count": source_count,
+            "default_kernel_consumer_future_wna16_all_four_consumer_selected_input_count": source_count,
+            "default_kernel_consumer_future_wna16_all_four_consumer_row_count": row_count,
+            "default_kernel_consumer_future_wna16_all_four_consumer_row_ok_count": row_count,
+            "default_kernel_consumer_future_wna16_all_four_consumer_fourth_field_sha256": HEX,
+            "default_kernel_consumer_future_wna16_all_four_consumer_selected_input_manifest_sha256": HEX,
+            "default_kernel_consumer_future_wna16_all_four_consumer_post_native_input_manifest_sha256": HEX,
+            "default_kernel_consumer_future_wna16_all_four_consumer_fourth_field_path_label": "outputs/reports/premap_kernel_consumer/future_wna16_typed_slot_kernel_variant_fourth_field_handoff_canary_entry_args_ptr_default.json",
+            "default_kernel_consumer_future_wna16_fourth_field_handoff_evidence_path": "outputs/reports/premap_kernel_consumer/future_wna16_typed_slot_kernel_variant_fourth_field_handoff_canary_entry_args_ptr_default.json",
+            "default_kernel_consumer_future_wna16_fourth_field_handoff_evidence_sha256": HEX,
+            "default_kernel_consumer_future_wna16_fourth_field_handoff_evidence_passed": True,
+            "default_kernel_consumer_future_wna16_fourth_field_handoff_previous_gate_ready": True,
+            "default_kernel_consumer_future_wna16_fourth_field_handoff_ready": True,
+            "default_kernel_consumer_future_wna16_fourth_field_handoff_source_count": source_count,
+            "default_kernel_consumer_future_wna16_fourth_field_handoff_previous_source_count": source_count,
+            "default_kernel_consumer_future_wna16_fourth_field_handoff_row_count": row_count,
+            "default_kernel_consumer_future_wna16_fourth_field_handoff_row_ok_count": row_count,
+            "default_kernel_consumer_future_wna16_fourth_field_handoff_field_read_row_ok_count": row_count,
+            "default_kernel_consumer_future_wna16_fourth_field_handoff_runner_row_count": row_count,
+            "default_kernel_consumer_future_wna16_fourth_field_handoff_runner_row_ok_count": row_count,
+            "default_kernel_consumer_future_wna16_fourth_field_handoff_fourth_field": "descriptor_ptr",
+            "default_kernel_consumer_future_wna16_fourth_field_handoff_native_requested": True,
+            "default_kernel_consumer_future_wna16_fourth_field_handoff_native_executed": True,
+            "default_kernel_consumer_future_wna16_fourth_field_handoff_native_passed": True,
+            "default_kernel_consumer_future_wna16_fourth_field_handoff_payload_bytes": 0,
+            "default_kernel_consumer_future_wna16_fourth_field_handoff_expected_payload_bytes": 0,
+            "default_kernel_consumer_future_wna16_fourth_field_handoff_payload_deref_allowed": False,
+            "default_kernel_consumer_future_wna16_fourth_field_handoff_kernel_arg_pass_allowed": False,
+            "default_kernel_consumer_future_wna16_fourth_field_handoff_passed_to_kernel": False,
+            "default_kernel_consumer_future_wna16_fourth_field_handoff_changes_kernel_launch_args": False,
+            "default_kernel_consumer_future_wna16_fourth_field_handoff_current_wna16_arg_compatible": False,
+            "default_kernel_consumer_future_wna16_fourth_field_handoff_requires_wna16_arg_reinterpretation": False,
+            "default_kernel_consumer_future_wna16_fourth_field_handoff_passes_current_wna16_args": False,
+            "default_kernel_consumer_future_wna16_fourth_field_handoff_uses_current_wna16_args": False,
+            "default_kernel_consumer_future_wna16_fourth_field_handoff_measures_tpot": False,
+            "default_kernel_consumer_future_wna16_fourth_field_handoff_measures_vllm_latency": False,
+            "default_kernel_consumer_future_wna16_fourth_field_handoff_wna16_benchmark_ready": False,
+            "default_kernel_consumer_future_wna16_fourth_field_handoff_field_read_hash": "1111222233334444",
+            "default_kernel_consumer_future_wna16_fourth_field_handoff_runner_hash": "5555666677778888",
+            "default_kernel_consumer_future_wna16_fourth_field_handoff_third_field_read_hash": "9999aaaabbbbcccc",
+            "default_kernel_consumer_future_wna16_fourth_field_handoff_third_field_native_hash": "ddddeeeeffff0000",
+            "default_kernel_consumer_future_wna16_all_four_consumer_payload_bytes": 0,
+            "default_kernel_consumer_future_wna16_all_four_consumer_payload_deref_allowed": False,
+            "default_kernel_consumer_future_wna16_all_four_consumer_kernel_arg_pass_allowed": False,
+            "default_kernel_consumer_future_wna16_all_four_consumer_passed_to_kernel": False,
+            "default_kernel_consumer_future_wna16_all_four_consumer_changes_kernel_launch_args": False,
+            "default_kernel_consumer_future_wna16_all_four_consumer_current_wna16_arg_compatible": False,
+            "default_kernel_consumer_future_wna16_all_four_consumer_requires_wna16_arg_reinterpretation": False,
+            "default_kernel_consumer_future_wna16_all_four_consumer_measures_tpot": False,
+            "default_kernel_consumer_future_wna16_all_four_consumer_measures_vllm_latency": False,
+            "default_kernel_consumer_future_wna16_all_four_consumer_wna16_benchmark_ready": False,
+            "default_kernel_consumer_future_wna16_kernel_side_typed_path_payload_bytes": 0,
+            "default_kernel_consumer_future_wna16_kernel_side_typed_path_payload_deref_allowed": False,
+            "default_kernel_consumer_future_wna16_kernel_side_typed_path_kernel_arg_pass_allowed": False,
+            "default_kernel_consumer_future_wna16_kernel_side_typed_path_passed_to_kernel": False,
+            "default_kernel_consumer_future_wna16_kernel_side_typed_path_changes_kernel_launch_args": False,
+            "default_kernel_consumer_future_wna16_kernel_side_typed_path_current_wna16_arg_compatible": False,
+            "default_kernel_consumer_future_wna16_kernel_side_typed_path_requires_wna16_arg_reinterpretation": False,
+            "default_kernel_consumer_future_wna16_kernel_side_typed_path_uses_current_wna16_args": False,
+            "default_kernel_consumer_future_wna16_kernel_side_typed_path_measures_tpot": False,
+            "default_kernel_consumer_future_wna16_kernel_side_typed_path_measures_vllm_latency": False,
+            "default_kernel_consumer_future_wna16_kernel_side_typed_path_wna16_benchmark_ready": False,
+            "default_kernel_consumer_future_wna16_payloadless_execution_evidence_passed": True,
+            "default_kernel_consumer_future_wna16_payloadless_execution_ready": True,
+            "default_kernel_consumer_future_wna16_payloadless_execution_gate_ready": True,
+            "default_kernel_consumer_future_wna16_payloadless_execution_lab_preflight_ready": True,
+            "default_kernel_consumer_future_wna16_payloadless_execution_native_ready": True,
+            "default_kernel_consumer_future_wna16_payloadless_execution_native_requested": True,
+            "default_kernel_consumer_future_wna16_payloadless_execution_native_executed": True,
+            "default_kernel_consumer_future_wna16_payloadless_execution_native_passed": True,
+            "default_kernel_consumer_future_wna16_payloadless_execution_all_four_ready": True,
+            "default_kernel_consumer_future_wna16_payloadless_execution_all_four_fields_read": True,
+            "default_kernel_consumer_future_wna16_payloadless_execution_kernel_side_ready": True,
+            "default_kernel_consumer_future_wna16_payloadless_execution_kernel_side_hashes_valid": True,
+            "default_kernel_consumer_future_wna16_payloadless_execution_source_count": source_count,
+            "default_kernel_consumer_future_wna16_payloadless_execution_row_count": row_count,
+            "default_kernel_consumer_future_wna16_payloadless_execution_row_ok_count": row_count,
+            "default_kernel_consumer_future_wna16_payloadless_execution_benchmark_repeat_count": 3,
+            "default_kernel_consumer_future_wna16_payloadless_execution_payload_bytes": 0,
+            "default_kernel_consumer_future_wna16_payloadless_execution_payload_deref_allowed": False,
+            "default_kernel_consumer_future_wna16_payloadless_execution_kernel_arg_pass_allowed": False,
+            "default_kernel_consumer_future_wna16_payloadless_execution_passed_to_kernel": False,
+            "default_kernel_consumer_future_wna16_payloadless_execution_changes_kernel_launch_args": False,
+            "default_kernel_consumer_future_wna16_payloadless_execution_current_wna16_arg_compatible": False,
+            "default_kernel_consumer_future_wna16_payloadless_execution_uses_current_wna16_args": False,
+            "default_kernel_consumer_future_wna16_payloadless_execution_measures_tpot": False,
+            "default_kernel_consumer_future_wna16_payloadless_execution_measures_vllm_latency": False,
+            "default_kernel_consumer_future_wna16_payloadless_execution_wna16_benchmark_ready": False,
+        }
+    )
+
+
 def _summary() -> dict[str, object]:
     return {
         "passed": True,
@@ -658,6 +802,267 @@ def test_check_premap_lab_preflight_summary_accepts_wna16_kernel_side_execution_
 
     assert result["passed"] is True
     assert result["failures"] == []
+
+
+def test_check_premap_lab_preflight_summary_accepts_payloadless_chain_next_stage() -> None:
+    summary = _summary()
+    summary[
+        "default_kernel_consumer_wna16_side_variant_online_source_identity_subset"
+    ] = True
+    summary[
+        "default_kernel_consumer_wna16_side_variant_online_source_identity_missing_count"
+    ] = 0
+    summary["default_kernel_consumer_wna16_side_variant_ready"] = True
+    _enable_wna16_kernel_side_execution_ready(summary)
+    _enable_payloadless_chain_ready(summary)
+    summary[
+        "default_kernel_consumer_independent_typed_slot_payloadless_chain_ready"
+    ] = True
+    summary["default_kernel_consumer_next_runtime_stage"] = (
+        "implement_future_wna16_typed_slot_kernel_variant_execution"
+    )
+
+    result = check_premap_lab_preflight_summary(summary)
+
+    assert result["passed"] is True
+    assert result["failures"] == []
+
+
+def test_check_premap_lab_preflight_summary_rejects_payloadless_chain_flag_without_evidence() -> None:
+    summary = _summary()
+    summary[
+        "default_kernel_consumer_wna16_side_variant_online_source_identity_subset"
+    ] = True
+    summary[
+        "default_kernel_consumer_wna16_side_variant_online_source_identity_missing_count"
+    ] = 0
+    summary["default_kernel_consumer_wna16_side_variant_ready"] = True
+    _enable_wna16_kernel_side_execution_ready(summary)
+    summary[
+        "default_kernel_consumer_independent_typed_slot_payloadless_chain_ready"
+    ] = True
+    summary["default_kernel_consumer_next_runtime_stage"] = (
+        "implement_future_wna16_typed_slot_kernel_variant_execution"
+    )
+
+    result = check_premap_lab_preflight_summary(summary)
+
+    assert result["passed"] is False
+    assert "payloadless_chain_ready_reported_without_valid_evidence" in result[
+        "failures"
+    ]
+    assert (
+        "default_kernel_consumer_future_wna16_payloadless_execution_ready_mismatch"
+        in result["failures"]
+    )
+
+
+def test_check_premap_lab_preflight_summary_rejects_payloadless_chain_flag_without_typed_path() -> None:
+    summary = _summary()
+    summary[
+        "default_kernel_consumer_wna16_side_variant_online_source_identity_subset"
+    ] = True
+    summary[
+        "default_kernel_consumer_wna16_side_variant_online_source_identity_missing_count"
+    ] = 0
+    summary["default_kernel_consumer_wna16_side_variant_ready"] = True
+    _enable_wna16_kernel_side_execution_ready(summary)
+    _enable_payloadless_chain_ready(summary)
+    summary[
+        "default_kernel_consumer_future_wna16_kernel_side_typed_consumer_path_ready"
+    ] = False
+    summary[
+        "default_kernel_consumer_independent_typed_slot_payloadless_chain_ready"
+    ] = True
+    summary["default_kernel_consumer_next_runtime_stage"] = (
+        "implement_future_wna16_typed_slot_kernel_variant_execution"
+    )
+
+    result = check_premap_lab_preflight_summary(summary)
+
+    assert result["passed"] is False
+    assert "payloadless_chain_ready_reported_without_valid_evidence" in result[
+        "failures"
+    ]
+    assert "wna16_side_variant_next_stage_mismatch" in result["failures"]
+
+
+def test_check_premap_lab_preflight_summary_rejects_payloadless_typed_path_row_mismatch() -> None:
+    summary = _summary()
+    summary[
+        "default_kernel_consumer_wna16_side_variant_online_source_identity_subset"
+    ] = True
+    summary[
+        "default_kernel_consumer_wna16_side_variant_online_source_identity_missing_count"
+    ] = 0
+    summary["default_kernel_consumer_wna16_side_variant_ready"] = True
+    _enable_wna16_kernel_side_execution_ready(summary)
+    _enable_payloadless_chain_ready(summary)
+    summary["default_kernel_consumer_future_wna16_payloadless_execution_row_count"] = 1
+    summary["default_kernel_consumer_future_wna16_payloadless_execution_row_ok_count"] = 1
+    summary[
+        "default_kernel_consumer_independent_typed_slot_payloadless_chain_ready"
+    ] = True
+    summary["default_kernel_consumer_next_runtime_stage"] = (
+        "implement_future_wna16_typed_slot_kernel_variant_execution"
+    )
+
+    result = check_premap_lab_preflight_summary(summary)
+
+    assert result["passed"] is False
+    assert "payloadless_chain_ready_reported_without_valid_evidence" in result[
+        "failures"
+    ]
+    assert "payloadless_typed_path_row_count_mismatch" in result["failures"]
+
+
+def test_check_premap_lab_preflight_summary_rejects_typed_path_all_four_binding_mismatch() -> None:
+    summary = _summary()
+    summary[
+        "default_kernel_consumer_wna16_side_variant_online_source_identity_subset"
+    ] = True
+    summary[
+        "default_kernel_consumer_wna16_side_variant_online_source_identity_missing_count"
+    ] = 0
+    summary["default_kernel_consumer_wna16_side_variant_ready"] = True
+    _enable_wna16_kernel_side_execution_ready(summary)
+    _enable_payloadless_chain_ready(summary)
+    summary[
+        "default_kernel_consumer_future_wna16_kernel_side_typed_path_all_four_path_label"
+    ] = "outputs/reports/premap_kernel_consumer/other_all_four.json"
+    summary[
+        "default_kernel_consumer_independent_typed_slot_payloadless_chain_ready"
+    ] = True
+    summary["default_kernel_consumer_next_runtime_stage"] = (
+        "implement_future_wna16_typed_slot_kernel_variant_execution"
+    )
+
+    result = check_premap_lab_preflight_summary(summary)
+
+    assert result["passed"] is False
+    assert "future_kernel_side_typed_path_reported_without_valid_evidence" in result[
+        "failures"
+    ]
+    assert (
+        "default_kernel_consumer_future_wna16_kernel_side_typed_path_all_four_path_label_mismatch"
+        in result["failures"]
+    )
+
+
+def test_check_premap_lab_preflight_summary_rejects_all_four_payload_open_in_payloadless_chain() -> None:
+    summary = _summary()
+    summary[
+        "default_kernel_consumer_wna16_side_variant_online_source_identity_subset"
+    ] = True
+    summary[
+        "default_kernel_consumer_wna16_side_variant_online_source_identity_missing_count"
+    ] = 0
+    summary["default_kernel_consumer_wna16_side_variant_ready"] = True
+    _enable_wna16_kernel_side_execution_ready(summary)
+    _enable_payloadless_chain_ready(summary)
+    summary["default_kernel_consumer_future_wna16_all_four_consumer_payload_bytes"] = 8
+    summary[
+        "default_kernel_consumer_independent_typed_slot_payloadless_chain_ready"
+    ] = True
+    summary["default_kernel_consumer_next_runtime_stage"] = (
+        "implement_future_wna16_typed_slot_kernel_variant_execution"
+    )
+
+    result = check_premap_lab_preflight_summary(summary)
+
+    assert result["passed"] is False
+    assert "future_kernel_side_typed_path_reported_without_valid_evidence" in result[
+        "failures"
+    ]
+    assert (
+        "default_kernel_consumer_future_wna16_all_four_consumer_payload_bytes_mismatch"
+        in result["failures"]
+    )
+
+
+def test_check_premap_lab_preflight_summary_rejects_all_four_fourth_field_binding_mismatch() -> None:
+    summary = _summary()
+    summary[
+        "default_kernel_consumer_wna16_side_variant_online_source_identity_subset"
+    ] = True
+    summary[
+        "default_kernel_consumer_wna16_side_variant_online_source_identity_missing_count"
+    ] = 0
+    summary["default_kernel_consumer_wna16_side_variant_ready"] = True
+    _enable_wna16_kernel_side_execution_ready(summary)
+    _enable_payloadless_chain_ready(summary)
+    summary[
+        "default_kernel_consumer_future_wna16_all_four_consumer_fourth_field_sha256"
+    ] = "f" * 64
+    summary[
+        "default_kernel_consumer_independent_typed_slot_payloadless_chain_ready"
+    ] = True
+    summary["default_kernel_consumer_next_runtime_stage"] = (
+        "implement_future_wna16_typed_slot_kernel_variant_execution"
+    )
+
+    result = check_premap_lab_preflight_summary(summary)
+
+    assert result["passed"] is False
+    assert "future_kernel_side_typed_path_reported_without_valid_evidence" in result[
+        "failures"
+    ]
+    assert (
+        "default_kernel_consumer_future_wna16_all_four_consumer_fourth_field_sha256_mismatch"
+        in result["failures"]
+    )
+
+
+def test_check_premap_lab_preflight_summary_rejects_all_four_when_fourth_handoff_payload_open() -> None:
+    summary = _summary()
+    summary[
+        "default_kernel_consumer_wna16_side_variant_online_source_identity_subset"
+    ] = True
+    summary[
+        "default_kernel_consumer_wna16_side_variant_online_source_identity_missing_count"
+    ] = 0
+    summary["default_kernel_consumer_wna16_side_variant_ready"] = True
+    _enable_wna16_kernel_side_execution_ready(summary)
+    _enable_payloadless_chain_ready(summary)
+    summary["default_kernel_consumer_future_wna16_fourth_field_handoff_payload_bytes"] = 8
+    summary[
+        "default_kernel_consumer_independent_typed_slot_payloadless_chain_ready"
+    ] = True
+    summary["default_kernel_consumer_next_runtime_stage"] = (
+        "implement_future_wna16_typed_slot_kernel_variant_execution"
+    )
+
+    result = check_premap_lab_preflight_summary(summary)
+
+    assert result["passed"] is False
+    assert "future_kernel_side_typed_path_reported_without_valid_evidence" in result[
+        "failures"
+    ]
+    assert "future_wna16_fourth_field_handoff_not_ready" in result["failures"]
+    assert (
+        "default_kernel_consumer_future_wna16_fourth_field_handoff_payload_bytes_mismatch"
+        in result["failures"]
+    )
+
+
+def test_check_premap_lab_preflight_summary_rejects_new_stage_without_payloadless_chain() -> None:
+    summary = _summary()
+    summary[
+        "default_kernel_consumer_wna16_side_variant_online_source_identity_subset"
+    ] = True
+    summary[
+        "default_kernel_consumer_wna16_side_variant_online_source_identity_missing_count"
+    ] = 0
+    summary["default_kernel_consumer_wna16_side_variant_ready"] = True
+    _enable_wna16_kernel_side_execution_ready(summary)
+    summary["default_kernel_consumer_next_runtime_stage"] = (
+        "implement_future_wna16_typed_slot_kernel_variant_execution"
+    )
+
+    result = check_premap_lab_preflight_summary(summary)
+
+    assert result["passed"] is False
+    assert "wna16_side_variant_next_stage_mismatch" in result["failures"]
 
 
 def test_check_premap_lab_preflight_summary_rejects_wna16_benchmark_stage_before_launch_mutation_gate() -> None:

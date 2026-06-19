@@ -5645,8 +5645,14 @@ def test_premap_lab_preflight_accepts_default_readonly_wiring(tmp_path: Path):
     assert summary["default_kernel_consumer_wna16_side_variant_ready"] is True
     assert summary["default_kernel_consumer_wna16_benchmark_ready"] is False
     assert (
+        summary[
+            "default_kernel_consumer_independent_typed_slot_payloadless_chain_ready"
+        ]
+        is True
+    )
+    assert (
         summary["default_kernel_consumer_next_runtime_stage"]
-        == "implement_wna16_typed_slot_benchmark_harness"
+        == "implement_future_wna16_typed_slot_kernel_variant_execution"
     )
     assert (
         summary["default_kernel_consumer_schema_name"]
