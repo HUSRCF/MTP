@@ -5,6 +5,8 @@ import importlib.util
 from pathlib import Path
 from types import SimpleNamespace
 
+EXECUTOR_CALLS = []
+
 
 def _load_module():
     path = (
@@ -34,6 +36,11 @@ class _FakeExecutor:
         parser.add_argument("--capacity", type=int)
         parser.add_argument("--queue-deadline-us", type=float)
         parser.add_argument("--event-interval-us", type=float)
+        parser.add_argument("--event-timing-mode")
+        parser.add_argument("--decode-token-us", type=float)
+        parser.add_argument("--issue-lead-tokens", type=int)
+        parser.add_argument("--layer-event-interval-us", type=float)
+        parser.add_argument("--allow-config-token-source", action="store_true")
         parser.add_argument("--issue-arrival-us", type=float)
         parser.add_argument("--demand-gap-us", type=float)
         parser.add_argument("--min-demand-hit-rate", type=float)
@@ -47,7 +54,10 @@ class _FakeExecutor:
 
     @staticmethod
     def run_issue_stream_executor(args):
+        EXECUTOR_CALLS.append(args)
         passed = float(args.demand_gap_us) >= 250.0
+        if getattr(args, "event_timing_mode", "packet_index") == "token_index":
+            passed = int(args.issue_lead_tokens) >= 2
         return {
             "passed": passed,
             "payload_bytes": 0,
@@ -77,6 +87,19 @@ class _FakeExecutor:
             "queue_max_delay_us": 120.0,
             "measured_copy_us_per_batch": 100.0,
             "measured_copy_us_per_issue": 12.5,
+            "token_index_count": 4 if args.event_timing_mode == "token_index" else 0,
+            "token_index_min": 3 if args.event_timing_mode == "token_index" else None,
+            "token_index_max": 6 if args.event_timing_mode == "token_index" else None,
+            "token_source_decode_workload_count": (
+                4 if args.event_timing_mode == "token_index" else 0
+            ),
+            "token_source_config_count": 0,
+            "token_source_missing_count": 0,
+            "allow_config_token_source": bool(args.allow_config_token_source),
+            "issue_arrival_min_us": 100.0,
+            "issue_arrival_max_us": 200.0,
+            "demand_arrival_min_us": 300.0,
+            "demand_arrival_max_us": 400.0,
             "failures": [] if passed else ["ready_late_miss_rate_above_threshold"],
         }
 
@@ -86,6 +109,7 @@ def test_stream_lookahead_sweep_finds_first_model_passing_row(
     tmp_path: Path,
 ):
     module = _load_module()
+    EXECUTOR_CALLS.clear()
     monkeypatch.setattr(module, "_load_executor_module", lambda: _FakeExecutor)
 
     result = module.run_stream_lookahead_sweep(
@@ -97,6 +121,11 @@ def test_stream_lookahead_sweep_finds_first_model_passing_row(
             measured_copy_pinned="true",
             capacity=12288,
             queue_deadline_us=200.0,
+            event_timing_mode="packet_index",
+            decode_token_us=75_000.0,
+            issue_lead_token_values="0,1,2,4",
+            layer_event_interval_us=1.0,
+            allow_config_token_source=False,
             event_interval_us=1.0,
             issue_arrival_us=0.0,
             lookahead_us_values="0,100,250,300",
@@ -117,6 +146,135 @@ def test_stream_lookahead_sweep_finds_first_model_passing_row(
     assert result["payload_transfer_enabled"] is False
     assert result["kernel_arg_pass_allowed"] is False
     assert (tmp_path / "out.json").exists()
+    assert [call.issue_lead_tokens for call in EXECUTOR_CALLS] == [0, 0, 0, 0]
+    assert [call.demand_gap_us for call in EXECUTOR_CALLS] == [0.0, 100.0, 250.0, 300.0]
+
+
+def test_stream_lookahead_sweep_supports_token_index_issue_lead_tokens(
+    monkeypatch,
+    tmp_path: Path,
+):
+    module = _load_module()
+    EXECUTOR_CALLS.clear()
+    monkeypatch.setattr(module, "_load_executor_module", lambda: _FakeExecutor)
+
+    result = module.run_stream_lookahead_sweep(
+        SimpleNamespace(
+            online_canary_json=tmp_path / "online.json",
+            measured_copy_json=tmp_path / "copy.json",
+            measured_copy_stat="p95",
+            measured_copy_experts=8,
+            measured_copy_pinned="true",
+            capacity=12288,
+            queue_deadline_us=200.0,
+            event_timing_mode="token_index",
+            decode_token_us=100.0,
+            issue_lead_token_values="0,1,2,4",
+            layer_event_interval_us=1.0,
+            allow_config_token_source=False,
+            event_interval_us=1.0,
+            issue_arrival_us=0.0,
+            lookahead_us_values="0,100,250,300",
+            min_demand_hit_rate=0.5,
+            max_ready_late_miss_rate=0.2,
+            min_used_per_issued_fetch=0.5,
+            output_json=tmp_path / "out.json",
+        )
+    )
+
+    assert result["passed"] is True
+    assert result["event_timing_mode"] == "token_index"
+    assert result["token_timing_enabled"] is True
+    assert result["issue_lead_token_values"] == [0, 1, 2, 4]
+    assert result["lookahead_us_values"] == [0.0, 100.0, 200.0, 400.0]
+    assert result["configured_lookahead_us_values"] == [0.0, 100.0, 250.0, 300.0]
+    assert result["requested_lookahead_us_values"] == [0.0, 100.0, 200.0, 400.0]
+    assert result["first_model_passing_issue_lead_tokens"] == 2
+    assert result["first_model_passing_lookahead_us"] == 200.0
+    assert result["rows"][2]["issue_lead_tokens"] == 2
+    assert result["rows"][2]["lookahead_us"] == 200.0
+    assert result["rows"][2]["lookahead_us_kind"] == "requested_token_lead_us"
+    assert result["rows"][2]["requested_lookahead_us"] == 200.0
+    assert result["rows"][2]["requested_effective_ready_deadline_us"] == 400.0
+    assert result["rows"][2]["observed_issue_to_demand_lead_min_us"] == 200.0
+    assert result["rows"][2]["token_index_count"] == 4
+    assert result["rows"][2]["token_source_decode_workload_count"] == 4
+    assert result["rows"][2]["passed"] is True
+    assert [call.event_timing_mode for call in EXECUTOR_CALLS] == [
+        "token_index",
+        "token_index",
+        "token_index",
+        "token_index",
+    ]
+    assert [call.issue_lead_tokens for call in EXECUTOR_CALLS] == [0, 1, 2, 4]
+    assert [call.demand_gap_us for call in EXECUTOR_CALLS] == [0.0, 100.0, 200.0, 400.0]
+    assert not any(call.allow_config_token_source for call in EXECUTOR_CALLS)
+
+
+def test_stream_lookahead_sweep_accepts_old_programmatic_namespace(
+    monkeypatch,
+    tmp_path: Path,
+):
+    module = _load_module()
+    EXECUTOR_CALLS.clear()
+    monkeypatch.setattr(module, "_load_executor_module", lambda: _FakeExecutor)
+
+    result = module.run_stream_lookahead_sweep(
+        SimpleNamespace(
+            online_canary_json=tmp_path / "online.json",
+            measured_copy_json=None,
+            measured_copy_stat="p95",
+            measured_copy_experts=8,
+            measured_copy_pinned="true",
+            capacity=12288,
+            queue_deadline_us=200.0,
+            event_interval_us=1.0,
+            issue_arrival_us=0.0,
+            lookahead_us_values="0,250",
+            min_demand_hit_rate=0.5,
+            max_ready_late_miss_rate=0.2,
+            min_used_per_issued_fetch=0.5,
+            output_json=tmp_path / "out.json",
+        )
+    )
+
+    assert result["passed"] is True
+    assert result["event_timing_mode"] == "packet_index"
+    assert result["token_timing_enabled"] is False
+    assert result["first_model_passing_lookahead_us"] == 250.0
+    assert [call.issue_lead_tokens for call in EXECUTOR_CALLS] == [0, 0]
+
+
+def test_stream_lookahead_sweep_rejects_nonfinite_lookahead_values(
+    monkeypatch,
+    tmp_path: Path,
+):
+    module = _load_module()
+    monkeypatch.setattr(module, "_load_executor_module", lambda: _FakeExecutor)
+
+    try:
+        module.run_stream_lookahead_sweep(
+            SimpleNamespace(
+                online_canary_json=tmp_path / "online.json",
+                measured_copy_json=None,
+                measured_copy_stat="p95",
+                measured_copy_experts=8,
+                measured_copy_pinned="true",
+                capacity=12288,
+                queue_deadline_us=200.0,
+                event_interval_us=1.0,
+                issue_arrival_us=0.0,
+                lookahead_us_values="0,inf",
+                min_demand_hit_rate=0.5,
+                max_ready_late_miss_rate=0.2,
+                min_used_per_issued_fetch=0.5,
+                output_json=tmp_path / "out.json",
+            )
+        )
+    except ValueError as exc:
+        assert "lookahead sweep values must be finite" in str(exc)
+    else:
+        raise AssertionError("expected nonfinite lookahead rejection")
 
 
 def test_stream_lookahead_sweep_rejects_full_fetch_allowed_row(
@@ -124,6 +282,7 @@ def test_stream_lookahead_sweep_rejects_full_fetch_allowed_row(
     tmp_path: Path,
 ):
     module = _load_module()
+    EXECUTOR_CALLS.clear()
 
     class BadExecutor(_FakeExecutor):
         @staticmethod
@@ -143,6 +302,11 @@ def test_stream_lookahead_sweep_rejects_full_fetch_allowed_row(
             measured_copy_pinned="true",
             capacity=12288,
             queue_deadline_us=200.0,
+            event_timing_mode="packet_index",
+            decode_token_us=75_000.0,
+            issue_lead_token_values="0,1,2,4",
+            layer_event_interval_us=1.0,
+            allow_config_token_source=False,
             event_interval_us=1.0,
             issue_arrival_us=0.0,
             lookahead_us_values="250",
@@ -168,6 +332,7 @@ def test_stream_lookahead_sweep_rejects_missing_row_safety_flag(
     tmp_path: Path,
 ):
     module = _load_module()
+    EXECUTOR_CALLS.clear()
 
     class MissingSafetyExecutor(_FakeExecutor):
         @staticmethod
@@ -187,6 +352,11 @@ def test_stream_lookahead_sweep_rejects_missing_row_safety_flag(
             measured_copy_pinned="true",
             capacity=12288,
             queue_deadline_us=200.0,
+            event_timing_mode="packet_index",
+            decode_token_us=75_000.0,
+            issue_lead_token_values="0,1,2,4",
+            layer_event_interval_us=1.0,
+            allow_config_token_source=False,
             event_interval_us=1.0,
             issue_arrival_us=0.0,
             lookahead_us_values="250",
@@ -210,6 +380,7 @@ def test_stream_lookahead_sweep_rejects_payload_transfer_row(
     tmp_path: Path,
 ):
     module = _load_module()
+    EXECUTOR_CALLS.clear()
 
     class UnsafeExecutor(_FakeExecutor):
         @staticmethod
@@ -229,6 +400,11 @@ def test_stream_lookahead_sweep_rejects_payload_transfer_row(
             measured_copy_pinned="true",
             capacity=12288,
             queue_deadline_us=200.0,
+            event_timing_mode="packet_index",
+            decode_token_us=75_000.0,
+            issue_lead_token_values="0,1,2,4",
+            layer_event_interval_us=1.0,
+            allow_config_token_source=False,
             event_interval_us=1.0,
             issue_arrival_us=0.0,
             lookahead_us_values="250",

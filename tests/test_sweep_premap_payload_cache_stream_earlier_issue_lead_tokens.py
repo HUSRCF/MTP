@@ -5,6 +5,8 @@ import importlib.util
 from pathlib import Path
 from types import SimpleNamespace
 
+STREAM_SWEEP_CALLS = []
+
 
 def _load_module():
     path = (
@@ -57,6 +59,9 @@ class _FakeStreamSweep:
         parser.add_argument("--capacity", type=int)
         parser.add_argument("--queue-deadline-us", type=float)
         parser.add_argument("--event-interval-us", type=float)
+        parser.add_argument("--event-timing-mode")
+        parser.add_argument("--decode-token-us", type=float)
+        parser.add_argument("--issue-lead-token-values")
         parser.add_argument("--issue-arrival-us", type=float)
         parser.add_argument("--lookahead-us-values")
         parser.add_argument("--min-demand-hit-rate", type=float)
@@ -67,17 +72,41 @@ class _FakeStreamSweep:
 
     @staticmethod
     def run_stream_lookahead_sweep(args):
-        lookahead_values = [
-            float(item) for item in str(args.lookahead_us_values).split(",") if item
-        ]
+        STREAM_SWEEP_CALLS.append(args)
+        if args.event_timing_mode == "token_index":
+            lead_tokens = [
+                int(item)
+                for item in str(args.issue_lead_token_values).split(",")
+                if item
+            ]
+            lookahead_values = [
+                float(value) * float(args.decode_token_us) for value in lead_tokens
+            ]
+        else:
+            lookahead_values = [
+                float(item) for item in str(args.lookahead_us_values).split(",") if item
+            ]
         rows = []
-        for lookahead_us in lookahead_values:
+        for index, lookahead_us in enumerate(lookahead_values):
             model_passed = lookahead_us >= 150_000.0
             rows.append(
                 {
                     **_safe_fields(),
+                    "event_timing_mode": args.event_timing_mode,
+                    "token_timing_enabled": args.event_timing_mode == "token_index",
+                    "issue_lead_tokens": (
+                        lead_tokens[index] if args.event_timing_mode == "token_index" else 0
+                    ),
                     "lookahead_us": lookahead_us,
+                    "lookahead_us_kind": (
+                        "requested_token_lead_us"
+                        if args.event_timing_mode == "token_index"
+                        else "packet_index_demand_gap_us"
+                    ),
+                    "requested_lookahead_us": lookahead_us,
                     "effective_ready_deadline_us": lookahead_us
+                    + float(args.queue_deadline_us),
+                    "requested_effective_ready_deadline_us": lookahead_us
                     + float(args.queue_deadline_us),
                     "model_passed": model_passed,
                     "safety_passed": True,
@@ -98,6 +127,16 @@ class _FakeStreamSweep:
             "artifact_kind": "premap_payload_cache_issue_stream_executor_lookahead_sweep",
             "passed": True,
             "failures": [],
+            "event_timing_mode": args.event_timing_mode,
+            "token_timing_enabled": args.event_timing_mode == "token_index",
+            "lookahead_us_kind": (
+                "requested_token_lead_us"
+                if args.event_timing_mode == "token_index"
+                else "packet_index_demand_gap_us"
+            ),
+            "issue_lead_token_values": (
+                lead_tokens if args.event_timing_mode == "token_index" else []
+            ),
             "lookahead_us_values": lookahead_values,
             "rows": rows,
         }
@@ -105,6 +144,7 @@ class _FakeStreamSweep:
 
 def test_lead_token_sweep_finds_first_passing_lead(monkeypatch, tmp_path: Path):
     module = _load_module()
+    STREAM_SWEEP_CALLS.clear()
     monkeypatch.setattr(module, "_load_stream_sweep_module", lambda: _FakeStreamSweep)
 
     result = module.run_earlier_issue_lead_token_sweep(
@@ -135,6 +175,12 @@ def test_lead_token_sweep_finds_first_passing_lead(monkeypatch, tmp_path: Path):
     assert result["kernel_arg_pass_allowed"] is False
     assert result["rows"][2]["model_passed"] is True
     assert (tmp_path / "out.json").exists()
+    assert len(STREAM_SWEEP_CALLS) == 1
+    call = STREAM_SWEEP_CALLS[0]
+    assert call.event_timing_mode == "token_index"
+    assert call.decode_token_us == 75_000.0
+    assert call.issue_lead_token_values == "0,1,2,3,4"
+    assert call.lookahead_us_values == "0.0,75000.0,150000.0,225000.0,300000.0"
 
 
 def test_lead_token_sweep_rejects_unsafe_underlying_row(monkeypatch, tmp_path: Path):
@@ -174,6 +220,54 @@ def test_lead_token_sweep_rejects_unsafe_underlying_row(monkeypatch, tmp_path: P
         "failures"
     ]
     assert result["full_fetch_runtime_allowed"] is False
+
+
+def test_lead_token_sweep_rejects_packet_index_underlying_sweep(
+    monkeypatch,
+    tmp_path: Path,
+):
+    module = _load_module()
+
+    class PacketIndexSweep(_FakeStreamSweep):
+        @staticmethod
+        def run_stream_lookahead_sweep(args):
+            payload = _FakeStreamSweep.run_stream_lookahead_sweep(args)
+            payload["event_timing_mode"] = "packet_index"
+            payload["token_timing_enabled"] = False
+            payload["lookahead_us_kind"] = "packet_index_demand_gap_us"
+            for row in payload["rows"]:
+                row["event_timing_mode"] = "packet_index"
+                row["token_timing_enabled"] = False
+                row["lookahead_us_kind"] = "packet_index_demand_gap_us"
+            return payload
+
+    monkeypatch.setattr(module, "_load_stream_sweep_module", lambda: PacketIndexSweep)
+
+    result = module.run_earlier_issue_lead_token_sweep(
+        SimpleNamespace(
+            online_canary_json=tmp_path / "online.json",
+            measured_copy_json=tmp_path / "copy.json",
+            measured_copy_stat="p95",
+            measured_copy_experts=8,
+            measured_copy_pinned="true",
+            capacity=12288,
+            queue_deadline_us=200.0,
+            event_interval_us=1.0,
+            issue_arrival_us=0.0,
+            decode_token_us=75_000.0,
+            lead_token_values="0,1,2",
+            min_demand_hit_rate=0.5,
+            max_ready_late_miss_rate=0.2,
+            min_used_per_issued_fetch=0.5,
+            output_json=tmp_path / "out.json",
+        )
+    )
+
+    assert result["passed"] is False
+    assert "stream_sweep_event_timing_mode_not_token_index" in result["failures"]
+    assert "stream_sweep_token_timing_enabled_not_true" in result["failures"]
+    assert "stream_sweep_lookahead_us_kind_mismatch" in result["failures"]
+    assert "stream_sweep_row_0_event_timing_mode_not_token_index" in result["failures"]
 
 
 def test_lead_token_sweep_rejects_unsafe_underlying_top_level(

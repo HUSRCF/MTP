@@ -83,6 +83,7 @@ def _validate_stream_sweep(
     sweep: dict[str, Any],
     *,
     expected_lookahead_values: list[float],
+    expected_lead_tokens: list[int],
     failures: list[str],
 ) -> None:
     if (
@@ -95,6 +96,14 @@ def _validate_stream_sweep(
     if sweep.get("failures") not in ([], None):
         failures.append("stream_sweep_failures_not_empty")
     _check_safety(sweep, failures, prefix="stream_sweep")
+    if sweep.get("event_timing_mode") != "token_index":
+        failures.append("stream_sweep_event_timing_mode_not_token_index")
+    if sweep.get("token_timing_enabled") is not True:
+        failures.append("stream_sweep_token_timing_enabled_not_true")
+    if sweep.get("lookahead_us_kind") != "requested_token_lead_us":
+        failures.append("stream_sweep_lookahead_us_kind_mismatch")
+    if sweep.get("issue_lead_token_values") != expected_lead_tokens:
+        failures.append("stream_sweep_issue_lead_token_values_mismatch")
     rows = sweep.get("rows")
     lookahead_values = sweep.get("lookahead_us_values")
     if lookahead_values != expected_lookahead_values:
@@ -108,6 +117,14 @@ def _validate_stream_sweep(
             continue
         if row.get("lookahead_us") != expected_lookahead:
             failures.append(f"stream_sweep_row_{index}_lookahead_mismatch")
+        if row.get("event_timing_mode") != "token_index":
+            failures.append(f"stream_sweep_row_{index}_event_timing_mode_not_token_index")
+        if row.get("token_timing_enabled") is not True:
+            failures.append(f"stream_sweep_row_{index}_token_timing_enabled_not_true")
+        if row.get("lookahead_us_kind") != "requested_token_lead_us":
+            failures.append(f"stream_sweep_row_{index}_lookahead_us_kind_mismatch")
+        if row.get("issue_lead_tokens") != expected_lead_tokens[index]:
+            failures.append(f"stream_sweep_row_{index}_issue_lead_tokens_mismatch")
         _check_safety(row, failures, prefix=f"stream_sweep_row_{index}")
         model_passed = row.get("model_passed")
         safety_passed = row.get("safety_passed")
@@ -141,6 +158,7 @@ def run_earlier_issue_lead_token_sweep(args: argparse.Namespace) -> dict[str, An
         raise ValueError("decode-token-us must be a positive finite number")
     lookahead_values = [float(value) * decode_token_us for value in lead_tokens]
     lookahead_csv = ",".join(str(value) for value in lookahead_values)
+    lead_token_csv = ",".join(str(value) for value in lead_tokens)
     temp_output = output_path.parent / f".{output_path.stem}.stream_sweep_tmp.json"
     sweep_args = stream_sweep.build_parser().parse_args(
         [
@@ -160,6 +178,12 @@ def run_earlier_issue_lead_token_sweep(args: argparse.Namespace) -> dict[str, An
             str(args.queue_deadline_us),
             "--event-interval-us",
             str(args.event_interval_us),
+            "--event-timing-mode",
+            "token_index",
+            "--decode-token-us",
+            str(decode_token_us),
+            "--issue-lead-token-values",
+            lead_token_csv,
             "--issue-arrival-us",
             str(args.issue_arrival_us),
             "--lookahead-us-values",
@@ -186,6 +210,7 @@ def run_earlier_issue_lead_token_sweep(args: argparse.Namespace) -> dict[str, An
     _validate_stream_sweep(
         sweep,
         expected_lookahead_values=lookahead_values,
+        expected_lead_tokens=lead_tokens,
         failures=failures,
     )
     rows: list[dict[str, Any]] = []
