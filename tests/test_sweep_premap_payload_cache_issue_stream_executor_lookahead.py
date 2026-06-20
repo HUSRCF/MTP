@@ -41,6 +41,7 @@ class _FakeExecutor:
         parser.add_argument("--issue-lead-tokens", type=int)
         parser.add_argument("--layer-event-interval-us", type=float)
         parser.add_argument("--allow-config-token-source", action="store_true")
+        parser.add_argument("--allow-empty-config-packets", action="store_true")
         parser.add_argument("--issue-arrival-us", type=float)
         parser.add_argument("--demand-gap-us", type=float)
         parser.add_argument("--min-demand-hit-rate", type=float)
@@ -96,6 +97,7 @@ class _FakeExecutor:
             "token_source_config_count": 0,
             "token_source_missing_count": 0,
             "allow_config_token_source": bool(args.allow_config_token_source),
+            "allow_empty_config_packets": bool(args.allow_empty_config_packets),
             "issue_arrival_min_us": 100.0,
             "issue_arrival_max_us": 200.0,
             "demand_arrival_min_us": 300.0,
@@ -126,6 +128,7 @@ def test_stream_lookahead_sweep_finds_first_model_passing_row(
             issue_lead_token_values="0,1,2,4",
             layer_event_interval_us=1.0,
             allow_config_token_source=False,
+            allow_empty_config_packets=True,
             event_interval_us=1.0,
             issue_arrival_us=0.0,
             lookahead_us_values="0,100,250,300",
@@ -172,6 +175,7 @@ def test_stream_lookahead_sweep_supports_token_index_issue_lead_tokens(
             issue_lead_token_values="0,1,2,4",
             layer_event_interval_us=1.0,
             allow_config_token_source=False,
+            allow_empty_config_packets=True,
             event_interval_us=1.0,
             issue_arrival_us=0.0,
             lookahead_us_values="0,100,250,300",
@@ -199,6 +203,7 @@ def test_stream_lookahead_sweep_supports_token_index_issue_lead_tokens(
     assert result["rows"][2]["observed_issue_to_demand_lead_min_us"] == 200.0
     assert result["rows"][2]["token_index_count"] == 4
     assert result["rows"][2]["token_source_decode_workload_count"] == 4
+    assert result["rows"][2]["allow_empty_config_packets"] is True
     assert result["rows"][2]["passed"] is True
     assert [call.event_timing_mode for call in EXECUTOR_CALLS] == [
         "token_index",
@@ -209,6 +214,7 @@ def test_stream_lookahead_sweep_supports_token_index_issue_lead_tokens(
     assert [call.issue_lead_tokens for call in EXECUTOR_CALLS] == [0, 1, 2, 4]
     assert [call.demand_gap_us for call in EXECUTOR_CALLS] == [0.0, 100.0, 200.0, 400.0]
     assert not any(call.allow_config_token_source for call in EXECUTOR_CALLS)
+    assert all(call.allow_empty_config_packets for call in EXECUTOR_CALLS)
 
 
 def test_stream_lookahead_sweep_accepts_old_programmatic_namespace(

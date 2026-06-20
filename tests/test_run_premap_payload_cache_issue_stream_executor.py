@@ -344,6 +344,87 @@ def test_issue_stream_executor_token_index_mode_rejects_config_source(
     assert "config_token_source_present" in result["failures"]
 
 
+def test_issue_stream_executor_token_index_mode_allows_empty_config_packet(
+    tmp_path: Path,
+):
+    module = _load_module()
+    empty_packet = tmp_path / "empty_packet.json"
+    nonempty_packet = tmp_path / "nonempty_packet.json"
+    online = tmp_path / "online.json"
+    _write_json(
+        empty_packet,
+        _packet_payload(
+            layer_id=0,
+            previous=(),
+            topk=1,
+            token_index=-1,
+            token_source="config",
+        ),
+    )
+    _write_json(
+        nonempty_packet,
+        _packet_payload(layer_id=0, previous=(3,), topk=1, token_index=8),
+    )
+    _write_json(online, _online_payload([empty_packet, nonempty_packet]))
+
+    result = _run(
+        module,
+        online,
+        tmp_path / "out.json",
+        [
+            "--event-timing-mode",
+            "token_index",
+            "--allow-empty-config-packets",
+            "--service-us-per-issue",
+            "0",
+            "--min-packet-count",
+            "2",
+            "--min-nonempty-packet-count",
+            "1",
+        ],
+    )
+
+    assert result["passed"] is True
+    assert result["empty_issue_provenance_exempt_count"] == 1
+    assert result["required_token_provenance_packet_count"] == 1
+    assert result["required_token_index_count"] == 1
+    assert result["required_token_source_decode_workload_count"] == 1
+    assert result["required_token_source_config_count"] == 0
+    assert result["token_source_config_count"] == 1
+    assert result["demand_count"] == 1
+    assert result["issued_prefetch_count"] == 1
+
+
+def test_issue_stream_executor_token_index_mode_rejects_nonempty_config_with_empty_exemption(
+    tmp_path: Path,
+):
+    module = _load_module()
+    packet0 = tmp_path / "packet0.json"
+    online = tmp_path / "online.json"
+    _write_json(
+        packet0,
+        _packet_payload(
+            layer_id=0,
+            previous=(3,),
+            topk=1,
+            token_index=8,
+            token_source="config",
+        ),
+    )
+    _write_json(online, _online_payload([packet0]))
+
+    result = _run(
+        module,
+        online,
+        tmp_path / "out.json",
+        ["--event-timing-mode", "token_index", "--allow-empty-config-packets"],
+    )
+
+    assert result["passed"] is False
+    assert "packet_0_config_token_source_disallowed" in result["failures"]
+    assert "config_token_source_present" in result["failures"]
+
+
 def test_issue_stream_executor_token_index_mode_allows_config_source_in_audit_mode(
     tmp_path: Path,
 ):

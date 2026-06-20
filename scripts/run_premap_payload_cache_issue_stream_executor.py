@@ -343,6 +343,12 @@ def run_issue_stream_executor(args: argparse.Namespace) -> dict[str, Any]:
     token_source_decode_count = 0
     token_source_config_count = 0
     token_source_missing_count = 0
+    empty_issue_provenance_exempt_count = 0
+    required_token_provenance_packet_count = 0
+    required_token_index_count = 0
+    required_token_source_decode_count = 0
+    required_token_source_config_count = 0
+    required_token_source_missing_count = 0
     min_issue_arrival_us: float | None = None
     max_issue_arrival_us: float | None = None
     min_demand_arrival_us: float | None = None
@@ -374,6 +380,14 @@ def run_issue_stream_executor(args: argparse.Namespace) -> dict[str, Any]:
             else:
                 layer_id = int(raw_layer_id or 0)
             experts = _issue_experts_from_packet(packet)
+            requires_token_provenance = not (
+                bool(args.allow_empty_config_packets) and not experts
+            )
+            if token_timing_enabled:
+                if requires_token_provenance:
+                    required_token_provenance_packet_count += 1
+                else:
+                    empty_issue_provenance_exempt_count += 1
             _check_issue_provenance(
                 packet,
                 experts,
@@ -397,19 +411,29 @@ def run_issue_stream_executor(args: argparse.Namespace) -> dict[str, Any]:
                     token_index = export_context.get("token_index")
                     if _is_int(token_index) and int(token_index) >= 0:
                         token_indices.append(int(token_index))
-                    else:
+                        if requires_token_provenance:
+                            required_token_index_count += 1
+                    elif requires_token_provenance:
                         failures.append(f"packet_{idx}_token_index_invalid")
                     token_source = export_context.get("token_index_source")
                     if token_source == "decode_workload_collector":
                         token_source_decode_count += 1
+                        if requires_token_provenance:
+                            required_token_source_decode_count += 1
                     elif token_source == "config":
                         token_source_config_count += 1
-                        if not bool(args.allow_config_token_source):
+                        if requires_token_provenance:
+                            required_token_source_config_count += 1
+                        if requires_token_provenance and not bool(
+                            args.allow_config_token_source
+                        ):
                             failures.append(f"packet_{idx}_config_token_source_disallowed")
                     elif token_source is None:
                         token_source_missing_count += 1
-                        failures.append(f"packet_{idx}_token_index_source_missing")
-                    else:
+                        if requires_token_provenance:
+                            required_token_source_missing_count += 1
+                            failures.append(f"packet_{idx}_token_index_source_missing")
+                    elif requires_token_provenance:
                         failures.append(f"packet_{idx}_token_index_source_unexpected")
             elif token_timing_enabled:
                 failures.append(f"packet_{idx}_export_context_missing")
@@ -505,11 +529,14 @@ def run_issue_stream_executor(args: argparse.Namespace) -> dict[str, Any]:
     if packet_errors:
         failures.append("packet_errors_nonzero")
     if token_timing_enabled:
-        if len(token_indices) != packet_count:
+        if required_token_index_count != required_token_provenance_packet_count:
             failures.append("token_index_count_packet_count_mismatch")
-        if not bool(args.allow_config_token_source) and token_source_config_count:
+        if (
+            not bool(args.allow_config_token_source)
+            and required_token_source_config_count
+        ):
             failures.append("config_token_source_present")
-        if token_source_missing_count:
+        if required_token_source_missing_count:
             failures.append("missing_token_source_present")
     if demand_hit_rate < float(args.min_demand_hit_rate):
         failures.append("demand_hit_rate_below_threshold")
@@ -563,12 +590,19 @@ def run_issue_stream_executor(args: argparse.Namespace) -> dict[str, Any]:
         "issue_lead_tokens": issue_lead_tokens,
         "layer_event_interval_us": layer_event_interval_us,
         "token_index_count": len(token_indices),
+        "required_token_index_count": required_token_index_count,
         "token_index_min": min(token_indices) if token_indices else None,
         "token_index_max": max(token_indices) if token_indices else None,
         "token_source_decode_workload_count": token_source_decode_count,
         "token_source_config_count": token_source_config_count,
         "token_source_missing_count": token_source_missing_count,
+        "required_token_provenance_packet_count": required_token_provenance_packet_count,
+        "empty_issue_provenance_exempt_count": empty_issue_provenance_exempt_count,
+        "required_token_source_decode_workload_count": required_token_source_decode_count,
+        "required_token_source_config_count": required_token_source_config_count,
+        "required_token_source_missing_count": required_token_source_missing_count,
         "allow_config_token_source": bool(args.allow_config_token_source),
+        "allow_empty_config_packets": bool(args.allow_empty_config_packets),
         "issue_arrival_min_us": min_issue_arrival_us,
         "issue_arrival_max_us": max_issue_arrival_us,
         "demand_arrival_min_us": min_demand_arrival_us,
@@ -673,6 +707,14 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--issue-lead-tokens", type=int, default=0)
     parser.add_argument("--layer-event-interval-us", type=float, default=1.0)
     parser.add_argument("--allow-config-token-source", action="store_true")
+    parser.add_argument(
+        "--allow-empty-config-packets",
+        action="store_true",
+        help=(
+            "In token-index mode, allow empty issue packets to keep static "
+            "token provenance; nonempty issue packets still require decode tokens."
+        ),
+    )
     parser.add_argument("--event-interval-us", type=float, default=1.0)
     parser.add_argument("--issue-arrival-us", type=float, default=0.0)
     parser.add_argument("--demand-gap-us", type=float, default=0.0)

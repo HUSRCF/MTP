@@ -31,7 +31,7 @@
   "next_runtime_stage": "token_aware_shifted_issue_stream_replay",
   "nonempty_packet_count": 28,
   "online_canary_json": "/home/husrcf/Code/ProtBind/MTP/data/traces/external_prompt_gate_dolly_4_awq_vllm_gpu1_decode_gen64_producer_state_packet_export_token_provenance_smoke_v3/producer_packet_token_provenance_online_canary.json",
-  "online_canary_sha256": "53eba198ea0d03e00a05013454a68c4e285ad349f03b24a8bb75f2b708499d17",
+  "online_canary_sha256": "cb20d03a0abf2aee62153b8bb2a26627beeb499905d128b82316dbbc28213b11",
   "online_packet_export_count": 32,
   "packet_count": 32,
   "packet_error_count": 0,

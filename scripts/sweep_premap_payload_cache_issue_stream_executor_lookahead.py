@@ -133,6 +133,7 @@ def run_stream_lookahead_sweep(args: argparse.Namespace) -> dict[str, Any]:
     )
     layer_event_interval_us = float(getattr(args, "layer_event_interval_us", 1.0))
     allow_config_token_source = bool(getattr(args, "allow_config_token_source", False))
+    allow_empty_config_packets = bool(getattr(args, "allow_empty_config_packets", False))
     sweep_values: list[float | int]
     if token_timing_enabled:
         sweep_values = issue_lead_token_values
@@ -187,6 +188,8 @@ def run_stream_lookahead_sweep(args: argparse.Namespace) -> dict[str, Any]:
         ]
         if allow_config_token_source:
             argv.append("--allow-config-token-source")
+        if allow_empty_config_packets:
+            argv.append("--allow-empty-config-packets")
         if args.measured_copy_json is not None:
             argv.extend(
                 [
@@ -300,6 +303,7 @@ def run_stream_lookahead_sweep(args: argparse.Namespace) -> dict[str, Any]:
             "token_source_config_count": result.get("token_source_config_count"),
             "token_source_missing_count": result.get("token_source_missing_count"),
             "allow_config_token_source": result.get("allow_config_token_source"),
+            "allow_empty_config_packets": result.get("allow_empty_config_packets"),
             "issue_arrival_min_us": issue_arrival_min_us,
             "issue_arrival_max_us": issue_arrival_max_us,
             "demand_arrival_min_us": demand_arrival_min_us,
@@ -332,6 +336,7 @@ def run_stream_lookahead_sweep(args: argparse.Namespace) -> dict[str, Any]:
         "issue_lead_token_values": issue_lead_token_values,
         "layer_event_interval_us": layer_event_interval_us,
         "allow_config_token_source": allow_config_token_source,
+        "allow_empty_config_packets": allow_empty_config_packets,
         "queue_deadline_us": float(args.queue_deadline_us),
         "event_interval_us": float(args.event_interval_us),
         "issue_arrival_us": float(args.issue_arrival_us),
@@ -404,6 +409,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--issue-lead-token-values", default="0,1,2,3,4,8")
     parser.add_argument("--layer-event-interval-us", type=float, default=1.0)
     parser.add_argument("--allow-config-token-source", action="store_true")
+    parser.add_argument("--allow-empty-config-packets", action="store_true")
     parser.add_argument("--event-interval-us", type=float, default=1.0)
     parser.add_argument("--issue-arrival-us", type=float, default=0.0)
     parser.add_argument(

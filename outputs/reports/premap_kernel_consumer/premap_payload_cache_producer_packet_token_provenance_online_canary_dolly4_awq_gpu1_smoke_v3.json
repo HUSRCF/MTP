@@ -5,6 +5,7 @@
   "measures_tpot": false,
   "measures_vllm_latency": false,
   "ok": true,
+  "online_configured_export_count": 32,
   "online_export_source": "runtime_shadow_premap_payload_cache_producer_state_packet_export",
   "online_packet_export_count": 32,
   "online_packet_export_paths": [
