@@ -102,9 +102,17 @@ def _check_cell_safety(
         safety[key] = value
         if key not in result:
             failures.append(f"cell_{cell_index}_{key}_missing")
-        elif value != 0:
+        elif not _valid_number(value) or float(value) != 0.0:
             failures.append(f"cell_{cell_index}_{key}_not_zero")
     return safety
+
+
+def _valid_number(value: Any) -> bool:
+    return (
+        not isinstance(value, bool)
+        and isinstance(value, (int, float))
+        and math.isfinite(float(value))
+    )
 
 
 def _first_passing_row(rows: list[dict[str, Any]]) -> dict[str, Any] | None:

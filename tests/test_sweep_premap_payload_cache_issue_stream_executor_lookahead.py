@@ -423,3 +423,48 @@ def test_stream_lookahead_sweep_rejects_payload_transfer_row(
 
     assert result["passed"] is False
     assert result["failures"] == ["row_0_payload_transfer_enabled_not_false"]
+
+
+def test_stream_lookahead_sweep_rejects_bool_payload_bytes_row(
+    monkeypatch,
+    tmp_path: Path,
+):
+    module = _load_module()
+    EXECUTOR_CALLS.clear()
+
+    class BoolPayloadExecutor(_FakeExecutor):
+        @staticmethod
+        def run_issue_stream_executor(args):
+            payload = _FakeExecutor.run_issue_stream_executor(args)
+            payload["payload_bytes"] = False
+            return payload
+
+    monkeypatch.setattr(module, "_load_executor_module", lambda: BoolPayloadExecutor)
+
+    result = module.run_stream_lookahead_sweep(
+        SimpleNamespace(
+            online_canary_json=tmp_path / "online.json",
+            measured_copy_json=None,
+            measured_copy_stat="p95",
+            measured_copy_experts=8,
+            measured_copy_pinned="true",
+            capacity=12288,
+            queue_deadline_us=200.0,
+            event_timing_mode="packet_index",
+            decode_token_us=75_000.0,
+            issue_lead_token_values="0,1,2,4",
+            layer_event_interval_us=1.0,
+            allow_config_token_source=False,
+            event_interval_us=1.0,
+            issue_arrival_us=0.0,
+            lookahead_us_values="250",
+            min_demand_hit_rate=0.5,
+            max_ready_late_miss_rate=0.2,
+            min_used_per_issued_fetch=0.5,
+            output_json=tmp_path / "out.json",
+        )
+    )
+
+    assert result["passed"] is False
+    assert result["failures"] == ["row_0_payload_bytes_not_zero"]
+    assert result["rows"][0]["safety_failures"] == ["row_0_payload_bytes_not_zero"]

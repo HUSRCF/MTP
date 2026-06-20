@@ -179,6 +179,53 @@ def test_queue_budget_sweep_rejects_unsafe_cell(monkeypatch, tmp_path: Path):
     assert result["cells"][0]["safety_passed"] is False
 
 
+def test_queue_budget_sweep_rejects_bool_payload_bytes_cell(
+    monkeypatch,
+    tmp_path: Path,
+):
+    module = _load_module()
+    LOOKAHEAD_CALLS.clear()
+
+    class BoolPayloadLookahead(_FakeLookahead):
+        @staticmethod
+        def run_stream_lookahead_sweep(args):
+            payload = _FakeLookahead.run_stream_lookahead_sweep(args)
+            payload["payload_bytes"] = False
+            return payload
+
+    monkeypatch.setattr(module, "_load_lookahead_module", lambda: BoolPayloadLookahead)
+
+    result = module.run_queue_budget_sweep(
+        SimpleNamespace(
+            online_canary_json=tmp_path / "online.json",
+            measured_copy_json=None,
+            measured_copy_stat="p95",
+            measured_copy_experts=8,
+            measured_copy_pinned="true",
+            capacity_values="128",
+            queue_deadline_us_values="1000",
+            event_timing_mode="token_index",
+            decode_token_us=100.0,
+            issue_lead_token_values="0,1,2",
+            layer_event_interval_us=1.0,
+            allow_config_token_source=False,
+            allow_empty_config_packets=True,
+            event_interval_us=1.0,
+            issue_arrival_us=0.0,
+            lookahead_us_values="0,100",
+            min_demand_hit_rate=0.6,
+            max_ready_late_miss_rate=0.4,
+            min_used_per_issued_fetch=0.4,
+            output_json=tmp_path / "out.json",
+        )
+    )
+
+    assert result["passed"] is False
+    assert result["failures"] == ["cell_0_payload_bytes_not_zero"]
+    assert result["cells"][0]["safety_passed"] is False
+    assert result["cells"][0]["safety_failures"] == ["cell_0_payload_bytes_not_zero"]
+
+
 def test_queue_budget_sweep_nulls_first_passing_cell_when_later_cell_is_unsafe(
     monkeypatch,
     tmp_path: Path,

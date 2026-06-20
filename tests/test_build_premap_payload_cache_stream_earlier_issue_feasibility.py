@@ -137,6 +137,20 @@ def test_earlier_issue_feasibility_rejects_unsafe_decision_gate(tmp_path: Path):
     assert result["full_fetch_runtime_allowed"] is False
 
 
+def test_earlier_issue_feasibility_rejects_bool_payload_bytes(tmp_path: Path):
+    module = _load_module()
+    decision_path = tmp_path / "decision.json"
+    payload = _decision_payload(required_lookahead=200_000.0)
+    payload["payload_bytes"] = False
+    _write_json(decision_path, payload)
+
+    result = _run(module, decision_path, tmp_path / "feasibility.json")
+
+    assert result["passed"] is False
+    assert "decision_gate_payload_bytes_not_zero" in result["failures"]
+    assert result["full_fetch_runtime_allowed"] is False
+
+
 def test_earlier_issue_feasibility_rejects_decision_failures_not_empty(
     tmp_path: Path,
 ):

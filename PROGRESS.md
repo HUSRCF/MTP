@@ -189,12 +189,12 @@ measures_tpot = false
 Interpretation:
 
 ```text
-The stream model quantifies the gap: with the current packet stream and H2D
-copy envelope, real full payload fetch would need roughly 200ms modeled
-lookahead to satisfy the configured thresholds and about 243ms to make all
-issued fetches useful.
-That is far outside same-step decode, so lab/default should continue blocking
-real full_fetch and keep premap/descriptor-prep as the near-term runtime path.
+The stream model still rejects same-step full payload fetch, but the queue-aware
+gate now gives a concrete producer-side target: with token-index provenance,
+capacity=128 and deadline=200us, one decode-token lead is the first passing
+modeled cell. Lab/default should still block real full_fetch until the producer
+can issue before demand; premap/descriptor-prep remains the near-term runtime
+path.
 ```
 
 Stream decision gate:
@@ -204,11 +204,13 @@ script:
   scripts/build_premap_payload_cache_stream_full_fetch_decision_gate.py
 
 artifact:
-  outputs/reports/premap_kernel_consumer/premap_payload_cache_stream_full_fetch_decision_gate_dolly4_gen64_current0_v1_20260620.json
+  outputs/reports/premap_kernel_consumer/premap_payload_cache_stream_full_fetch_decision_gate_dolly4_awq_gpu1_token_index_queue_budget_smoke_v1.json
 
 current_lookahead_us = 0.0
-first_model_passing_lookahead_us = 200000.0
-lookahead_deficit_us = 200000.0
+required_stream_lookahead_us = 75000.0
+lookahead_deficit_us = 75000.0
+queue_budget_required_capacity = 128
+queue_budget_required_issue_lead_tokens = 1
 full_fetch_runtime_allowed = false
 full_fetch_block_reason = insufficient_stream_lookahead
 next_runtime_stage = implement_earlier_producer_issue_before_real_payload_runtime
@@ -221,13 +223,13 @@ script:
   scripts/build_premap_payload_cache_stream_earlier_issue_feasibility.py
 
 artifact:
-  outputs/reports/premap_kernel_consumer/premap_payload_cache_stream_earlier_issue_feasibility_dolly4_gen64_v1_20260620.json
+  outputs/reports/premap_kernel_consumer/premap_payload_cache_stream_earlier_issue_feasibility_dolly4_awq_gpu1_token_index_queue_budget_smoke_v1.json
 
-required_stream_lookahead_us = 200000.0
+required_stream_lookahead_us = 75000.0
 current_lookahead_us = 0.0
 decode_token_us_values = 50000 / 75000 / 100000
-required_lead_tokens = 4 / 3 / 2
-required_lead_layer_stages = 160 / 107 / 80  (with decoder_layer_count=40)
+required_lead_tokens = 2 / 1 / 1
+required_lead_layer_stages = 60 / 40 / 30  (with decoder_layer_count=40)
 full_fetch_runtime_allowed = false
 next_runtime_stage = producer_side_earlier_issue_model
 ```
@@ -235,9 +237,10 @@ next_runtime_stage = producer_side_earlier_issue_model
 Interpretation:
 
 ```text
-The measured-copy stream model is not compatible with same-step issue, but it
-is plausible if the producer can issue 2-4 decode tokens earlier, depending on
-the actual TPOT envelope.  This is still a lead-time feasibility model only:
+The measured-copy stream model is not compatible with same-step issue, but the
+queue-aware token-index model is plausible if the producer can issue 1-2 decode
+tokens earlier, depending on the actual TPOT envelope. This is still a lead-time
+feasibility model only:
 no payload is moved, no ready credit is granted, no kernel args are touched, and
 no endpoint latency is measured.
 ```
@@ -249,31 +252,26 @@ script:
   scripts/sweep_premap_payload_cache_stream_earlier_issue_lead_tokens.py
 
 artifact:
-  outputs/reports/premap_kernel_consumer/premap_payload_cache_stream_earlier_issue_lead_tokens_dolly4_gen64_decode75ms_v1_20260620.json
+  outputs/reports/premap_kernel_consumer/premap_payload_cache_stream_earlier_issue_lead_tokens_dolly4_awq_gpu1_queue_capacity128_decode75ms_smoke_v2.json
 
 decode_token_us = 75000.0
+capacity = 128
+queue_deadline_us = 200.0
+allow_empty_config_packets = true
 lead_tokens 0:
   demand_hit_rate = 0.40625
   ready_late_miss_rate = 0.59375
   used_per_issued_fetch = 0.0
 lead_tokens 1:
-  demand_hit_rate = 0.5848214285714286
-  ready_late_miss_rate = 0.41517857142857145
-  used_per_issued_fetch = 0.3007518796992481
+  demand_hit_rate = 0.6651785714285714
+  ready_late_miss_rate = 0.33482142857142855
+  used_per_issued_fetch = 0.43609022556390975
 lead_tokens 2:
-  demand_hit_rate = 0.7678571428571429
-  ready_late_miss_rate = 0.23214285714285715
-  used_per_issued_fetch = 0.6090225563909775
-lead_tokens 3:
-  demand_hit_rate = 0.9464285714285714
-  ready_late_miss_rate = 0.05357142857142857
-  used_per_issued_fetch = 0.9097744360902256
-lead_tokens 4:
-  demand_hit_rate = 1.0
-  ready_late_miss_rate = 0.0
-  used_per_issued_fetch = 1.0
+  demand_hit_rate = 0.6651785714285714
+  ready_late_miss_rate = 0.33482142857142855
+  used_per_issued_fetch = 0.43609022556390975
 
-first_model_passing_lead_tokens = 3
+first_model_passing_lead_tokens = 1
 full_fetch_runtime_allowed = false
 next_runtime_stage = export_real_token_provenance_for_shifted_producer_replay
 ```

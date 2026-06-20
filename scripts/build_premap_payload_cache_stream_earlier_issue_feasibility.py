@@ -43,6 +43,14 @@ SAFE_FALSE_FLAGS = (
 SAFE_ZERO_FLAGS = ("payload_bytes",)
 
 
+def _valid_number(value: Any) -> bool:
+    return (
+        not isinstance(value, bool)
+        and isinstance(value, (int, float))
+        and math.isfinite(float(value))
+    )
+
+
 def _resolve(path: str | Path) -> Path:
     candidate = Path(path)
     return candidate if candidate.is_absolute() else REPO_ROOT / candidate
@@ -75,7 +83,7 @@ def _check_safety(payload: dict[str, Any], failures: list[str], *, prefix: str) 
     for key in SAFE_ZERO_FLAGS:
         if key not in payload:
             failures.append(f"{prefix}_{key}_missing")
-        elif payload.get(key) != 0:
+        elif not _valid_number(payload.get(key)) or float(payload.get(key)) != 0.0:
             failures.append(f"{prefix}_{key}_not_zero")
 
 

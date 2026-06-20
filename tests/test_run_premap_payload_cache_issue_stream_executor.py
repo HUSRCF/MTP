@@ -570,6 +570,37 @@ def test_issue_stream_executor_rejects_payload_or_kernel_mutation(tmp_path: Path
     assert result["changes_kernel_launch_args"] is False
 
 
+def test_issue_stream_executor_rejects_bool_payload_bytes(tmp_path: Path):
+    module = _load_module()
+    packet0 = tmp_path / "packet0.json"
+    online = tmp_path / "online.json"
+    packet = _packet_payload(previous=(3,), topk=1, token_index=1)
+    packet["payload_bytes"] = False
+    packet["_export_context"]["payload_bytes"] = False
+    online_payload = _online_payload([packet0])
+    online_payload["payload_bytes"] = False
+    _write_json(packet0, packet)
+    _write_json(online, online_payload)
+
+    result = _run(
+        module,
+        online,
+        tmp_path / "out.json",
+        [
+            "--event-timing-mode",
+            "token_index",
+            "--allow-empty-config-packets",
+        ],
+    )
+
+    assert result["passed"] is False
+    assert "online_payload_bytes_not_zero" in result["failures"]
+    assert "packet_0_payload_bytes_not_zero" in result["failures"]
+    assert "packet_0_export_context_payload_bytes_not_zero" in result["failures"]
+    assert result["payload_bytes"] == 0
+    assert result["payload_transfer_enabled"] is False
+
+
 def test_issue_stream_executor_rejects_real_ready_credit_granted(tmp_path: Path):
     module = _load_module()
     packet0 = tmp_path / "packet0.json"

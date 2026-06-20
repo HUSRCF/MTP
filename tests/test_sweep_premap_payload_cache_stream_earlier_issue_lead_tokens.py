@@ -61,8 +61,11 @@ class _FakeStreamSweep:
         parser.add_argument("--event-interval-us", type=float)
         parser.add_argument("--event-timing-mode")
         parser.add_argument("--decode-token-us", type=float)
+        parser.add_argument("--layer-event-interval-us", type=float)
         parser.add_argument("--issue-lead-token-values")
         parser.add_argument("--issue-arrival-us", type=float)
+        parser.add_argument("--allow-config-token-source", action="store_true")
+        parser.add_argument("--allow-empty-config-packets", action="store_true")
         parser.add_argument("--lookahead-us-values")
         parser.add_argument("--min-demand-hit-rate", type=float)
         parser.add_argument("--max-ready-late-miss-rate", type=float)
@@ -179,8 +182,52 @@ def test_lead_token_sweep_finds_first_passing_lead(monkeypatch, tmp_path: Path):
     call = STREAM_SWEEP_CALLS[0]
     assert call.event_timing_mode == "token_index"
     assert call.decode_token_us == 75_000.0
+    assert call.layer_event_interval_us == 1.0
+    assert call.allow_config_token_source is False
+    assert call.allow_empty_config_packets is False
     assert call.issue_lead_token_values == "0,1,2,3,4"
     assert call.lookahead_us_values == "0.0,75000.0,150000.0,225000.0,300000.0"
+
+
+def test_lead_token_sweep_forwards_token_provenance_options(
+    monkeypatch,
+    tmp_path: Path,
+):
+    module = _load_module()
+    STREAM_SWEEP_CALLS.clear()
+    monkeypatch.setattr(module, "_load_stream_sweep_module", lambda: _FakeStreamSweep)
+
+    result = module.run_earlier_issue_lead_token_sweep(
+        SimpleNamespace(
+            online_canary_json=tmp_path / "online.json",
+            measured_copy_json=tmp_path / "copy.json",
+            measured_copy_stat="p95",
+            measured_copy_experts=8,
+            measured_copy_pinned="true",
+            capacity=128,
+            queue_deadline_us=200.0,
+            layer_event_interval_us=2.5,
+            allow_config_token_source=True,
+            allow_empty_config_packets=True,
+            event_interval_us=1.0,
+            issue_arrival_us=0.0,
+            decode_token_us=75_000.0,
+            lead_token_values="0,1,2",
+            min_demand_hit_rate=0.5,
+            max_ready_late_miss_rate=0.2,
+            min_used_per_issued_fetch=0.5,
+            output_json=tmp_path / "out.json",
+        )
+    )
+
+    assert result["passed"] is True
+    assert result["layer_event_interval_us"] == 2.5
+    assert result["allow_config_token_source"] is True
+    assert result["allow_empty_config_packets"] is True
+    call = STREAM_SWEEP_CALLS[-1]
+    assert call.layer_event_interval_us == 2.5
+    assert call.allow_config_token_source is True
+    assert call.allow_empty_config_packets is True
 
 
 def test_lead_token_sweep_rejects_unsafe_underlying_row(monkeypatch, tmp_path: Path):
@@ -307,6 +354,48 @@ def test_lead_token_sweep_rejects_unsafe_underlying_top_level(
 
     assert result["passed"] is False
     assert "stream_sweep_payload_transfer_enabled_not_false" in result["failures"]
+    assert result["full_fetch_runtime_allowed"] is False
+
+
+def test_lead_token_sweep_rejects_bool_payload_bytes(
+    monkeypatch,
+    tmp_path: Path,
+):
+    module = _load_module()
+
+    class BoolPayloadSweep(_FakeStreamSweep):
+        @staticmethod
+        def run_stream_lookahead_sweep(args):
+            payload = _FakeStreamSweep.run_stream_lookahead_sweep(args)
+            payload["payload_bytes"] = False
+            payload["rows"][1]["payload_bytes"] = False
+            return payload
+
+    monkeypatch.setattr(module, "_load_stream_sweep_module", lambda: BoolPayloadSweep)
+
+    result = module.run_earlier_issue_lead_token_sweep(
+        SimpleNamespace(
+            online_canary_json=tmp_path / "online.json",
+            measured_copy_json=tmp_path / "copy.json",
+            measured_copy_stat="p95",
+            measured_copy_experts=8,
+            measured_copy_pinned="true",
+            capacity=12288,
+            queue_deadline_us=200.0,
+            event_interval_us=1.0,
+            issue_arrival_us=0.0,
+            decode_token_us=75_000.0,
+            lead_token_values="0,1,2",
+            min_demand_hit_rate=0.5,
+            max_ready_late_miss_rate=0.2,
+            min_used_per_issued_fetch=0.5,
+            output_json=tmp_path / "out.json",
+        )
+    )
+
+    assert result["passed"] is False
+    assert "stream_sweep_payload_bytes_not_zero" in result["failures"]
+    assert "stream_sweep_row_1_payload_bytes_not_zero" in result["failures"]
     assert result["full_fetch_runtime_allowed"] is False
 
 

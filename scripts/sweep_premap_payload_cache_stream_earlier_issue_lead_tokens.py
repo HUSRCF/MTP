@@ -37,6 +37,14 @@ SAFE_FALSE_FLAGS = (
 SAFE_ZERO_FLAGS = ("payload_bytes",)
 
 
+def _valid_number(value: Any) -> bool:
+    return (
+        not isinstance(value, bool)
+        and isinstance(value, (int, float))
+        and math.isfinite(float(value))
+    )
+
+
 def _load_stream_sweep_module():
     path = REPO_ROOT / "scripts" / "sweep_premap_payload_cache_issue_stream_executor_lookahead.py"
     spec = importlib.util.spec_from_file_location(
@@ -75,7 +83,7 @@ def _check_safety(payload: dict[str, Any], failures: list[str], *, prefix: str) 
     for key in SAFE_ZERO_FLAGS:
         if key not in payload:
             failures.append(f"{prefix}_{key}_missing")
-        elif payload.get(key) != 0:
+        elif not _valid_number(payload.get(key)) or float(payload.get(key)) != 0.0:
             failures.append(f"{prefix}_{key}_not_zero")
 
 
@@ -156,6 +164,13 @@ def run_earlier_issue_lead_token_sweep(args: argparse.Namespace) -> dict[str, An
     decode_token_us = float(args.decode_token_us)
     if not math.isfinite(decode_token_us) or decode_token_us <= 0.0:
         raise ValueError("decode-token-us must be a positive finite number")
+    layer_event_interval_us = float(getattr(args, "layer_event_interval_us", 1.0))
+    allow_config_token_source = bool(
+        getattr(args, "allow_config_token_source", False)
+    )
+    allow_empty_config_packets = bool(
+        getattr(args, "allow_empty_config_packets", False)
+    )
     lookahead_values = [float(value) * decode_token_us for value in lead_tokens]
     lookahead_csv = ",".join(str(value) for value in lookahead_values)
     lead_token_csv = ",".join(str(value) for value in lead_tokens)
@@ -182,6 +197,8 @@ def run_earlier_issue_lead_token_sweep(args: argparse.Namespace) -> dict[str, An
             "token_index",
             "--decode-token-us",
             str(decode_token_us),
+            "--layer-event-interval-us",
+            str(layer_event_interval_us),
             "--issue-lead-token-values",
             lead_token_csv,
             "--issue-arrival-us",
@@ -197,6 +214,8 @@ def run_earlier_issue_lead_token_sweep(args: argparse.Namespace) -> dict[str, An
             "--output-json",
             str(temp_output),
         ]
+        + (["--allow-config-token-source"] if allow_config_token_source else [])
+        + (["--allow-empty-config-packets"] if allow_empty_config_packets else [])
     )
     try:
         sweep = stream_sweep.run_stream_lookahead_sweep(sweep_args)
@@ -274,6 +293,9 @@ def run_earlier_issue_lead_token_sweep(args: argparse.Namespace) -> dict[str, An
         "decode_token_us": decode_token_us,
         "lookahead_us_values": lookahead_values,
         "queue_deadline_us": float(args.queue_deadline_us),
+        "layer_event_interval_us": layer_event_interval_us,
+        "allow_config_token_source": allow_config_token_source,
+        "allow_empty_config_packets": allow_empty_config_packets,
         "event_interval_us": float(args.event_interval_us),
         "issue_arrival_us": float(args.issue_arrival_us),
         "online_canary_json": str(_resolve(args.online_canary_json)),
@@ -340,6 +362,21 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--measured-copy-pinned", default="true")
     parser.add_argument("--capacity", type=int, default=12288)
     parser.add_argument("--queue-deadline-us", type=float, default=200.0)
+    parser.add_argument(
+        "--layer-event-interval-us",
+        type=float,
+        default=stream_defaults.layer_event_interval_us,
+    )
+    parser.add_argument(
+        "--allow-config-token-source",
+        action="store_true",
+        default=bool(stream_defaults.allow_config_token_source),
+    )
+    parser.add_argument(
+        "--allow-empty-config-packets",
+        action="store_true",
+        default=bool(stream_defaults.allow_empty_config_packets),
+    )
     parser.add_argument("--event-interval-us", type=float, default=1.0)
     parser.add_argument("--issue-arrival-us", type=float, default=0.0)
     parser.add_argument("--decode-token-us", type=float, default=75_000.0)

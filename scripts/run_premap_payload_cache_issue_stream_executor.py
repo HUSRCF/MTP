@@ -171,8 +171,16 @@ def _check_safe_flags(
     for key in SAFE_ZERO_FLAGS:
         if key not in payload:
             failures.append(f"{prefix}_{key}_missing")
-        elif payload.get(key) != 0:
+        elif not _valid_number(payload.get(key)) or float(payload.get(key)) != 0.0:
             failures.append(f"{prefix}_{key}_not_zero")
+
+
+def _valid_number(value: Any) -> bool:
+    return (
+        not isinstance(value, bool)
+        and isinstance(value, (int, float))
+        and math.isfinite(float(value))
+    )
 
 
 def _is_int(value: Any) -> bool:
