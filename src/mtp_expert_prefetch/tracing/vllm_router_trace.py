@@ -7,6 +7,7 @@ import importlib.util
 import importlib
 import inspect
 import json
+import math
 import os
 import re
 import sys
@@ -260,6 +261,268 @@ def _premap_payload_cache_export_nonempty_issue_summary(
             summary["first_nonempty_issue_path"] = str(path)
             summary["first_nonempty_issue_count"] = issue_count
             summary["first_nonempty_issue_hash"] = issue_hash
+    return summary
+
+
+_PREMAP_PAYLOAD_CACHE_SHIFTED_ISSUE_SAFE_FALSE_FLAGS = (
+    "ready_credit",
+    "ready_before_demand_credit",
+    "payload_transfer_enabled",
+    "payload_deref_allowed",
+    "kernel_arg_pass_allowed",
+    "real_ready_credit_granted",
+    "passed_to_kernel",
+    "changes_kernel_launch_args",
+    "uses_current_wna16_args",
+    "passes_current_wna16_args",
+    "measures_tpot",
+    "measures_vllm_latency",
+)
+
+
+def _premap_payload_cache_shifted_issue_valid_number(value: Any) -> bool:
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return False
+    if isinstance(value, float):
+        return math.isfinite(value)
+    return True
+
+
+def _premap_payload_cache_shifted_issue_safe_flags_ok(
+    payload: dict[str, Any],
+) -> bool:
+    for key in _PREMAP_PAYLOAD_CACHE_SHIFTED_ISSUE_SAFE_FALSE_FLAGS:
+        if payload.get(key) is not False:
+            return False
+    value = payload.get("payload_bytes")
+    if not _premap_payload_cache_shifted_issue_valid_number(value):
+        return False
+    if isinstance(value, int):
+        return int(value) == 0
+    return float(value) == 0.0
+
+
+def _premap_payload_cache_shifted_issue_packet_candidates(
+    payload: dict[str, Any],
+) -> tuple[int, str | None] | None:
+    raw_experts = payload.get("issue_candidate_experts")
+    if not isinstance(raw_experts, list):
+        return None
+    experts: list[int] = []
+    for expert_id in raw_experts:
+        if type(expert_id) is not int or int(expert_id) < 0:
+            return None
+        experts.append(int(expert_id))
+    count = len(experts)
+    first = experts[0] if experts else -1
+    last = experts[-1] if experts else -1
+    issue_hash = _premap_payload_cache_issue_hash(experts)
+    expected = {
+        "issue_candidate_count": count,
+        "issue_candidate_first_expert": first,
+        "issue_candidate_last_expert": last,
+        "issue_candidate_hash": issue_hash,
+    }
+    for key, value in expected.items():
+        raw_value = payload.get(key)
+        if isinstance(value, int):
+            if type(raw_value) is not int or int(raw_value) != value:
+                return None
+        elif raw_value != value:
+            return None
+    return count, issue_hash
+
+
+def _premap_payload_cache_shifted_issue_runtime_shadow_summary(
+    paths: Iterable[Path],
+    *,
+    issue_lead_tokens: int,
+    allow_empty_config_packets: bool = True,
+    allow_config_token_source: bool = False,
+) -> dict[str, int | bool | str | None]:
+    summary: dict[str, int | bool | str | None] = {
+        "enabled": True,
+        "issue_lead_tokens": int(issue_lead_tokens),
+        "packet_count": 0,
+        "schedulable_packet_count": 0,
+        "empty_issue_exempt_count": 0,
+        "safe_packet_count": 0,
+        "unsafe_packet_count": 0,
+        "invalid_packet_count": 0,
+        "scan_error_count": 0,
+        "clamped_issue_count": 0,
+        "duplicate_demand_key_count": 0,
+        "duplicate_issue_key_count": 0,
+        "unique_demand_key_count": 0,
+        "unique_issue_key_count": 0,
+        "total_issue_candidates": 0,
+        "issue_hash_count": 0,
+        "issue_hash_unique_count": 0,
+        "first_packet_path": None,
+        "last_packet_path": None,
+        "payload_bytes": 0,
+        "ready_credit": False,
+        "ready_before_demand_credit": False,
+        "real_ready_credit_granted": False,
+        "payload_transfer_enabled": False,
+        "payload_deref_allowed": False,
+        "kernel_arg_pass_allowed": False,
+        "passed_to_kernel": False,
+        "changes_kernel_launch_args": False,
+        "uses_current_wna16_args": False,
+        "passes_current_wna16_args": False,
+        "measures_tpot": False,
+        "measures_vllm_latency": False,
+    }
+    lead = int(issue_lead_tokens)
+    if lead < 0:
+        summary["invalid_packet_count"] = 1
+        return summary
+    demand_keys: set[tuple[int | None, str | None, int, int, int]] = set()
+    issue_keys: set[tuple[int | None, str | None, int, int, int]] = set()
+    issue_hashes: set[str] = set()
+    issue_hash_count = 0
+    for index, path in enumerate(paths):
+        packet_path = Path(path)
+        if summary["first_packet_path"] is None:
+            summary["first_packet_path"] = str(packet_path)
+        summary["last_packet_path"] = str(packet_path)
+        try:
+            payload = json.loads(packet_path.read_text(encoding="utf-8"))
+        except (OSError, TypeError, json.JSONDecodeError):
+            summary["scan_error_count"] = int(summary["scan_error_count"] or 0) + 1
+            continue
+        if not isinstance(payload, dict):
+            summary["scan_error_count"] = int(summary["scan_error_count"] or 0) + 1
+            continue
+        summary["packet_count"] = int(summary["packet_count"] or 0) + 1
+        safe_packet = _premap_payload_cache_shifted_issue_safe_flags_ok(payload)
+        context = payload.get("_export_context")
+        if isinstance(context, dict):
+            safe_packet = (
+                safe_packet
+                and _premap_payload_cache_shifted_issue_safe_flags_ok(context)
+            )
+        if safe_packet:
+            summary["safe_packet_count"] = int(summary["safe_packet_count"] or 0) + 1
+        else:
+            summary["unsafe_packet_count"] = (
+                int(summary["unsafe_packet_count"] or 0) + 1
+            )
+            continue
+        if payload.get("ready") is not True:
+            summary["invalid_packet_count"] = (
+                int(summary["invalid_packet_count"] or 0) + 1
+            )
+            continue
+        raw_layer_id = payload.get("layer_id")
+        if type(raw_layer_id) is not int or int(raw_layer_id) < 0:
+            summary["invalid_packet_count"] = (
+                int(summary["invalid_packet_count"] or 0) + 1
+            )
+            continue
+        candidate = _premap_payload_cache_shifted_issue_packet_candidates(payload)
+        if candidate is None:
+            summary["invalid_packet_count"] = (
+                int(summary["invalid_packet_count"] or 0) + 1
+            )
+            continue
+        issue_count, issue_hash = candidate
+        if not isinstance(context, dict):
+            summary["invalid_packet_count"] = (
+                int(summary["invalid_packet_count"] or 0) + 1
+            )
+            continue
+        context_issue_count = context.get("issue_candidate_count")
+        context_layer_id = context.get("layer_id")
+        if (
+            type(context_issue_count) is not int
+            or int(context_issue_count) != int(issue_count)
+            or context.get("issue_candidate_hash") != issue_hash
+            or type(context_layer_id) is not int
+            or int(context_layer_id) != int(raw_layer_id)
+        ):
+            summary["invalid_packet_count"] = (
+                int(summary["invalid_packet_count"] or 0) + 1
+            )
+            continue
+        source = context.get("token_index_source")
+        if (
+            bool(allow_empty_config_packets)
+            and issue_count == 0
+            and source == "config"
+        ):
+            summary["empty_issue_exempt_count"] = (
+                int(summary["empty_issue_exempt_count"] or 0) + 1
+            )
+            continue
+        raw_token_index = context.get("token_index")
+        if type(raw_token_index) is not int or int(raw_token_index) < 0:
+            summary["invalid_packet_count"] = (
+                int(summary["invalid_packet_count"] or 0) + 1
+            )
+            continue
+        if source == "decode_workload_collector":
+            pass
+        elif source == "config" and bool(allow_config_token_source):
+            pass
+        else:
+            summary["invalid_packet_count"] = (
+                int(summary["invalid_packet_count"] or 0) + 1
+            )
+            continue
+        sample_idx = context.get("sample_idx")
+        record_id = context.get("record_id")
+        sequence_id = context.get("sequence_id")
+        normalized_sample_idx = int(sample_idx) if type(sample_idx) is int else None
+        normalized_record_id = (
+            str(record_id) if isinstance(record_id, str) and record_id else None
+        )
+        normalized_sequence_id = int(sequence_id) if type(sequence_id) is int else 0
+        demand_token_index = int(raw_token_index)
+        unclamped_issue_token_index = demand_token_index - lead
+        issue_token_index = max(0, unclamped_issue_token_index)
+        if unclamped_issue_token_index < 0:
+            summary["clamped_issue_count"] = (
+                int(summary["clamped_issue_count"] or 0) + 1
+            )
+        demand_key = (
+            normalized_sample_idx,
+            normalized_record_id,
+            normalized_sequence_id,
+            int(raw_layer_id),
+            demand_token_index,
+        )
+        issue_key = (
+            normalized_sample_idx,
+            normalized_record_id,
+            normalized_sequence_id,
+            int(raw_layer_id),
+            issue_token_index,
+        )
+        if demand_key in demand_keys:
+            summary["duplicate_demand_key_count"] = (
+                int(summary["duplicate_demand_key_count"] or 0) + 1
+            )
+        demand_keys.add(demand_key)
+        if issue_key in issue_keys:
+            summary["duplicate_issue_key_count"] = (
+                int(summary["duplicate_issue_key_count"] or 0) + 1
+            )
+        issue_keys.add(issue_key)
+        summary["schedulable_packet_count"] = (
+            int(summary["schedulable_packet_count"] or 0) + 1
+        )
+        summary["total_issue_candidates"] = (
+            int(summary["total_issue_candidates"] or 0) + max(0, int(issue_count))
+        )
+        if issue_hash:
+            issue_hash_count += 1
+            issue_hashes.add(str(issue_hash))
+    summary["unique_demand_key_count"] = len(demand_keys)
+    summary["unique_issue_key_count"] = len(issue_keys)
+    summary["issue_hash_count"] = int(issue_hash_count)
+    summary["issue_hash_unique_count"] = len(issue_hashes)
     return summary
 
 
@@ -20766,6 +21029,30 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
     runtime_shadow_premap_payload_cache_producer_state_packet_export_paths: list[
         str
     ] = []
+    runtime_shadow_premap_payload_cache_shifted_issue_runtime_shadow_enabled = bool(
+        runtime_shadow_options.get(
+            "premap_payload_cache_shifted_issue_runtime_shadow_enabled",
+            False,
+        )
+    )
+    runtime_shadow_premap_payload_cache_shifted_issue_lead_tokens = int(
+        runtime_shadow_options.get(
+            "premap_payload_cache_shifted_issue_lead_tokens",
+            1,
+        )
+    )
+    runtime_shadow_premap_payload_cache_shifted_issue_allow_empty_config_packets = bool(
+        runtime_shadow_options.get(
+            "premap_payload_cache_shifted_issue_allow_empty_config_packets",
+            True,
+        )
+    )
+    runtime_shadow_premap_payload_cache_shifted_issue_allow_config_token_source = bool(
+        runtime_shadow_options.get(
+            "premap_payload_cache_shifted_issue_allow_config_token_source",
+            False,
+        )
+    )
     manifest_path = output_dir / "manifest.jsonl"
     sample_timing_path = output_dir / "sample_timing.jsonl"
     performance = {
@@ -21183,6 +21470,18 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
                 "premap_payload_cache_producer_state_packet_export_max_packets",
                 0,
             )
+        ),
+        "runtime_shadow_premap_payload_cache_shifted_issue_runtime_shadow_enabled": (
+            runtime_shadow_premap_payload_cache_shifted_issue_runtime_shadow_enabled
+        ),
+        "runtime_shadow_premap_payload_cache_shifted_issue_lead_tokens": int(
+            runtime_shadow_premap_payload_cache_shifted_issue_lead_tokens
+        ),
+        "runtime_shadow_premap_payload_cache_shifted_issue_allow_empty_config_packets": (
+            runtime_shadow_premap_payload_cache_shifted_issue_allow_empty_config_packets
+        ),
+        "runtime_shadow_premap_payload_cache_shifted_issue_allow_config_token_source": (
+            runtime_shadow_premap_payload_cache_shifted_issue_allow_config_token_source
         ),
         "runtime_shadow_transition_premap_source": str(
             runtime_shadow_options.get(
@@ -22527,11 +22826,11 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
         performance[
             "runtime_shadow_premap_native_typed_consumer_input_export_first_path"
         ] = (str(export_paths[0]) if export_paths else None)
+    producer_packet_export_paths = [
+        Path(path)
+        for path in runtime_shadow_premap_payload_cache_producer_state_packet_export_paths
+    ]
     if runtime_shadow_premap_payload_cache_producer_state_packet_export_enabled:
-        producer_packet_export_paths = [
-            Path(path)
-            for path in runtime_shadow_premap_payload_cache_producer_state_packet_export_paths
-        ]
         performance[
             "runtime_shadow_premap_payload_cache_producer_state_packet_export_count"
         ] = len(producer_packet_export_paths)
@@ -22553,6 +22852,24 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
         for key, value in nonempty_issue_summary.items():
             performance[
                 "runtime_shadow_premap_payload_cache_producer_state_packet_export_"
+                f"{key}"
+            ] = value
+    if runtime_shadow_premap_payload_cache_shifted_issue_runtime_shadow_enabled:
+        shifted_summary = _premap_payload_cache_shifted_issue_runtime_shadow_summary(
+            producer_packet_export_paths,
+            issue_lead_tokens=(
+                runtime_shadow_premap_payload_cache_shifted_issue_lead_tokens
+            ),
+            allow_empty_config_packets=(
+                runtime_shadow_premap_payload_cache_shifted_issue_allow_empty_config_packets
+            ),
+            allow_config_token_source=(
+                runtime_shadow_premap_payload_cache_shifted_issue_allow_config_token_source
+            ),
+        )
+        for key, value in shifted_summary.items():
+            performance[
+                "runtime_shadow_premap_payload_cache_shifted_issue_"
                 f"{key}"
             ] = value
     performance_path = output_dir / "performance_summary.json"

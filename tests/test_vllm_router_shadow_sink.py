@@ -31,6 +31,8 @@ from mtp_expert_prefetch.tracing.vllm_router_trace import (
     _add_runtime_shadow_aggregate_to_performance,
     _apply_premap_payload_cache_measured_copy_envelope,
     _premap_payload_cache_export_nonempty_issue_summary,
+    _premap_payload_cache_issue_hash,
+    _premap_payload_cache_shifted_issue_runtime_shadow_summary,
     _load_runtime_shadow_transition_matrix,
     _shared_expert_fused_gate_fallbackable,
     _run_shared_expert_output_gate_default_postprocess,
@@ -2158,6 +2160,266 @@ def test_premap_payload_cache_export_nonempty_issue_summary_rejects_negative_top
     assert summary["nonempty_issue_count"] == 0
     assert summary["first_nonempty_issue_index"] == -1
     assert summary["first_nonempty_issue_path"] is None
+
+
+def _write_shifted_issue_packet(
+    path: Path,
+    *,
+    token_index: int,
+    layer_id: int = 0,
+    issue_experts: list[int] | None = None,
+    token_source: str = "decode_workload_collector",
+    sample_idx: int | None = 0,
+    record_id: str | None = "rec-0",
+    payload_bytes=0,
+):
+    if issue_experts is None:
+        issue_experts = [1]
+    issue_hash = _premap_payload_cache_issue_hash(issue_experts)
+    payload = {
+        "layer_id": layer_id,
+        "ready": True,
+        "issue_candidate_experts": issue_experts,
+        "issue_candidate_count": len(issue_experts),
+        "issue_candidate_first_expert": issue_experts[0] if issue_experts else -1,
+        "issue_candidate_last_expert": issue_experts[-1] if issue_experts else -1,
+        "issue_candidate_hash": issue_hash,
+        "payload_bytes": payload_bytes,
+        "ready_credit": False,
+        "ready_before_demand_credit": False,
+        "payload_transfer_enabled": False,
+        "payload_deref_allowed": False,
+        "kernel_arg_pass_allowed": False,
+        "real_ready_credit_granted": False,
+        "passed_to_kernel": False,
+        "changes_kernel_launch_args": False,
+        "uses_current_wna16_args": False,
+        "passes_current_wna16_args": False,
+        "measures_tpot": False,
+        "measures_vllm_latency": False,
+        "_export_context": {
+            "layer_id": layer_id,
+            "token_index": token_index,
+            "token_index_source": token_source,
+            "sample_idx": sample_idx,
+            "record_id": record_id,
+            "sequence_id": 0,
+            "issue_candidate_count": len(issue_experts),
+            "issue_candidate_first_expert": (
+                issue_experts[0] if issue_experts else -1
+            ),
+            "issue_candidate_last_expert": (
+                issue_experts[-1] if issue_experts else -1
+            ),
+            "issue_candidate_hash": issue_hash,
+            "payload_bytes": payload_bytes,
+            "ready_credit": False,
+            "ready_before_demand_credit": False,
+            "payload_transfer_enabled": False,
+            "payload_deref_allowed": False,
+            "kernel_arg_pass_allowed": False,
+            "real_ready_credit_granted": False,
+            "passed_to_kernel": False,
+            "changes_kernel_launch_args": False,
+            "uses_current_wna16_args": False,
+            "passes_current_wna16_args": False,
+            "measures_tpot": False,
+            "measures_vllm_latency": False,
+        },
+    }
+    path.write_text(json.dumps(payload) + "\n", encoding="utf-8")
+
+
+def _load_shifted_issue_packet(path: Path) -> dict:
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def _dump_shifted_issue_packet(path: Path, payload: dict) -> None:
+    path.write_text(json.dumps(payload) + "\n", encoding="utf-8")
+
+
+def test_premap_payload_cache_shifted_issue_runtime_shadow_summary(tmp_path: Path):
+    first = tmp_path / "first.json"
+    second = tmp_path / "second.json"
+    _write_shifted_issue_packet(first, token_index=3, issue_experts=[1, 2])
+    _write_shifted_issue_packet(second, token_index=4, issue_experts=[2])
+
+    summary = _premap_payload_cache_shifted_issue_runtime_shadow_summary(
+        [first, second],
+        issue_lead_tokens=1,
+    )
+
+    assert summary["enabled"] is True
+    assert summary["issue_lead_tokens"] == 1
+    assert summary["packet_count"] == 2
+    assert summary["schedulable_packet_count"] == 2
+    assert summary["empty_issue_exempt_count"] == 0
+    assert summary["safe_packet_count"] == 2
+    assert summary["unsafe_packet_count"] == 0
+    assert summary["invalid_packet_count"] == 0
+    assert summary["clamped_issue_count"] == 0
+    assert summary["duplicate_demand_key_count"] == 0
+    assert summary["duplicate_issue_key_count"] == 0
+    assert summary["unique_demand_key_count"] == 2
+    assert summary["unique_issue_key_count"] == 2
+    assert summary["total_issue_candidates"] == 3
+    assert summary["payload_bytes"] == 0
+    assert summary["passed_to_kernel"] is False
+    assert summary["measures_tpot"] is False
+
+
+def test_premap_payload_cache_shifted_issue_runtime_shadow_summary_empty_config_exempt(
+    tmp_path: Path,
+):
+    packet = tmp_path / "empty_config.json"
+    _write_shifted_issue_packet(
+        packet,
+        token_index=-1,
+        issue_experts=[],
+        token_source="config",
+        sample_idx=None,
+        record_id=None,
+    )
+
+    summary = _premap_payload_cache_shifted_issue_runtime_shadow_summary(
+        [packet],
+        issue_lead_tokens=1,
+        allow_empty_config_packets=True,
+    )
+
+    assert summary["packet_count"] == 1
+    assert summary["safe_packet_count"] == 1
+    assert summary["schedulable_packet_count"] == 0
+    assert summary["empty_issue_exempt_count"] == 1
+    assert summary["invalid_packet_count"] == 0
+
+
+def test_premap_payload_cache_shifted_issue_runtime_shadow_summary_rejects_bool_payload_bytes(
+    tmp_path: Path,
+):
+    packet = tmp_path / "bool_payload.json"
+    _write_shifted_issue_packet(
+        packet,
+        token_index=2,
+        issue_experts=[1],
+        payload_bytes=False,
+    )
+
+    summary = _premap_payload_cache_shifted_issue_runtime_shadow_summary(
+        [packet],
+        issue_lead_tokens=1,
+    )
+
+    assert summary["packet_count"] == 1
+    assert summary["safe_packet_count"] == 0
+    assert summary["unsafe_packet_count"] == 1
+    assert summary["schedulable_packet_count"] == 0
+
+
+def test_premap_payload_cache_shifted_issue_runtime_shadow_summary_invalid_source_not_schedulable(
+    tmp_path: Path,
+):
+    packet = tmp_path / "invalid_source.json"
+    _write_shifted_issue_packet(
+        packet,
+        token_index=2,
+        issue_experts=[1],
+        token_source="manual",
+    )
+
+    summary = _premap_payload_cache_shifted_issue_runtime_shadow_summary(
+        [packet],
+        issue_lead_tokens=1,
+    )
+
+    assert summary["packet_count"] == 1
+    assert summary["invalid_packet_count"] == 1
+    assert summary["schedulable_packet_count"] == 0
+    assert summary["total_issue_candidates"] == 0
+    assert summary["unique_demand_key_count"] == 0
+    assert summary["unique_issue_key_count"] == 0
+
+
+def test_premap_payload_cache_shifted_issue_runtime_shadow_summary_rejects_bool_issue_count(
+    tmp_path: Path,
+):
+    packet = tmp_path / "bool_issue_count.json"
+    _write_shifted_issue_packet(packet, token_index=2, issue_experts=[1])
+    payload = _load_shifted_issue_packet(packet)
+    payload["issue_candidate_count"] = True
+    payload["_export_context"]["issue_candidate_count"] = True
+    _dump_shifted_issue_packet(packet, payload)
+
+    summary = _premap_payload_cache_shifted_issue_runtime_shadow_summary(
+        [packet],
+        issue_lead_tokens=1,
+    )
+
+    assert summary["packet_count"] == 1
+    assert summary["invalid_packet_count"] == 1
+    assert summary["schedulable_packet_count"] == 0
+
+
+def test_premap_payload_cache_shifted_issue_runtime_shadow_summary_large_payload_bytes_unsafe(
+    tmp_path: Path,
+):
+    packet = tmp_path / "large_payload_bytes.json"
+    _write_shifted_issue_packet(
+        packet,
+        token_index=2,
+        issue_experts=[1],
+        payload_bytes=10**500,
+    )
+
+    summary = _premap_payload_cache_shifted_issue_runtime_shadow_summary(
+        [packet],
+        issue_lead_tokens=1,
+    )
+
+    assert summary["packet_count"] == 1
+    assert summary["safe_packet_count"] == 0
+    assert summary["unsafe_packet_count"] == 1
+    assert summary["schedulable_packet_count"] == 0
+
+
+def test_premap_payload_cache_shifted_issue_runtime_shadow_summary_rejects_context_bool_issue_count(
+    tmp_path: Path,
+):
+    packet = tmp_path / "context_bool_issue_count.json"
+    _write_shifted_issue_packet(packet, token_index=2, issue_experts=[1])
+    payload = _load_shifted_issue_packet(packet)
+    payload["_export_context"]["issue_candidate_count"] = True
+    _dump_shifted_issue_packet(packet, payload)
+
+    summary = _premap_payload_cache_shifted_issue_runtime_shadow_summary(
+        [packet],
+        issue_lead_tokens=1,
+    )
+
+    assert summary["packet_count"] == 1
+    assert summary["safe_packet_count"] == 1
+    assert summary["invalid_packet_count"] == 1
+    assert summary["schedulable_packet_count"] == 0
+
+
+def test_premap_payload_cache_shifted_issue_runtime_shadow_summary_rejects_context_bool_layer_id(
+    tmp_path: Path,
+):
+    packet = tmp_path / "context_bool_layer_id.json"
+    _write_shifted_issue_packet(packet, token_index=2, issue_experts=[1])
+    payload = _load_shifted_issue_packet(packet)
+    payload["_export_context"]["layer_id"] = True
+    _dump_shifted_issue_packet(packet, payload)
+
+    summary = _premap_payload_cache_shifted_issue_runtime_shadow_summary(
+        [packet],
+        issue_lead_tokens=1,
+    )
+
+    assert summary["packet_count"] == 1
+    assert summary["safe_packet_count"] == 1
+    assert summary["invalid_packet_count"] == 1
+    assert summary["schedulable_packet_count"] == 0
 
 
 def test_premap_payload_cache_export_nonempty_issue_summary_rejects_nonlist_previous_experts(

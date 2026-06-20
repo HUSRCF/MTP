@@ -39864,3 +39864,100 @@ Next gate:
 ```text
 implement_payload_cache_manager_issue_path_or_increase_slack
 ```
+
+## 2026-06-20: Producer-Side Shifted Issue Runtime Shadow Summary
+
+The token-shifted producer issue replay contract is now exposed through the
+online runtime shadow performance summary.
+
+When
+`premap_payload_cache_shifted_issue_runtime_shadow_enabled=true`, the vLLM trace
+path scans the exported producer transition-state packets and writes flat
+`runtime_shadow_premap_payload_cache_shifted_issue_*` fields into
+`performance_summary.json`.
+
+The summary remains a no-op runtime shadow contract:
+
+```text
+payload_bytes = 0
+ready_credit = false
+ready_before_demand_credit = false
+real_ready_credit_granted = false
+payload_transfer_enabled = false
+payload_deref_allowed = false
+kernel_arg_pass_allowed = false
+passed_to_kernel = false
+changes_kernel_launch_args = false
+uses_current_wna16_args = false
+passes_current_wna16_args = false
+measures_tpot = false
+measures_vllm_latency = false
+```
+
+The online fields include:
+
+```text
+issue_lead_tokens
+packet_count
+schedulable_packet_count
+empty_issue_exempt_count
+safe_packet_count / unsafe_packet_count
+invalid_packet_count / scan_error_count
+clamped_issue_count
+duplicate_demand_key_count / duplicate_issue_key_count
+unique_demand_key_count / unique_issue_key_count
+total_issue_candidates
+issue_hash_count / issue_hash_unique_count
+```
+
+Safety hardening:
+
+```text
+payload_bytes uses strict numeric-zero validation; bool False is rejected.
+issue_candidate_count/first/last use exact int typing; bool is rejected.
+invalid token_index_source does not enter schedulable/duplicate/candidate stats.
+empty config packets are exempt only when issue_candidate_count == 0 and source == config.
+```
+
+Validation:
+
+```text
+/home/husrcf/anaconda3/envs/TRY/bin/python -m pytest \
+  tests/test_build_premap_payload_cache_stream_shifted_issue_replay_contract.py \
+  tests/test_run_premap_payload_cache_issue_stream_executor.py \
+  tests/test_sweep_premap_payload_cache_issue_stream_executor_lookahead.py \
+  tests/test_sweep_premap_payload_cache_issue_stream_executor_queue_budget.py \
+  tests/test_sweep_premap_payload_cache_stream_earlier_issue_lead_tokens.py \
+  tests/test_build_premap_payload_cache_stream_earlier_issue_feasibility.py \
+  tests/test_build_premap_payload_cache_stream_full_fetch_decision_gate.py \
+  tests/test_vllm_router_shadow_sink.py -q
+# 198 passed
+
+/home/husrcf/anaconda3/envs/TRY/bin/python \
+  scripts/build_premap_payload_cache_stream_shifted_issue_replay_contract.py \
+  --online-canary-json \
+  data/traces/external_prompt_gate_dolly_4_awq_vllm_gpu1_decode_gen64_producer_state_packet_export_token_provenance_smoke_v3/producer_packet_token_provenance_online_canary.json \
+  --issue-lead-tokens 1 \
+  --min-schedulable-packet-count 1 \
+  --output-json /tmp/premap_shifted_issue_replay_contract_check.json \
+  --require-pass
+# passed = true
+```
+
+Current evidence:
+
+```text
+packet_count = 32
+schedulable_packet_count = 28
+empty_issue_exempt_count = 4
+duplicate_demand_key_count = 0
+duplicate_issue_key_count = 0
+clamped_issue_count = 0
+total_issue_candidates = 224
+```
+
+Next gate:
+
+```text
+run_online_shifted_issue_runtime_shadow_smoke
+```
