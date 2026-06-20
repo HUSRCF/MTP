@@ -67,6 +67,10 @@ def _valid_number(value: Any) -> bool:
     return type(value) in (int, float) and math.isfinite(float(value))
 
 
+def _valid_int(value: Any) -> bool:
+    return type(value) is int
+
+
 def _check_safety(payload: dict[str, Any], failures: list[str], *, prefix: str) -> None:
     for key in SAFE_FALSE_FLAGS:
         if key not in payload:
@@ -76,7 +80,7 @@ def _check_safety(payload: dict[str, Any], failures: list[str], *, prefix: str) 
     for key in SAFE_ZERO_FLAGS:
         if key not in payload:
             failures.append(f"{prefix}_{key}_missing")
-        elif payload.get(key) != 0:
+        elif not _valid_number(payload.get(key)) or float(payload.get(key)) != 0.0:
             failures.append(f"{prefix}_{key}_not_zero")
 
 
@@ -197,14 +201,22 @@ def _validate_queue_budget_sweep(
         return None
     for key in ("capacity", "queue_deadline_us", "issue_lead_tokens", "lookahead_us"):
         value = first_cell.get(key)
-        if not _valid_number(value):
+        if key in {"capacity", "issue_lead_tokens"}:
+            valid = _valid_int(value)
+        else:
+            valid = _valid_number(value)
+        if not valid:
             failures.append(f"queue_budget_first_passing_cell_{key}_invalid")
             continue
     capacity_value = first_cell.get("capacity")
     deadline_value = first_cell.get("queue_deadline_us")
     lead_value = first_cell.get("issue_lead_tokens")
     first_cell_numbers_valid = all(
-        _valid_number(first_cell.get(key))
+        (
+            _valid_int(first_cell.get(key))
+            if key in {"capacity", "issue_lead_tokens"}
+            else _valid_number(first_cell.get(key))
+        )
         for key in ("capacity", "queue_deadline_us", "issue_lead_tokens", "lookahead_us")
     )
     if type(capacity_value) in (int, float) and int(capacity_value) <= 0:
@@ -363,11 +375,22 @@ def _validate_queue_budget_sweep(
                 ),
             }
             for key, value in required_cell_numbers.items():
-                if not _valid_number(value):
+                if key in {"capacity", "first_model_passing_issue_lead_tokens"}:
+                    valid = _valid_int(value)
+                else:
+                    valid = _valid_number(value)
+                if not valid:
                     failures.append(f"queue_budget_cell_{index}_{key}_invalid")
             cell_matches_first = (
                 first_cell_numbers_valid
-                and all(_valid_number(value) for value in required_cell_numbers.values())
+                and _valid_int(required_cell_numbers["capacity"])
+                and _valid_number(required_cell_numbers["queue_deadline_us"])
+                and _valid_int(
+                    required_cell_numbers["first_model_passing_issue_lead_tokens"]
+                )
+                and _valid_number(
+                    required_cell_numbers["first_model_passing_lookahead_us"]
+                )
                 and int(cell.get("capacity")) == int(first_cell.get("capacity"))
                 and float(cell.get("queue_deadline_us"))
                 == float(first_cell.get("queue_deadline_us"))
@@ -377,9 +400,10 @@ def _validate_queue_budget_sweep(
                 == float(first_cell.get("lookahead_us"))
             )
             if first_row_from_rows is not None:
-                if first_row_from_rows.get("issue_lead_tokens") != cell.get(
-                    "first_model_passing_issue_lead_tokens"
-                ):
+                first_row_lead = first_row_from_rows.get("issue_lead_tokens")
+                if not _valid_int(first_row_lead):
+                    failures.append(f"queue_budget_cell_{index}_first_row_lead_invalid")
+                elif first_row_lead != cell.get("first_model_passing_issue_lead_tokens"):
                     failures.append(f"queue_budget_cell_{index}_first_row_lead_mismatch")
                 if first_row_from_rows.get("lookahead_us") != cell.get(
                     "first_model_passing_lookahead_us"

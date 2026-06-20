@@ -224,6 +224,21 @@ def test_stream_full_fetch_decision_rejects_unsafe_top_level_artifact(
     assert result["full_fetch_runtime_allowed"] is False
 
 
+def test_stream_full_fetch_decision_rejects_bool_payload_bytes(
+    tmp_path: Path,
+):
+    module = _load_module()
+    sweep_path = tmp_path / "stream_lookahead.json"
+    payload = _sweep_payload(first_lookahead=200_000.0)
+    payload["payload_bytes"] = False
+    _write_json(sweep_path, payload)
+
+    result = _run(module, sweep_path, tmp_path / "decision.json")
+
+    assert result["passed"] is False
+    assert "stream_lookahead_sweep_payload_bytes_not_zero" in result["failures"]
+
+
 def test_stream_full_fetch_decision_rejects_unsafe_row(tmp_path: Path):
     module = _load_module()
     sweep_path = tmp_path / "stream_lookahead.json"
@@ -527,6 +542,38 @@ def test_stream_full_fetch_decision_rejects_malformed_queue_cell_number(
     )
 
     assert result["passed"] is False
+    assert "queue_budget_cell_1_first_model_passing_issue_lead_tokens_invalid" in result[
+        "failures"
+    ]
+
+
+def test_stream_full_fetch_decision_rejects_fractional_queue_budget_ints(
+    tmp_path: Path,
+):
+    module = _load_module()
+    sweep_path = tmp_path / "stream_lookahead.json"
+    queue_budget_path = tmp_path / "queue_budget.json"
+    queue_budget = _queue_budget_payload()
+    queue_budget["first_passing_cell"]["capacity"] = 128.5
+    queue_budget["first_passing_cell"]["issue_lead_tokens"] = 1.5
+    queue_budget["cells"][1]["capacity"] = 128.5
+    queue_budget["cells"][1]["first_model_passing_issue_lead_tokens"] = 1.5
+    _write_json(sweep_path, _sweep_payload(first_lookahead=200_000.0))
+    _write_json(queue_budget_path, queue_budget)
+
+    result = _run(
+        module,
+        sweep_path,
+        tmp_path / "decision.json",
+        queue_budget_path=queue_budget_path,
+    )
+
+    assert result["passed"] is False
+    assert "queue_budget_first_passing_cell_capacity_invalid" in result["failures"]
+    assert "queue_budget_first_passing_cell_issue_lead_tokens_invalid" in result[
+        "failures"
+    ]
+    assert "queue_budget_cell_1_capacity_invalid" in result["failures"]
     assert "queue_budget_cell_1_first_model_passing_issue_lead_tokens_invalid" in result[
         "failures"
     ]
