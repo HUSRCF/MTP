@@ -279,6 +279,41 @@ next_runtime_stage = export_real_token_provenance_for_shifted_producer_replay
 Boundary remains unchanged: this is a producer-side lead-time model only, not
 real payload movement or endpoint TPOT evidence.
 
+Shifted producer issue replay contract:
+
+```text
+script:
+  scripts/build_premap_payload_cache_stream_shifted_issue_replay_contract.py
+
+artifact:
+  outputs/reports/premap_kernel_consumer/premap_payload_cache_stream_shifted_issue_replay_contract_dolly4_awq_gpu1_lead1_smoke_v1.json
+
+issue_lead_tokens = 1
+packet_count = 32
+empty_issue_exempt_count = 4
+schedulable_packet_count = 28
+total_issue_candidates = 224
+duplicate_demand_key_count = 0
+duplicate_issue_key_count = 0
+clamped_issue_count = 0
+full_fetch_runtime_allowed = false
+payload_bytes = 0
+payload_transfer_enabled = false
+kernel_arg_pass_allowed = false
+measures_tpot = false
+next_runtime_stage = producer_side_shifted_issue_runtime_shadow
+```
+
+Interpretation:
+
+```text
+The queue-aware lead=1 requirement is now backed by real producer packet token
+provenance.  The replay contract can deterministically map each nonempty packet
+from demand token t to issue token t-1 without duplicate or clamped issue keys.
+This remains a contract artifact only: no payload is moved, no ready credit is
+granted, no kernel args are touched, and no endpoint latency is measured.
+```
+
 ## Previous Update: Payload Cache Full-Fetch Slack/Lookahead Decision Gate
 
 Follow-up lookahead sweep:
