@@ -123,6 +123,49 @@ def test_recorder_adopts_decode_workload_token_provenance(tmp_path: Path):
     assert recorder.shadow_premap_event_record_id is None
 
 
+def test_collector_uses_input_ids_as_prompt_len_fallback(tmp_path: Path):
+    collector = DecodeWorkloadTraceCollector(
+        path=tmp_path / "decode.jsonl",
+        run_id="unit",
+    )
+    collector.set_sample(
+        3,
+        {"id": "rec-3"},
+        torch.arange(100, dtype=torch.long),
+    )
+    collector._remember_decode_token_indices(
+        phase="decode",
+        seq_lens=[105],
+        query_lens=[1],
+        call_index=99,
+    )
+
+    assert collector.current_single_decode_token_index() == 5
+    assert collector.current_single_decode_sample_idx() == 3
+    assert collector.current_single_decode_record_id() == "rec-3"
+
+
+def test_collector_batch_uses_input_ids_as_prompt_len_fallback(tmp_path: Path):
+    collector = DecodeWorkloadTraceCollector(
+        path=tmp_path / "decode.jsonl",
+        run_id="unit",
+    )
+    collector.set_batch_samples(
+        [
+            (1, {"id": "rec-1"}, torch.arange(100, dtype=torch.long), "a"),
+            (2, {"id": "rec-2"}, torch.arange(200, dtype=torch.long), "b"),
+        ]
+    )
+    collector._remember_decode_token_indices(
+        phase="decode",
+        seq_lens=[101, 202],
+        query_lens=[1, 1],
+        call_index=99,
+    )
+
+    assert collector._last_decode_generated_token_indices == [1, 2]
+
+
 def test_recorder_does_not_adopt_batched_decode_token_provenance(tmp_path: Path):
     collector = DecodeWorkloadTraceCollector(
         path=tmp_path / "decode.jsonl",
@@ -245,6 +288,61 @@ def test_collector_skip_clears_stale_decode_token(tmp_path: Path):
     assert collector.current_single_decode_token_index() == 5
 
     collector._skip("max_rows")
+    assert collector.current_single_decode_token_index() == 5
+
+
+def test_collector_max_rows_refreshes_live_token_without_writing(tmp_path: Path):
+    class _Builder:
+        block_size = 16
+        num_heads_q = 8
+        num_heads_kv = 2
+        headdim = 128
+        sliding_window = None
+
+    class _Metadata:
+        query_start_loc = torch.tensor([0, 1], dtype=torch.int32)
+        seq_lens = torch.tensor([105], dtype=torch.int32)
+        block_table_tensor = torch.tensor([[7]], dtype=torch.int32)
+        seq_start_loc = torch.tensor([0, 1], dtype=torch.int32)
+        slot_mapping = torch.tensor([123], dtype=torch.int64)
+        num_reqs = 1
+
+    collector = DecodeWorkloadTraceCollector(
+        path=tmp_path / "decode.jsonl",
+        run_id="unit",
+        max_rows=0,
+    )
+    collector._handle = object()
+    collector.set_sample(3, {"id": "rec-3", "prompt_len": 100})
+
+    collector.record_common_attention_metadata(
+        builder=_Builder(),
+        common_attn_metadata=_Metadata(),
+    )
+
+    assert collector.rows_written == 0
+    assert collector.skipped_rows == 1
+    assert collector.stats()["skip_reasons"] == {"max_rows": 1}
+    assert collector.current_single_decode_token_index() == 5
+    assert collector.current_single_decode_sample_idx() == 3
+    assert collector.current_single_decode_record_id() == "rec-3"
+
+
+def test_collector_non_max_rows_skip_clears_stale_decode_token(tmp_path: Path):
+    collector = DecodeWorkloadTraceCollector(
+        path=tmp_path / "decode.jsonl",
+        run_id="unit",
+    )
+    collector.set_sample(3, {"id": "rec-3", "prompt_len": 100})
+    collector._remember_decode_token_indices(
+        phase="decode",
+        seq_lens=[105],
+        query_lens=[1],
+        call_index=9,
+    )
+    assert collector.current_single_decode_token_index() == 5
+
+    collector._skip("phase_filter")
     assert collector.current_single_decode_token_index() is None
 
 

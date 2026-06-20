@@ -202,6 +202,166 @@ def test_packet_token_provenance_gate_allows_config_source_only_in_audit_mode(
     assert result["require_decode_workload_source"] is False
 
 
+def test_packet_token_provenance_gate_allows_empty_config_packets(
+    tmp_path: Path,
+):
+    module = _load_module()
+    empty_packet = tmp_path / "empty_packet.json"
+    nonempty_packet = tmp_path / "nonempty_packet.json"
+    online = tmp_path / "online.json"
+    _write_json(
+        empty_packet,
+        _packet(
+            token_index=-1,
+            token_source="config",
+            issue_count=0,
+            sample_idx=None,
+            record_id=None,
+        ),
+    )
+    _write_json(nonempty_packet, _packet(token_index=8, issue_count=2))
+    _write_json(online, _online([empty_packet, nonempty_packet]))
+
+    result = _run(
+        module,
+        online,
+        tmp_path / "out.json",
+        [
+            "--allow-empty-config-packets",
+            "--min-packet-count",
+            "2",
+            "--min-nonempty-packet-count",
+            "1",
+            "--min-valid-token-count",
+            "1",
+        ],
+    )
+
+    assert result["passed"] is True
+    assert result["empty_issue_provenance_exempt_count"] == 1
+    assert result["required_token_provenance_packet_count"] == 1
+    assert result["required_decode_workload_source_count"] == 1
+    assert result["config_source_count"] == 1
+    assert result["required_config_source_count"] == 0
+    assert result["required_valid_token_count"] == 1
+    assert result["sample_count"] == 1
+    assert result["record_count"] == 1
+
+
+def test_packet_token_provenance_gate_does_not_count_empty_packet_tokens_toward_min(
+    tmp_path: Path,
+):
+    module = _load_module()
+    empty_packet = tmp_path / "empty_packet.json"
+    online = tmp_path / "online.json"
+    _write_json(
+        empty_packet,
+        _packet(
+            token_index=8,
+            token_source="config",
+            issue_count=0,
+            sample_idx=99,
+            record_id="empty-rec",
+        ),
+    )
+    _write_json(online, _online([empty_packet]))
+
+    result = _run(
+        module,
+        online,
+        tmp_path / "out.json",
+        [
+            "--allow-empty-config-packets",
+            "--min-packet-count",
+            "1",
+            "--min-nonempty-packet-count",
+            "0",
+            "--min-valid-token-count",
+            "1",
+        ],
+    )
+
+    assert result["passed"] is False
+    assert "valid_token_count_below_min" in result["failures"]
+    assert result["valid_token_count"] == 1
+    assert result["required_valid_token_count"] == 0
+    assert result["sample_count"] == 0
+    assert result["record_count"] == 0
+    assert result["required_config_source_count"] == 0
+
+
+def test_packet_token_provenance_gate_does_not_count_empty_packet_duplicate_keys(
+    tmp_path: Path,
+):
+    module = _load_module()
+    empty_packet = tmp_path / "empty_packet.json"
+    nonempty_packet = tmp_path / "nonempty_packet.json"
+    online = tmp_path / "online.json"
+    _write_json(
+        empty_packet,
+        _packet(
+            layer_id=0,
+            token_index=8,
+            token_source="config",
+            issue_count=0,
+            sample_idx=5,
+            record_id="rec-5",
+        ),
+    )
+    _write_json(
+        nonempty_packet,
+        _packet(
+            layer_id=0,
+            token_index=8,
+            issue_count=1,
+            sample_idx=5,
+            record_id="rec-5",
+        ),
+    )
+    _write_json(online, _online([empty_packet, nonempty_packet]))
+
+    result = _run(
+        module,
+        online,
+        tmp_path / "out.json",
+        [
+            "--allow-empty-config-packets",
+            "--min-packet-count",
+            "2",
+            "--min-nonempty-packet-count",
+            "1",
+            "--min-valid-token-count",
+            "1",
+        ],
+    )
+
+    assert result["passed"] is True
+    assert result["duplicate_token_layer_count"] == 1
+    assert result["required_duplicate_token_layer_count"] == 0
+    assert result["required_unique_token_layer_count"] == 1
+
+
+def test_packet_token_provenance_gate_rejects_nonempty_config_even_with_empty_exemption(
+    tmp_path: Path,
+):
+    module = _load_module()
+    packet = tmp_path / "packet.json"
+    online = tmp_path / "online.json"
+    _write_json(packet, _packet(token_index=8, token_source="config", issue_count=1))
+    _write_json(online, _online([packet]))
+
+    result = _run(
+        module,
+        online,
+        tmp_path / "out.json",
+        ["--allow-empty-config-packets"],
+    )
+
+    assert result["passed"] is False
+    assert "decode_workload_source_count_mismatch" in result["failures"]
+    assert "config_token_source_present" in result["failures"]
+
+
 def test_packet_token_provenance_gate_rejects_unsafe_packet_context(
     tmp_path: Path,
 ):

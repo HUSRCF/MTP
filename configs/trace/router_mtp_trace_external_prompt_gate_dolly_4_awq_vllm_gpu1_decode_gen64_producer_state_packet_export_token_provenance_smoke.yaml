@@ -1,0 +1,121 @@
+model: configs/model/qwen3_6_35b_a3b_awq_4bit_mem70.yaml
+data: configs/data/external_prompt_gate_dolly_128.yaml
+output_dir: data/traces/external_prompt_gate_dolly_4_awq_vllm_gpu1_decode_gen64_producer_state_packet_export_token_provenance_smoke_v3
+
+trace:
+  capture_router_topk: true
+  capture_router_scores: true
+  use_router_logits_recorder: true
+  capture_hidden_states: none
+  capture_native_mtp_router: false
+  future_window: 4
+  split_id: external_prompt_gate_dolly_4_gen64_producer_state_packet_export_token_provenance_smoke_v3
+  expected_sample_start: 0
+  expected_sample_end: 3
+  start_sample: 0
+  max_samples: 4
+  max_length: 128
+  max_tokens: 64
+  router_module_prefix: model.language_model
+  decode_workload_trace:
+    enabled: true
+    output_path: data/traces/external_prompt_gate_dolly_4_awq_vllm_gpu1_decode_gen64_producer_state_packet_export_token_provenance_smoke_v3/decode_workload_trace.jsonl
+    schema_version: 2
+    phase: decode
+    sample_period: 1
+    max_rows: 512
+    decode_max_q_len: 1
+    chunk_tokens: 32
+    head_mapping: kv
+    overwrite: true
+    flush_every: 256
+    include_block_ids: false
+    include_kv_cache_layout: false
+    capture_metadata_builder: true
+    capture_attention_forward: true
+    capture_chunked_prefill_paged_decode: true
+  runtime_shadow:
+    enabled: true
+    output_path: data/traces/external_prompt_gate_dolly_4_awq_vllm_gpu1_decode_gen64_producer_state_packet_export_token_provenance_smoke_v3/runtime_shadow.jsonl
+    overwrite: true
+    flush_every: 100000
+    writer_mode: jsonl_batched
+    max_pending: 10000
+
+    # This is a short evidence-generation smoke for the native producer-state
+    # canary. It keeps the premap safety boundary closed: no payload movement,
+    # no ready credit, no kernel-arg pass, and no WNA16 arg compatibility.
+    record_router_topk: true
+    emit_premap_summaries: true
+    emit_premap_address_manager_counters: true
+    emit_premap_payload_cache_manager_counters: true
+    premap_summary_sample_period: 32
+    emit_premap_consumer_mapping: true
+    premap_consumer_mapping_mode: noop_assertion
+    premap_consumer_mapping_source: fused_moe_prepare_expert_assignment
+    premap_consumer_resolve_real_handles: true
+    premap_consumer_mapping_sample_period: 32
+    premap_address_capacity_gate_path: configs/runtime/premap_address_capacity_gate_dolly128_gen64_awq_w7900_gpu1.yaml
+    premap_consumer_require_readonly_gate: true
+    premap_consumer_readonly_gate_path: configs/runtime/premap_consumer_readonly_gate_dolly128_gen64_awq_w7900_gpu1_live_connected_readonly.yaml
+    premap_descriptor_prep_execution_mode: readonly_descriptor_address_object
+    premap_kernel_arg_handoff_live_enabled: true
+    premap_kernel_arg_handoff_live_consumer_connected: true
+    premap_kernel_arg_handoff_kernel_arg_pass_enabled: false
+    premap_payload_cache_transition_state_owner: producer
+    premap_policy: premap_only_with_consumer_mapping_noop
+    premap_source: current_router_topk_premap_shadow
+    premap_descriptor_bytes: 4096
+    premap_priority: 2
+
+    premap_payload_cache_producer_state_packet_export_enabled: true
+    premap_payload_cache_producer_state_packet_export_max_packets: 32
+    premap_payload_cache_producer_state_packet_export_stride: 320
+
+    emit_transition_summaries: false
+    emit_descriptor_order_summaries: false
+    emit_summaries: true
+    emit_outcomes: false
+    outcome_logging_mode: "off"
+    emit_decoder_layer_timing: false
+    emit_descriptor_layer_timing: false
+    emit_decoder_component_timing: false
+    emit_moe_substage_timing: false
+    emit_engine_timing: false
+    emit_wna16_kernel_timing: false
+    decoder_source_timing_mode: "off"
+    moe_source_timing_mode: "off"
+    wna16_kernel_timing_mode: "host"
+
+    descriptor_order_prior_path: outputs/reports/tile_order_cache/layer_prior_frequency_384calib.json
+    descriptor_order_prior_id: layer_prior_frequency_384calib
+    descriptor_order_gate_path: configs/runtime/descriptor_order_two_level_gate.yaml
+    descriptor_order_consumer_evidence_path: outputs/reports/tile_order_cache/descriptor_consumer_micro_runtime_awq128_two_level_gate_table_tile_sweep.json
+    descriptor_order_evidence_policy: layer_prior_frequency_two_level
+    descriptor_order_evidence_cache_flush_elems: 0
+    descriptor_order_checksum_tolerance: 0.0
+    descriptor_order_tiles_per_expert: 1
+    descriptor_order_tile_elems: 1024
+    descriptor_order_token_window_size: 64
+    descriptor_order_cache_sizes: [8, 16, 32]
+    descriptor_order_top_k: 8
+    descriptor_order_top_utility_override: 0
+    descriptor_order_metrics_mode: count_only
+    descriptor_order_event_mode: minimal
+    descriptor_order_execution_mode: two_level_group_plan
+    descriptor_order_mapping_assertion_mode: "off"
+    descriptor_order_mapping_source: base_router_select_experts_topk
+    descriptor_order_prelaunch_assertion_mode: "off"
+    descriptor_order_prelaunch_mapping_source: fused_moe_prepare_expert_assignment
+    descriptor_order_emit_consumer_handle_events: false
+    descriptor_order_reorder_mvp_enabled: false
+    descriptor_order_reorder_mvp_apply_mode: dry_run
+    descriptor_order_reorder_mvp_attribution_mode: full
+    descriptor_order_reorder_mvp_require_profitable: true
+    descriptor_order_groups_per_cta: 8
+    descriptor_order_device: 1
+    descriptor_order_event_token_index: -1
+    request_id_prefix: sample_
+    sequence_id: 0
+    token_offset: 0
+    flush_pending_as_timeouts: true

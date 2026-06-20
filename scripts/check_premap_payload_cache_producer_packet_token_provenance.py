@@ -144,13 +144,22 @@ def check_packet_token_provenance(args: argparse.Namespace) -> dict[str, Any]:
     config_source_count = 0
     missing_source_count = 0
     nonempty_issue_count = 0
+    empty_issue_provenance_exempt_count = 0
+    required_token_provenance_packet_count = 0
+    required_decode_source_count = 0
+    required_valid_token_count = 0
+    required_config_source_count = 0
+    required_missing_source_count = 0
     missing_context_count = 0
     token_indices: list[int] = []
+    required_token_indices: list[int] = []
     sample_indices: set[int] = set()
     record_ids: set[str] = set()
     layer_ids: set[int] = set()
     token_layer_keys: set[tuple[int | None, str | None, int, int]] = set()
+    required_token_layer_keys: set[tuple[int | None, str | None, int, int]] = set()
     duplicate_token_layer_count = 0
+    required_duplicate_token_layer_count = 0
     first_packet_path: str | None = None
     last_packet_path: str | None = None
     first_token_index: int | None = None
@@ -183,11 +192,22 @@ def check_packet_token_provenance(args: argparse.Namespace) -> dict[str, Any]:
         else:
             failures.append(f"packet_{index}_layer_id_invalid")
             layer_id = -1
-        if _is_int(packet.get("issue_candidate_count")):
-            if int(packet.get("issue_candidate_count")) > 0:
+        issue_candidate_count = packet.get("issue_candidate_count")
+        if _is_int(issue_candidate_count):
+            if int(issue_candidate_count) > 0:
                 nonempty_issue_count += 1
         else:
             failures.append(f"packet_{index}_issue_candidate_count_invalid")
+            issue_candidate_count = -1
+        requires_token_provenance = not (
+            bool(args.allow_empty_config_packets)
+            and _is_int(issue_candidate_count)
+            and int(issue_candidate_count) == 0
+        )
+        if requires_token_provenance:
+            required_token_provenance_packet_count += 1
+        else:
+            empty_issue_provenance_exempt_count += 1
         context = packet.get("_export_context")
         if not isinstance(context, dict):
             missing_context_count += 1
@@ -205,6 +225,9 @@ def check_packet_token_provenance(args: argparse.Namespace) -> dict[str, Any]:
             token_value = int(token_index)
             token_indices.append(token_value)
             valid_token_count += 1
+            if requires_token_provenance:
+                required_valid_token_count += 1
+                required_token_indices.append(token_value)
             key = (
                 normalized_sample_idx,
                 normalized_record_id,
@@ -214,44 +237,57 @@ def check_packet_token_provenance(args: argparse.Namespace) -> dict[str, Any]:
             if key in token_layer_keys:
                 duplicate_token_layer_count += 1
             token_layer_keys.add(key)
+            if requires_token_provenance:
+                if key in required_token_layer_keys:
+                    required_duplicate_token_layer_count += 1
+                required_token_layer_keys.add(key)
             if first_token_index is None:
                 first_token_index = token_value
             last_token_index = token_value
-        else:
+        elif requires_token_provenance:
             failures.append(f"packet_{index}_token_index_invalid")
         source = context.get("token_index_source")
         if source == "decode_workload_collector":
             decode_source_count += 1
+            if requires_token_provenance:
+                required_decode_source_count += 1
         elif source == "config":
             config_source_count += 1
+            if requires_token_provenance:
+                required_config_source_count += 1
         elif source is None:
             missing_source_count += 1
-            failures.append(f"packet_{index}_token_index_source_missing")
+            if requires_token_provenance:
+                required_missing_source_count += 1
+                failures.append(f"packet_{index}_token_index_source_missing")
         else:
-            failures.append(f"packet_{index}_token_index_source_unexpected")
+            if requires_token_provenance:
+                failures.append(f"packet_{index}_token_index_source_unexpected")
         if normalized_sample_idx is not None:
-            sample_indices.add(normalized_sample_idx)
-        elif not bool(args.allow_missing_sample_idx):
+            if requires_token_provenance:
+                sample_indices.add(normalized_sample_idx)
+        elif requires_token_provenance and not bool(args.allow_missing_sample_idx):
             failures.append(f"packet_{index}_sample_idx_invalid")
         if normalized_record_id is not None:
-            record_ids.add(normalized_record_id)
-        elif not bool(args.allow_missing_record_id):
+            if requires_token_provenance:
+                record_ids.add(normalized_record_id)
+        elif requires_token_provenance and not bool(args.allow_missing_record_id):
             failures.append(f"packet_{index}_record_id_invalid")
 
     if packet_count < int(args.min_packet_count):
         failures.append("packet_count_below_min")
     if nonempty_issue_count < int(args.min_nonempty_packet_count):
         failures.append("nonempty_packet_count_below_min")
-    if valid_token_count < int(args.min_valid_token_count):
+    if required_valid_token_count < int(args.min_valid_token_count):
         failures.append("valid_token_count_below_min")
     if not bool(args.allow_config_token_source):
-        if decode_source_count != packet_count:
+        if required_decode_source_count != required_token_provenance_packet_count:
             failures.append("decode_workload_source_count_mismatch")
-        if config_source_count:
+        if required_config_source_count:
             failures.append("config_token_source_present")
-        if missing_source_count:
+        if required_missing_source_count:
             failures.append("missing_token_source_present")
-    if duplicate_token_layer_count:
+    if required_duplicate_token_layer_count:
         failures.append("duplicate_token_layer_keys_present")
     if packet_error_count:
         failures.append("packet_error_count_nonzero")
@@ -279,10 +315,16 @@ def check_packet_token_provenance(args: argparse.Namespace) -> dict[str, Any]:
         "packet_error_count": packet_error_count,
         "missing_context_count": missing_context_count,
         "nonempty_packet_count": nonempty_issue_count,
+        "empty_issue_provenance_exempt_count": empty_issue_provenance_exempt_count,
+        "required_token_provenance_packet_count": required_token_provenance_packet_count,
         "valid_token_count": valid_token_count,
+        "required_valid_token_count": required_valid_token_count,
         "decode_workload_source_count": decode_source_count,
+        "required_decode_workload_source_count": required_decode_source_count,
         "config_source_count": config_source_count,
+        "required_config_source_count": required_config_source_count,
         "missing_source_count": missing_source_count,
+        "required_missing_source_count": required_missing_source_count,
         "sample_count": len(sample_indices),
         "record_count": len(record_ids),
         "layer_count": len(layer_ids),
@@ -298,8 +340,11 @@ def check_packet_token_provenance(args: argparse.Namespace) -> dict[str, Any]:
         "last_token_index": last_token_index,
         "token_span": token_span,
         "unique_token_count": len(set(token_indices)),
+        "required_unique_token_count": len(set(required_token_indices)),
         "unique_token_layer_count": len(token_layer_keys),
         "duplicate_token_layer_count": duplicate_token_layer_count,
+        "required_unique_token_layer_count": len(required_token_layer_keys),
+        "required_duplicate_token_layer_count": required_duplicate_token_layer_count,
         "first_packet_path": first_packet_path,
         "last_packet_path": last_packet_path,
         "min_packet_count": int(args.min_packet_count),
@@ -309,6 +354,7 @@ def check_packet_token_provenance(args: argparse.Namespace) -> dict[str, Any]:
         "require_sample_idx": not bool(args.allow_missing_sample_idx),
         "require_record_id": not bool(args.allow_missing_record_id),
         "allow_config_token_source": bool(args.allow_config_token_source),
+        "allow_empty_config_packets": bool(args.allow_empty_config_packets),
         "allow_missing_sample_idx": bool(args.allow_missing_sample_idx),
         "allow_missing_record_id": bool(args.allow_missing_record_id),
         "payload_bytes": 0,
@@ -350,6 +396,14 @@ def build_parser() -> argparse.ArgumentParser:
         "--allow-config-token-source",
         action="store_true",
         help="Audit-only mode: allow config/static token provenance instead of requiring decode workload source.",
+    )
+    parser.add_argument(
+        "--allow-empty-config-packets",
+        action="store_true",
+        help=(
+            "Allow issue_candidate_count=0 packets to keep config/static token "
+            "provenance; nonempty packets still require decode workload provenance."
+        ),
     )
     parser.add_argument(
         "--allow-missing-sample-idx",

@@ -519,7 +519,29 @@ class DecodeWorkloadTraceCollector:
             self._handle.close()
             self._handle = None
 
-    def set_sample(self, sample_idx: int | None, record: dict[str, Any] | None) -> None:
+    @staticmethod
+    def _prompt_len_from_record_or_input(
+        record: dict[str, Any] | None,
+        input_ids: Any = None,
+    ) -> int | None:
+        prompt_len = None
+        if record is not None:
+            prompt_len = record.get("target_prompt_tokens", record.get("prompt_len"))
+        if isinstance(prompt_len, int) and not isinstance(prompt_len, bool):
+            return int(prompt_len)
+        if input_ids is not None:
+            try:
+                return int(len(input_ids))
+            except Exception:
+                return None
+        return None
+
+    def set_sample(
+        self,
+        sample_idx: int | None,
+        record: dict[str, Any] | None,
+        input_ids: Any = None,
+    ) -> None:
         self._current_sample_idx = int(sample_idx) if sample_idx is not None else None
         self._batch_sample_indices = None
         self._batch_record_ids = None
@@ -532,11 +554,9 @@ class DecodeWorkloadTraceCollector:
             self._current_record_id = str(
                 record.get("id", record.get("record_id", sample_idx))
             )
-            prompt_len = record.get("target_prompt_tokens", record.get("prompt_len"))
-            self._current_prompt_len = (
-                int(prompt_len)
-                if isinstance(prompt_len, int) and not isinstance(prompt_len, bool)
-                else None
+            self._current_prompt_len = self._prompt_len_from_record_or_input(
+                record,
+                input_ids,
             )
 
     def set_batch_samples(
@@ -550,14 +570,11 @@ class DecodeWorkloadTraceCollector:
         sample_indices: list[int] = []
         record_ids: list[str] = []
         prompt_lens: list[int | None] = []
-        for sample_idx, record, _input_ids, _prompt in samples:
+        for sample_idx, record, input_ids, _prompt in samples:
             sample_indices.append(int(sample_idx))
             record_ids.append(str(record.get("id", record.get("record_id", sample_idx))))
-            prompt_len = record.get("target_prompt_tokens", record.get("prompt_len"))
             prompt_lens.append(
-                int(prompt_len)
-                if isinstance(prompt_len, int) and not isinstance(prompt_len, bool)
-                else None
+                self._prompt_len_from_record_or_input(record, input_ids)
             )
         self._batch_sample_indices = sample_indices
         self._batch_record_ids = record_ids
@@ -720,7 +737,8 @@ class DecodeWorkloadTraceCollector:
         return int(self._current_sample_idx) % int(self.sample_period) != 0
 
     def _skip(self, reason: str) -> None:
-        self._clear_latest_decode_token_index()
+        if str(reason) != "max_rows":
+            self._clear_latest_decode_token_index()
         self.skipped_rows += 1
         self._skip_reasons[reason] = int(self._skip_reasons.get(reason, 0)) + 1
 
@@ -737,12 +755,12 @@ class DecodeWorkloadTraceCollector:
     ) -> None:
         if self._handle is None:
             return
-        if self.max_rows is not None and self.rows_written >= int(self.max_rows):
-            self._skip("max_rows")
-            return
         if self._should_skip_sample():
             self._skip("sample_period")
             return
+        write_record = not (
+            self.max_rows is not None and self.rows_written >= int(self.max_rows)
+        )
         try:
             self._record_attention_impl(
                 impl=impl,
@@ -752,6 +770,7 @@ class DecodeWorkloadTraceCollector:
                 value=value,
                 kv_cache=kv_cache,
                 attn_metadata=attn_metadata,
+                write_record=write_record,
             )
         except Exception:
             self._clear_latest_decode_token_index()
@@ -776,12 +795,12 @@ class DecodeWorkloadTraceCollector:
     ) -> None:
         if self._handle is None:
             return
-        if self.max_rows is not None and self.rows_written >= int(self.max_rows):
-            self._skip("max_rows")
-            return
         if self._should_skip_sample():
             self._skip("sample_period")
             return
+        write_record = not (
+            self.max_rows is not None and self.rows_written >= int(self.max_rows)
+        )
         try:
             self._record_chunked_prefill_paged_decode_impl(
                 query=query,
@@ -795,6 +814,7 @@ class DecodeWorkloadTraceCollector:
                 max_seq_len=max_seq_len,
                 max_query_len=max_query_len,
                 kv_cache_dtype=kv_cache_dtype,
+                write_record=write_record,
             )
         except Exception:
             self._clear_latest_decode_token_index()
@@ -810,16 +830,17 @@ class DecodeWorkloadTraceCollector:
     ) -> None:
         if self._handle is None:
             return
-        if self.max_rows is not None and self.rows_written >= int(self.max_rows):
-            self._skip("max_rows")
-            return
         if self._should_skip_sample():
             self._skip("sample_period")
             return
+        write_record = not (
+            self.max_rows is not None and self.rows_written >= int(self.max_rows)
+        )
         try:
             self._record_common_attention_metadata_impl(
                 builder=builder,
                 common_attn_metadata=common_attn_metadata,
+                write_record=write_record,
             )
         except Exception:
             self._clear_latest_decode_token_index()
@@ -832,6 +853,7 @@ class DecodeWorkloadTraceCollector:
         *,
         builder: Any,
         common_attn_metadata: Any,
+        write_record: bool = True,
     ) -> None:
         query_start_loc = getattr(common_attn_metadata, "query_start_loc", None)
         seq_lens_tensor = getattr(common_attn_metadata, "seq_lens", None)
@@ -921,6 +943,9 @@ class DecodeWorkloadTraceCollector:
             query_lens=query_lens,
             call_index=call_index,
         )
+        if not bool(write_record):
+            self._skip("max_rows")
+            return
         trace_id = (
             f"{self.run_id}_sample_{self._current_sample_idx}_"
             f"call_{call_index:08d}_builder_{layer_ordinal}"
@@ -1048,6 +1073,7 @@ class DecodeWorkloadTraceCollector:
         value: torch.Tensor,
         kv_cache: torch.Tensor,
         attn_metadata: Any,
+        write_record: bool = True,
     ) -> None:
         query_start_loc = getattr(attn_metadata, "query_start_loc", None)
         seq_lens_tensor = getattr(attn_metadata, "seq_lens", None)
@@ -1135,6 +1161,9 @@ class DecodeWorkloadTraceCollector:
             query_lens=query_lens,
             call_index=call_index,
         )
+        if not bool(write_record):
+            self._skip("max_rows")
+            return
         trace_id = (
             f"{self.run_id}_sample_{self._current_sample_idx}_"
             f"call_{call_index:08d}_layer_{layer_ordinal}"
@@ -1261,6 +1290,7 @@ class DecodeWorkloadTraceCollector:
         max_seq_len: Any,
         max_query_len: Any,
         kv_cache_dtype: Any,
+        write_record: bool = True,
     ) -> None:
         if int(self.schema_version) < 2:
             self._skip("chunked_decode_requires_schema_v2")
@@ -1309,10 +1339,6 @@ class DecodeWorkloadTraceCollector:
             (int(seq_len) + int(block_size) - 1) // int(block_size)
             for seq_len in seq_values
         ]
-        block_id_rows = _to_prefixed_int_rows_from_tensor(
-            block_table,
-            row_counts=block_table_valid_counts,
-        )
         q_shape = [int(dim) for dim in query.shape]
         k_shape = [int(dim) for dim in key.shape] if isinstance(key, torch.Tensor) else []
         batch_tokens = int(q_shape[0]) if q_shape else int(sum(query_lens))
@@ -1337,6 +1363,13 @@ class DecodeWorkloadTraceCollector:
             seq_lens=seq_values,
             query_lens=query_lens,
             call_index=call_index,
+        )
+        if not bool(write_record):
+            self._skip("max_rows")
+            return
+        block_id_rows = _to_prefixed_int_rows_from_tensor(
+            block_table,
+            row_counts=block_table_valid_counts,
         )
         layer_ordinal = (
             int(call_index) % int(self.inferred_layer_count)
@@ -22259,7 +22292,11 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
                                 runtime_shadow_options.get("token_offset", 0)
                             )
                             if decode_workload_collector is not None:
-                                decode_workload_collector.set_sample(sample_idx, record)
+                                decode_workload_collector.set_sample(
+                                    sample_idx,
+                                    record,
+                                    input_ids,
+                                )
                             set_active_vllm_router_recorder(recorder)
                             set_active_runtime_shadow_controller(runtime_shadow_controller)
                             decode_token = (
@@ -22338,8 +22375,12 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
                     else:
                         if decode_workload_collector is not None:
                             if len(chunk) == 1:
-                                sample_idx, record, _input_ids, _prompt = chunk[0]
-                                decode_workload_collector.set_sample(sample_idx, record)
+                                sample_idx, record, input_ids, _prompt = chunk[0]
+                                decode_workload_collector.set_sample(
+                                    sample_idx,
+                                    record,
+                                    input_ids,
+                                )
                             else:
                                 decode_workload_collector.set_batch_samples(chunk)
                         decode_token = (
