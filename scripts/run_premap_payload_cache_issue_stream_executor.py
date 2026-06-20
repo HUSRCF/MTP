@@ -175,6 +175,24 @@ def _check_safe_flags(
             failures.append(f"{prefix}_{key}_not_zero")
 
 
+def _is_int(value: Any) -> bool:
+    return isinstance(value, int) and not isinstance(value, bool)
+
+
+def _validate_positive_finite(value: float, *, label: str) -> float:
+    numeric = float(value)
+    if not math.isfinite(numeric) or numeric <= 0.0:
+        raise ValueError(f"{label} must be a positive finite number")
+    return numeric
+
+
+def _validate_nonnegative_finite(value: float, *, label: str) -> float:
+    numeric = float(value)
+    if not math.isfinite(numeric) or numeric < 0.0:
+        raise ValueError(f"{label} must be a non-negative finite number")
+    return numeric
+
+
 def _select_measured_copy_row(
     path: Path,
     *,
@@ -272,6 +290,21 @@ def run_issue_stream_executor(args: argparse.Namespace) -> dict[str, Any]:
     service_us_per_issue = float(args.service_us_per_issue)
     service_us_per_batch = float(args.service_us_per_batch)
     queue_batch_size = int(args.queue_batch_size)
+    event_timing_mode = str(args.event_timing_mode).strip().lower()
+    if event_timing_mode not in {"packet_index", "token_index"}:
+        raise ValueError("event-timing-mode must be packet_index or token_index")
+    token_timing_enabled = event_timing_mode == "token_index"
+    decode_token_us = _validate_positive_finite(
+        float(args.decode_token_us),
+        label="decode-token-us",
+    )
+    issue_lead_tokens = int(args.issue_lead_tokens)
+    if issue_lead_tokens < 0:
+        raise ValueError("issue-lead-tokens must be non-negative")
+    layer_event_interval_us = _validate_nonnegative_finite(
+        float(args.layer_event_interval_us),
+        label="layer-event-interval-us",
+    )
     measured_copy: dict[str, Any] | None = None
     if args.measured_copy_json is not None:
         try:
@@ -306,6 +339,14 @@ def run_issue_stream_executor(args: argparse.Namespace) -> dict[str, Any]:
     max_packet_issue_width = 0
     layer_ids: set[int] = set()
     issue_hashes: list[str] = []
+    token_indices: list[int] = []
+    token_source_decode_count = 0
+    token_source_config_count = 0
+    token_source_missing_count = 0
+    min_issue_arrival_us: float | None = None
+    max_issue_arrival_us: float | None = None
+    min_demand_arrival_us: float | None = None
+    max_demand_arrival_us: float | None = None
     first_packet_path: str | None = None
     last_packet_path: str | None = None
 
@@ -323,7 +364,15 @@ def run_issue_stream_executor(args: argparse.Namespace) -> dict[str, Any]:
             _check_safe_flags(packet, failures, prefix=f"packet_{idx}")
             if packet.get("ready") is not True:
                 failures.append(f"packet_{idx}_ready_not_true")
-            layer_id = int(packet.get("layer_id", 0) or 0)
+            raw_layer_id = packet.get("layer_id")
+            if token_timing_enabled:
+                if _is_int(raw_layer_id) and int(raw_layer_id) >= 0:
+                    layer_id = int(raw_layer_id)
+                else:
+                    layer_id = 0
+                    failures.append(f"packet_{idx}_layer_id_invalid")
+            else:
+                layer_id = int(raw_layer_id or 0)
             experts = _issue_experts_from_packet(packet)
             _check_issue_provenance(
                 packet,
@@ -344,6 +393,26 @@ def run_issue_stream_executor(args: argparse.Namespace) -> dict[str, Any]:
                     failures,
                     prefix=f"packet_{idx}_export_context",
                 )
+                if token_timing_enabled:
+                    token_index = export_context.get("token_index")
+                    if _is_int(token_index) and int(token_index) >= 0:
+                        token_indices.append(int(token_index))
+                    else:
+                        failures.append(f"packet_{idx}_token_index_invalid")
+                    token_source = export_context.get("token_index_source")
+                    if token_source == "decode_workload_collector":
+                        token_source_decode_count += 1
+                    elif token_source == "config":
+                        token_source_config_count += 1
+                        if not bool(args.allow_config_token_source):
+                            failures.append(f"packet_{idx}_config_token_source_disallowed")
+                    elif token_source is None:
+                        token_source_missing_count += 1
+                        failures.append(f"packet_{idx}_token_index_source_missing")
+                    else:
+                        failures.append(f"packet_{idx}_token_index_source_unexpected")
+            elif token_timing_enabled:
+                failures.append(f"packet_{idx}_export_context_missing")
         except Exception as exc:
             failures.append(
                 f"packet_{idx}_load_or_parse_failed:{exc.__class__.__name__}:{exc}"
@@ -359,8 +428,48 @@ def run_issue_stream_executor(args: argparse.Namespace) -> dict[str, Any]:
             empty_packet_count += 1
             continue
         nonempty_packet_count += 1
-        arrival_us = float(args.issue_arrival_us) + (
-            float(idx) * float(args.event_interval_us)
+        if token_timing_enabled:
+            export_context = packet.get("_export_context")
+            token_index = (
+                int(export_context["token_index"])
+                if isinstance(export_context, dict)
+                and _is_int(export_context.get("token_index"))
+                and int(export_context.get("token_index")) >= 0
+                else 0
+            )
+            demand_arrival = (
+                float(args.issue_arrival_us)
+                + (float(token_index) * decode_token_us)
+                + (float(layer_id) * layer_event_interval_us)
+            )
+            arrival_us = max(
+                0.0,
+                demand_arrival - (float(issue_lead_tokens) * decode_token_us),
+            )
+        else:
+            arrival_us = float(args.issue_arrival_us) + (
+                float(idx) * float(args.event_interval_us)
+            )
+            demand_arrival = arrival_us + float(args.demand_gap_us)
+        min_issue_arrival_us = (
+            arrival_us
+            if min_issue_arrival_us is None
+            else min(min_issue_arrival_us, arrival_us)
+        )
+        max_issue_arrival_us = (
+            arrival_us
+            if max_issue_arrival_us is None
+            else max(max_issue_arrival_us, arrival_us)
+        )
+        min_demand_arrival_us = (
+            demand_arrival
+            if min_demand_arrival_us is None
+            else min(min_demand_arrival_us, demand_arrival)
+        )
+        max_demand_arrival_us = (
+            demand_arrival
+            if max_demand_arrival_us is None
+            else max(max_demand_arrival_us, demand_arrival)
         )
         issued_now = manager.issue_prefetches(
             layer_id,
@@ -368,7 +477,6 @@ def run_issue_stream_executor(args: argparse.Namespace) -> dict[str, Any]:
             arrival_us=arrival_us,
         )
         issue_candidate_total += issued_now
-        demand_arrival = arrival_us + float(args.demand_gap_us)
         for expert_id in experts:
             manager.demand(layer_id, expert_id, arrival_us=demand_arrival)
     manager.finish()
@@ -396,6 +504,13 @@ def run_issue_stream_executor(args: argparse.Namespace) -> dict[str, Any]:
         failures.append("nonempty_packet_count_below_min")
     if packet_errors:
         failures.append("packet_errors_nonzero")
+    if token_timing_enabled:
+        if len(token_indices) != packet_count:
+            failures.append("token_index_count_packet_count_mismatch")
+        if not bool(args.allow_config_token_source) and token_source_config_count:
+            failures.append("config_token_source_present")
+        if token_source_missing_count:
+            failures.append("missing_token_source_present")
     if demand_hit_rate < float(args.min_demand_hit_rate):
         failures.append("demand_hit_rate_below_threshold")
     if ready_late_miss_rate > float(args.max_ready_late_miss_rate):
@@ -442,6 +557,22 @@ def run_issue_stream_executor(args: argparse.Namespace) -> dict[str, Any]:
         "first_packet_path": first_packet_path,
         "last_packet_path": last_packet_path,
         "layer_ids": sorted(layer_ids),
+        "event_timing_mode": event_timing_mode,
+        "token_timing_enabled": bool(token_timing_enabled),
+        "decode_token_us": decode_token_us,
+        "issue_lead_tokens": issue_lead_tokens,
+        "layer_event_interval_us": layer_event_interval_us,
+        "token_index_count": len(token_indices),
+        "token_index_min": min(token_indices) if token_indices else None,
+        "token_index_max": max(token_indices) if token_indices else None,
+        "token_source_decode_workload_count": token_source_decode_count,
+        "token_source_config_count": token_source_config_count,
+        "token_source_missing_count": token_source_missing_count,
+        "allow_config_token_source": bool(args.allow_config_token_source),
+        "issue_arrival_min_us": min_issue_arrival_us,
+        "issue_arrival_max_us": max_issue_arrival_us,
+        "demand_arrival_min_us": min_demand_arrival_us,
+        "demand_arrival_max_us": max_demand_arrival_us,
         "issue_hash_chain": _issue_hash([int(h[:8], 16) for h in issue_hashes]),
         "requested_issue_count": requested_issue_total,
         "dedup_issue_drop_count": dedup_issue_drop_count,
@@ -533,6 +664,15 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--measured-copy-experts", type=int, default=8)
     parser.add_argument("--measured-copy-pinned", default="true")
     parser.add_argument("--queue-deadline-us", type=float, default=200.0)
+    parser.add_argument(
+        "--event-timing-mode",
+        choices=("packet_index", "token_index"),
+        default="packet_index",
+    )
+    parser.add_argument("--decode-token-us", type=float, default=75_000.0)
+    parser.add_argument("--issue-lead-tokens", type=int, default=0)
+    parser.add_argument("--layer-event-interval-us", type=float, default=1.0)
+    parser.add_argument("--allow-config-token-source", action="store_true")
     parser.add_argument("--event-interval-us", type=float, default=1.0)
     parser.add_argument("--issue-arrival-us", type=float, default=0.0)
     parser.add_argument("--demand-gap-us", type=float, default=0.0)

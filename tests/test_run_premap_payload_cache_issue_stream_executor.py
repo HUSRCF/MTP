@@ -43,11 +43,18 @@ def _issue_hash(experts: list[int]) -> str:
     return f"{value:016x}"
 
 
-def _packet_payload(*, layer_id: int = 0, previous=(3, 5), topk: int = 8) -> dict:
+def _packet_payload(
+    *,
+    layer_id: int = 0,
+    previous=(3, 5),
+    topk: int = 8,
+    token_index: int | None = None,
+    token_source: str = "decode_workload_collector",
+) -> dict:
     issue_candidates = list(dict.fromkeys(int(value) for value in previous if int(value) >= 0))
     limit = len(issue_candidates) if topk == 0 else min(len(issue_candidates), topk)
     issue_candidates = issue_candidates[:limit]
-    return {
+    payload = {
         "ready": True,
         "layer_id": layer_id,
         "previous_experts": list(previous),
@@ -72,6 +79,35 @@ def _packet_payload(*, layer_id: int = 0, previous=(3, 5), topk: int = 8) -> dic
         "issue_candidate_last_expert": issue_candidates[-1] if issue_candidates else -1,
         "issue_candidate_hash": _issue_hash(issue_candidates),
     }
+    if token_index is not None:
+        payload["_export_context"] = {
+            "payload_bytes": 0,
+            "ready_credit": False,
+            "ready_before_demand_credit": False,
+            "payload_transfer_enabled": False,
+            "payload_deref_allowed": False,
+            "kernel_arg_pass_allowed": False,
+            "real_ready_credit_granted": False,
+            "passed_to_kernel": False,
+            "changes_kernel_launch_args": False,
+            "uses_current_wna16_args": False,
+            "passes_current_wna16_args": False,
+            "measures_tpot": False,
+            "measures_vllm_latency": False,
+            "token_index": int(token_index),
+            "token_index_source": token_source,
+            "sample_idx": 0,
+            "record_id": "rec-0",
+            "issue_candidate_count": len(issue_candidates),
+            "issue_candidate_first_expert": (
+                issue_candidates[0] if issue_candidates else -1
+            ),
+            "issue_candidate_last_expert": (
+                issue_candidates[-1] if issue_candidates else -1
+            ),
+            "issue_candidate_hash": _issue_hash(issue_candidates),
+        }
+    return payload
 
 
 def _online_payload(packet_paths: list[Path], *, unsafe: bool = False) -> dict:
@@ -167,6 +203,181 @@ def test_issue_stream_executor_accepts_multi_packet_ready_time_hits(tmp_path: Pa
     assert json.loads((tmp_path / "out.json").read_text(encoding="utf-8"))[
         "passed"
     ] is True
+
+
+def test_issue_stream_executor_token_index_mode_uses_lead_tokens(tmp_path: Path):
+    module = _load_module()
+    packet0 = tmp_path / "packet0.json"
+    packet1 = tmp_path / "packet1.json"
+    online = tmp_path / "online.json"
+    _write_json(
+        packet0,
+        _packet_payload(layer_id=0, previous=(3,), topk=1, token_index=3),
+    )
+    _write_json(
+        packet1,
+        _packet_payload(layer_id=1, previous=(5,), topk=1, token_index=4),
+    )
+    _write_json(online, _online_payload([packet0, packet1]))
+
+    result = _run(
+        module,
+        online,
+        tmp_path / "out.json",
+        [
+            "--event-timing-mode",
+            "token_index",
+            "--decode-token-us",
+            "100",
+            "--issue-lead-tokens",
+            "1",
+            "--layer-event-interval-us",
+            "1",
+            "--service-us-per-issue",
+            "0",
+            "--queue-batch-size",
+            "1",
+            "--queue-deadline-us",
+            "0",
+            "--min-packet-count",
+            "2",
+            "--min-nonempty-packet-count",
+            "2",
+        ],
+    )
+
+    assert result["passed"] is True
+    assert result["event_timing_mode"] == "token_index"
+    assert result["token_timing_enabled"] is True
+    assert result["token_index_count"] == 2
+    assert result["token_source_decode_workload_count"] == 2
+    assert result["token_index_min"] == 3
+    assert result["token_index_max"] == 4
+    assert result["queue_batch_size"] == 1
+    assert result["issue_arrival_min_us"] == 200.0
+    assert result["issue_arrival_max_us"] == 301.0
+    assert result["demand_arrival_min_us"] == 300.0
+    assert result["demand_arrival_max_us"] == 401.0
+    assert result["demand_hit_rate"] == 1.0
+
+
+def test_issue_stream_executor_token_index_mode_rejects_invalid_layer_id(
+    tmp_path: Path,
+):
+    module = _load_module()
+    packet0 = tmp_path / "packet0.json"
+    online = tmp_path / "online.json"
+    _write_json(
+        packet0,
+        _packet_payload(layer_id=-1, previous=(3,), topk=1, token_index=3),
+    )
+    _write_json(online, _online_payload([packet0]))
+
+    result = _run(
+        module,
+        online,
+        tmp_path / "out.json",
+        ["--event-timing-mode", "token_index"],
+    )
+
+    assert result["passed"] is False
+    assert "packet_0_layer_id_invalid" in result["failures"]
+
+
+def test_issue_stream_executor_token_index_mode_rejects_non_int_layer_ids(
+    tmp_path: Path,
+):
+    module = _load_module()
+    packet_paths = []
+    invalid_layers = [True, "2", None]
+    for idx, layer_id in enumerate(invalid_layers):
+        packet = tmp_path / f"packet{idx}.json"
+        payload = _packet_payload(layer_id=0, previous=(3 + idx,), topk=1, token_index=idx)
+        if layer_id is None:
+            payload.pop("layer_id", None)
+        else:
+            payload["layer_id"] = layer_id
+        _write_json(packet, payload)
+        packet_paths.append(packet)
+    online = tmp_path / "online.json"
+    _write_json(online, _online_payload(packet_paths))
+
+    result = _run(
+        module,
+        online,
+        tmp_path / "out.json",
+        ["--event-timing-mode", "token_index"],
+    )
+
+    assert result["passed"] is False
+    for idx in range(len(invalid_layers)):
+        assert f"packet_{idx}_layer_id_invalid" in result["failures"]
+
+
+def test_issue_stream_executor_token_index_mode_rejects_config_source(
+    tmp_path: Path,
+):
+    module = _load_module()
+    packet0 = tmp_path / "packet0.json"
+    online = tmp_path / "online.json"
+    _write_json(
+        packet0,
+        _packet_payload(
+            layer_id=0,
+            previous=(3,),
+            topk=1,
+            token_index=3,
+            token_source="config",
+        ),
+    )
+    _write_json(online, _online_payload([packet0]))
+
+    result = _run(
+        module,
+        online,
+        tmp_path / "out.json",
+        ["--event-timing-mode", "token_index"],
+    )
+
+    assert result["passed"] is False
+    assert "packet_0_config_token_source_disallowed" in result["failures"]
+    assert "config_token_source_present" in result["failures"]
+
+
+def test_issue_stream_executor_token_index_mode_allows_config_source_in_audit_mode(
+    tmp_path: Path,
+):
+    module = _load_module()
+    packet0 = tmp_path / "packet0.json"
+    online = tmp_path / "online.json"
+    _write_json(
+        packet0,
+        _packet_payload(
+            layer_id=0,
+            previous=(3,),
+            topk=1,
+            token_index=3,
+            token_source="config",
+        ),
+    )
+    _write_json(online, _online_payload([packet0]))
+
+    result = _run(
+        module,
+        online,
+        tmp_path / "out.json",
+        [
+            "--event-timing-mode",
+            "token_index",
+            "--allow-config-token-source",
+            "--service-us-per-issue",
+            "0",
+        ],
+    )
+
+    assert result["passed"] is True
+    assert result["allow_config_token_source"] is True
+    assert result["token_source_config_count"] == 1
 
 
 def test_issue_stream_executor_prefers_exported_issue_candidates(tmp_path: Path):
