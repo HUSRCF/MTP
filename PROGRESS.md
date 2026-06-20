@@ -39961,3 +39961,84 @@ Next gate:
 ```text
 run_online_shifted_issue_runtime_shadow_smoke
 ```
+
+## 2026-06-20: Shifted Issue Runtime Shadow Gate Checker
+
+Added a standalone gate checker for the online shifted-issue runtime shadow
+fields in `performance_summary.json`:
+
+```text
+scripts/check_premap_payload_cache_shifted_issue_runtime_shadow_gate.py
+```
+
+The checker requires:
+
+```text
+runtime_shadow_premap_payload_cache_shifted_issue_enabled = true
+issue_lead_tokens matches the required value
+packet_count and schedulable_packet_count meet thresholds
+safe_packet_count == packet_count
+unsafe_packet_count = 0
+invalid_packet_count = 0
+scan_error_count = 0
+duplicate_demand_key_count = 0
+duplicate_issue_key_count = 0
+clamped_issue_count = 0 by default
+unique demand/issue key counts match schedulable packets
+issue_hash_count matches schedulable packets
+issue_hash_unique_count is present and typed as int
+```
+
+It also revalidates the no-op boundary:
+
+```text
+payload_bytes = 0
+ready_credit = false
+ready_before_demand_credit = false
+real_ready_credit_granted = false
+payload_transfer_enabled = false
+payload_deref_allowed = false
+kernel_arg_pass_allowed = false
+passed_to_kernel = false
+changes_kernel_launch_args = false
+uses_current_wna16_args = false
+passes_current_wna16_args = false
+measures_tpot = false
+measures_vllm_latency = false
+```
+
+Validation:
+
+```text
+/home/husrcf/anaconda3/envs/TRY/bin/python -m pytest \
+  tests/test_build_premap_payload_cache_stream_shifted_issue_replay_contract.py \
+  tests/test_run_premap_payload_cache_issue_stream_executor.py \
+  tests/test_sweep_premap_payload_cache_issue_stream_executor_lookahead.py \
+  tests/test_sweep_premap_payload_cache_issue_stream_executor_queue_budget.py \
+  tests/test_sweep_premap_payload_cache_stream_earlier_issue_lead_tokens.py \
+  tests/test_build_premap_payload_cache_stream_earlier_issue_feasibility.py \
+  tests/test_build_premap_payload_cache_stream_full_fetch_decision_gate.py \
+  tests/test_check_premap_payload_cache_shifted_issue_runtime_shadow_gate.py \
+  tests/test_vllm_router_shadow_sink.py -q
+# 209 passed
+```
+
+Smoke using the existing producer packet canary:
+
+```text
+/home/husrcf/anaconda3/envs/TRY/bin/python \
+  scripts/check_premap_payload_cache_shifted_issue_runtime_shadow_gate.py \
+  /tmp/premap_shifted_issue_runtime_shadow_performance_summary_check.json \
+  --required-issue-lead-tokens 1 \
+  --min-packet-count 32 \
+  --min-schedulable-packet-count 28 \
+  --output-json /tmp/premap_shifted_issue_runtime_shadow_gate_check.json \
+  --require-pass
+# passed = true
+```
+
+Next gate:
+
+```text
+run_real_online_trace_with_shifted_issue_runtime_shadow_enabled
+```
