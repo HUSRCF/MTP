@@ -43,9 +43,34 @@ class _FakeLookahead:
                     "demand_hit_rate": 0.7 if row_passed else 0.2,
                     "ready_late_miss_rate": 0.3 if row_passed else 0.8,
                     "used_per_issued_fetch": 0.5 if row_passed else 0.0,
+                    "shifted_issue_accounting_enabled": True,
+                    "shifted_issue_lead_tokens": lead,
+                    "shifted_issue_clamped_issue_count": 1 if lead > 0 else 0,
+                    "shifted_issue_duplicate_issue_key_count": 2 if lead >= 2 else 0,
+                    "shifted_issue_unique_issue_key_count": 3 if lead >= 2 else 0,
+                    "shifted_issue_accounted_packet_count": 4,
+                    "shifted_issue_invalid_export_count": 0,
+                    "shifted_issue_row_shift_mismatch_count": 0,
+                    "shifted_issue_row_clamp_mismatch_count": 0,
                 }
             )
         first_row = next((row for row in rows if row["passed"]), None)
+        first_shifted = None
+        if first_row is not None:
+            first_shifted = {
+                key: first_row.get(key)
+                for key in (
+                    "shifted_issue_accounting_enabled",
+                    "shifted_issue_lead_tokens",
+                    "shifted_issue_clamped_issue_count",
+                    "shifted_issue_duplicate_issue_key_count",
+                    "shifted_issue_unique_issue_key_count",
+                    "shifted_issue_accounted_packet_count",
+                    "shifted_issue_invalid_export_count",
+                    "shifted_issue_row_shift_mismatch_count",
+                    "shifted_issue_row_clamp_mismatch_count",
+                )
+            }
         return {
             "passed": first_row is not None,
             "failures": [],
@@ -55,6 +80,7 @@ class _FakeLookahead:
             "first_model_passing_lookahead_us": (
                 None if first_row is None else first_row["lookahead_us"]
             ),
+            "first_model_passing_shifted_issue_accounting": first_shifted,
             "rows": rows,
             "payload_bytes": 0,
             "full_fetch_allowed": False,
@@ -71,6 +97,25 @@ class _FakeLookahead:
             "measures_tpot": False,
             "measures_vllm_latency": False,
         }
+
+
+def _assert_first_model_cell(cell: dict):
+    assert cell["capacity"] == 128
+    assert cell["queue_deadline_us"] == 1000.0
+    assert cell["issue_lead_tokens"] == 2
+    assert cell["lookahead_us"] == 200.0
+    assert cell["cell_index"] == 0
+    assert cell["shifted_issue_accounting"] == {
+        "shifted_issue_accounting_enabled": True,
+        "shifted_issue_lead_tokens": 2,
+        "shifted_issue_clamped_issue_count": 1,
+        "shifted_issue_duplicate_issue_key_count": 2,
+        "shifted_issue_unique_issue_key_count": 3,
+        "shifted_issue_accounted_packet_count": 4,
+        "shifted_issue_invalid_export_count": 0,
+        "shifted_issue_row_shift_mismatch_count": 0,
+        "shifted_issue_row_clamp_mismatch_count": 0,
+    }
 
 
 def test_queue_budget_sweep_finds_first_passing_cell(monkeypatch, tmp_path: Path):
@@ -109,11 +154,28 @@ def test_queue_budget_sweep_finds_first_passing_cell(monkeypatch, tmp_path: Path
         "queue_deadline_us": 1000.0,
         "issue_lead_tokens": 2,
         "lookahead_us": 200.0,
+        "shifted_issue_accounting": {
+            "shifted_issue_accounting_enabled": True,
+            "shifted_issue_lead_tokens": 2,
+            "shifted_issue_clamped_issue_count": 1,
+            "shifted_issue_duplicate_issue_key_count": 2,
+            "shifted_issue_unique_issue_key_count": 3,
+            "shifted_issue_accounted_packet_count": 4,
+            "shifted_issue_invalid_export_count": 0,
+            "shifted_issue_row_shift_mismatch_count": 0,
+            "shifted_issue_row_clamp_mismatch_count": 0,
+        },
         "cell_index": 3,
     }
     assert result["cell_count"] == 4
     assert result["cells"][3]["passed"] is True
     assert result["cells"][3]["first_passing_row"]["issue_lead_tokens"] == 2
+    assert result["cells"][3]["first_passing_shifted_issue_accounting"][
+        "shifted_issue_duplicate_issue_key_count"
+    ] == 2
+    assert result["cells"][3]["best_shifted_issue_accounting"][
+        "shifted_issue_accounted_packet_count"
+    ] == 4
     assert result["full_fetch_allowed"] is False
     assert result["payload_transfer_enabled"] is False
     assert result["kernel_arg_pass_allowed"] is False
@@ -167,13 +229,7 @@ def test_queue_budget_sweep_rejects_unsafe_cell(monkeypatch, tmp_path: Path):
 
     assert result["passed"] is False
     assert result["first_passing_cell"] is None
-    assert result["first_model_passing_cell"] == {
-        "capacity": 128,
-        "queue_deadline_us": 1000.0,
-        "issue_lead_tokens": 2,
-        "lookahead_us": 200.0,
-        "cell_index": 0,
-    }
+    _assert_first_model_cell(result["first_model_passing_cell"])
     assert result["failures"] == ["cell_0_passed_to_kernel_not_false"]
     assert result["cells"][0]["model_passed"] is True
     assert result["cells"][0]["safety_passed"] is False
@@ -270,13 +326,7 @@ def test_queue_budget_sweep_nulls_first_passing_cell_when_later_cell_is_unsafe(
 
     assert result["passed"] is False
     assert result["first_passing_cell"] is None
-    assert result["first_model_passing_cell"] == {
-        "capacity": 128,
-        "queue_deadline_us": 1000.0,
-        "issue_lead_tokens": 2,
-        "lookahead_us": 200.0,
-        "cell_index": 0,
-    }
+    _assert_first_model_cell(result["first_model_passing_cell"])
     assert result["failures"] == ["cell_1_payload_transfer_enabled_not_false"]
     assert result["cells"][0]["passed"] is True
     assert result["cells"][1]["passed"] is False
@@ -324,13 +374,7 @@ def test_queue_budget_sweep_promotes_child_failures(monkeypatch, tmp_path: Path)
 
     assert result["passed"] is False
     assert result["first_passing_cell"] is None
-    assert result["first_model_passing_cell"] == {
-        "capacity": 128,
-        "queue_deadline_us": 1000.0,
-        "issue_lead_tokens": 2,
-        "lookahead_us": 200.0,
-        "cell_index": 0,
-    }
+    _assert_first_model_cell(result["first_model_passing_cell"])
     assert result["failures"] == ["cell_1_row_0_payload_transfer_enabled_not_false"]
     assert result["cells"][1]["model_passed"] is True
     assert result["cells"][1]["child_passed"] is False

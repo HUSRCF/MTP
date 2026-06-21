@@ -40927,3 +40927,54 @@ It remains evidence for a producer-side issue schedule only.
 It still does not enable payload movement, ready credit, current WNA16 args,
 kernel arg pass, or endpoint benchmark claims.
 ```
+
+### Shifted issue accounting is now visible in queue/lookahead sweep artifacts
+
+The payload-cache stream lookahead and queue-budget sweeps now preserve the
+shifted issue accounting fields from the stream executor rows:
+
+```text
+shifted_issue_accounting_enabled
+shifted_issue_lead_tokens
+shifted_issue_clamped_issue_count
+shifted_issue_duplicate_issue_key_count
+shifted_issue_unique_issue_key_count
+shifted_issue_accounted_packet_count
+shifted_issue_invalid_export_count
+shifted_issue_row_shift_mismatch_count
+shifted_issue_row_clamp_mismatch_count
+```
+
+The lookahead sweep records these fields per row and as
+`first_model_passing_shifted_issue_accounting`. The queue-budget sweep lifts
+them into each cell as first-passing, best-row, and first-model-passing
+accounting summaries.
+
+Validation:
+
+```bash
+/home/husrcf/anaconda3/envs/TRY/bin/python -m pytest \
+  tests/test_run_premap_payload_cache_issue_stream_executor.py \
+  tests/test_sweep_premap_payload_cache_issue_stream_executor_lookahead.py \
+  tests/test_sweep_premap_payload_cache_issue_stream_executor_queue_budget.py \
+  tests/test_check_premap_payload_cache_stream_shifted_issue_replay_contract.py \
+  tests/test_build_premap_payload_cache_stream_shifted_issue_replay_contract.py -q
+# 57 passed
+```
+
+Observed smoke on the Dolly token-provenance packet export:
+
+```text
+issue_lead_tokens = 32
+shifted_issue_accounted_packet_count = 28
+shifted_issue_clamped_issue_count = 12
+shifted_issue_duplicate_issue_key_count = 12
+shifted_issue_unique_issue_key_count = 16
+shifted_issue_invalid_export_count = 0
+shifted_issue_row_shift_mismatch_count = 0
+shifted_issue_row_clamp_mismatch_count = 0
+```
+
+Boundary remains unchanged: this is queue/replay evidence only. It does not
+move payload, grant ready credit, pass kernel args, measure endpoint TPOT, or
+enable real WNA16 runtime.

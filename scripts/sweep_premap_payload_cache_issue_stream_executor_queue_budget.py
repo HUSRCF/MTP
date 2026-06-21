@@ -37,6 +37,17 @@ SAFE_FALSE_FLAGS = (
     "measures_vllm_latency",
 )
 SAFE_ZERO_FLAGS = ("payload_bytes",)
+SHIFTED_ISSUE_ACCOUNTING_FIELDS = (
+    "shifted_issue_accounting_enabled",
+    "shifted_issue_lead_tokens",
+    "shifted_issue_clamped_issue_count",
+    "shifted_issue_duplicate_issue_key_count",
+    "shifted_issue_unique_issue_key_count",
+    "shifted_issue_accounted_packet_count",
+    "shifted_issue_invalid_export_count",
+    "shifted_issue_row_shift_mismatch_count",
+    "shifted_issue_row_clamp_mismatch_count",
+)
 
 
 def _load_lookahead_module():
@@ -135,6 +146,12 @@ def _best_row(rows: list[dict[str, Any]]) -> dict[str, Any] | None:
     )
 
 
+def _copy_shifted_issue_accounting(row: dict[str, Any] | None) -> dict[str, Any] | None:
+    if row is None:
+        return None
+    return {key: row.get(key) for key in SHIFTED_ISSUE_ACCOUNTING_FIELDS}
+
+
 def run_queue_budget_sweep(args: argparse.Namespace) -> dict[str, Any]:
     lookahead = _load_lookahead_module()
     output_path = _resolve(args.output_json)
@@ -224,6 +241,15 @@ def run_queue_budget_sweep(args: argparse.Namespace) -> dict[str, Any]:
                 ),
                 "first_passing_row": first_row,
                 "best_row": best_row,
+                "first_passing_shifted_issue_accounting": (
+                    _copy_shifted_issue_accounting(first_row)
+                ),
+                "best_shifted_issue_accounting": _copy_shifted_issue_accounting(
+                    best_row
+                ),
+                "first_model_passing_shifted_issue_accounting": result.get(
+                    "first_model_passing_shifted_issue_accounting"
+                ),
                 "row_count": len(result.get("rows", [])),
                 "rows": result.get("rows", []),
                 "failures": result.get("failures", []),
@@ -238,6 +264,9 @@ def run_queue_budget_sweep(args: argparse.Namespace) -> dict[str, Any]:
                         "first_model_passing_issue_lead_tokens"
                     ),
                     "lookahead_us": result.get("first_model_passing_lookahead_us"),
+                    "shifted_issue_accounting": result.get(
+                        "first_model_passing_shifted_issue_accounting"
+                    ),
                     "cell_index": cell_index,
             }
             cell_index += 1

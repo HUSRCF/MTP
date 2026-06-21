@@ -98,6 +98,27 @@ class _FakeExecutor:
             "token_source_missing_count": 0,
             "allow_config_token_source": bool(args.allow_config_token_source),
             "allow_empty_config_packets": bool(args.allow_empty_config_packets),
+            "shifted_issue_accounting_enabled": args.event_timing_mode == "token_index",
+            "shifted_issue_lead_tokens": (
+                int(args.issue_lead_tokens)
+                if args.event_timing_mode == "token_index"
+                else 0
+            ),
+            "shifted_issue_clamped_issue_count": (
+                1 if args.event_timing_mode == "token_index" else 0
+            ),
+            "shifted_issue_duplicate_issue_key_count": (
+                2 if args.event_timing_mode == "token_index" else 0
+            ),
+            "shifted_issue_unique_issue_key_count": (
+                2 if args.event_timing_mode == "token_index" else 0
+            ),
+            "shifted_issue_accounted_packet_count": (
+                4 if args.event_timing_mode == "token_index" else 0
+            ),
+            "shifted_issue_invalid_export_count": 0,
+            "shifted_issue_row_shift_mismatch_count": 0,
+            "shifted_issue_row_clamp_mismatch_count": 0,
             "issue_arrival_min_us": 100.0,
             "issue_arrival_max_us": 200.0,
             "demand_arrival_min_us": 300.0,
@@ -145,6 +166,17 @@ def test_stream_lookahead_sweep_finds_first_model_passing_row(
     assert result["rows"][0]["safety_passed"] is True
     assert result["rows"][2]["model_passed"] is True
     assert result["rows"][2]["passed"] is True
+    assert result["first_model_passing_shifted_issue_accounting"] == {
+        "shifted_issue_accounting_enabled": False,
+        "shifted_issue_lead_tokens": 0,
+        "shifted_issue_clamped_issue_count": 0,
+        "shifted_issue_duplicate_issue_key_count": 0,
+        "shifted_issue_unique_issue_key_count": 0,
+        "shifted_issue_accounted_packet_count": 0,
+        "shifted_issue_invalid_export_count": 0,
+        "shifted_issue_row_shift_mismatch_count": 0,
+        "shifted_issue_row_clamp_mismatch_count": 0,
+    }
     assert result["full_fetch_allowed"] is False
     assert result["payload_transfer_enabled"] is False
     assert result["kernel_arg_pass_allowed"] is False
@@ -203,8 +235,24 @@ def test_stream_lookahead_sweep_supports_token_index_issue_lead_tokens(
     assert result["rows"][2]["observed_issue_to_demand_lead_min_us"] == 200.0
     assert result["rows"][2]["token_index_count"] == 4
     assert result["rows"][2]["token_source_decode_workload_count"] == 4
+    assert result["rows"][2]["shifted_issue_accounting_enabled"] is True
+    assert result["rows"][2]["shifted_issue_lead_tokens"] == 2
+    assert result["rows"][2]["shifted_issue_accounted_packet_count"] == 4
+    assert result["rows"][2]["shifted_issue_duplicate_issue_key_count"] == 2
+    assert result["rows"][2]["shifted_issue_invalid_export_count"] == 0
     assert result["rows"][2]["allow_empty_config_packets"] is True
     assert result["rows"][2]["passed"] is True
+    assert result["first_model_passing_shifted_issue_accounting"] == {
+        "shifted_issue_accounting_enabled": True,
+        "shifted_issue_lead_tokens": 2,
+        "shifted_issue_clamped_issue_count": 1,
+        "shifted_issue_duplicate_issue_key_count": 2,
+        "shifted_issue_unique_issue_key_count": 2,
+        "shifted_issue_accounted_packet_count": 4,
+        "shifted_issue_invalid_export_count": 0,
+        "shifted_issue_row_shift_mismatch_count": 0,
+        "shifted_issue_row_clamp_mismatch_count": 0,
+    }
     assert [call.event_timing_mode for call in EXECUTOR_CALLS] == [
         "token_index",
         "token_index",

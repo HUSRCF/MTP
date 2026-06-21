@@ -43,6 +43,17 @@ SAFE_FALSE_FLAGS = (
     "measures_vllm_latency",
 )
 SAFE_ZERO_FLAGS = ("payload_bytes",)
+SHIFTED_ISSUE_ACCOUNTING_FIELDS = (
+    "shifted_issue_accounting_enabled",
+    "shifted_issue_lead_tokens",
+    "shifted_issue_clamped_issue_count",
+    "shifted_issue_duplicate_issue_key_count",
+    "shifted_issue_unique_issue_key_count",
+    "shifted_issue_accounted_packet_count",
+    "shifted_issue_invalid_export_count",
+    "shifted_issue_row_shift_mismatch_count",
+    "shifted_issue_row_clamp_mismatch_count",
+)
 
 
 def _load_executor_module():
@@ -126,6 +137,10 @@ def _valid_number(value: Any) -> bool:
     )
 
 
+def _copy_shifted_issue_accounting(result: dict[str, Any]) -> dict[str, Any]:
+    return {key: result.get(key) for key in SHIFTED_ISSUE_ACCOUNTING_FIELDS}
+
+
 def run_stream_lookahead_sweep(args: argparse.Namespace) -> dict[str, Any]:
     executor = _load_executor_module()
     output_path = _resolve(args.output_json)
@@ -151,6 +166,7 @@ def run_stream_lookahead_sweep(args: argparse.Namespace) -> dict[str, Any]:
     failures: list[str] = []
     first_model_passing_lookahead_us: float | None = None
     first_model_passing_issue_lead_tokens: int | None = None
+    first_model_passing_shifted_issue_accounting: dict[str, Any] | None = None
 
     for index, sweep_value in enumerate(sweep_values):
         lookahead_us = (
@@ -318,12 +334,16 @@ def run_stream_lookahead_sweep(args: argparse.Namespace) -> dict[str, Any]:
             "demand_arrival_max_us": demand_arrival_max_us,
             "failures": result.get("failures", []),
         }
+        row.update(_copy_shifted_issue_accounting(result))
         row.update(row_safety)
         rows.append(row)
         if model_passed and first_model_passing_lookahead_us is None:
             first_model_passing_lookahead_us = float(lookahead_us)
             first_model_passing_issue_lead_tokens = (
                 int(issue_lead_tokens) if token_timing_enabled else None
+            )
+            first_model_passing_shifted_issue_accounting = (
+                _copy_shifted_issue_accounting(row)
             )
 
     payload = {
@@ -352,6 +372,9 @@ def run_stream_lookahead_sweep(args: argparse.Namespace) -> dict[str, Any]:
         "configured_lookahead_us_values": lookahead_values,
         "requested_lookahead_us_values": [float(row["requested_lookahead_us"]) for row in rows],
         "rows": rows,
+        "first_model_passing_shifted_issue_accounting": (
+            first_model_passing_shifted_issue_accounting
+        ),
         "online_canary_json": str(_resolve(args.online_canary_json)),
         "measured_copy_json": (
             None
