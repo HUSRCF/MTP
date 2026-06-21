@@ -40585,3 +40585,96 @@ Verification:
   --output-json outputs/reports/premap_lab_gate_verify_reuse_native_artifacts.check.json
 passed = true
 ```
+
+### 2026-06-21: token-index stream lookahead gate keeps full_fetch blocked
+
+The payload/cache-manager branch was rechecked with the clean token-provenance
+producer packet evidence instead of the older packet-index/minimal Dolly128
+archive.  This avoids treating stale packets with missing explicit no-op fields
+as a runtime conclusion.
+
+Input evidence:
+
+```text
+outputs/reports/premap_kernel_consumer/
+  premap_payload_cache_producer_packet_token_provenance_online_canary_dolly4_awq_gpu1_smoke_v3.json
+```
+
+New artifacts:
+
+```text
+outputs/reports/premap_kernel_consumer/
+  premap_payload_cache_issue_stream_executor_token_index_lookahead_sweep_dolly4_after_lab_refresh_v1.json
+  premap_payload_cache_stream_full_fetch_decision_gate_token_index_dolly4_after_lab_refresh_v1.json
+  premap_payload_cache_stream_earlier_issue_feasibility_token_index_dolly4_after_lab_refresh_v1.json
+```
+
+Result:
+
+```text
+token_index_timing = true
+first_model_passing_issue_lead_tokens = 32
+first_model_passing_lookahead_us = 2400000
+current_lookahead_us = 0
+decision = block_full_fetch_insufficient_stream_lookahead
+full_fetch_runtime_allowed = false
+metadata_premap_runtime_preferred = true
+descriptor_prep_runtime_preferred = true
+```
+
+At the current measured-copy envelope, the token-index stream model has a
+positive model region only when producer-side issue happens much earlier:
+
+```text
+lead 8 tokens:
+  demand_hit_rate = 0.6652
+  ready_late_miss_rate = 0.3348
+  used_per_issued_fetch = 0.4361
+  model_passed = false
+
+lead 32 tokens:
+  demand_hit_rate = 0.8527
+  ready_late_miss_rate = 0.1473
+  used_per_issued_fetch = 0.7519
+  model_passed = true
+
+lead 64 tokens:
+  demand_hit_rate = 1.0
+  ready_late_miss_rate = 0.0
+  used_per_issued_fetch = 1.0
+  model_passed = true
+```
+
+The lead feasibility model converts the required 2.4s lookahead into:
+
+```text
+decode-token duration 50ms  -> 48 lead tokens
+decode-token duration 75ms  -> 32 lead tokens
+decode-token duration 100ms -> 24 lead tokens
+```
+
+Safety boundary remains closed:
+
+```text
+payload_bytes = 0
+payload_transfer_enabled = false
+ready_credit = false
+ready_before_demand_credit = false
+real_ready_credit_granted = false
+kernel_arg_pass_allowed = false
+passed_to_kernel = false
+changes_kernel_launch_args = false
+uses_current_wna16_args = false
+passes_current_wna16_args = false
+measures_tpot = false
+measures_vllm_latency = false
+```
+
+Interpretation:
+
+```text
+full_fetch is not ready for live runtime.
+The next valid runtime work is either:
+  1. implement producer-side earlier issue with >=24-48 token lead, or
+  2. keep full_fetch blocked and continue metadata/premap/descriptor-prep.
+```
