@@ -61,6 +61,10 @@ PAYLOAD_CACHE_RUNTIME_PLAN_ALLOWED_STATUSES = frozenset(
         "participation_not_full_fetch_candidate:accounting_only_all_demands_ready_late",
     }
 )
+PAYLOAD_CACHE_RUNTIME_EXECUTION_ALLOWED_STATUSES = frozenset(
+    f"blocked_by_runtime_plan:{status}"
+    for status in PAYLOAD_CACHE_RUNTIME_PLAN_ALLOWED_STATUSES
+)
 
 
 def _load_json(path: Path) -> dict[str, Any]:
@@ -1622,6 +1626,20 @@ def check_premap_lab_preflight_summary(
         "prefetch_lab_default_payload_cache_runtime_plan_kernel_arg_pass_allowed": False,
         "prefetch_lab_default_payload_cache_runtime_plan_changes_kernel_launch_args": False,
         "prefetch_lab_default_payload_cache_runtime_plan_full_fetch_runtime_allowed": False,
+        "prefetch_lab_default_payload_cache_runtime_execution_present": True,
+        "prefetch_lab_default_payload_cache_runtime_execution_stage": (
+            "payload_cache_runtime_execution_lab_gate_dry_run"
+        ),
+        "prefetch_lab_default_payload_cache_runtime_execution_consumes_plan": True,
+        "prefetch_lab_default_payload_cache_runtime_execution_live_payload_runtime_enabled": False,
+        "prefetch_lab_default_payload_cache_runtime_execution_payload_transfer_runtime_enabled": False,
+        "prefetch_lab_default_payload_cache_runtime_execution_issued_payload_count": 0,
+        "prefetch_lab_default_payload_cache_runtime_execution_payload_bytes": 0,
+        "prefetch_lab_default_payload_cache_runtime_execution_ready_credit": False,
+        "prefetch_lab_default_payload_cache_runtime_execution_real_ready_credit_granted": False,
+        "prefetch_lab_default_payload_cache_runtime_execution_kernel_arg_pass_allowed": False,
+        "prefetch_lab_default_payload_cache_runtime_execution_changes_kernel_launch_args": False,
+        "prefetch_lab_default_payload_cache_runtime_execution_full_fetch_runtime_allowed": False,
         "prefetch_lab_default_metadata_decision": "shadow_only",
         "prefetch_lab_default_metadata_passed": True,
         "prefetch_lab_default_premap_decision": (
@@ -1862,6 +1880,67 @@ def check_premap_lab_preflight_summary(
     for key in (
         "prefetch_lab_default_payload_cache_runtime_plan_planned_issue_count",
         "prefetch_lab_default_payload_cache_runtime_plan_payload_bytes",
+    ):
+        if _int_metric(summary, key) != 0:
+            failures.append(f"{key}_type_mismatch")
+
+    for key in (
+        "prefetch_lab_default_payload_cache_runtime_execution_present",
+        "prefetch_lab_default_payload_cache_runtime_execution_consumes_plan",
+    ):
+        if summary.get(key) is not True:
+            failures.append(f"{key}_type_mismatch")
+    for key in (
+        "prefetch_lab_default_payload_cache_runtime_execution_live_payload_runtime_enabled",
+        "prefetch_lab_default_payload_cache_runtime_execution_payload_transfer_runtime_enabled",
+        "prefetch_lab_default_payload_cache_runtime_execution_ready_credit",
+        "prefetch_lab_default_payload_cache_runtime_execution_real_ready_credit_granted",
+        "prefetch_lab_default_payload_cache_runtime_execution_kernel_arg_pass_allowed",
+        "prefetch_lab_default_payload_cache_runtime_execution_changes_kernel_launch_args",
+        "prefetch_lab_default_payload_cache_runtime_execution_full_fetch_runtime_allowed",
+    ):
+        if summary.get(key) is not False:
+            failures.append(f"{key}_type_mismatch")
+    runtime_execution_stage = summary.get(
+        "prefetch_lab_default_payload_cache_runtime_execution_stage"
+    )
+    if (
+        not isinstance(runtime_execution_stage, str)
+        or runtime_execution_stage
+        != "payload_cache_runtime_execution_lab_gate_dry_run"
+    ):
+        failures.append(
+            "prefetch_lab_default_payload_cache_runtime_execution_stage_type_mismatch"
+        )
+    runtime_execution_status = summary.get(
+        "prefetch_lab_default_payload_cache_runtime_execution_status"
+    )
+    if (
+        not isinstance(runtime_execution_status, str)
+        or runtime_execution_status
+        not in PAYLOAD_CACHE_RUNTIME_EXECUTION_ALLOWED_STATUSES
+    ):
+        failures.append(
+            "prefetch_lab_default_payload_cache_runtime_execution_status_type_mismatch"
+        )
+    elif isinstance(runtime_plan_status, str):
+        expected_runtime_execution_status = (
+            f"blocked_by_runtime_plan:{runtime_plan_status}"
+        )
+        if runtime_execution_status != expected_runtime_execution_status:
+            failures.append(
+                "prefetch_lab_default_payload_cache_runtime_execution_status_mismatch"
+            )
+    runtime_execution_plan_status = summary.get(
+        "prefetch_lab_default_payload_cache_runtime_execution_plan_status"
+    )
+    if runtime_execution_plan_status != runtime_plan_status:
+        failures.append(
+            "prefetch_lab_default_payload_cache_runtime_execution_plan_status_mismatch"
+        )
+    for key in (
+        "prefetch_lab_default_payload_cache_runtime_execution_issued_payload_count",
+        "prefetch_lab_default_payload_cache_runtime_execution_payload_bytes",
     ):
         if _int_metric(summary, key) != 0:
             failures.append(f"{key}_type_mismatch")

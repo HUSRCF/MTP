@@ -41590,3 +41590,80 @@ Real vLLM/GPU trace runs must be executed outside the Codex sandbox device
 namespace; inside the sandbox torch.cuda reports unavailable even when the host
 GPU is usable.
 ```
+
+### 2026-06-21: Payload-cache runtime execution dry-run promoted into lab default gate
+
+The ready-time direct snapshot gate now requires an online-emitted,
+materialized runtime-execution dry-run object in addition to the earlier
+participation and runtime-plan objects.
+
+The refreshed evidence artifact is:
+
+```text
+outputs/reports/premap_kernel_consumer/
+  premap_payload_cache_ready_time_runtime_execution_object_smoke_gpu1_20260621.json
+```
+
+It is now wired as the default
+`full_fetch.ready_time_direct_snapshot_report` in:
+
+```text
+configs/runtime/prefetch_lab_default_gate_gpu1.yaml
+```
+
+The default lab preflight summary is:
+
+```text
+outputs/reports/premap_lab_preflight_status_runtime_execution_object_gate_summary_20260621.json
+outputs/reports/premap_lab_preflight_status_runtime_execution_object_gate_summary_20260621.check.json
+```
+
+The new required compact-summary fields are:
+
+```text
+prefetch_lab_default_payload_cache_runtime_execution_present = true
+prefetch_lab_default_payload_cache_runtime_execution_stage =
+  payload_cache_runtime_execution_lab_gate_dry_run
+prefetch_lab_default_payload_cache_runtime_execution_status =
+  blocked_by_runtime_plan:<runtime_plan_status>
+prefetch_lab_default_payload_cache_runtime_execution_plan_status =
+  <runtime_plan_status>
+```
+
+and the side-effect boundary remains strict:
+
+```text
+live_payload_runtime_enabled = false
+payload_transfer_runtime_enabled = false
+issued_payload_count = 0
+payload_bytes = 0
+ready_credit = false
+real_ready_credit_granted = false
+kernel_arg_pass_allowed = false
+changes_kernel_launch_args = false
+full_fetch_runtime_allowed = false
+```
+
+This promotes the payload-cache path from a runtime-plan accounting object to a
+dry-run execution object that consumes the plan and reports why execution is
+blocked.  It is still not endpoint TPOT evidence, not real payload transfer,
+not ready-before-demand credit, and not kernel-argument handoff.
+
+Validation:
+
+```bash
+/home/husrcf/anaconda3/envs/TRY/bin/python -m pytest \
+  tests/test_check_prefetch_lab_default_gate.py \
+  tests/test_run_premap_lab_preflight.py \
+  tests/test_check_premap_lab_preflight_summary.py \
+  tests/test_check_premap_payload_cache_ready_time_gate.py -q
+# 339 passed
+
+/home/husrcf/anaconda3/envs/TRY/bin/python -m py_compile \
+  scripts/check_prefetch_lab_default_gate.py \
+  scripts/run_premap_lab_preflight.py \
+  scripts/check_premap_lab_preflight_summary.py \
+  scripts/check_premap_payload_cache_ready_time_gate.py
+
+git diff --check
+```

@@ -235,6 +235,26 @@ def _check_ready_time_direct_snapshot_gate(
         runtime_plan_status = (
             f"participation_not_full_fetch_candidate:{runtime_participation_status_label}"
         )
+    runtime_execution_present = _optional_bool(
+        metrics,
+        "direct_snapshot_runtime_execution_present",
+    )
+    runtime_execution_stage = metrics.get("direct_snapshot_runtime_execution_stage")
+    runtime_execution_status = metrics.get("direct_snapshot_runtime_execution_status")
+    runtime_execution_plan_status = metrics.get(
+        "direct_snapshot_runtime_execution_plan_status"
+    )
+    runtime_execution_payload_bytes = _optional_int(
+        metrics,
+        "direct_snapshot_runtime_execution_payload_bytes",
+    )
+    runtime_execution_issued_payload_count = _optional_int(
+        metrics,
+        "direct_snapshot_runtime_execution_issued_payload_count",
+    )
+    runtime_execution_status_label = (
+        runtime_execution_status if isinstance(runtime_execution_status, str) else None
+    )
     if not passed:
         failures.append("ready_time_direct_snapshot_report_not_passed")
     if not recheck_passed:
@@ -305,6 +325,76 @@ def _check_ready_time_direct_snapshot_gate(
     ):
         failures.append(
             "ready_time_direct_snapshot_runtime_participation_payload_transfer_runtime_enabled"
+        )
+    if runtime_execution_present is not True:
+        failures.append("ready_time_direct_snapshot_runtime_execution_not_present")
+    if runtime_execution_stage != "payload_cache_runtime_execution_lab_gate_dry_run":
+        failures.append("ready_time_direct_snapshot_runtime_execution_stage_mismatch")
+    if runtime_execution_plan_status != runtime_plan_status:
+        failures.append(
+            "ready_time_direct_snapshot_runtime_execution_plan_status_mismatch"
+        )
+    expected_runtime_execution_status = f"blocked_by_runtime_plan:{runtime_plan_status}"
+    if runtime_execution_status != expected_runtime_execution_status:
+        failures.append("ready_time_direct_snapshot_runtime_execution_status_mismatch")
+    if (
+        metrics.get("direct_snapshot_runtime_execution_consumes_plan")
+        is not True
+    ):
+        failures.append("ready_time_direct_snapshot_runtime_execution_consumes_plan")
+    if (
+        metrics.get("direct_snapshot_runtime_execution_live_payload_runtime_enabled")
+        is not False
+    ):
+        failures.append(
+            "ready_time_direct_snapshot_runtime_execution_live_payload_runtime_enabled"
+        )
+    if (
+        metrics.get(
+            "direct_snapshot_runtime_execution_payload_transfer_runtime_enabled"
+        )
+        is not False
+    ):
+        failures.append(
+            "ready_time_direct_snapshot_runtime_execution_payload_transfer_runtime_enabled"
+        )
+    if runtime_execution_issued_payload_count != 0:
+        failures.append(
+            "ready_time_direct_snapshot_runtime_execution_issued_payload_count_mismatch"
+        )
+    if runtime_execution_payload_bytes != 0:
+        failures.append(
+            "ready_time_direct_snapshot_runtime_execution_payload_bytes_mismatch"
+        )
+    if metrics.get("direct_snapshot_runtime_execution_ready_credit") is not False:
+        failures.append("ready_time_direct_snapshot_runtime_execution_ready_credit")
+    if (
+        metrics.get("direct_snapshot_runtime_execution_real_ready_credit_granted")
+        is not False
+    ):
+        failures.append(
+            "ready_time_direct_snapshot_runtime_execution_real_ready_credit_granted"
+        )
+    if (
+        metrics.get("direct_snapshot_runtime_execution_kernel_arg_pass_allowed")
+        is not False
+    ):
+        failures.append(
+            "ready_time_direct_snapshot_runtime_execution_kernel_arg_pass_allowed"
+        )
+    if (
+        metrics.get("direct_snapshot_runtime_execution_changes_kernel_launch_args")
+        is not False
+    ):
+        failures.append(
+            "ready_time_direct_snapshot_runtime_execution_changes_kernel_launch_args"
+        )
+    if (
+        metrics.get("direct_snapshot_runtime_execution_full_fetch_runtime_allowed")
+        is not False
+    ):
+        failures.append(
+            "ready_time_direct_snapshot_runtime_execution_full_fetch_runtime_allowed"
         )
     return {
         "ready_time_direct_snapshot_report_present": True,
@@ -409,6 +499,70 @@ def _check_ready_time_direct_snapshot_gate(
         "ready_time_direct_snapshot_runtime_plan_kernel_arg_pass_allowed": False,
         "ready_time_direct_snapshot_runtime_plan_changes_kernel_launch_args": False,
         "ready_time_direct_snapshot_runtime_plan_full_fetch_runtime_allowed": False,
+        "ready_time_direct_snapshot_runtime_execution_present": (
+            runtime_execution_present
+        ),
+        "ready_time_direct_snapshot_runtime_execution_stage": (
+            str(runtime_execution_stage)
+            if runtime_execution_stage is not None
+            else None
+        ),
+        "ready_time_direct_snapshot_runtime_execution_status": (
+            runtime_execution_status_label
+        ),
+        "ready_time_direct_snapshot_runtime_execution_consumes_plan": (
+            _optional_bool(metrics, "direct_snapshot_runtime_execution_consumes_plan")
+        ),
+        "ready_time_direct_snapshot_runtime_execution_plan_status": (
+            str(runtime_execution_plan_status)
+            if runtime_execution_plan_status is not None
+            else None
+        ),
+        "ready_time_direct_snapshot_runtime_execution_live_payload_runtime_enabled": (
+            _optional_bool(
+                metrics,
+                "direct_snapshot_runtime_execution_live_payload_runtime_enabled",
+            )
+        ),
+        "ready_time_direct_snapshot_runtime_execution_payload_transfer_runtime_enabled": (
+            _optional_bool(
+                metrics,
+                "direct_snapshot_runtime_execution_payload_transfer_runtime_enabled",
+            )
+        ),
+        "ready_time_direct_snapshot_runtime_execution_issued_payload_count": (
+            runtime_execution_issued_payload_count
+        ),
+        "ready_time_direct_snapshot_runtime_execution_payload_bytes": (
+            runtime_execution_payload_bytes
+        ),
+        "ready_time_direct_snapshot_runtime_execution_ready_credit": (
+            _optional_bool(metrics, "direct_snapshot_runtime_execution_ready_credit")
+        ),
+        "ready_time_direct_snapshot_runtime_execution_real_ready_credit_granted": (
+            _optional_bool(
+                metrics,
+                "direct_snapshot_runtime_execution_real_ready_credit_granted",
+            )
+        ),
+        "ready_time_direct_snapshot_runtime_execution_kernel_arg_pass_allowed": (
+            _optional_bool(
+                metrics,
+                "direct_snapshot_runtime_execution_kernel_arg_pass_allowed",
+            )
+        ),
+        "ready_time_direct_snapshot_runtime_execution_changes_kernel_launch_args": (
+            _optional_bool(
+                metrics,
+                "direct_snapshot_runtime_execution_changes_kernel_launch_args",
+            )
+        ),
+        "ready_time_direct_snapshot_runtime_execution_full_fetch_runtime_allowed": (
+            _optional_bool(
+                metrics,
+                "direct_snapshot_runtime_execution_full_fetch_runtime_allowed",
+            )
+        ),
     }
 
 

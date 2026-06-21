@@ -116,6 +116,62 @@ def _write_fixture(tmp_path: Path, *, allow_full_fetch: bool = False) -> Path:
                     "direct_snapshot_runtime_participation_candidate_reason": (
                         "no_used_fetch"
                     ),
+                    "direct_snapshot_runtime_plan_present": True,
+                    "direct_snapshot_runtime_plan_stage": (
+                        "payload_cache_runtime_plan_lab_gate_dry_run"
+                    ),
+                    "direct_snapshot_runtime_plan_status": (
+                        "participation_not_full_fetch_candidate:"
+                        "accounting_only_no_used_fetch"
+                    ),
+                    "direct_snapshot_runtime_plan_consumes_participation": True,
+                    "direct_snapshot_runtime_plan_participation_status": (
+                        "accounting_only_no_used_fetch"
+                    ),
+                    "direct_snapshot_runtime_plan_live_payload_runtime_enabled": (
+                        False
+                    ),
+                    "direct_snapshot_runtime_plan_planned_issue_count": 0,
+                    "direct_snapshot_runtime_plan_payload_bytes": 0,
+                    "direct_snapshot_runtime_plan_ready_credit": False,
+                    "direct_snapshot_runtime_plan_kernel_arg_pass_allowed": False,
+                    "direct_snapshot_runtime_plan_changes_kernel_launch_args": False,
+                    "direct_snapshot_runtime_plan_full_fetch_runtime_allowed": False,
+                    "direct_snapshot_runtime_execution_present": True,
+                    "direct_snapshot_runtime_execution_stage": (
+                        "payload_cache_runtime_execution_lab_gate_dry_run"
+                    ),
+                    "direct_snapshot_runtime_execution_status": (
+                        "blocked_by_runtime_plan:"
+                        "participation_not_full_fetch_candidate:"
+                        "accounting_only_no_used_fetch"
+                    ),
+                    "direct_snapshot_runtime_execution_consumes_plan": True,
+                    "direct_snapshot_runtime_execution_plan_status": (
+                        "participation_not_full_fetch_candidate:"
+                        "accounting_only_no_used_fetch"
+                    ),
+                    "direct_snapshot_runtime_execution_live_payload_runtime_enabled": (
+                        False
+                    ),
+                    "direct_snapshot_runtime_execution_payload_transfer_runtime_enabled": (
+                        False
+                    ),
+                    "direct_snapshot_runtime_execution_issued_payload_count": 0,
+                    "direct_snapshot_runtime_execution_payload_bytes": 0,
+                    "direct_snapshot_runtime_execution_ready_credit": False,
+                    "direct_snapshot_runtime_execution_real_ready_credit_granted": (
+                        False
+                    ),
+                    "direct_snapshot_runtime_execution_kernel_arg_pass_allowed": (
+                        False
+                    ),
+                    "direct_snapshot_runtime_execution_changes_kernel_launch_args": (
+                        False
+                    ),
+                    "direct_snapshot_runtime_execution_full_fetch_runtime_allowed": (
+                        False
+                    ),
                 },
             }
         ),
@@ -393,6 +449,69 @@ def test_prefetch_lab_default_gate_passes_low_risk_premap_path(tmp_path: Path):
     assert (
         full_fetch[
             "ready_time_direct_snapshot_runtime_plan_full_fetch_runtime_allowed"
+        ]
+        is False
+    )
+    assert full_fetch["ready_time_direct_snapshot_runtime_execution_present"] is True
+    assert (
+        full_fetch["ready_time_direct_snapshot_runtime_execution_stage"]
+        == "payload_cache_runtime_execution_lab_gate_dry_run"
+    )
+    assert (
+        full_fetch["ready_time_direct_snapshot_runtime_execution_status"]
+        == "blocked_by_runtime_plan:"
+        "participation_not_full_fetch_candidate:accounting_only_no_used_fetch"
+    )
+    assert (
+        full_fetch["ready_time_direct_snapshot_runtime_execution_plan_status"]
+        == full_fetch["ready_time_direct_snapshot_runtime_plan_status"]
+    )
+    assert (
+        full_fetch["ready_time_direct_snapshot_runtime_execution_consumes_plan"]
+        is True
+    )
+    assert (
+        full_fetch[
+            "ready_time_direct_snapshot_runtime_execution_live_payload_runtime_enabled"
+        ]
+        is False
+    )
+    assert (
+        full_fetch[
+            "ready_time_direct_snapshot_runtime_execution_payload_transfer_runtime_enabled"
+        ]
+        is False
+    )
+    assert (
+        full_fetch["ready_time_direct_snapshot_runtime_execution_issued_payload_count"]
+        == 0
+    )
+    assert full_fetch["ready_time_direct_snapshot_runtime_execution_payload_bytes"] == 0
+    assert (
+        full_fetch["ready_time_direct_snapshot_runtime_execution_ready_credit"]
+        is False
+    )
+    assert (
+        full_fetch[
+            "ready_time_direct_snapshot_runtime_execution_real_ready_credit_granted"
+        ]
+        is False
+    )
+    assert (
+        full_fetch[
+            "ready_time_direct_snapshot_runtime_execution_kernel_arg_pass_allowed"
+        ]
+        is False
+    )
+    assert (
+        full_fetch[
+            "ready_time_direct_snapshot_runtime_execution_changes_kernel_launch_args"
+        ]
+        is False
+    )
+    assert (
+        full_fetch[
+            "ready_time_direct_snapshot_runtime_execution_full_fetch_runtime_allowed"
         ]
         is False
     )
