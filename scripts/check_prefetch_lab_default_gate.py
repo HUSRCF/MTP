@@ -16,9 +16,18 @@ from __future__ import annotations
 import argparse
 import json
 from pathlib import Path
+import sys
 from typing import Any
 
 import yaml
+
+REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
+from scripts.check_premap_payload_cache_stream_shifted_issue_replay_contract import (  # noqa: E402
+    check_shifted_issue_replay_contract,
+)
 
 
 def check_prefetch_lab_default_gate(path: Path, *, root: Path) -> dict[str, Any]:
@@ -69,6 +78,11 @@ def _check_full_fetch(section: dict[str, Any], *, root: Path) -> dict[str, Any]:
     stream_decision = _check_optional_stream_decision_gate(section, root, failures)
     stream_feasibility = _check_optional_stream_feasibility(section, root, failures)
     stream_lead_sweep = _check_optional_stream_lead_token_sweep(section, root, failures)
+    stream_shifted_issue = _check_stream_shifted_issue_replay_contract(
+        section,
+        root,
+        failures,
+    )
     if not passed:
         failures.append("ready_time_gate_report_not_passed")
     if allow:
@@ -146,6 +160,7 @@ def _check_full_fetch(section: dict[str, Any], *, root: Path) -> dict[str, Any]:
         **stream_decision,
         **stream_feasibility,
         **stream_lead_sweep,
+        **stream_shifted_issue,
     }
 
 
@@ -377,6 +392,104 @@ def _check_optional_stream_lead_token_sweep(
     }
 
 
+def _check_stream_shifted_issue_replay_contract(
+    section: dict[str, Any],
+    root: Path,
+    failures: list[str],
+) -> dict[str, Any]:
+    path_value = section.get("stream_shifted_issue_replay_contract_report")
+    if path_value in (None, ""):
+        failures.append("stream_shifted_issue_replay_contract_report_missing")
+        return {
+            "stream_shifted_issue_replay_contract_present": False,
+            "stream_shifted_issue_replay_contract_report": None,
+            "stream_shifted_issue_replay_contract_passed": None,
+        }
+    path = _resolve(path_value, root=root)
+    report = _load_json(
+        path,
+        failures,
+        label="stream_shifted_issue_replay_contract_report",
+    )
+    required_lead = int(
+        section.get("stream_shifted_issue_replay_required_lead_tokens", 32)
+    )
+    min_schedulable = int(
+        section.get("stream_shifted_issue_replay_min_schedulable_packets", 1)
+    )
+    check = check_shifted_issue_replay_contract(
+        report,
+        required_issue_lead_tokens=required_lead,
+        min_schedulable_packet_count=min_schedulable,
+        require_bootstrap_clamp=True,
+        require_issue_key_coalescing=True,
+    )
+    if not bool(check.get("passed")):
+        failures.append("stream_shifted_issue_replay_contract_not_passed")
+        for failure in _string_list(check.get("failures")):
+            failures.append(f"stream_shifted_issue_replay_contract_{failure}")
+    return {
+        "stream_shifted_issue_replay_contract_present": True,
+        "stream_shifted_issue_replay_contract_report": str(path),
+        "stream_shifted_issue_replay_contract_passed": _optional_bool(
+            check,
+            "passed",
+        ),
+        "stream_shifted_issue_replay_contract_required_lead_tokens": required_lead,
+        "stream_shifted_issue_replay_contract_min_schedulable_packets": (
+            min_schedulable
+        ),
+        "stream_shifted_issue_replay_issue_lead_tokens": _optional_int(
+            check,
+            "issue_lead_tokens",
+        ),
+        "stream_shifted_issue_replay_schedulable_packet_count": _optional_int(
+            check,
+            "schedulable_packet_count",
+        ),
+        "stream_shifted_issue_replay_clamped_issue_count": _optional_int(
+            check,
+            "clamped_issue_count",
+        ),
+        "stream_shifted_issue_replay_duplicate_issue_key_count": _optional_int(
+            check,
+            "duplicate_issue_key_count",
+        ),
+        "stream_shifted_issue_replay_row_shift_mismatch_count": _optional_int(
+            check,
+            "row_shift_relation_mismatch_count",
+        ),
+        "stream_shifted_issue_replay_row_clamp_mismatch_count": _optional_int(
+            check,
+            "row_clamp_relation_mismatch_count",
+        ),
+        "stream_shifted_issue_replay_payload_bytes": _optional_int(
+            check,
+            "payload_bytes",
+        ),
+        "stream_shifted_issue_replay_source_payload_bytes": _optional_int(
+            check,
+            "source_payload_bytes",
+        ),
+        "stream_shifted_issue_replay_uses_current_wna16_args": _optional_bool(
+            check,
+            "uses_current_wna16_args",
+        ),
+        "stream_shifted_issue_replay_source_uses_current_wna16_args": _optional_bool(
+            check,
+            "source_uses_current_wna16_args",
+        ),
+        "stream_shifted_issue_replay_wna16_benchmark_ready": _optional_bool(
+            check,
+            "wna16_benchmark_ready",
+        ),
+        "stream_shifted_issue_replay_source_wna16_benchmark_ready": _optional_bool(
+            check,
+            "source_wna16_benchmark_ready",
+        ),
+    }
+
+
 def _check_stream_noop_safety(
     report: dict[str, Any],
     failures: list[str],
@@ -400,6 +513,13 @@ def _check_stream_noop_safety(
         "measures_vllm_latency",
     ):
         if report.get(field) is not False:
+            failures.append(f"{label}_{field}_not_false")
+    for field in (
+        "current_wna16_arg_compatible",
+        "requires_wna16_arg_reinterpretation",
+        "wna16_benchmark_ready",
+    ):
+        if field in report and report.get(field) is not False:
             failures.append(f"{label}_{field}_not_false")
 
 

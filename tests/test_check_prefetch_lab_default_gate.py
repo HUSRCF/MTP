@@ -22,6 +22,9 @@ _FULL_FETCH_DECISION_NOOP_FIELDS = {
     "changes_kernel_launch_args": False,
     "uses_current_wna16_args": False,
     "passes_current_wna16_args": False,
+    "current_wna16_arg_compatible": False,
+    "requires_wna16_arg_reinterpretation": False,
+    "wna16_benchmark_ready": False,
     "measures_tpot": False,
     "measures_vllm_latency": False,
 }
@@ -90,6 +93,51 @@ def _write_fixture(tmp_path: Path, *, allow_full_fetch: bool = False) -> Path:
         ),
         encoding="utf-8",
     )
+    stream_shifted = tmp_path / "stream_shifted_issue_contract.json"
+    stream_shifted.write_text(
+        json.dumps(
+            {
+                "artifact_kind": (
+                    "premap_payload_cache_stream_shifted_issue_replay_contract"
+                ),
+                "passed": True,
+                "failures": [],
+                "issue_lead_tokens": 32,
+                "packet_count": 5,
+                "schedulable_packet_count": 4,
+                "empty_issue_exempt_count": 1,
+                "clamped_issue_count": 2,
+                "duplicate_demand_key_count": 0,
+                "duplicate_issue_key_count": 2,
+                "unique_demand_key_count": 4,
+                "unique_issue_key_count": 2,
+                "total_issue_candidates": 32,
+                "issue_hash_count": 4,
+                "allow_clamped_issue_tokens": True,
+                "allow_duplicate_issue_keys": True,
+                "full_fetch_runtime_allowed": False,
+                "full_fetch_allowed": False,
+                "current_wna16_arg_compatible": False,
+                "requires_wna16_arg_reinterpretation": False,
+                "wna16_benchmark_ready": False,
+                **_FULL_FETCH_DECISION_NOOP_FIELDS,
+                "rows": [
+                    {
+                        "packet_index": index,
+                        "sample_idx": 0,
+                        "record_id": "record-0",
+                        "sequence_id": 0,
+                        "layer_id": 0,
+                        "demand_token_index": demand,
+                        "issue_token_index": max(0, demand - 32),
+                        "issue_clamped_to_zero": demand < 32,
+                    }
+                    for index, demand in enumerate([8, 16, 32, 48])
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
     summary = tmp_path / "metadata_premap.json"
     summary.write_text(
         json.dumps(
@@ -126,6 +174,11 @@ def _write_fixture(tmp_path: Path, *, allow_full_fetch: bool = False) -> Path:
                         stream_feasibility
                     ),
                     "stream_earlier_issue_lead_token_sweep_report": str(stream_lead),
+                    "stream_shifted_issue_replay_contract_report": str(
+                        stream_shifted
+                    ),
+                    "stream_shifted_issue_replay_required_lead_tokens": 32,
+                    "stream_shifted_issue_replay_min_schedulable_packets": 4,
                 },
                 "metadata": {
                     "default_enabled": False,
@@ -156,6 +209,15 @@ def test_prefetch_lab_default_gate_passes_low_risk_premap_path(tmp_path: Path):
         "premap": "lab_enabled_descriptor_prep_only",
     }
     assert result["sections"]["premap"]["recommended_capacity_entries"] == 12288
+    full_fetch = result["sections"]["full_fetch"]
+    assert full_fetch["stream_shifted_issue_replay_contract_present"] is True
+    assert full_fetch["stream_shifted_issue_replay_contract_passed"] is True
+    assert full_fetch["stream_shifted_issue_replay_issue_lead_tokens"] == 32
+    assert full_fetch["stream_shifted_issue_replay_schedulable_packet_count"] == 4
+    assert full_fetch["stream_shifted_issue_replay_row_shift_mismatch_count"] == 0
+    assert full_fetch["stream_shifted_issue_replay_source_payload_bytes"] == 0
+    assert full_fetch["stream_shifted_issue_replay_source_uses_current_wna16_args"] is False
+    assert full_fetch["stream_shifted_issue_replay_source_wna16_benchmark_ready"] is False
 
 
 def test_prefetch_lab_default_gate_rejects_full_fetch_allow_report(tmp_path: Path):
@@ -174,6 +236,7 @@ def test_prefetch_lab_default_gate_rejects_missing_stream_reports(tmp_path: Path
     payload["full_fetch"].pop("stream_decision_gate_report")
     payload["full_fetch"].pop("stream_earlier_issue_feasibility_report")
     payload["full_fetch"].pop("stream_earlier_issue_lead_token_sweep_report")
+    payload["full_fetch"].pop("stream_shifted_issue_replay_contract_report")
     config.write_text(yaml.safe_dump(payload), encoding="utf-8")
 
     result = check_prefetch_lab_default_gate(config, root=tmp_path)
@@ -182,6 +245,10 @@ def test_prefetch_lab_default_gate_rejects_missing_stream_reports(tmp_path: Path
     assert "full_fetch:stream_decision_gate_report_missing" in result["failures"]
     assert "full_fetch:stream_feasibility_report_missing" in result["failures"]
     assert "full_fetch:stream_lead_token_sweep_report_missing" in result["failures"]
+    assert (
+        "full_fetch:stream_shifted_issue_replay_contract_report_missing"
+        in result["failures"]
+    )
 
 
 def test_prefetch_lab_default_gate_accepts_full_fetch_decision_gate(tmp_path: Path):
@@ -382,6 +449,58 @@ def test_prefetch_lab_default_gate_rejects_stream_wna16_arg_usage(tmp_path: Path
     assert result["passed"] is False
     assert "full_fetch:stream_decision_gate_uses_current_wna16_args_not_false" in (
         result["failures"]
+    )
+
+
+def test_prefetch_lab_default_gate_rejects_stream_wna16_readiness(tmp_path: Path):
+    config = _write_fixture(tmp_path)
+    payload = yaml.safe_load(config.read_text(encoding="utf-8"))
+    stream_decision = tmp_path / "stream_decision.json"
+    fields = dict(_FULL_FETCH_DECISION_NOOP_FIELDS)
+    fields["wna16_benchmark_ready"] = True
+    stream_decision.write_text(
+        json.dumps(
+            {
+                "artifact_kind": "premap_payload_cache_stream_full_fetch_decision_gate",
+                "passed": True,
+                "full_fetch_runtime_allowed": False,
+                **fields,
+            }
+        ),
+        encoding="utf-8",
+    )
+    payload["full_fetch"]["stream_decision_gate_report"] = str(stream_decision)
+    config.write_text(yaml.safe_dump(payload), encoding="utf-8")
+
+    result = check_prefetch_lab_default_gate(config, root=tmp_path)
+
+    assert result["passed"] is False
+    assert "full_fetch:stream_decision_gate_wna16_benchmark_ready_not_false" in (
+        result["failures"]
+    )
+
+
+def test_prefetch_lab_default_gate_rejects_bad_shifted_issue_contract(
+    tmp_path: Path,
+):
+    config = _write_fixture(tmp_path)
+    payload = yaml.safe_load(config.read_text(encoding="utf-8"))
+    stream_shifted = Path(
+        payload["full_fetch"]["stream_shifted_issue_replay_contract_report"]
+    )
+    shifted_payload = json.loads(stream_shifted.read_text(encoding="utf-8"))
+    shifted_payload["rows"][1]["issue_token_index"] = 16
+    stream_shifted.write_text(json.dumps(shifted_payload), encoding="utf-8")
+
+    result = check_prefetch_lab_default_gate(config, root=tmp_path)
+
+    assert result["passed"] is False
+    assert "full_fetch:stream_shifted_issue_replay_contract_not_passed" in (
+        result["failures"]
+    )
+    assert (
+        "full_fetch:stream_shifted_issue_replay_contract_row_1_issue_token_shift_mismatch"
+        in result["failures"]
     )
 
 
