@@ -12,6 +12,7 @@ from mtp_expert_prefetch.runtime import (
     PayloadCacheLiveRuntimeAdapterInstantiationCanary,
     PayloadCacheLiveRuntimeAdapterConstructorBindingPreflight,
     PayloadCacheLiveRuntimeAdapterInstanceConstructionPlan,
+    PayloadCacheLiveRuntimeAdapterObjectShellEvidence,
     PayloadCacheLiveRuntimeAdapterStateObjectPreflight,
     PayloadCacheLiveRuntimeAdapterStateValidationArtifact,
     PayloadCacheLiveRuntimeAdapterStateValidationPreflight,
@@ -34,6 +35,7 @@ from mtp_expert_prefetch.runtime import (
     build_payload_cache_live_runtime_adapter_instantiation_canary,
     build_payload_cache_live_runtime_adapter_constructor_binding_preflight,
     build_payload_cache_live_runtime_adapter_instance_construction_plan,
+    build_payload_cache_live_runtime_adapter_object_shell_evidence,
     build_payload_cache_live_runtime_adapter_state_object_preflight,
     build_payload_cache_live_runtime_adapter_state_validation_artifact,
     build_payload_cache_live_runtime_adapter_state_validation_preflight,
@@ -3894,6 +3896,232 @@ def test_live_runtime_adapter_instance_construction_plan_builder_rejects_bad_bin
     object.__setattr__(binding, "payload_bytes", 1)
     with pytest.raises(ValueError, match="payload_bytes"):
         build_payload_cache_live_runtime_adapter_instance_construction_plan(binding)
+
+
+def _build_live_runtime_adapter_instance_construction_plan() -> (
+    PayloadCacheLiveRuntimeAdapterInstanceConstructionPlan
+):
+    return build_payload_cache_live_runtime_adapter_instance_construction_plan(
+        _build_live_runtime_adapter_constructor_binding_preflight(),
+    )
+
+
+def test_live_runtime_adapter_object_shell_evidence_consumes_plan() -> None:
+    plan = _build_live_runtime_adapter_instance_construction_plan()
+
+    evidence = build_payload_cache_live_runtime_adapter_object_shell_evidence(plan)
+    payload = evidence.as_dict()
+
+    assert payload["present"] is True
+    assert payload["stage"] == "payload_cache_live_runtime_adapter_object_shell_evidence"
+    assert payload["status"] == f"blocked_by_instance_construction_plan:{plan.status}"
+    assert payload["consumes_instance_construction_plan"] is True
+    assert payload["instance_construction_plan_status"] == plan.status
+    assert payload["manager_backend"] == "ReadyTimeExpertCacheManager"
+    assert payload["manager_runtime_contract"] == "ready_time_issue_demand_skeleton_v1"
+    assert payload["manager_runtime_mode"] == "ready_time_payload_cache_skeleton"
+    assert (
+        payload["instance_construction_plan_schema"]
+        == "ready_time_payload_cache_runtime_adapter_instance_construction_plan_v1"
+    )
+    assert payload["adapter_object_shell_created"] is True
+    assert payload["disabled_adapter_shell_snapshot_created"] is True
+    assert payload["shell_enabled"] is False
+    assert payload["adapter_instance_created"] is False
+    assert payload["live_runtime_instantiated"] is False
+    assert payload["capacity_entries"] == 4096
+    assert payload["issue_lead_tokens"] == 32
+    assert payload["queue_deadline_us"] == 100.0
+    assert payload["lookahead_us"] == 2_400_000.0
+    assert payload["queue_batch_size"] == 1
+    for key in (
+        "resident_count",
+        "issued_fetch_count",
+        "used_fetch_count",
+        "unused_fetch_count",
+        "demand_count",
+        "demand_hit_count",
+        "demand_miss_count",
+        "evicted_before_use_count",
+        "ready_late_miss_count",
+        "late_completion_unused_count",
+        "queue_batch_count",
+    ):
+        assert payload[key] == 0
+    for key in (
+        "queue_service_us",
+        "queue_total_span_us",
+        "queue_wait_us",
+        "queue_max_delay_us",
+    ):
+        assert payload[key] == 0.0
+    assert payload["shifted_issue_accounting_enabled"] is True
+    assert payload["shifted_issue_accounted_packet_count"] == 28
+    assert payload["shifted_issue_unique_issue_key_count"] == 16
+    assert payload["decision"] == "blocked"
+    assert payload["block_reason"] == "live_runtime_adapter_object_shell_evidence_only"
+    assert (
+        payload["execution_mode"]
+        == "payload_cache_live_runtime_adapter_object_shell_evidence_disabled"
+    )
+    assert payload["issued_payload_count"] == 0
+    assert payload["payload_bytes"] == 0
+    for key in (
+        "live_payload_runtime_enabled",
+        "payload_transfer_runtime_enabled",
+        "payload_deref_allowed",
+        "payload_deref_runtime_allowed",
+        "ready_credit",
+        "ready_before_demand_credit",
+        "real_ready_credit_granted",
+        "kernel_arg_pass_allowed",
+        "passed_to_kernel",
+        "changes_kernel_launch_args",
+        "full_fetch_runtime_allowed",
+        "uses_current_wna16_args",
+        "passes_current_wna16_args",
+        "measures_tpot",
+        "measures_vllm_latency",
+    ):
+        assert payload[key] is False
+
+
+def test_live_runtime_adapter_object_shell_evidence_rejects_side_effects() -> None:
+    plan_status = (
+        "blocked_by_constructor_binding_preflight:"
+        "blocked_by_instantiation_canary:"
+        "blocked_by_state_validation_artifact:"
+        "blocked_by_adapter_state_validation_preflight:"
+        "blocked_by_adapter_state_object_preflight:"
+        "blocked_by_adapter_materialization_preflight:"
+        "blocked_by_object_adapter_preflight:"
+        "blocked_by_object_construction_preflight:"
+        "blocked_by_state_shape_check:"
+        "blocked_by_live_runtime_canary:"
+        "blocked_by_live_runtime_preflight:"
+        "blocked_by_runtime_snapshot:"
+        "blocked_by_runtime_skeleton:"
+        "blocked_by_manager_artifact:"
+        "blocked_by_live_payload_runtime:"
+        "blocked_by_live_payload_stage:"
+        "blocked_by_queue_budget_runtime_envelope:"
+        "model_queue_budget_satisfied_runtime_disabled"
+    )
+    base_kwargs = {
+        "present": True,
+        "stage": "payload_cache_live_runtime_adapter_object_shell_evidence",
+        "status": f"blocked_by_instance_construction_plan:{plan_status}",
+        "consumes_instance_construction_plan": True,
+        "instance_construction_plan_status": plan_status,
+        "manager_backend": "ReadyTimeExpertCacheManager",
+        "manager_runtime_contract": "ready_time_issue_demand_skeleton_v1",
+        "manager_runtime_mode": "ready_time_payload_cache_skeleton",
+        "instance_construction_plan_schema": (
+            "ready_time_payload_cache_runtime_adapter_instance_construction_plan_v1"
+        ),
+        "adapter_object_shell_created": True,
+        "disabled_adapter_shell_snapshot_created": True,
+        "shell_enabled": False,
+        "adapter_instance_created": False,
+        "live_runtime_instantiated": False,
+        "capacity_entries": 4096,
+        "issue_lead_tokens": 32,
+        "queue_deadline_us": 100.0,
+        "lookahead_us": 2_400_000.0,
+        "queue_batch_size": 1,
+        "resident_count": 0,
+        "issued_fetch_count": 0,
+        "used_fetch_count": 0,
+        "unused_fetch_count": 0,
+        "demand_count": 0,
+        "demand_hit_count": 0,
+        "demand_miss_count": 0,
+        "evicted_before_use_count": 0,
+        "ready_late_miss_count": 0,
+        "late_completion_unused_count": 0,
+        "queue_batch_count": 0,
+        "queue_service_us": 0.0,
+        "queue_total_span_us": 0.0,
+        "queue_wait_us": 0.0,
+        "queue_max_delay_us": 0.0,
+        "shifted_issue_accounting_enabled": True,
+        "shifted_issue_accounted_packet_count": 28,
+        "shifted_issue_unique_issue_key_count": 16,
+    }
+
+    with pytest.raises(ValueError, match="disabled"):
+        PayloadCacheLiveRuntimeAdapterObjectShellEvidence(
+            **{
+                **base_kwargs,
+                "shell_enabled": True,
+            },
+        )
+
+    with pytest.raises(ValueError, match="adapter instance"):
+        PayloadCacheLiveRuntimeAdapterObjectShellEvidence(
+            **{
+                **base_kwargs,
+                "adapter_instance_created": True,
+            },
+        )
+
+    with pytest.raises(ValueError, match="payload_bytes"):
+        PayloadCacheLiveRuntimeAdapterObjectShellEvidence(
+            **{
+                **base_kwargs,
+                "payload_bytes": 1,
+            },
+        )
+
+    for field_name in (
+        "ready_credit",
+        "kernel_arg_pass_allowed",
+        "uses_current_wna16_args",
+        "measures_tpot",
+    ):
+        with pytest.raises(ValueError, match=field_name):
+            PayloadCacheLiveRuntimeAdapterObjectShellEvidence(
+                **{
+                    **base_kwargs,
+                    field_name: True,
+                },
+            )
+
+    with pytest.raises(TypeError, match="plan"):
+        build_payload_cache_live_runtime_adapter_object_shell_evidence(object())  # type: ignore[arg-type]
+
+
+def test_live_runtime_adapter_object_shell_evidence_builder_rejects_bad_plan() -> None:
+    plan = _build_live_runtime_adapter_instance_construction_plan()
+
+    object.__setattr__(plan, "decision", "allow")
+    with pytest.raises(ValueError, match="must stay blocked"):
+        build_payload_cache_live_runtime_adapter_object_shell_evidence(plan)
+
+    plan = _build_live_runtime_adapter_instance_construction_plan()
+    object.__setattr__(plan, "status", "passed")
+    with pytest.raises(ValueError, match="status mismatch"):
+        build_payload_cache_live_runtime_adapter_object_shell_evidence(plan)
+
+    plan = _build_live_runtime_adapter_instance_construction_plan()
+    object.__setattr__(plan, "constructor_binding_status", "stale")
+    object.__setattr__(
+        plan,
+        "status",
+        "blocked_by_constructor_binding_preflight:stale",
+    )
+    with pytest.raises(ValueError, match="binding status chain"):
+        build_payload_cache_live_runtime_adapter_object_shell_evidence(plan)
+
+    plan = _build_live_runtime_adapter_instance_construction_plan()
+    object.__setattr__(plan, "adapter_instance_created", True)
+    with pytest.raises(ValueError, match="must not create instance"):
+        build_payload_cache_live_runtime_adapter_object_shell_evidence(plan)
+
+    plan = _build_live_runtime_adapter_instance_construction_plan()
+    object.__setattr__(plan, "payload_bytes", 1)
+    with pytest.raises(ValueError, match="payload_bytes"):
+        build_payload_cache_live_runtime_adapter_object_shell_evidence(plan)
 
 
 def test_payload_cache_runtime_execution_dry_run_consumes_plan() -> None:
