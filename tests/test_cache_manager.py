@@ -4,6 +4,8 @@ import pytest
 
 from mtp_expert_prefetch.runtime import (
     ControlledExpertCacheManager,
+    PayloadCacheRuntimeAdapterAccountingDryRun,
+    PayloadCacheRuntimeAdapterAccountingDryRunSnapshot,
     PayloadCacheRuntimeAdapterShell,
     PayloadCacheRuntimeAdapterShellSnapshot,
     ReadyTimeExpertCacheManager,
@@ -256,3 +258,115 @@ def test_payload_cache_runtime_adapter_shell_rejects_live_side_effects() -> None
             ready_late_miss_count=0,
             payload_deref_allowed=True,
         )
+
+
+def test_payload_cache_runtime_adapter_accounting_dry_run_tracks_manager_only() -> None:
+    adapter = PayloadCacheRuntimeAdapterAccountingDryRun(
+        capacity=4096,
+        service_us_per_issue=0.0,
+        service_us_per_batch=0.0,
+        queue_batch_size=1,
+        queue_deadline_us=100.0,
+    )
+
+    assert adapter.issue_prefetch(3, 7, arrival_us=0.0) is True
+    assert adapter.issue_prefetch(3, 7, arrival_us=1.0) is False
+    assert adapter.demand(3, 7, arrival_us=2.0) is True
+    snapshot = adapter.snapshot()
+    payload = snapshot.as_dict()
+
+    assert payload["present"] is True
+    assert payload["accounting_dry_run_enabled"] is True
+    assert payload["manager_backend"] == "ReadyTimeExpertCacheManager"
+    assert payload["manager_contract"] == "ready_time_issue_demand_skeleton_v1"
+    assert payload["capacity"] == 4096
+    assert payload["queue_batch_size"] == 1
+    assert payload["queue_deadline_us"] == 100.0
+    assert payload["resident_count"] == 1
+    assert payload["issued_fetch_count"] == 1
+    assert payload["used_fetch_count"] == 1
+    assert payload["unused_fetch_count"] == 0
+    assert payload["demand_count"] == 1
+    assert payload["demand_hit_count"] == 1
+    assert payload["demand_miss_count"] == 0
+    assert payload["ready_late_miss_count"] == 0
+    assert payload["queue_batch_count"] == 1
+    for key in ("issued_payload_count", "payload_bytes"):
+        assert payload[key] == 0
+    for key in (
+        "payload_transfer_runtime_enabled",
+        "payload_deref_allowed",
+        "payload_deref_runtime_allowed",
+        "ready_credit",
+        "ready_before_demand_credit",
+        "real_ready_credit_granted",
+        "kernel_arg_pass_allowed",
+        "passed_to_kernel",
+        "changes_kernel_launch_args",
+        "full_fetch_runtime_allowed",
+        "uses_current_wna16_args",
+        "passes_current_wna16_args",
+        "measures_tpot",
+        "measures_vllm_latency",
+        "live_runtime_instantiated",
+    ):
+        assert payload[key] is False
+
+
+def test_payload_cache_runtime_adapter_accounting_dry_run_snapshot_rejects_side_effects() -> None:
+    base_kwargs = {
+        "present": True,
+        "accounting_dry_run_enabled": True,
+        "manager_backend": "ReadyTimeExpertCacheManager",
+        "manager_contract": "ready_time_issue_demand_skeleton_v1",
+        "capacity": 4096,
+        "queue_batch_size": 1,
+        "queue_deadline_us": 100.0,
+        "service_us_per_issue": 0.0,
+        "service_us_per_batch": 0.0,
+        "resident_count": 1,
+        "issued_fetch_count": 1,
+        "used_fetch_count": 1,
+        "unused_fetch_count": 0,
+        "demand_count": 1,
+        "demand_hit_count": 1,
+        "demand_miss_count": 0,
+        "evicted_before_use_count": 0,
+        "ready_late_miss_count": 0,
+        "late_completion_unused_count": 0,
+        "queue_batch_count": 1,
+        "queue_service_us": 0.0,
+        "queue_total_span_us": 0.0,
+        "queue_wait_us": 0.0,
+        "queue_max_delay_us": 0.0,
+    }
+
+    with pytest.raises(ValueError, match="enabled"):
+        PayloadCacheRuntimeAdapterAccountingDryRunSnapshot(
+            **{
+                **base_kwargs,
+                "accounting_dry_run_enabled": False,
+            },
+        )
+
+    with pytest.raises(ValueError, match="payload_bytes"):
+        PayloadCacheRuntimeAdapterAccountingDryRunSnapshot(
+            **{
+                **base_kwargs,
+                "payload_bytes": 1,
+            },
+        )
+
+    for field_name in (
+        "ready_credit",
+        "kernel_arg_pass_allowed",
+        "uses_current_wna16_args",
+        "measures_tpot",
+    ):
+        with pytest.raises(ValueError, match=field_name):
+            PayloadCacheRuntimeAdapterAccountingDryRunSnapshot(
+                **{
+                    **base_kwargs,
+                    field_name: True,
+                },
+            )

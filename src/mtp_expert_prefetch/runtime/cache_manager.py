@@ -759,6 +759,215 @@ class PayloadCacheRuntimeAdapterShell:
 
 
 @dataclass(frozen=True)
+class PayloadCacheRuntimeAdapterAccountingDryRunSnapshot:
+    """Payloadless adapter accounting snapshot for issue/demand dry-runs.
+
+    Unlike ``PayloadCacheRuntimeAdapterShellSnapshot``, this object may contain
+    nonzero manager accounting because the dry-run adapter is allowed to call
+    the private ``ReadyTimeExpertCacheManager``.  It still does not move
+    payload bytes, grant real ready credit, or mutate kernel launch arguments.
+    """
+
+    present: bool
+    accounting_dry_run_enabled: bool
+    manager_backend: str
+    manager_contract: str
+    capacity: int
+    queue_batch_size: int
+    queue_deadline_us: float
+    service_us_per_issue: float
+    service_us_per_batch: float
+    resident_count: int
+    issued_fetch_count: int
+    used_fetch_count: int
+    unused_fetch_count: int
+    demand_count: int
+    demand_hit_count: int
+    demand_miss_count: int
+    evicted_before_use_count: int
+    ready_late_miss_count: int
+    late_completion_unused_count: int
+    queue_batch_count: int
+    queue_service_us: float
+    queue_total_span_us: float
+    queue_wait_us: float
+    queue_max_delay_us: float
+    payload_bytes: int = 0
+    issued_payload_count: int = 0
+    payload_transfer_runtime_enabled: bool = False
+    payload_deref_allowed: bool = False
+    payload_deref_runtime_allowed: bool = False
+    ready_credit: bool = False
+    ready_before_demand_credit: bool = False
+    real_ready_credit_granted: bool = False
+    kernel_arg_pass_allowed: bool = False
+    passed_to_kernel: bool = False
+    changes_kernel_launch_args: bool = False
+    full_fetch_runtime_allowed: bool = False
+    uses_current_wna16_args: bool = False
+    passes_current_wna16_args: bool = False
+    measures_tpot: bool = False
+    measures_vllm_latency: bool = False
+    live_runtime_instantiated: bool = False
+
+    def __post_init__(self) -> None:
+        if self.present is not True:
+            raise ValueError("adapter accounting dry-run snapshot must be present")
+        if self.accounting_dry_run_enabled is not True:
+            raise ValueError("adapter accounting dry-run must be enabled")
+        if self.manager_backend != "ReadyTimeExpertCacheManager":
+            raise ValueError("adapter accounting dry-run backend mismatch")
+        if self.manager_contract != "ready_time_issue_demand_skeleton_v1":
+            raise ValueError("adapter accounting dry-run contract mismatch")
+        for field_name in (
+            "capacity",
+            "queue_batch_size",
+            "resident_count",
+            "issued_fetch_count",
+            "used_fetch_count",
+            "unused_fetch_count",
+            "demand_count",
+            "demand_hit_count",
+            "demand_miss_count",
+            "evicted_before_use_count",
+            "ready_late_miss_count",
+            "late_completion_unused_count",
+            "queue_batch_count",
+            "issued_payload_count",
+            "payload_bytes",
+        ):
+            value = getattr(self, field_name)
+            if not isinstance(value, int) or isinstance(value, bool):
+                raise TypeError(f"{field_name} must be an integer")
+            if field_name in ("capacity", "queue_batch_size"):
+                if value <= 0:
+                    raise ValueError(f"{field_name} must be positive")
+            elif value < 0:
+                raise ValueError(f"{field_name} must be non-negative")
+        for field_name in (
+            "queue_deadline_us",
+            "service_us_per_issue",
+            "service_us_per_batch",
+            "queue_service_us",
+            "queue_total_span_us",
+            "queue_wait_us",
+            "queue_max_delay_us",
+        ):
+            value = getattr(self, field_name)
+            if not isinstance(value, (int, float)) or isinstance(value, bool):
+                raise TypeError(f"{field_name} must be numeric")
+            if float(value) < 0.0:
+                raise ValueError(f"{field_name} must be non-negative")
+        for field_name in ("issued_payload_count", "payload_bytes"):
+            if getattr(self, field_name) != 0:
+                raise ValueError(f"{field_name} must remain zero")
+        for field_name in (
+            "payload_transfer_runtime_enabled",
+            "payload_deref_allowed",
+            "payload_deref_runtime_allowed",
+            "ready_credit",
+            "ready_before_demand_credit",
+            "real_ready_credit_granted",
+            "kernel_arg_pass_allowed",
+            "passed_to_kernel",
+            "changes_kernel_launch_args",
+            "full_fetch_runtime_allowed",
+            "uses_current_wna16_args",
+            "passes_current_wna16_args",
+            "measures_tpot",
+            "measures_vllm_latency",
+            "live_runtime_instantiated",
+        ):
+            if getattr(self, field_name) is not False:
+                raise ValueError(f"{field_name} must remain disabled")
+
+    def as_dict(self) -> dict[str, bool | float | int | str]:
+        return asdict(self)
+
+
+class PayloadCacheRuntimeAdapterAccountingDryRun:
+    """Payloadless adapter that delegates issue/demand to a private manager.
+
+    This is not a live payload runtime.  It exists to validate the future
+    adapter's issue/demand API and manager accounting before any payload
+    transfer, ready-credit, or kernel-argument path is opened.
+    """
+
+    def __init__(
+        self,
+        *,
+        capacity: int,
+        service_us_per_issue: float = 0.0,
+        service_us_per_batch: float = 0.0,
+        queue_batch_size: int = 1,
+        queue_deadline_us: float = 0.0,
+    ) -> None:
+        self.accounting_dry_run_enabled = True
+        self._manager = ReadyTimeExpertCacheManager(
+            capacity=int(capacity),
+            service_us_per_issue=float(service_us_per_issue),
+            service_us_per_batch=float(service_us_per_batch),
+            queue_batch_size=int(queue_batch_size),
+            queue_deadline_us=float(queue_deadline_us),
+        )
+
+    def issue_prefetch(
+        self,
+        layer_idx: int,
+        expert_idx: int,
+        *,
+        arrival_us: float,
+    ) -> bool:
+        return self._manager.issue_prefetch(
+            int(layer_idx),
+            int(expert_idx),
+            arrival_us=float(arrival_us),
+        )
+
+    def demand(
+        self,
+        layer_idx: int,
+        expert_idx: int,
+        *,
+        arrival_us: float,
+    ) -> bool:
+        return self._manager.demand(
+            int(layer_idx),
+            int(expert_idx),
+            arrival_us=float(arrival_us),
+        )
+
+    def snapshot(self) -> PayloadCacheRuntimeAdapterAccountingDryRunSnapshot:
+        snapshot = self._manager.snapshot()
+        return PayloadCacheRuntimeAdapterAccountingDryRunSnapshot(
+            present=True,
+            accounting_dry_run_enabled=True,
+            manager_backend="ReadyTimeExpertCacheManager",
+            manager_contract="ready_time_issue_demand_skeleton_v1",
+            capacity=int(snapshot.capacity),
+            queue_batch_size=int(snapshot.queue_batch_size),
+            queue_deadline_us=float(snapshot.queue_deadline_us),
+            service_us_per_issue=float(self._manager.service_us_per_issue),
+            service_us_per_batch=float(self._manager.service_us_per_batch),
+            resident_count=int(snapshot.resident_count),
+            issued_fetch_count=int(snapshot.issued_fetch_count),
+            used_fetch_count=int(snapshot.used_fetch_count),
+            unused_fetch_count=int(snapshot.unused_fetch_count),
+            demand_count=int(snapshot.demand_count),
+            demand_hit_count=int(snapshot.demand_hit_count),
+            demand_miss_count=int(snapshot.demand_miss_count),
+            evicted_before_use_count=int(snapshot.evicted_before_use_count),
+            ready_late_miss_count=int(snapshot.ready_late_miss_count),
+            late_completion_unused_count=int(snapshot.late_completion_unused_count),
+            queue_batch_count=int(snapshot.queue_batch_count),
+            queue_service_us=float(snapshot.queue_service_us),
+            queue_total_span_us=float(snapshot.queue_total_span_us),
+            queue_wait_us=float(snapshot.queue_wait_us),
+            queue_max_delay_us=float(snapshot.queue_max_delay_us),
+        )
+
+
+@dataclass(frozen=True)
 class PremapAddressHandle:
     """Stable descriptor/address object for a prepared expert address key.
 
