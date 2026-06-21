@@ -280,6 +280,26 @@ def _runner_recorded_path_failures(
     return failures
 
 
+def _arg_slot_runner_reuse_failures(
+    summaries: dict[str, dict[str, Any]],
+    *,
+    enabled: bool,
+    dry_run: bool,
+) -> list[str]:
+    if not enabled or dry_run:
+        return []
+
+    arg_slot_summary = summaries.get("arg_slot_runner", {})
+    failures: list[str] = []
+    if arg_slot_summary.get("exists") is not True:
+        return ["arg_slot_runner_reuse_artifact_missing"]
+    if arg_slot_summary.get("read_error"):
+        failures.append("arg_slot_runner_reuse_artifact_read_error")
+    if arg_slot_summary.get("passed") is not True:
+        failures.append("arg_slot_runner_reuse_artifact_not_passed")
+    return failures
+
+
 def _tail_window_probe_failures(
     summaries: dict[str, dict[str, Any]],
     *,
@@ -370,6 +390,16 @@ def run_closure(args: argparse.Namespace) -> dict[str, Any]:
             ],
             dry_run=bool(args.dry_run),
         )
+    else:
+        steps["arg_slot_runner"] = {
+            "cmd": [],
+            "returncode": 0,
+            "dry_run": bool(args.dry_run),
+            "skipped": True,
+            "reuse_existing_artifact": True,
+            "reason": "skip_arg_slot_runner",
+            "output_json": str(arg_slot_runner_json),
+        }
     if args.run_tail_window_probe:
         steps["arg_slot_tail_window_runner"] = _run_step(
             [
@@ -449,13 +479,23 @@ def run_closure(args: argparse.Namespace) -> dict[str, Any]:
         dry_run=bool(args.dry_run),
         allow_explicit_artifact_paths=bool(args.allow_explicit_artifact_paths),
     )
+    arg_slot_reuse_failures = _arg_slot_runner_reuse_failures(
+        summaries,
+        enabled=bool(args.skip_arg_slot_runner),
+        dry_run=bool(args.dry_run),
+    )
     tail_window_failures = _tail_window_probe_failures(
         summaries,
         enabled=bool(args.run_tail_window_probe),
         dry_run=bool(args.dry_run),
         expected_tail_window_size=int(args.tail_window_size),
     )
-    failures = step_failures + runner_recorded_failures + tail_window_failures
+    failures = (
+        step_failures
+        + runner_recorded_failures
+        + arg_slot_reuse_failures
+        + tail_window_failures
+    )
     report = {
         "passed": not failures,
         "failures": failures,
@@ -464,6 +504,7 @@ def run_closure(args: argparse.Namespace) -> dict[str, Any]:
         "requires_runner_recorded_artifact_paths": not bool(
             args.allow_explicit_artifact_paths
         ),
+        "arg_slot_runner_reused": bool(args.skip_arg_slot_runner),
         "paths": {
             "arg_slot_runner_json": str(arg_slot_runner_json),
             "arg_slot_stub_json": str(arg_slot_stub_json),

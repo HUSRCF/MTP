@@ -18,6 +18,7 @@ def _arg_slot_runner_summary(passed: bool = True) -> dict:
             "require_kernel_invocation_abi": True,
             "require_kernel_invocation_entry_abi": True,
             "require_kernel_endpoint_abi": True,
+            "require_kernel_endpoint_ptr_abi": True,
             "kernel_launch_context_checked": True,
             "kernel_launch_context_all_handle_fields_read": True,
             "kernel_launch_context_error_count": 0,
@@ -58,11 +59,26 @@ def _arg_slot_runner_summary(passed: bool = True) -> dict:
             "kernel_endpoint_changes_kernel_launch_args": False,
             "kernel_endpoint_current_wna16_arg_compatible": False,
             "kernel_endpoint_requires_wna16_arg_reinterpretation": False,
+            "kernel_endpoint_ptr_checked": True,
+            "kernel_endpoint_ptr_all_handle_fields_read": True,
+            "kernel_endpoint_ptr_error_count": 0,
+            "kernel_endpoint_ptr_packet_chain_depth": 13,
+            "kernel_endpoint_ptr_payload_bytes": 0,
+            "kernel_endpoint_ptr_payload_deref_allowed": False,
+            "kernel_endpoint_ptr_passed_to_kernel": False,
+            "kernel_endpoint_ptr_kernel_arg_pass_allowed": False,
+            "kernel_endpoint_ptr_changes_kernel_launch_args": False,
+            "kernel_endpoint_ptr_current_wna16_arg_compatible": False,
+            "kernel_endpoint_ptr_requires_wna16_arg_reinterpretation": False,
+            "kernel_endpoint_ptr_row_hash_accumulator": "row-hash",
+            "kernel_endpoint_ptr_field_read_hash_accumulator": "field-hash",
+            "kernel_endpoint_ptr_row_metadata_hash_accumulator": "metadata-hash",
             "stub_requested_macros": [
                 "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_KERNEL_LAUNCH_CONTEXT_ABI",
                 "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_INVOCATION_ABI",
                 "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_INVOCATION_ENTRY_ABI",
                 "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_ENDPOINT_ABI",
+                "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_ENDPOINT_PTR_ABI",
             ],
             "stub_requested_macros_source": "stub_summary",
         }
@@ -127,6 +143,7 @@ def _closure_payload(*, tail: bool = False) -> dict:
         "payload_bytes": 0,
         "passed_to_kernel": False,
         "changes_kernel_launch_args": False,
+        "paths": {"arg_slot_runner_json": "arg_slot_runner.json"},
         "steps": steps,
         "summaries": summaries,
     }
@@ -144,6 +161,140 @@ def test_check_closure_artifact_accepts_default_closure(tmp_path: Path):
 
     assert result["passed"] is True
     assert result["failures"] == []
+
+
+def test_check_closure_artifact_accepts_reused_arg_slot_runner(
+    tmp_path: Path,
+):
+    path = tmp_path / "closure.json"
+    payload = _closure_payload()
+    payload["arg_slot_runner_reused"] = True
+    payload["steps"]["arg_slot_runner"] = {
+        "cmd": [],
+        "returncode": 0,
+        "dry_run": False,
+        "skipped": True,
+        "reuse_existing_artifact": True,
+        "reason": "skip_arg_slot_runner",
+        "output_json": "arg_slot_runner.json",
+    }
+    _write_json(path, payload)
+
+    result = check_closure_artifact(path)
+
+    assert result["passed"] is True
+    assert result["failures"] == []
+
+
+def test_check_closure_artifact_rejects_unmarked_arg_slot_runner_skip(
+    tmp_path: Path,
+):
+    path = tmp_path / "closure.json"
+    payload = _closure_payload()
+    payload["steps"]["arg_slot_runner"] = {
+        "cmd": [],
+        "returncode": 0,
+        "dry_run": False,
+        "skipped": True,
+        "reason": "manual_skip",
+    }
+    _write_json(path, payload)
+
+    result = check_closure_artifact(path)
+
+    assert result["passed"] is False
+    assert "step_arg_slot_runner_unexpected_skip" in result["failures"]
+
+
+def test_check_closure_artifact_rejects_reused_arg_slot_runner_path_mismatch(
+    tmp_path: Path,
+):
+    path = tmp_path / "closure.json"
+    payload = _closure_payload()
+    payload["arg_slot_runner_reused"] = True
+    payload["steps"]["arg_slot_runner"] = {
+        "cmd": [],
+        "returncode": 0,
+        "dry_run": False,
+        "skipped": True,
+        "reuse_existing_artifact": True,
+        "reason": "skip_arg_slot_runner",
+        "output_json": "other_arg_slot_runner.json",
+    }
+    _write_json(path, payload)
+
+    result = check_closure_artifact(path)
+
+    assert result["passed"] is False
+    assert "step_arg_slot_runner_output_json_mismatch" in result["failures"]
+
+
+def test_check_closure_artifact_rejects_reused_arg_slot_runner_missing_path(
+    tmp_path: Path,
+):
+    path = tmp_path / "closure.json"
+    payload = _closure_payload()
+    payload["arg_slot_runner_reused"] = True
+    payload.pop("paths")
+    payload["steps"]["arg_slot_runner"] = {
+        "cmd": [],
+        "returncode": 0,
+        "dry_run": False,
+        "skipped": True,
+        "reuse_existing_artifact": True,
+        "reason": "skip_arg_slot_runner",
+    }
+    _write_json(path, payload)
+
+    result = check_closure_artifact(path)
+
+    assert result["passed"] is False
+    assert "step_arg_slot_runner_output_json_mismatch" in result["failures"]
+
+
+def test_check_closure_artifact_rejects_reused_arg_slot_runner_nonempty_cmd(
+    tmp_path: Path,
+):
+    path = tmp_path / "closure.json"
+    payload = _closure_payload()
+    payload["arg_slot_runner_reused"] = True
+    payload["steps"]["arg_slot_runner"] = {
+        "cmd": ["python", "runner.py"],
+        "returncode": 0,
+        "dry_run": False,
+        "skipped": True,
+        "reuse_existing_artifact": True,
+        "reason": "skip_arg_slot_runner",
+        "output_json": "arg_slot_runner.json",
+    }
+    _write_json(path, payload)
+
+    result = check_closure_artifact(path)
+
+    assert result["passed"] is False
+    assert "step_arg_slot_runner_cmd_mismatch" in result["failures"]
+
+
+def test_check_closure_artifact_rejects_reused_arg_slot_runner_without_flag(
+    tmp_path: Path,
+):
+    path = tmp_path / "closure.json"
+    payload = _closure_payload()
+    payload["steps"]["arg_slot_runner"] = {
+        "cmd": [],
+        "returncode": 0,
+        "dry_run": False,
+        "skipped": True,
+        "reuse_existing_artifact": True,
+        "reason": "skip_arg_slot_runner",
+        "output_json": "arg_slot_runner.json",
+    }
+    _write_json(path, payload)
+
+    result = check_closure_artifact(path)
+
+    assert result["passed"] is False
+    assert "step_arg_slot_runner_reused_flag_mismatch" in result["failures"]
 
 
 def test_check_closure_artifact_accepts_top_level_endpoint_stub_macro_source(
@@ -206,6 +357,23 @@ def test_check_closure_artifact_rejects_missing_endpoint_abi(tmp_path: Path):
         in result["failures"]
     )
     assert "arg_slot_runner_kernel_endpoint_checked_mismatch" in result["failures"]
+
+
+def test_check_closure_artifact_rejects_missing_endpoint_ptr_abi(tmp_path: Path):
+    path = tmp_path / "closure.json"
+    payload = _closure_payload()
+    payload["summaries"]["arg_slot_runner"]["require_kernel_endpoint_ptr_abi"] = False
+    payload["summaries"]["arg_slot_runner"]["kernel_endpoint_ptr_checked"] = False
+    _write_json(path, payload)
+
+    result = check_closure_artifact(path)
+
+    assert result["passed"] is False
+    assert (
+        "arg_slot_runner_require_kernel_endpoint_ptr_abi_mismatch"
+        in result["failures"]
+    )
+    assert "arg_slot_runner_kernel_endpoint_ptr_checked_mismatch" in result["failures"]
 
 
 def test_check_closure_artifact_rejects_missing_endpoint_stub_macro(tmp_path: Path):

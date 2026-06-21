@@ -41,6 +41,7 @@ REQUIRED_ARG_SLOT_ENDPOINT_MACROS = frozenset(
         "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_INVOCATION_ABI",
         "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_INVOCATION_ENTRY_ABI",
         "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_ENDPOINT_ABI",
+        "MTP_PREMAP_TYPED_CONSUMER_CHECK_FUTURE_KERNEL_NATIVE_CONSUMER_ENDPOINT_PTR_ABI",
     }
 )
 
@@ -52,6 +53,7 @@ def _arg_slot_endpoint_summary_failures(summary: dict[str, Any]) -> list[str]:
         "require_kernel_invocation_abi": True,
         "require_kernel_invocation_entry_abi": True,
         "require_kernel_endpoint_abi": True,
+        "require_kernel_endpoint_ptr_abi": True,
         "kernel_launch_context_checked": True,
         "kernel_launch_context_all_handle_fields_read": True,
         "kernel_launch_context_error_count": 0,
@@ -88,6 +90,16 @@ def _arg_slot_endpoint_summary_failures(summary: dict[str, Any]) -> list[str]:
         "kernel_endpoint_changes_kernel_launch_args": False,
         "kernel_endpoint_current_wna16_arg_compatible": False,
         "kernel_endpoint_requires_wna16_arg_reinterpretation": False,
+        "kernel_endpoint_ptr_checked": True,
+        "kernel_endpoint_ptr_all_handle_fields_read": True,
+        "kernel_endpoint_ptr_error_count": 0,
+        "kernel_endpoint_ptr_payload_bytes": 0,
+        "kernel_endpoint_ptr_payload_deref_allowed": False,
+        "kernel_endpoint_ptr_passed_to_kernel": False,
+        "kernel_endpoint_ptr_kernel_arg_pass_allowed": False,
+        "kernel_endpoint_ptr_changes_kernel_launch_args": False,
+        "kernel_endpoint_ptr_current_wna16_arg_compatible": False,
+        "kernel_endpoint_ptr_requires_wna16_arg_reinterpretation": False,
     }
     for key, expected_value in expected.items():
         if summary.get(key) != expected_value:
@@ -97,9 +109,18 @@ def _arg_slot_endpoint_summary_failures(summary: dict[str, Any]) -> list[str]:
         "kernel_invocation_packet_chain_depth",
         "kernel_invocation_entry_packet_chain_depth",
         "kernel_endpoint_packet_chain_depth",
+        "kernel_endpoint_ptr_packet_chain_depth",
     ):
         value = summary.get(key)
         if not isinstance(value, int) or isinstance(value, bool) or value <= 0:
+            failures.append(f"arg_slot_runner_{key}_invalid")
+    for key in (
+        "kernel_endpoint_ptr_row_hash_accumulator",
+        "kernel_endpoint_ptr_field_read_hash_accumulator",
+        "kernel_endpoint_ptr_row_metadata_hash_accumulator",
+    ):
+        value = summary.get(key)
+        if not isinstance(value, str) or not value or value == "0":
             failures.append(f"arg_slot_runner_{key}_invalid")
     requested_macros = summary.get("stub_requested_macros")
     if not isinstance(requested_macros, list):
@@ -168,6 +189,9 @@ def check_closure_artifact(
     if not isinstance(steps, dict):
         failures.append("steps_missing")
         steps = {}
+    paths = payload.get("paths")
+    if not isinstance(paths, dict):
+        paths = {}
     required_steps = list(REQUIRED_STEPS)
     if require_tail_window_probe:
         required_steps.append("arg_slot_tail_window_runner")
@@ -176,6 +200,33 @@ def check_closure_artifact(
         if not isinstance(step, dict):
             failures.append(f"step_{step_name}_missing")
             continue
+        if (
+            step_name == "arg_slot_runner"
+            and step.get("skipped") is True
+            and step.get("reuse_existing_artifact") is True
+            and step.get("reason") == "skip_arg_slot_runner"
+        ):
+            if payload.get("arg_slot_runner_reused") is not True:
+                failures.append(f"step_{step_name}_reused_flag_mismatch")
+            if step.get("cmd") != []:
+                failures.append(f"step_{step_name}_cmd_mismatch")
+            step_output_json = step.get("output_json")
+            path_output_json = paths.get("arg_slot_runner_json")
+            if (
+                not isinstance(step_output_json, str)
+                or not step_output_json
+                or not isinstance(path_output_json, str)
+                or not path_output_json
+                or step_output_json != path_output_json
+            ):
+                failures.append(f"step_{step_name}_output_json_mismatch")
+            if step.get("returncode") != 0:
+                failures.append(f"step_{step_name}_returncode_mismatch")
+            if step.get("dry_run") is True and not allow_dry_run:
+                failures.append(f"step_{step_name}_dry_run_not_allowed")
+            continue
+        if step.get("skipped") is True:
+            failures.append(f"step_{step_name}_unexpected_skip")
         if step.get("returncode") != 0:
             failures.append(f"step_{step_name}_returncode_mismatch")
         if step.get("dry_run") is True and not allow_dry_run:

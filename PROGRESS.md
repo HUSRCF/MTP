@@ -40416,3 +40416,59 @@ full payload fetch remains blocked for this stream because the measured-copy
 executor still reports deadline misses.  The usable next runtime direction
 remains metadata/premap/descriptor preparation unless issue/admission is moved
 substantially earlier.
+
+### 2026-06-21: lab gate closure accepts explicit arg-slot evidence reuse
+
+The packet-export / ready-time lab gate closure now has an explicit no-GPU reuse
+contract for the arg-slot runner evidence.
+
+When the closure runner is invoked with:
+
+```text
+--skip-arg-slot-runner
+```
+
+it records an explicit `arg_slot_runner` step instead of silently omitting the
+step:
+
+```text
+skipped = true
+reuse_existing_artifact = true
+reason = skip_arg_slot_runner
+output_json = paths.arg_slot_runner_json
+```
+
+The runner itself now rejects reuse if the referenced arg-slot artifact is
+missing, unreadable, or not passed.  The static closure checker also requires:
+
+```text
+arg_slot_runner_reused = true
+cmd = []
+output_json == paths.arg_slot_runner_json
+arg_slot_runner summary passed
+kernel launch context / invocation / invocation entry / endpoint / endpoint-ptr
+ABI checks all passed
+payload_bytes = 0
+passed_to_kernel = false
+changes_kernel_launch_args = false
+current_wna16_arg_compatible = false
+```
+
+Verified artifacts:
+
+```text
+outputs/reports/premap_kernel_consumer/premap_lab_gate_closure_packet_export_ready_time_v1.json
+outputs/reports/premap_kernel_consumer/premap_lab_gate_closure_packet_export_ready_time_v1.check.json
+```
+
+Result:
+
+```text
+passed = true
+failures = []
+arg_slot_runner_reused = true
+```
+
+This keeps the final lab closure usable on hosts where the arg-slot GPU canary
+cannot be refreshed, while preserving the requirement that the reused evidence
+is already a passed endpoint/endpoint-ptr ABI no-op artifact.

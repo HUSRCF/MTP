@@ -5,6 +5,7 @@ from pathlib import Path
 
 from scripts.run_premap_lab_gate_closure import (
     _build_parser,
+    _arg_slot_runner_reuse_failures,
     _load_json_summary,
     _runner_recorded_path_failures,
     _tail_window_probe_failures,
@@ -114,6 +115,33 @@ def test_run_premap_lab_gate_closure_dry_run_records_canonical_steps(
     assert "--require-kernel-endpoint-ptr-abi" in arg_slot_cmd
 
 
+def test_run_premap_lab_gate_closure_records_reused_arg_slot_runner(
+    tmp_path: Path,
+):
+    args = _build_parser().parse_args(
+        [
+            "--dry-run",
+            "--skip-arg-slot-runner",
+            "--arg-slot-runner-json",
+            str(tmp_path / "arg_slot_runner.json"),
+            "--output-json",
+            str(tmp_path / "closure.json"),
+        ]
+    )
+
+    result = run_closure(args)
+
+    assert result["passed"] is True
+    assert result["arg_slot_runner_reused"] is True
+    step = result["steps"]["arg_slot_runner"]
+    assert step["cmd"] == []
+    assert step["returncode"] == 0
+    assert step["skipped"] is True
+    assert step["reuse_existing_artifact"] is True
+    assert step["reason"] == "skip_arg_slot_runner"
+    assert step["output_json"] == str(tmp_path / "arg_slot_runner.json")
+
+
 def test_runner_recorded_path_failures_reject_explicit_sources():
     summaries = {
         "native_artifact_check": {
@@ -130,6 +158,32 @@ def test_runner_recorded_path_failures_reject_explicit_sources():
     )
 
     assert failures == ["native_artifact_check_preflight_path_not_runner_recorded"]
+
+
+def test_arg_slot_runner_reuse_failures_require_existing_passed_artifact():
+    assert _arg_slot_runner_reuse_failures(
+        {"arg_slot_runner": {"exists": False}},
+        enabled=True,
+        dry_run=False,
+    ) == ["arg_slot_runner_reuse_artifact_missing"]
+    assert _arg_slot_runner_reuse_failures(
+        {"arg_slot_runner": {"exists": True, "passed": False}},
+        enabled=True,
+        dry_run=False,
+    ) == ["arg_slot_runner_reuse_artifact_not_passed"]
+    assert _arg_slot_runner_reuse_failures(
+        {"arg_slot_runner": {"exists": True, "read_error": "JSONDecodeError"}},
+        enabled=True,
+        dry_run=False,
+    ) == [
+        "arg_slot_runner_reuse_artifact_read_error",
+        "arg_slot_runner_reuse_artifact_not_passed",
+    ]
+    assert _arg_slot_runner_reuse_failures(
+        {"arg_slot_runner": {"exists": True, "passed": True}},
+        enabled=True,
+        dry_run=False,
+    ) == []
 
 
 def test_runner_recorded_path_failures_accept_runner_recorded_sources():
