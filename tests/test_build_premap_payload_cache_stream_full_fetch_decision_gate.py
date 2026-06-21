@@ -85,11 +85,27 @@ def _sweep_payload(*, first_lookahead: float = 200_000.0) -> dict:
 
 
 def _queue_budget_payload() -> dict:
+    shifted_issue_accounting = {
+        "shifted_issue_accounting_enabled": True,
+        "shifted_issue_lead_tokens": 1,
+        "shifted_issue_clamped_issue_count": 1,
+        "shifted_issue_duplicate_issue_key_count": 0,
+        "shifted_issue_unique_issue_key_count": 4,
+        "shifted_issue_accounted_packet_count": 4,
+        "shifted_issue_invalid_export_count": 0,
+        "shifted_issue_row_shift_mismatch_count": 0,
+        "shifted_issue_row_clamp_mismatch_count": 0,
+    }
+    first_row = {
+        **_row(lookahead=75_000.0, passed=True),
+        **shifted_issue_accounting,
+    }
     first_cell = {
         "capacity": 128,
         "queue_deadline_us": 200.0,
         "issue_lead_tokens": 1,
         "lookahead_us": 75_000.0,
+        "shifted_issue_accounting": dict(shifted_issue_accounting),
         "cell_index": 1,
     }
     return {
@@ -126,9 +142,12 @@ def _queue_budget_payload() -> dict:
                 "failures": [],
                 "first_model_passing_issue_lead_tokens": 1,
                 "first_model_passing_lookahead_us": 75_000.0,
-                "first_passing_row": _row(lookahead=75_000.0, passed=True),
+                "first_passing_row": first_row,
+                "first_passing_shifted_issue_accounting": dict(
+                    shifted_issue_accounting
+                ),
                 "row_count": 1,
-                "rows": [_row(lookahead=75_000.0, passed=True)],
+                "rows": [first_row],
                 "safety_passed": True,
                 "safety_failures": [],
             },
@@ -354,7 +373,13 @@ def test_stream_full_fetch_decision_includes_queue_budget_gate(tmp_path: Path):
     assert result["queue_budget_required_capacity"] == 128
     assert result["queue_budget_required_deadline_us"] == 200.0
     assert result["queue_budget_required_issue_lead_tokens"] == 1
+    assert result["queue_budget_first_passing_shifted_issue_accounting"][
+        "shifted_issue_accounted_packet_count"
+    ] == 4
     assert result["queue_budget_first_passing_cell"]["lookahead_us"] == 75_000.0
+    assert result["required_shifted_issue_accounting"][
+        "shifted_issue_lead_tokens"
+    ] == 1
     assert result["payload_transfer_enabled"] is False
     assert result["passed_to_kernel"] is False
 
@@ -406,6 +431,115 @@ def test_stream_full_fetch_decision_rejects_mismatched_queue_first_cell(
     assert "queue_budget_first_passing_cell_not_in_passing_cells" in result[
         "failures"
     ]
+
+
+def test_stream_full_fetch_decision_rejects_queue_shifted_accounting_mismatch(
+    tmp_path: Path,
+):
+    module = _load_module()
+    sweep_path = tmp_path / "stream_lookahead.json"
+    queue_budget_path = tmp_path / "queue_budget.json"
+    _write_json(sweep_path, _sweep_payload(first_lookahead=200_000.0))
+    queue_budget = _queue_budget_payload()
+    queue_budget["first_passing_cell"]["shifted_issue_accounting"][
+        "shifted_issue_accounted_packet_count"
+    ] = 99
+    _write_json(queue_budget_path, queue_budget)
+
+    result = _run(
+        module,
+        sweep_path,
+        tmp_path / "decision.json",
+        queue_budget_path=queue_budget_path,
+    )
+
+    assert result["passed"] is False
+    assert (
+        "queue_budget_cell_1_first_cell_shifted_issue_accounting_mismatch"
+        in result["failures"]
+    )
+
+
+def test_stream_full_fetch_decision_rejects_incomplete_queue_shifted_accounting(
+    tmp_path: Path,
+):
+    module = _load_module()
+    sweep_path = tmp_path / "stream_lookahead.json"
+    queue_budget_path = tmp_path / "queue_budget.json"
+    _write_json(sweep_path, _sweep_payload(first_lookahead=200_000.0))
+    queue_budget = _queue_budget_payload()
+    queue_budget["first_passing_cell"]["shifted_issue_accounting"].pop(
+        "shifted_issue_unique_issue_key_count"
+    )
+    _write_json(queue_budget_path, queue_budget)
+
+    result = _run(
+        module,
+        sweep_path,
+        tmp_path / "decision.json",
+        queue_budget_path=queue_budget_path,
+    )
+
+    assert result["passed"] is False
+    assert (
+        "queue_budget_first_passing_cell_shifted_issue_accounting_"
+        "shifted_issue_unique_issue_key_count_missing"
+    ) in result["failures"]
+
+
+def test_stream_full_fetch_decision_rejects_malformed_cell_shifted_accounting(
+    tmp_path: Path,
+):
+    module = _load_module()
+    sweep_path = tmp_path / "stream_lookahead.json"
+    queue_budget_path = tmp_path / "queue_budget.json"
+    _write_json(sweep_path, _sweep_payload(first_lookahead=200_000.0))
+    queue_budget = _queue_budget_payload()
+    queue_budget["first_passing_cell"].pop("shifted_issue_accounting")
+    queue_budget["cells"][1]["first_passing_shifted_issue_accounting"] = "bad"
+    _write_json(queue_budget_path, queue_budget)
+
+    result = _run(
+        module,
+        sweep_path,
+        tmp_path / "decision.json",
+        queue_budget_path=queue_budget_path,
+    )
+
+    assert result["passed"] is False
+    assert (
+        "queue_budget_cell_1_first_passing_shifted_issue_accounting_invalid"
+        in result["failures"]
+    )
+
+
+def test_stream_full_fetch_decision_rejects_partial_row_shifted_accounting(
+    tmp_path: Path,
+):
+    module = _load_module()
+    sweep_path = tmp_path / "stream_lookahead.json"
+    queue_budget_path = tmp_path / "queue_budget.json"
+    _write_json(sweep_path, _sweep_payload(first_lookahead=200_000.0))
+    queue_budget = _queue_budget_payload()
+    queue_budget["first_passing_cell"].pop("shifted_issue_accounting")
+    queue_budget["cells"][1].pop("first_passing_shifted_issue_accounting")
+    queue_budget["cells"][1]["first_passing_row"].pop(
+        "shifted_issue_unique_issue_key_count"
+    )
+    _write_json(queue_budget_path, queue_budget)
+
+    result = _run(
+        module,
+        sweep_path,
+        tmp_path / "decision.json",
+        queue_budget_path=queue_budget_path,
+    )
+
+    assert result["passed"] is False
+    assert (
+        "queue_budget_cell_1_first_passing_row_shifted_issue_accounting_"
+        "shifted_issue_unique_issue_key_count_missing"
+    ) in result["failures"]
 
 
 def test_stream_full_fetch_decision_rejects_queue_cell_contract_mismatch(

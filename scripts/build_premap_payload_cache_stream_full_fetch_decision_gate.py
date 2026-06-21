@@ -49,6 +49,18 @@ SAFE_FALSE_FLAGS = (
     "measures_vllm_latency",
 )
 SAFE_ZERO_FLAGS = ("payload_bytes",)
+SHIFTED_ISSUE_ACCOUNTING_FIELDS = (
+    "shifted_issue_accounting_enabled",
+    "shifted_issue_lead_tokens",
+    "shifted_issue_clamped_issue_count",
+    "shifted_issue_duplicate_issue_key_count",
+    "shifted_issue_unique_issue_key_count",
+    "shifted_issue_accounted_packet_count",
+    "shifted_issue_invalid_export_count",
+    "shifted_issue_row_shift_mismatch_count",
+    "shifted_issue_row_clamp_mismatch_count",
+)
+SHIFTED_ISSUE_BOOL_FIELDS = ("shifted_issue_accounting_enabled",)
 
 
 def _resolve(path: str | Path) -> Path:
@@ -82,6 +94,89 @@ def _check_safety(payload: dict[str, Any], failures: list[str], *, prefix: str) 
             failures.append(f"{prefix}_{key}_missing")
         elif not _valid_number(payload.get(key)) or float(payload.get(key)) != 0.0:
             failures.append(f"{prefix}_{key}_not_zero")
+
+
+def _shifted_issue_accounting(
+    payload: dict[str, Any] | None,
+    failures: list[str] | None = None,
+    *,
+    prefix: str = "shifted_issue_accounting",
+) -> dict[str, Any] | None:
+    if payload is None:
+        return None
+    value = payload.get("shifted_issue_accounting")
+    if value is None:
+        return None
+    if not isinstance(value, dict):
+        if failures is not None:
+            failures.append(f"{prefix}_invalid")
+        return None
+    result: dict[str, Any] = {}
+    for key in SHIFTED_ISSUE_ACCOUNTING_FIELDS:
+        if key not in value:
+            if failures is not None:
+                failures.append(f"{prefix}_{key}_missing")
+            result[key] = None
+            continue
+        field_value = value.get(key)
+        if key in SHIFTED_ISSUE_BOOL_FIELDS:
+            if type(field_value) is not bool:
+                if failures is not None:
+                    failures.append(f"{prefix}_{key}_not_bool")
+        elif type(field_value) is not int:
+            if failures is not None:
+                failures.append(f"{prefix}_{key}_not_int")
+        result[key] = field_value
+    return result
+
+
+def _flat_shifted_issue_accounting(
+    row: dict[str, Any],
+    failures: list[str] | None = None,
+    *,
+    prefix: str = "shifted_issue_accounting",
+) -> dict[str, Any] | None:
+    present = any(key in row for key in SHIFTED_ISSUE_ACCOUNTING_FIELDS)
+    if not present:
+        return None
+    result: dict[str, Any] = {}
+    for key in SHIFTED_ISSUE_ACCOUNTING_FIELDS:
+        if key not in row:
+            if failures is not None:
+                failures.append(f"{prefix}_{key}_missing")
+            result[key] = None
+            continue
+        value = row.get(key)
+        if key in SHIFTED_ISSUE_BOOL_FIELDS:
+            if type(value) is not bool:
+                if failures is not None:
+                    failures.append(f"{prefix}_{key}_not_bool")
+        elif type(value) is not int:
+            if failures is not None:
+                failures.append(f"{prefix}_{key}_not_int")
+        result[key] = value
+    return result
+
+
+def _nested_shifted_issue_accounting(
+    payload: dict[str, Any],
+    key: str,
+    failures: list[str] | None = None,
+    *,
+    prefix: str,
+) -> dict[str, Any] | None:
+    if key not in payload:
+        return None
+    value = payload.get(key)
+    if not isinstance(value, dict):
+        if failures is not None:
+            failures.append(f"{prefix}_invalid")
+        return None
+    return _shifted_issue_accounting(
+        {"shifted_issue_accounting": value},
+        failures,
+        prefix=prefix,
+    )
 
 
 def _validate_rows(
@@ -199,6 +294,11 @@ def _validate_queue_budget_sweep(
     if not isinstance(first_cell, dict):
         failures.append("queue_budget_first_passing_cell_missing")
         return None
+    first_cell_shifted_issue_accounting = _shifted_issue_accounting(
+        first_cell,
+        failures,
+        prefix="queue_budget_first_passing_cell_shifted_issue_accounting",
+    )
     for key in ("capacity", "queue_deadline_us", "issue_lead_tokens", "lookahead_us"):
         value = first_cell.get(key)
         if key in {"capacity", "issue_lead_tokens"}:
@@ -411,7 +511,35 @@ def _validate_queue_budget_sweep(
                     failures.append(
                         f"queue_budget_cell_{index}_first_row_lookahead_mismatch"
                     )
+                first_passing_shifted = _nested_shifted_issue_accounting(
+                    cell,
+                    "first_passing_shifted_issue_accounting",
+                    failures,
+                    prefix=(
+                        f"queue_budget_cell_{index}_"
+                        "first_passing_shifted_issue_accounting"
+                    ),
+                )
+                first_row_shifted = _flat_shifted_issue_accounting(
+                    first_row_from_rows,
+                    failures,
+                    prefix=(
+                        f"queue_budget_cell_{index}_first_passing_row_"
+                        "shifted_issue_accounting"
+                    ),
+                )
+                if first_passing_shifted is not None:
+                    if first_passing_shifted != first_row_shifted:
+                        failures.append(
+                            f"queue_budget_cell_{index}_first_passing_shifted_issue_accounting_mismatch"
+                        )
             first_cell_matched = first_cell_matched or cell_matches_first
+            if cell_matches_first and first_cell_shifted_issue_accounting is not None:
+                cell_shifted = cell.get("first_passing_shifted_issue_accounting")
+                if cell_shifted != first_cell_shifted_issue_accounting:
+                    failures.append(
+                        f"queue_budget_cell_{index}_first_cell_shifted_issue_accounting_mismatch"
+                    )
     if not first_cell_matched:
         failures.append("queue_budget_first_passing_cell_not_in_passing_cells")
     return first_cell
@@ -535,6 +663,9 @@ def build_stream_full_fetch_decision_gate(args: argparse.Namespace) -> dict[str,
             if queue_budget_first_cell is None
             else queue_budget_first_cell.get("issue_lead_tokens")
         ),
+        "queue_budget_first_passing_shifted_issue_accounting": (
+            _shifted_issue_accounting(queue_budget_first_cell)
+        ),
         "required_queue_capacity": (
             None if queue_budget_first_cell is None else queue_budget_first_cell.get("capacity")
         ),
@@ -547,6 +678,9 @@ def build_stream_full_fetch_decision_gate(args: argparse.Namespace) -> dict[str,
             None
             if queue_budget_first_cell is None
             else queue_budget_first_cell.get("issue_lead_tokens")
+        ),
+        "required_shifted_issue_accounting": (
+            _shifted_issue_accounting(queue_budget_first_cell)
         ),
         "current_lookahead_us": current_lookahead_us,
         "current_queue_deadline_us": current_queue_deadline_us,
