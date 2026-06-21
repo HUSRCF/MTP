@@ -276,6 +276,43 @@ def _optional_device_args(args: argparse.Namespace) -> list[str]:
     return device_args
 
 
+def _refresh_command(args: argparse.Namespace, output_json: Path) -> list[str]:
+    command = [
+        sys.executable,
+        "scripts/run_premap_lab_gate_verify.py",
+        "--output-json",
+        str(output_json),
+        "--closure-json",
+        str(_resolve(args.closure_json)),
+        "--closure-check-json",
+        str(_resolve(args.closure_check_json)),
+        "--tail-closure-json",
+        str(_resolve(args.tail_closure_json)),
+        "--tail-closure-check-json",
+        str(_resolve(args.tail_closure_check_json)),
+        "--tail-window-size",
+        str(int(args.tail_window_size)),
+        "--window-sweep-json",
+        str(_resolve(args.window_sweep_json)),
+        "--window-sweep-check-json",
+        str(_resolve(args.window_sweep_check_json)),
+        "--all-field-window-sweep-json",
+        str(_resolve(args.all_field_window_sweep_json)),
+        "--all-field-window-sweep-check-json",
+        str(_resolve(args.all_field_window_sweep_check_json)),
+        "--wna16-side-variant-json",
+        str(_resolve(args.wna16_side_variant_json)),
+        "--wna16-side-variant-stub-json",
+        str(_resolve(args.wna16_side_variant_stub_json)),
+        "--wna16-side-variant-merged-json",
+        str(_resolve(args.wna16_side_variant_merged_json)),
+    ]
+    if args.skip_default_arg_slot_runner:
+        command.append("--skip-default-arg-slot-runner")
+    command.extend(_optional_device_args(args))
+    return command
+
+
 def _load_status(path: Path) -> dict[str, Any]:
     if not path.exists():
         return {"exists": False}
@@ -749,6 +786,7 @@ def run_verify(args: argparse.Namespace) -> dict[str, Any]:
     wna16_side_variant_json = _resolve(args.wna16_side_variant_json)
     wna16_side_variant_stub_json = _resolve(args.wna16_side_variant_stub_json)
     wna16_side_variant_merged_json = _resolve(args.wna16_side_variant_merged_json)
+    verify_output_json = _resolve(args.output_json)
     device_args = _optional_device_args(args)
     default_closure_args: list[str] = []
     if args.skip_default_arg_slot_runner:
@@ -971,9 +1009,15 @@ def run_verify(args: argparse.Namespace) -> dict[str, Any]:
         "reuse_native_artifacts": bool(args.reuse_native_artifacts),
         "reuse_artifact_refresh_required": bool(reuse_artifact_refresh_reasons),
         "reuse_artifact_refresh_reasons": reuse_artifact_refresh_reasons,
+        "reuse_artifact_refresh_command": (
+            _refresh_command(args, verify_output_json)
+            if reuse_artifact_refresh_reasons
+            else []
+        ),
         "skip_default_arg_slot_runner": bool(args.skip_default_arg_slot_runner),
         "tail_window_size": int(args.tail_window_size),
         "paths": {
+            "verify_output_json": str(verify_output_json),
             "closure_json": str(closure_json),
             "closure_check_json": str(closure_check_json),
             "tail_closure_json": str(tail_closure_json),

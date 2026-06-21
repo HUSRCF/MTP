@@ -425,6 +425,7 @@ def test_run_premap_lab_gate_verify_reuse_native_artifacts_reports_refresh_neede
     wna16_json = tmp_path / "wna16_side_variant.json"
     wna16_stub_json = tmp_path / "wna16_side_variant.stub.json"
     wna16_merged_json = tmp_path / "wna16_side_variant.merged.json"
+    output_json = tmp_path / "verify.json"
 
     for path, status in (
         (closure_json, _passing_lab_gate_statuses()["default_closure"]),
@@ -465,6 +466,15 @@ def test_run_premap_lab_gate_verify_reuse_native_artifacts_reports_refresh_neede
     args = _build_parser().parse_args(
         [
             "--reuse-native-artifacts",
+            "--output-json",
+            str(output_json),
+            "--tail-window-size",
+            "384",
+            "--skip-default-arg-slot-runner",
+            "--device",
+            "1",
+            "--hip-visible-devices",
+            "1",
             "--closure-json",
             str(closure_json),
             "--closure-check-json",
@@ -504,6 +514,38 @@ def test_run_premap_lab_gate_verify_reuse_native_artifacts_reports_refresh_neede
         in result["failures"]
     )
     assert result["reuse_artifact_refresh_required"] is True
+    assert result["reuse_artifact_refresh_command"][1:4] == [
+        "scripts/run_premap_lab_gate_verify.py",
+        "--output-json",
+        str(gate_verify._resolve(output_json)),
+    ]
+    assert "--skip-default-arg-slot-runner" in result["reuse_artifact_refresh_command"]
+    device_index = result["reuse_artifact_refresh_command"].index("--device")
+    assert result["reuse_artifact_refresh_command"][device_index + 1] == "1"
+    hip_index = result["reuse_artifact_refresh_command"].index("--hip-visible-devices")
+    assert result["reuse_artifact_refresh_command"][hip_index + 1] == "1"
+    for flag, path in (
+        ("--closure-json", closure_json),
+        ("--closure-check-json", closure_check_json),
+        ("--tail-closure-json", tail_json),
+        ("--tail-closure-check-json", tail_check_json),
+        ("--window-sweep-json", window_sweep_json),
+        ("--window-sweep-check-json", window_sweep_check_json),
+        ("--all-field-window-sweep-json", all_field_window_sweep_json),
+        ("--all-field-window-sweep-check-json", all_field_window_sweep_check_json),
+        ("--wna16-side-variant-json", wna16_json),
+        ("--wna16-side-variant-stub-json", wna16_stub_json),
+        ("--wna16-side-variant-merged-json", wna16_merged_json),
+    ):
+        index = result["reuse_artifact_refresh_command"].index(flag)
+        assert result["reuse_artifact_refresh_command"][index + 1] == str(
+            gate_verify._resolve(path)
+        )
+    tail_window_index = result["reuse_artifact_refresh_command"].index(
+        "--tail-window-size"
+    )
+    assert result["reuse_artifact_refresh_command"][tail_window_index + 1] == "384"
+    assert "--reuse-native-artifacts" not in result["reuse_artifact_refresh_command"]
     assert "tail_window_closure_check_static_check_not_passed" in result[
         "reuse_artifact_refresh_reasons"
     ]
@@ -599,6 +641,7 @@ def test_run_premap_lab_gate_verify_reuse_native_artifacts_accepts_fresh_evidenc
     assert result["failures"] == []
     assert result["reuse_artifact_refresh_required"] is False
     assert result["reuse_artifact_refresh_reasons"] == []
+    assert result["reuse_artifact_refresh_command"] == []
 
 
 def test_status_failures_reject_wna16_side_variant_without_execution_gate():

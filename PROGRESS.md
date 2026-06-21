@@ -40510,6 +40510,7 @@ newer ABI coverage requirement.  It now additionally reports:
 ```text
 reuse_artifact_refresh_required = true/false
 reuse_artifact_refresh_reasons = [...]
+reuse_artifact_refresh_command = [...]
 ```
 
 These fields are diagnostic only.  They do not participate in the pass/fail
@@ -40525,6 +40526,13 @@ passed = false
 reuse_native_artifacts = true
 reuse_artifact_refresh_required = true
 ```
+
+The report also records a direct refresh command that reruns the same lab verify
+entrypoint without `--reuse-native-artifacts`.  This is the command to run once
+GPU/HIP is available again; the static reuse mode itself does not relax the
+gate.  The generated command preserves the artifact path overrides,
+`tail_window_size`, and device selection flags from the reuse run so it refreshes
+the same evidence set that failed the static check.
 
 The failure is now attributed to stale or insufficient reused evidence.  The
 main reasons include:
