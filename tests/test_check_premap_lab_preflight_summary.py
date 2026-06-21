@@ -1000,6 +1000,52 @@ def _summary() -> dict[str, object]:
         "prefetch_lab_default_stream_lead_token_sweep_first_model_passing_lookahead_us": (
             2400000.0
         ),
+        "prefetch_lab_default_stream_shifted_issue_replay_contract_present": True,
+        "prefetch_lab_default_stream_shifted_issue_replay_contract_passed": True,
+        "prefetch_lab_default_stream_shifted_issue_replay_contract_required_lead_tokens": 32,
+        "prefetch_lab_default_stream_shifted_issue_replay_contract_min_schedulable_packets": 28,
+        "prefetch_lab_default_stream_shifted_issue_replay_issue_lead_tokens": 32,
+        "prefetch_lab_default_stream_shifted_issue_replay_schedulable_packet_count": 28,
+        "prefetch_lab_default_stream_shifted_issue_replay_clamped_issue_count": 12,
+        "prefetch_lab_default_stream_shifted_issue_replay_duplicate_issue_key_count": 12,
+        "prefetch_lab_default_stream_shifted_issue_replay_row_shift_mismatch_count": 0,
+        "prefetch_lab_default_stream_shifted_issue_replay_row_clamp_mismatch_count": 0,
+        "prefetch_lab_default_stream_shifted_issue_replay_payload_bytes": 0,
+        "prefetch_lab_default_stream_shifted_issue_replay_full_fetch_runtime_allowed": False,
+        "prefetch_lab_default_stream_shifted_issue_replay_full_fetch_allowed": False,
+        "prefetch_lab_default_stream_shifted_issue_replay_ready_credit": False,
+        "prefetch_lab_default_stream_shifted_issue_replay_ready_before_demand_credit": False,
+        "prefetch_lab_default_stream_shifted_issue_replay_real_ready_credit_granted": False,
+        "prefetch_lab_default_stream_shifted_issue_replay_payload_transfer_enabled": False,
+        "prefetch_lab_default_stream_shifted_issue_replay_payload_deref_allowed": False,
+        "prefetch_lab_default_stream_shifted_issue_replay_kernel_arg_pass_allowed": False,
+        "prefetch_lab_default_stream_shifted_issue_replay_passed_to_kernel": False,
+        "prefetch_lab_default_stream_shifted_issue_replay_changes_kernel_launch_args": False,
+        "prefetch_lab_default_stream_shifted_issue_replay_source_payload_bytes": 0,
+        "prefetch_lab_default_stream_shifted_issue_replay_source_full_fetch_runtime_allowed": False,
+        "prefetch_lab_default_stream_shifted_issue_replay_source_full_fetch_allowed": False,
+        "prefetch_lab_default_stream_shifted_issue_replay_source_ready_credit": False,
+        "prefetch_lab_default_stream_shifted_issue_replay_source_ready_before_demand_credit": False,
+        "prefetch_lab_default_stream_shifted_issue_replay_source_real_ready_credit_granted": False,
+        "prefetch_lab_default_stream_shifted_issue_replay_source_payload_transfer_enabled": False,
+        "prefetch_lab_default_stream_shifted_issue_replay_source_payload_deref_allowed": False,
+        "prefetch_lab_default_stream_shifted_issue_replay_source_kernel_arg_pass_allowed": False,
+        "prefetch_lab_default_stream_shifted_issue_replay_source_passed_to_kernel": False,
+        "prefetch_lab_default_stream_shifted_issue_replay_source_changes_kernel_launch_args": False,
+        "prefetch_lab_default_stream_shifted_issue_replay_uses_current_wna16_args": False,
+        "prefetch_lab_default_stream_shifted_issue_replay_passes_current_wna16_args": False,
+        "prefetch_lab_default_stream_shifted_issue_replay_current_wna16_arg_compatible": False,
+        "prefetch_lab_default_stream_shifted_issue_replay_requires_wna16_arg_reinterpretation": False,
+        "prefetch_lab_default_stream_shifted_issue_replay_source_uses_current_wna16_args": False,
+        "prefetch_lab_default_stream_shifted_issue_replay_source_passes_current_wna16_args": False,
+        "prefetch_lab_default_stream_shifted_issue_replay_source_current_wna16_arg_compatible": False,
+        "prefetch_lab_default_stream_shifted_issue_replay_source_requires_wna16_arg_reinterpretation": False,
+        "prefetch_lab_default_stream_shifted_issue_replay_wna16_benchmark_ready": False,
+        "prefetch_lab_default_stream_shifted_issue_replay_source_wna16_benchmark_ready": False,
+        "prefetch_lab_default_stream_shifted_issue_replay_measures_tpot": False,
+        "prefetch_lab_default_stream_shifted_issue_replay_source_measures_tpot": False,
+        "prefetch_lab_default_stream_shifted_issue_replay_measures_vllm_latency": False,
+        "prefetch_lab_default_stream_shifted_issue_replay_source_measures_vllm_latency": False,
         "prefetch_lab_default_metadata_decision": "shadow_only",
         "prefetch_lab_default_metadata_passed": True,
         "prefetch_lab_default_metadata_failures": [],
@@ -2117,6 +2163,142 @@ def test_check_premap_lab_preflight_summary_rejects_stream_wrong_timing_mode() -
     assert result["passed"] is False
     assert (
         "prefetch_lab_default_stream_lead_token_sweep_event_timing_mode_mismatch"
+        in result["failures"]
+    )
+
+
+def test_check_premap_lab_preflight_summary_rejects_shifted_issue_contract_gap() -> None:
+    summary = _summary()
+    summary["prefetch_lab_default_stream_shifted_issue_replay_contract_passed"] = False
+    summary["prefetch_lab_default_stream_shifted_issue_replay_schedulable_packet_count"] = 27
+    summary["prefetch_lab_default_stream_shifted_issue_replay_row_shift_mismatch_count"] = 1
+    summary["prefetch_lab_default_stream_shifted_issue_replay_row_clamp_mismatch_count"] = 1
+
+    result = check_premap_lab_preflight_summary(summary)
+
+    assert result["passed"] is False
+    assert (
+        "prefetch_lab_default_stream_shifted_issue_replay_contract_passed_mismatch"
+        in result["failures"]
+    )
+    assert (
+        "prefetch_lab_default_stream_shifted_issue_replay_schedulable_packet_count_below_min"
+        in result["failures"]
+    )
+    assert (
+        "prefetch_lab_default_stream_shifted_issue_replay_row_shift_mismatch_count_mismatch"
+        in result["failures"]
+    )
+    assert (
+        "prefetch_lab_default_stream_shifted_issue_replay_row_clamp_mismatch_count_mismatch"
+        in result["failures"]
+    )
+
+
+def test_check_premap_lab_preflight_summary_rejects_shifted_issue_payload_or_wna16() -> None:
+    summary = _summary()
+    summary["prefetch_lab_default_stream_shifted_issue_replay_payload_bytes"] = 64
+    summary["prefetch_lab_default_stream_shifted_issue_replay_source_payload_bytes"] = 64
+    summary[
+        "prefetch_lab_default_stream_shifted_issue_replay_full_fetch_runtime_allowed"
+    ] = True
+    summary[
+        "prefetch_lab_default_stream_shifted_issue_replay_source_full_fetch_allowed"
+    ] = True
+    summary["prefetch_lab_default_stream_shifted_issue_replay_uses_current_wna16_args"] = True
+    summary["prefetch_lab_default_stream_shifted_issue_replay_current_wna16_arg_compatible"] = True
+    summary[
+        "prefetch_lab_default_stream_shifted_issue_replay_requires_wna16_arg_reinterpretation"
+    ] = True
+    summary["prefetch_lab_default_stream_shifted_issue_replay_source_uses_current_wna16_args"] = True
+    summary[
+        "prefetch_lab_default_stream_shifted_issue_replay_source_current_wna16_arg_compatible"
+    ] = True
+    summary[
+        "prefetch_lab_default_stream_shifted_issue_replay_source_requires_wna16_arg_reinterpretation"
+    ] = True
+    summary["prefetch_lab_default_stream_shifted_issue_replay_wna16_benchmark_ready"] = True
+    summary["prefetch_lab_default_stream_shifted_issue_replay_source_wna16_benchmark_ready"] = True
+    summary["prefetch_lab_default_stream_shifted_issue_replay_measures_tpot"] = True
+
+    result = check_premap_lab_preflight_summary(summary)
+
+    assert result["passed"] is False
+    assert (
+        "prefetch_lab_default_stream_shifted_issue_replay_payload_bytes_mismatch"
+        in result["failures"]
+    )
+    assert (
+        "prefetch_lab_default_stream_shifted_issue_replay_source_payload_bytes_mismatch"
+        in result["failures"]
+    )
+    assert (
+        "prefetch_lab_default_stream_shifted_issue_replay_full_fetch_runtime_allowed_mismatch"
+        in result["failures"]
+    )
+    assert (
+        "prefetch_lab_default_stream_shifted_issue_replay_source_full_fetch_allowed_mismatch"
+        in result["failures"]
+    )
+    assert (
+        "prefetch_lab_default_stream_shifted_issue_replay_uses_current_wna16_args_mismatch"
+        in result["failures"]
+    )
+    assert (
+        "prefetch_lab_default_stream_shifted_issue_replay_current_wna16_arg_compatible_mismatch"
+        in result["failures"]
+    )
+    assert (
+        "prefetch_lab_default_stream_shifted_issue_replay_requires_wna16_arg_reinterpretation_mismatch"
+        in result["failures"]
+    )
+    assert (
+        "prefetch_lab_default_stream_shifted_issue_replay_source_uses_current_wna16_args_mismatch"
+        in result["failures"]
+    )
+    assert (
+        "prefetch_lab_default_stream_shifted_issue_replay_source_current_wna16_arg_compatible_mismatch"
+        in result["failures"]
+    )
+    assert (
+        "prefetch_lab_default_stream_shifted_issue_replay_source_requires_wna16_arg_reinterpretation_mismatch"
+        in result["failures"]
+    )
+    assert (
+        "prefetch_lab_default_stream_shifted_issue_replay_wna16_benchmark_ready_mismatch"
+        in result["failures"]
+    )
+    assert (
+        "prefetch_lab_default_stream_shifted_issue_replay_source_wna16_benchmark_ready_mismatch"
+        in result["failures"]
+    )
+    assert (
+        "prefetch_lab_default_stream_shifted_issue_replay_measures_tpot_mismatch"
+        in result["failures"]
+    )
+
+
+def test_check_premap_lab_preflight_summary_rejects_shifted_issue_type_confusion() -> None:
+    summary = _summary()
+    summary["prefetch_lab_default_stream_shifted_issue_replay_payload_bytes"] = False
+    summary["prefetch_lab_default_stream_shifted_issue_replay_contract_present"] = 1
+    summary[
+        "prefetch_lab_default_stream_shifted_issue_replay_uses_current_wna16_args"
+    ] = 0
+
+    result = check_premap_lab_preflight_summary(summary)
+
+    assert result["passed"] is False
+    assert (
+        "prefetch_lab_default_stream_shifted_issue_replay_payload_bytes_mismatch"
+        in result["failures"]
+    )
+    assert (
+        "prefetch_lab_default_stream_shifted_issue_replay_contract_present_mismatch"
+        in result["failures"]
+    )
+    assert (
+        "prefetch_lab_default_stream_shifted_issue_replay_uses_current_wna16_args_mismatch"
         in result["failures"]
     )
 

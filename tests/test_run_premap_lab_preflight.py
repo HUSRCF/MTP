@@ -6528,8 +6528,48 @@ def test_premap_lab_preflight_accepts_default_readonly_wiring(tmp_path: Path):
     )
     assert (
         summary[
+            "prefetch_lab_default_stream_shifted_issue_replay_full_fetch_runtime_allowed"
+        ]
+        is False
+    )
+    assert (
+        summary[
+            "prefetch_lab_default_stream_shifted_issue_replay_source_full_fetch_runtime_allowed"
+        ]
+        is False
+    )
+    assert (
+        summary[
+            "prefetch_lab_default_stream_shifted_issue_replay_kernel_arg_pass_allowed"
+        ]
+        is False
+    )
+    assert (
+        summary[
+            "prefetch_lab_default_stream_shifted_issue_replay_source_kernel_arg_pass_allowed"
+        ]
+        is False
+    )
+    assert (
+        summary[
             "prefetch_lab_default_stream_shifted_issue_replay_source_uses_current_wna16_args"
         ]
+        is False
+    )
+    assert (
+        summary[
+            "prefetch_lab_default_stream_shifted_issue_replay_source_current_wna16_arg_compatible"
+        ]
+        is False
+    )
+    assert (
+        summary[
+            "prefetch_lab_default_stream_shifted_issue_replay_source_requires_wna16_arg_reinterpretation"
+        ]
+        is False
+    )
+    assert (
+        summary["prefetch_lab_default_stream_shifted_issue_replay_source_measures_tpot"]
         is False
     )
     assert summary["prefetch_lab_default_metadata_decision"] == "shadow_only"

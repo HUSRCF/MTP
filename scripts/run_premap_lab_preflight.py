@@ -12354,10 +12354,130 @@ def run_premap_lab_preflight(
                 "stream_shifted_issue_replay_payload_bytes",
             )
         ),
+        "prefetch_lab_default_stream_shifted_issue_replay_full_fetch_runtime_allowed": (
+            _bool_metric(
+                prefetch_lab_default_full_fetch,
+                "stream_shifted_issue_replay_full_fetch_runtime_allowed",
+            )
+        ),
+        "prefetch_lab_default_stream_shifted_issue_replay_full_fetch_allowed": (
+            _bool_metric(
+                prefetch_lab_default_full_fetch,
+                "stream_shifted_issue_replay_full_fetch_allowed",
+            )
+        ),
+        "prefetch_lab_default_stream_shifted_issue_replay_ready_credit": (
+            _bool_metric(
+                prefetch_lab_default_full_fetch,
+                "stream_shifted_issue_replay_ready_credit",
+            )
+        ),
+        "prefetch_lab_default_stream_shifted_issue_replay_ready_before_demand_credit": (
+            _bool_metric(
+                prefetch_lab_default_full_fetch,
+                "stream_shifted_issue_replay_ready_before_demand_credit",
+            )
+        ),
+        "prefetch_lab_default_stream_shifted_issue_replay_real_ready_credit_granted": (
+            _bool_metric(
+                prefetch_lab_default_full_fetch,
+                "stream_shifted_issue_replay_real_ready_credit_granted",
+            )
+        ),
+        "prefetch_lab_default_stream_shifted_issue_replay_payload_transfer_enabled": (
+            _bool_metric(
+                prefetch_lab_default_full_fetch,
+                "stream_shifted_issue_replay_payload_transfer_enabled",
+            )
+        ),
+        "prefetch_lab_default_stream_shifted_issue_replay_payload_deref_allowed": (
+            _bool_metric(
+                prefetch_lab_default_full_fetch,
+                "stream_shifted_issue_replay_payload_deref_allowed",
+            )
+        ),
+        "prefetch_lab_default_stream_shifted_issue_replay_kernel_arg_pass_allowed": (
+            _bool_metric(
+                prefetch_lab_default_full_fetch,
+                "stream_shifted_issue_replay_kernel_arg_pass_allowed",
+            )
+        ),
+        "prefetch_lab_default_stream_shifted_issue_replay_passed_to_kernel": (
+            _bool_metric(
+                prefetch_lab_default_full_fetch,
+                "stream_shifted_issue_replay_passed_to_kernel",
+            )
+        ),
+        "prefetch_lab_default_stream_shifted_issue_replay_changes_kernel_launch_args": (
+            _bool_metric(
+                prefetch_lab_default_full_fetch,
+                "stream_shifted_issue_replay_changes_kernel_launch_args",
+            )
+        ),
         "prefetch_lab_default_stream_shifted_issue_replay_source_payload_bytes": (
             _int_metric(
                 prefetch_lab_default_full_fetch,
                 "stream_shifted_issue_replay_source_payload_bytes",
+            )
+        ),
+        "prefetch_lab_default_stream_shifted_issue_replay_source_full_fetch_runtime_allowed": (
+            _bool_metric(
+                prefetch_lab_default_full_fetch,
+                "stream_shifted_issue_replay_source_full_fetch_runtime_allowed",
+            )
+        ),
+        "prefetch_lab_default_stream_shifted_issue_replay_source_full_fetch_allowed": (
+            _bool_metric(
+                prefetch_lab_default_full_fetch,
+                "stream_shifted_issue_replay_source_full_fetch_allowed",
+            )
+        ),
+        "prefetch_lab_default_stream_shifted_issue_replay_source_ready_credit": (
+            _bool_metric(
+                prefetch_lab_default_full_fetch,
+                "stream_shifted_issue_replay_source_ready_credit",
+            )
+        ),
+        "prefetch_lab_default_stream_shifted_issue_replay_source_ready_before_demand_credit": (
+            _bool_metric(
+                prefetch_lab_default_full_fetch,
+                "stream_shifted_issue_replay_source_ready_before_demand_credit",
+            )
+        ),
+        "prefetch_lab_default_stream_shifted_issue_replay_source_real_ready_credit_granted": (
+            _bool_metric(
+                prefetch_lab_default_full_fetch,
+                "stream_shifted_issue_replay_source_real_ready_credit_granted",
+            )
+        ),
+        "prefetch_lab_default_stream_shifted_issue_replay_source_payload_transfer_enabled": (
+            _bool_metric(
+                prefetch_lab_default_full_fetch,
+                "stream_shifted_issue_replay_source_payload_transfer_enabled",
+            )
+        ),
+        "prefetch_lab_default_stream_shifted_issue_replay_source_payload_deref_allowed": (
+            _bool_metric(
+                prefetch_lab_default_full_fetch,
+                "stream_shifted_issue_replay_source_payload_deref_allowed",
+            )
+        ),
+        "prefetch_lab_default_stream_shifted_issue_replay_source_kernel_arg_pass_allowed": (
+            _bool_metric(
+                prefetch_lab_default_full_fetch,
+                "stream_shifted_issue_replay_source_kernel_arg_pass_allowed",
+            )
+        ),
+        "prefetch_lab_default_stream_shifted_issue_replay_source_passed_to_kernel": (
+            _bool_metric(
+                prefetch_lab_default_full_fetch,
+                "stream_shifted_issue_replay_source_passed_to_kernel",
+            )
+        ),
+        "prefetch_lab_default_stream_shifted_issue_replay_source_changes_kernel_launch_args": (
+            _bool_metric(
+                prefetch_lab_default_full_fetch,
+                "stream_shifted_issue_replay_source_changes_kernel_launch_args",
             )
         ),
         "prefetch_lab_default_stream_shifted_issue_replay_uses_current_wna16_args": (
@@ -12366,10 +12486,46 @@ def run_premap_lab_preflight(
                 "stream_shifted_issue_replay_uses_current_wna16_args",
             )
         ),
+        "prefetch_lab_default_stream_shifted_issue_replay_passes_current_wna16_args": (
+            _bool_metric(
+                prefetch_lab_default_full_fetch,
+                "stream_shifted_issue_replay_passes_current_wna16_args",
+            )
+        ),
+        "prefetch_lab_default_stream_shifted_issue_replay_current_wna16_arg_compatible": (
+            _bool_metric(
+                prefetch_lab_default_full_fetch,
+                "stream_shifted_issue_replay_current_wna16_arg_compatible",
+            )
+        ),
+        "prefetch_lab_default_stream_shifted_issue_replay_requires_wna16_arg_reinterpretation": (
+            _bool_metric(
+                prefetch_lab_default_full_fetch,
+                "stream_shifted_issue_replay_requires_wna16_arg_reinterpretation",
+            )
+        ),
         "prefetch_lab_default_stream_shifted_issue_replay_source_uses_current_wna16_args": (
             _bool_metric(
                 prefetch_lab_default_full_fetch,
                 "stream_shifted_issue_replay_source_uses_current_wna16_args",
+            )
+        ),
+        "prefetch_lab_default_stream_shifted_issue_replay_source_passes_current_wna16_args": (
+            _bool_metric(
+                prefetch_lab_default_full_fetch,
+                "stream_shifted_issue_replay_source_passes_current_wna16_args",
+            )
+        ),
+        "prefetch_lab_default_stream_shifted_issue_replay_source_current_wna16_arg_compatible": (
+            _bool_metric(
+                prefetch_lab_default_full_fetch,
+                "stream_shifted_issue_replay_source_current_wna16_arg_compatible",
+            )
+        ),
+        "prefetch_lab_default_stream_shifted_issue_replay_source_requires_wna16_arg_reinterpretation": (
+            _bool_metric(
+                prefetch_lab_default_full_fetch,
+                "stream_shifted_issue_replay_source_requires_wna16_arg_reinterpretation",
             )
         ),
         "prefetch_lab_default_stream_shifted_issue_replay_wna16_benchmark_ready": (
@@ -12382,6 +12538,30 @@ def run_premap_lab_preflight(
             _bool_metric(
                 prefetch_lab_default_full_fetch,
                 "stream_shifted_issue_replay_source_wna16_benchmark_ready",
+            )
+        ),
+        "prefetch_lab_default_stream_shifted_issue_replay_measures_tpot": (
+            _bool_metric(
+                prefetch_lab_default_full_fetch,
+                "stream_shifted_issue_replay_measures_tpot",
+            )
+        ),
+        "prefetch_lab_default_stream_shifted_issue_replay_source_measures_tpot": (
+            _bool_metric(
+                prefetch_lab_default_full_fetch,
+                "stream_shifted_issue_replay_source_measures_tpot",
+            )
+        ),
+        "prefetch_lab_default_stream_shifted_issue_replay_measures_vllm_latency": (
+            _bool_metric(
+                prefetch_lab_default_full_fetch,
+                "stream_shifted_issue_replay_measures_vllm_latency",
+            )
+        ),
+        "prefetch_lab_default_stream_shifted_issue_replay_source_measures_vllm_latency": (
+            _bool_metric(
+                prefetch_lab_default_full_fetch,
+                "stream_shifted_issue_replay_source_measures_vllm_latency",
             )
         ),
         "prefetch_lab_default_metadata_decision": (

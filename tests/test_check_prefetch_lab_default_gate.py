@@ -216,8 +216,15 @@ def test_prefetch_lab_default_gate_passes_low_risk_premap_path(tmp_path: Path):
     assert full_fetch["stream_shifted_issue_replay_schedulable_packet_count"] == 4
     assert full_fetch["stream_shifted_issue_replay_row_shift_mismatch_count"] == 0
     assert full_fetch["stream_shifted_issue_replay_source_payload_bytes"] == 0
+    assert full_fetch["stream_shifted_issue_replay_full_fetch_runtime_allowed"] is False
+    assert full_fetch["stream_shifted_issue_replay_source_full_fetch_runtime_allowed"] is False
+    assert full_fetch["stream_shifted_issue_replay_kernel_arg_pass_allowed"] is False
+    assert full_fetch["stream_shifted_issue_replay_source_kernel_arg_pass_allowed"] is False
     assert full_fetch["stream_shifted_issue_replay_source_uses_current_wna16_args"] is False
+    assert full_fetch["stream_shifted_issue_replay_source_current_wna16_arg_compatible"] is False
+    assert full_fetch["stream_shifted_issue_replay_source_requires_wna16_arg_reinterpretation"] is False
     assert full_fetch["stream_shifted_issue_replay_source_wna16_benchmark_ready"] is False
+    assert full_fetch["stream_shifted_issue_replay_source_measures_tpot"] is False
 
 
 def test_prefetch_lab_default_gate_rejects_full_fetch_allow_report(tmp_path: Path):

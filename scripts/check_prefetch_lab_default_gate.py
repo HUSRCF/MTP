@@ -467,17 +467,121 @@ def _check_stream_shifted_issue_replay_contract(
             check,
             "payload_bytes",
         ),
+        "stream_shifted_issue_replay_full_fetch_runtime_allowed": _optional_bool(
+            check,
+            "full_fetch_runtime_allowed",
+        ),
+        "stream_shifted_issue_replay_full_fetch_allowed": _optional_bool(
+            check,
+            "full_fetch_allowed",
+        ),
+        "stream_shifted_issue_replay_ready_credit": _optional_bool(
+            check,
+            "ready_credit",
+        ),
+        "stream_shifted_issue_replay_ready_before_demand_credit": _optional_bool(
+            check,
+            "ready_before_demand_credit",
+        ),
+        "stream_shifted_issue_replay_real_ready_credit_granted": _optional_bool(
+            check,
+            "real_ready_credit_granted",
+        ),
+        "stream_shifted_issue_replay_payload_transfer_enabled": _optional_bool(
+            check,
+            "payload_transfer_enabled",
+        ),
+        "stream_shifted_issue_replay_payload_deref_allowed": _optional_bool(
+            check,
+            "payload_deref_allowed",
+        ),
+        "stream_shifted_issue_replay_kernel_arg_pass_allowed": _optional_bool(
+            check,
+            "kernel_arg_pass_allowed",
+        ),
+        "stream_shifted_issue_replay_passed_to_kernel": _optional_bool(
+            check,
+            "passed_to_kernel",
+        ),
+        "stream_shifted_issue_replay_changes_kernel_launch_args": _optional_bool(
+            check,
+            "changes_kernel_launch_args",
+        ),
         "stream_shifted_issue_replay_source_payload_bytes": _optional_int(
             check,
             "source_payload_bytes",
+        ),
+        "stream_shifted_issue_replay_source_full_fetch_runtime_allowed": _optional_bool(
+            check,
+            "source_full_fetch_runtime_allowed",
+        ),
+        "stream_shifted_issue_replay_source_full_fetch_allowed": _optional_bool(
+            check,
+            "source_full_fetch_allowed",
+        ),
+        "stream_shifted_issue_replay_source_ready_credit": _optional_bool(
+            check,
+            "source_ready_credit",
+        ),
+        "stream_shifted_issue_replay_source_ready_before_demand_credit": _optional_bool(
+            check,
+            "source_ready_before_demand_credit",
+        ),
+        "stream_shifted_issue_replay_source_real_ready_credit_granted": _optional_bool(
+            check,
+            "source_real_ready_credit_granted",
+        ),
+        "stream_shifted_issue_replay_source_payload_transfer_enabled": _optional_bool(
+            check,
+            "source_payload_transfer_enabled",
+        ),
+        "stream_shifted_issue_replay_source_payload_deref_allowed": _optional_bool(
+            check,
+            "source_payload_deref_allowed",
+        ),
+        "stream_shifted_issue_replay_source_kernel_arg_pass_allowed": _optional_bool(
+            check,
+            "source_kernel_arg_pass_allowed",
+        ),
+        "stream_shifted_issue_replay_source_passed_to_kernel": _optional_bool(
+            check,
+            "source_passed_to_kernel",
+        ),
+        "stream_shifted_issue_replay_source_changes_kernel_launch_args": _optional_bool(
+            check,
+            "source_changes_kernel_launch_args",
         ),
         "stream_shifted_issue_replay_uses_current_wna16_args": _optional_bool(
             check,
             "uses_current_wna16_args",
         ),
+        "stream_shifted_issue_replay_passes_current_wna16_args": _optional_bool(
+            check,
+            "passes_current_wna16_args",
+        ),
+        "stream_shifted_issue_replay_current_wna16_arg_compatible": _optional_bool(
+            check,
+            "current_wna16_arg_compatible",
+        ),
+        "stream_shifted_issue_replay_requires_wna16_arg_reinterpretation": _optional_bool(
+            check,
+            "requires_wna16_arg_reinterpretation",
+        ),
         "stream_shifted_issue_replay_source_uses_current_wna16_args": _optional_bool(
             check,
             "source_uses_current_wna16_args",
+        ),
+        "stream_shifted_issue_replay_source_passes_current_wna16_args": _optional_bool(
+            check,
+            "source_passes_current_wna16_args",
+        ),
+        "stream_shifted_issue_replay_source_current_wna16_arg_compatible": _optional_bool(
+            check,
+            "source_current_wna16_arg_compatible",
+        ),
+        "stream_shifted_issue_replay_source_requires_wna16_arg_reinterpretation": _optional_bool(
+            check,
+            "source_requires_wna16_arg_reinterpretation",
         ),
         "stream_shifted_issue_replay_wna16_benchmark_ready": _optional_bool(
             check,
@@ -486,6 +590,22 @@ def _check_stream_shifted_issue_replay_contract(
         "stream_shifted_issue_replay_source_wna16_benchmark_ready": _optional_bool(
             check,
             "source_wna16_benchmark_ready",
+        ),
+        "stream_shifted_issue_replay_measures_tpot": _optional_bool(
+            check,
+            "measures_tpot",
+        ),
+        "stream_shifted_issue_replay_source_measures_tpot": _optional_bool(
+            check,
+            "source_measures_tpot",
+        ),
+        "stream_shifted_issue_replay_measures_vllm_latency": _optional_bool(
+            check,
+            "measures_vllm_latency",
+        ),
+        "stream_shifted_issue_replay_source_measures_vllm_latency": _optional_bool(
+            check,
+            "source_measures_vllm_latency",
         ),
     }
 

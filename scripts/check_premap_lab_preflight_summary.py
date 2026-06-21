@@ -1366,6 +1366,88 @@ def _check_stream_full_fetch_block(
         failures.append(f"{prefix}_first_passing_lead_above_candidate")
 
 
+def _check_stream_shifted_issue_replay_contract(
+    summary: dict[str, Any],
+    failures: list[str],
+) -> None:
+    prefix = "prefetch_lab_default_stream_shifted_issue_replay"
+    for key in ("contract_present", "contract_passed"):
+        if summary.get(f"{prefix}_{key}") is not True:
+            failures.append(f"{prefix}_{key}_mismatch")
+
+    for key in (
+        "full_fetch_runtime_allowed",
+        "full_fetch_allowed",
+        "ready_credit",
+        "ready_before_demand_credit",
+        "real_ready_credit_granted",
+        "payload_transfer_enabled",
+        "payload_deref_allowed",
+        "kernel_arg_pass_allowed",
+        "passed_to_kernel",
+        "changes_kernel_launch_args",
+        "source_full_fetch_runtime_allowed",
+        "source_full_fetch_allowed",
+        "source_ready_credit",
+        "source_ready_before_demand_credit",
+        "source_real_ready_credit_granted",
+        "source_payload_transfer_enabled",
+        "source_payload_deref_allowed",
+        "source_kernel_arg_pass_allowed",
+        "source_passed_to_kernel",
+        "source_changes_kernel_launch_args",
+        "uses_current_wna16_args",
+        "source_uses_current_wna16_args",
+        "passes_current_wna16_args",
+        "current_wna16_arg_compatible",
+        "requires_wna16_arg_reinterpretation",
+        "source_passes_current_wna16_args",
+        "source_current_wna16_arg_compatible",
+        "source_requires_wna16_arg_reinterpretation",
+        "wna16_benchmark_ready",
+        "source_wna16_benchmark_ready",
+        "measures_tpot",
+        "source_measures_tpot",
+        "measures_vllm_latency",
+        "source_measures_vllm_latency",
+    ):
+        if summary.get(f"{prefix}_{key}") is not False:
+            failures.append(f"{prefix}_{key}_mismatch")
+
+    for key in ("payload_bytes", "source_payload_bytes"):
+        if _int_metric(summary, f"{prefix}_{key}") != 0:
+            failures.append(f"{prefix}_{key}_mismatch")
+
+    required_lead = _int_metric(summary, f"{prefix}_contract_required_lead_tokens")
+    min_schedulable = _int_metric(
+        summary,
+        f"{prefix}_contract_min_schedulable_packets",
+    )
+    issue_lead = _int_metric(summary, f"{prefix}_issue_lead_tokens")
+    schedulable = _int_metric(summary, f"{prefix}_schedulable_packet_count")
+    clamped = _int_metric(summary, f"{prefix}_clamped_issue_count")
+    duplicates = _int_metric(summary, f"{prefix}_duplicate_issue_key_count")
+    row_shift_mismatch = _int_metric(summary, f"{prefix}_row_shift_mismatch_count")
+    row_clamp_mismatch = _int_metric(summary, f"{prefix}_row_clamp_mismatch_count")
+
+    if required_lead != 32:
+        failures.append(f"{prefix}_contract_required_lead_tokens_mismatch")
+    if min_schedulable != 28:
+        failures.append(f"{prefix}_contract_min_schedulable_packets_mismatch")
+    if issue_lead != required_lead:
+        failures.append(f"{prefix}_issue_lead_tokens_mismatch")
+    if schedulable is None or min_schedulable is None or schedulable < min_schedulable:
+        failures.append(f"{prefix}_schedulable_packet_count_below_min")
+    if clamped is None or clamped <= 0:
+        failures.append(f"{prefix}_clamped_issue_count_not_positive")
+    if duplicates is None or duplicates <= 0:
+        failures.append(f"{prefix}_duplicate_issue_key_count_not_positive")
+    if row_shift_mismatch != 0:
+        failures.append(f"{prefix}_row_shift_mismatch_count_mismatch")
+    if row_clamp_mismatch != 0:
+        failures.append(f"{prefix}_row_clamp_mismatch_count_mismatch")
+
+
 def check_premap_lab_preflight_summary(
     summary: dict[str, Any],
     *,
@@ -1579,6 +1661,7 @@ def check_premap_lab_preflight_summary(
     else:
         failures.append("prefetch_lab_default_ready_time_decision_reason_mismatch")
     _check_stream_full_fetch_block(summary, failures)
+    _check_stream_shifted_issue_replay_contract(summary, failures)
 
     for key in (
         "runtime_gate_evidence_deferred_count",
