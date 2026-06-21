@@ -40604,6 +40604,7 @@ New artifacts:
 
 ```text
 outputs/reports/premap_kernel_consumer/
+  premap_payload_cache_stream_earlier_issue_lead_tokens_token_index_dolly4_after_lab_refresh_v2.json
   premap_payload_cache_issue_stream_executor_token_index_lookahead_sweep_dolly4_after_lab_refresh_v1.json
   premap_payload_cache_stream_full_fetch_decision_gate_token_index_dolly4_after_lab_refresh_v1.json
   premap_payload_cache_stream_earlier_issue_feasibility_token_index_dolly4_after_lab_refresh_v1.json
@@ -40669,6 +40670,17 @@ passes_current_wna16_args = false
 measures_tpot = false
 measures_vllm_latency = false
 ```
+
+The lead-token sweep CLI now exposes only the valid token-index mode:
+
+```text
+scripts/sweep_premap_payload_cache_stream_earlier_issue_lead_tokens.py \
+  --event-timing-mode token_index
+```
+
+Packet-index timing is intentionally rejected for this lead-token artifact so
+the result stays tied to real token provenance rather than packet-order
+surrogates.
 
 Interpretation:
 
