@@ -1097,6 +1097,31 @@ def _summary() -> dict[str, object]:
         "prefetch_lab_default_stream_lead_token_sweep_first_model_passing_lookahead_us": (
             2400000.0
         ),
+        "prefetch_lab_default_stream_queue_budget_present": True,
+        "prefetch_lab_default_stream_queue_budget_passed": True,
+        "prefetch_lab_default_stream_queue_budget_cell_count": 16,
+        "prefetch_lab_default_stream_queue_budget_event_timing_mode": "token_index",
+        "prefetch_lab_default_stream_queue_budget_first_model_passing_capacity": 4096,
+        "prefetch_lab_default_stream_queue_budget_first_model_passing_issue_lead_tokens": 32,
+        "prefetch_lab_default_stream_queue_budget_first_model_passing_queue_deadline_us": 100.0,
+        "prefetch_lab_default_stream_queue_budget_first_model_passing_lookahead_us": 2400000.0,
+        "prefetch_lab_default_stream_queue_budget_first_shifted_issue_accounting_enabled": True,
+        "prefetch_lab_default_stream_queue_budget_first_shifted_issue_accounted_packet_count": 28,
+        "prefetch_lab_default_stream_queue_budget_first_shifted_issue_unique_issue_key_count": 16,
+        "prefetch_lab_default_stream_queue_budget_payload_bytes": 0,
+        "prefetch_lab_default_stream_queue_budget_payload_transfer_enabled": False,
+        "prefetch_lab_default_stream_queue_budget_payload_deref_allowed": False,
+        "prefetch_lab_default_stream_queue_budget_full_fetch_allowed": False,
+        "prefetch_lab_default_stream_queue_budget_ready_credit": False,
+        "prefetch_lab_default_stream_queue_budget_ready_before_demand_credit": False,
+        "prefetch_lab_default_stream_queue_budget_real_ready_credit_granted": False,
+        "prefetch_lab_default_stream_queue_budget_kernel_arg_pass_allowed": False,
+        "prefetch_lab_default_stream_queue_budget_passed_to_kernel": False,
+        "prefetch_lab_default_stream_queue_budget_changes_kernel_launch_args": False,
+        "prefetch_lab_default_stream_queue_budget_uses_current_wna16_args": False,
+        "prefetch_lab_default_stream_queue_budget_passes_current_wna16_args": False,
+        "prefetch_lab_default_stream_queue_budget_measures_tpot": False,
+        "prefetch_lab_default_stream_queue_budget_measures_vllm_latency": False,
         "prefetch_lab_default_stream_shifted_issue_replay_contract_present": True,
         "prefetch_lab_default_stream_shifted_issue_replay_contract_passed": True,
         "prefetch_lab_default_stream_shifted_issue_replay_contract_required_lead_tokens": 32,
@@ -2743,6 +2768,49 @@ def test_check_premap_lab_preflight_summary_rejects_shifted_issue_payload_or_wna
         "prefetch_lab_default_stream_shifted_issue_replay_measures_tpot_mismatch"
         in result["failures"]
     )
+
+
+def test_check_premap_lab_preflight_summary_rejects_stream_queue_budget_mismatch() -> None:
+    summary = _summary()
+    summary["prefetch_lab_default_stream_queue_budget_passed"] = False
+    summary["prefetch_lab_default_stream_queue_budget_payload_bytes"] = 64
+    summary["prefetch_lab_default_stream_queue_budget_payload_transfer_enabled"] = True
+    summary["prefetch_lab_default_stream_queue_budget_full_fetch_allowed"] = True
+    summary[
+        "prefetch_lab_default_stream_queue_budget_first_model_passing_issue_lead_tokens"
+    ] = 16
+    summary[
+        "prefetch_lab_default_stream_queue_budget_first_shifted_issue_accounted_packet_count"
+    ] = 27
+    summary["prefetch_lab_default_stream_queue_budget_measures_tpot"] = True
+
+    result = check_premap_lab_preflight_summary(summary)
+
+    assert result["passed"] is False
+    assert "prefetch_lab_default_stream_queue_budget_passed_mismatch" in result[
+        "failures"
+    ]
+    assert "prefetch_lab_default_stream_queue_budget_payload_bytes_mismatch" in result[
+        "failures"
+    ]
+    assert (
+        "prefetch_lab_default_stream_queue_budget_payload_transfer_enabled_mismatch"
+        in result["failures"]
+    )
+    assert "prefetch_lab_default_stream_queue_budget_full_fetch_allowed_mismatch" in result[
+        "failures"
+    ]
+    assert (
+        "prefetch_lab_default_stream_queue_budget_first_model_passing_issue_lead_tokens_mismatch"
+        in result["failures"]
+    )
+    assert (
+        "prefetch_lab_default_stream_queue_budget_first_shifted_issue_accounted_packet_count_mismatch"
+        in result["failures"]
+    )
+    assert "prefetch_lab_default_stream_queue_budget_measures_tpot_mismatch" in result[
+        "failures"
+    ]
 
 
 def test_check_premap_lab_preflight_summary_rejects_shifted_issue_type_confusion() -> None:

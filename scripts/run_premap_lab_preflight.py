@@ -12617,6 +12617,139 @@ def run_premap_lab_preflight(
                 "stream_lead_token_sweep_first_model_passing_lookahead_us",
             )
         ),
+        "prefetch_lab_default_stream_queue_budget_present": _bool_metric(
+            prefetch_lab_default_full_fetch,
+            "stream_queue_budget_present",
+        ),
+        "prefetch_lab_default_stream_queue_budget_passed": _bool_metric(
+            prefetch_lab_default_full_fetch,
+            "stream_queue_budget_passed",
+        ),
+        "prefetch_lab_default_stream_queue_budget_cell_count": _int_metric(
+            prefetch_lab_default_full_fetch,
+            "stream_queue_budget_cell_count",
+        ),
+        "prefetch_lab_default_stream_queue_budget_event_timing_mode": (
+            prefetch_lab_default_full_fetch.get(
+                "stream_queue_budget_event_timing_mode"
+            )
+        ),
+        "prefetch_lab_default_stream_queue_budget_first_model_passing_capacity": (
+            _int_metric(
+                prefetch_lab_default_full_fetch,
+                "stream_queue_budget_first_model_passing_capacity",
+            )
+        ),
+        "prefetch_lab_default_stream_queue_budget_first_model_passing_issue_lead_tokens": (
+            _int_metric(
+                prefetch_lab_default_full_fetch,
+                "stream_queue_budget_first_model_passing_issue_lead_tokens",
+            )
+        ),
+        "prefetch_lab_default_stream_queue_budget_first_model_passing_queue_deadline_us": (
+            _float_metric(
+                prefetch_lab_default_full_fetch,
+                "stream_queue_budget_first_model_passing_queue_deadline_us",
+            )
+        ),
+        "prefetch_lab_default_stream_queue_budget_first_model_passing_lookahead_us": (
+            _float_metric(
+                prefetch_lab_default_full_fetch,
+                "stream_queue_budget_first_model_passing_lookahead_us",
+            )
+        ),
+        "prefetch_lab_default_stream_queue_budget_first_shifted_issue_accounting_enabled": (
+            _bool_metric(
+                prefetch_lab_default_full_fetch,
+                "stream_queue_budget_first_shifted_issue_accounting_enabled",
+            )
+        ),
+        "prefetch_lab_default_stream_queue_budget_first_shifted_issue_accounted_packet_count": (
+            _int_metric(
+                prefetch_lab_default_full_fetch,
+                "stream_queue_budget_first_shifted_issue_accounted_packet_count",
+            )
+        ),
+        "prefetch_lab_default_stream_queue_budget_first_shifted_issue_unique_issue_key_count": (
+            _int_metric(
+                prefetch_lab_default_full_fetch,
+                "stream_queue_budget_first_shifted_issue_unique_issue_key_count",
+            )
+        ),
+        "prefetch_lab_default_stream_queue_budget_payload_bytes": _int_metric(
+            prefetch_lab_default_full_fetch,
+            "stream_queue_budget_payload_bytes",
+        ),
+        "prefetch_lab_default_stream_queue_budget_payload_transfer_enabled": (
+            _bool_metric(
+                prefetch_lab_default_full_fetch,
+                "stream_queue_budget_payload_transfer_enabled",
+            )
+        ),
+        "prefetch_lab_default_stream_queue_budget_payload_deref_allowed": (
+            _bool_metric(
+                prefetch_lab_default_full_fetch,
+                "stream_queue_budget_payload_deref_allowed",
+            )
+        ),
+        "prefetch_lab_default_stream_queue_budget_full_fetch_allowed": _bool_metric(
+            prefetch_lab_default_full_fetch,
+            "stream_queue_budget_full_fetch_allowed",
+        ),
+        "prefetch_lab_default_stream_queue_budget_ready_credit": _bool_metric(
+            prefetch_lab_default_full_fetch,
+            "stream_queue_budget_ready_credit",
+        ),
+        "prefetch_lab_default_stream_queue_budget_ready_before_demand_credit": (
+            _bool_metric(
+                prefetch_lab_default_full_fetch,
+                "stream_queue_budget_ready_before_demand_credit",
+            )
+        ),
+        "prefetch_lab_default_stream_queue_budget_real_ready_credit_granted": (
+            _bool_metric(
+                prefetch_lab_default_full_fetch,
+                "stream_queue_budget_real_ready_credit_granted",
+            )
+        ),
+        "prefetch_lab_default_stream_queue_budget_kernel_arg_pass_allowed": (
+            _bool_metric(
+                prefetch_lab_default_full_fetch,
+                "stream_queue_budget_kernel_arg_pass_allowed",
+            )
+        ),
+        "prefetch_lab_default_stream_queue_budget_passed_to_kernel": _bool_metric(
+            prefetch_lab_default_full_fetch,
+            "stream_queue_budget_passed_to_kernel",
+        ),
+        "prefetch_lab_default_stream_queue_budget_changes_kernel_launch_args": (
+            _bool_metric(
+                prefetch_lab_default_full_fetch,
+                "stream_queue_budget_changes_kernel_launch_args",
+            )
+        ),
+        "prefetch_lab_default_stream_queue_budget_uses_current_wna16_args": (
+            _bool_metric(
+                prefetch_lab_default_full_fetch,
+                "stream_queue_budget_uses_current_wna16_args",
+            )
+        ),
+        "prefetch_lab_default_stream_queue_budget_passes_current_wna16_args": (
+            _bool_metric(
+                prefetch_lab_default_full_fetch,
+                "stream_queue_budget_passes_current_wna16_args",
+            )
+        ),
+        "prefetch_lab_default_stream_queue_budget_measures_tpot": _bool_metric(
+            prefetch_lab_default_full_fetch,
+            "stream_queue_budget_measures_tpot",
+        ),
+        "prefetch_lab_default_stream_queue_budget_measures_vllm_latency": (
+            _bool_metric(
+                prefetch_lab_default_full_fetch,
+                "stream_queue_budget_measures_vllm_latency",
+            )
+        ),
         "prefetch_lab_default_stream_shifted_issue_replay_contract_present": (
             _bool_metric(
                 prefetch_lab_default_full_fetch,

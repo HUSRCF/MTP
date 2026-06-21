@@ -1557,6 +1557,73 @@ def _check_stream_shifted_issue_replay_contract(
         failures.append(f"{prefix}_row_clamp_mismatch_count_mismatch")
 
 
+def _check_stream_queue_budget(summary: dict[str, Any], failures: list[str]) -> None:
+    prefix = "prefetch_lab_default_stream_queue_budget"
+    for key in ("present", "passed"):
+        if summary.get(f"{prefix}_{key}") is not True:
+            failures.append(f"{prefix}_{key}_mismatch")
+    for key in (
+        "payload_transfer_enabled",
+        "payload_deref_allowed",
+        "full_fetch_allowed",
+        "ready_credit",
+        "ready_before_demand_credit",
+        "real_ready_credit_granted",
+        "kernel_arg_pass_allowed",
+        "passed_to_kernel",
+        "changes_kernel_launch_args",
+        "uses_current_wna16_args",
+        "passes_current_wna16_args",
+        "measures_tpot",
+        "measures_vllm_latency",
+    ):
+        if summary.get(f"{prefix}_{key}") is not False:
+            failures.append(f"{prefix}_{key}_mismatch")
+    if _int_metric(summary, f"{prefix}_payload_bytes") != 0:
+        failures.append(f"{prefix}_payload_bytes_mismatch")
+    if summary.get(f"{prefix}_event_timing_mode") != "token_index":
+        failures.append(f"{prefix}_event_timing_mode_mismatch")
+
+    cell_count = _int_metric(summary, f"{prefix}_cell_count")
+    first_capacity = _int_metric(summary, f"{prefix}_first_model_passing_capacity")
+    first_lead = _int_metric(
+        summary,
+        f"{prefix}_first_model_passing_issue_lead_tokens",
+    )
+    first_deadline = _float_metric(
+        summary,
+        f"{prefix}_first_model_passing_queue_deadline_us",
+    )
+    first_lookahead = _float_metric(
+        summary,
+        f"{prefix}_first_model_passing_lookahead_us",
+    )
+    if cell_count is None or cell_count <= 0:
+        failures.append(f"{prefix}_cell_count_invalid")
+    if first_capacity is None or first_capacity <= 0:
+        failures.append(f"{prefix}_first_model_passing_capacity_invalid")
+    if first_lead != 32:
+        failures.append(f"{prefix}_first_model_passing_issue_lead_tokens_mismatch")
+    if first_deadline is None or first_deadline <= 0.0:
+        failures.append(f"{prefix}_first_model_passing_queue_deadline_us_invalid")
+    if first_lookahead is None or first_lookahead <= 0.0:
+        failures.append(f"{prefix}_first_model_passing_lookahead_us_invalid")
+
+    if (
+        summary.get(f"{prefix}_first_shifted_issue_accounting_enabled")
+        is not True
+    ):
+        failures.append(f"{prefix}_first_shifted_issue_accounting_enabled_mismatch")
+    if _int_metric(summary, f"{prefix}_first_shifted_issue_accounted_packet_count") != 28:
+        failures.append(
+            f"{prefix}_first_shifted_issue_accounted_packet_count_mismatch"
+        )
+    if _int_metric(summary, f"{prefix}_first_shifted_issue_unique_issue_key_count") != 16:
+        failures.append(
+            f"{prefix}_first_shifted_issue_unique_issue_key_count_mismatch"
+        )
+
+
 def check_premap_lab_preflight_summary(
     summary: dict[str, Any],
     *,
@@ -2105,6 +2172,7 @@ def check_premap_lab_preflight_summary(
             )
     _check_stream_full_fetch_block(summary, failures)
     _check_stream_shifted_issue_replay_contract(summary, failures)
+    _check_stream_queue_budget(summary, failures)
 
     for key in (
         "runtime_gate_evidence_deferred_count",

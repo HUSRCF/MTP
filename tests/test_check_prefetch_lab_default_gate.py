@@ -298,6 +298,64 @@ def _write_fixture(tmp_path: Path, *, allow_full_fetch: bool = False) -> Path:
         ),
         encoding="utf-8",
     )
+    stream_queue_budget = tmp_path / "stream_queue_budget.json"
+    stream_queue_budget.write_text(
+        json.dumps(
+            {
+                "artifact_kind": (
+                    "premap_payload_cache_issue_stream_executor_queue_budget_sweep"
+                ),
+                "passed": True,
+                "failures": [],
+                "event_timing_mode": "token_index",
+                "cell_count": 1,
+                "cells": [
+                    {
+                        "capacity": 4096,
+                        "cell_index": 0,
+                        "model_passed": True,
+                        "passed": True,
+                        "queue_deadline_us": 100.0,
+                        "first_model_passing_issue_lead_tokens": 32,
+                        "first_model_passing_lookahead_us": 2400000.0,
+                        "first_model_passing_shifted_issue_accounting": {
+                            "shifted_issue_accounting_enabled": True,
+                            "shifted_issue_lead_tokens": 32,
+                            "shifted_issue_clamped_issue_count": 12,
+                            "shifted_issue_duplicate_issue_key_count": 12,
+                            "shifted_issue_unique_issue_key_count": 16,
+                            "shifted_issue_accounted_packet_count": 28,
+                            "shifted_issue_invalid_export_count": 0,
+                            "shifted_issue_row_shift_mismatch_count": 0,
+                            "shifted_issue_row_clamp_mismatch_count": 0,
+                        },
+                    },
+                ],
+                "first_model_passing_cell": {
+                    "capacity": 4096,
+                    "cell_index": 0,
+                    "issue_lead_tokens": 32,
+                    "lookahead_us": 2400000.0,
+                    "queue_deadline_us": 100.0,
+                    "shifted_issue_accounting": {
+                        "shifted_issue_accounting_enabled": True,
+                        "shifted_issue_lead_tokens": 32,
+                        "shifted_issue_clamped_issue_count": 12,
+                        "shifted_issue_duplicate_issue_key_count": 12,
+                        "shifted_issue_unique_issue_key_count": 16,
+                        "shifted_issue_accounted_packet_count": 28,
+                        "shifted_issue_invalid_export_count": 0,
+                        "shifted_issue_row_shift_mismatch_count": 0,
+                        "shifted_issue_row_clamp_mismatch_count": 0,
+                    },
+                },
+                "full_fetch_allowed": False,
+                "full_fetch_block_reason": "real_payload_runtime_not_enabled",
+                **_FULL_FETCH_DECISION_NOOP_FIELDS,
+            }
+        ),
+        encoding="utf-8",
+    )
     summary = tmp_path / "metadata_premap.json"
     summary.write_text(
         json.dumps(
@@ -338,6 +396,7 @@ def _write_fixture(tmp_path: Path, *, allow_full_fetch: bool = False) -> Path:
                     "stream_shifted_issue_replay_contract_report": str(
                         stream_shifted
                     ),
+                    "stream_queue_budget_report": str(stream_queue_budget),
                     "stream_shifted_issue_replay_required_lead_tokens": 32,
                     "stream_shifted_issue_replay_min_schedulable_packets": 4,
                 },
@@ -539,6 +598,67 @@ def test_prefetch_lab_default_gate_passes_low_risk_premap_path(tmp_path: Path):
     assert full_fetch["stream_shifted_issue_replay_row_shift_mismatch_count"] == 0
     assert full_fetch["stream_shifted_issue_replay_source_payload_bytes"] == 0
     assert full_fetch["stream_shifted_issue_replay_full_fetch_runtime_allowed"] is False
+    assert full_fetch["stream_queue_budget_present"] is True
+    assert full_fetch["stream_queue_budget_passed"] is True
+    assert full_fetch["stream_queue_budget_cell_count"] == 1
+    assert (
+        full_fetch["stream_queue_budget_first_model_passing_issue_lead_tokens"] == 32
+    )
+    assert full_fetch["stream_queue_budget_first_model_passing_capacity"] == 4096
+    assert (
+        full_fetch["stream_queue_budget_first_shifted_issue_accounted_packet_count"]
+        == 28
+    )
+    assert full_fetch["stream_queue_budget_payload_bytes"] == 0
+    assert full_fetch["stream_queue_budget_payload_transfer_enabled"] is False
+    assert full_fetch["stream_queue_budget_payload_deref_allowed"] is False
+    assert full_fetch["stream_queue_budget_full_fetch_allowed"] is False
+    assert full_fetch["stream_queue_budget_ready_before_demand_credit"] is False
+    assert full_fetch["stream_queue_budget_real_ready_credit_granted"] is False
+    assert full_fetch["stream_queue_budget_kernel_arg_pass_allowed"] is False
+    assert full_fetch["stream_queue_budget_passed_to_kernel"] is False
+    assert full_fetch["stream_queue_budget_changes_kernel_launch_args"] is False
+    assert full_fetch["stream_queue_budget_uses_current_wna16_args"] is False
+    assert full_fetch["stream_queue_budget_passes_current_wna16_args"] is False
+    assert full_fetch["stream_queue_budget_measures_tpot"] is False
+    assert full_fetch["stream_queue_budget_measures_vllm_latency"] is False
+
+
+def test_prefetch_lab_default_gate_rejects_queue_budget_first_cell_mismatch(
+    tmp_path: Path,
+):
+    config = _write_fixture(tmp_path)
+    payload = yaml.safe_load(config.read_text(encoding="utf-8"))
+    stream_path = Path(payload["full_fetch"]["stream_queue_budget_report"])
+    stream = json.loads(stream_path.read_text(encoding="utf-8"))
+    stream["cells"][0]["first_model_passing_issue_lead_tokens"] = 48
+    stream_path.write_text(json.dumps(stream), encoding="utf-8")
+
+    result = check_prefetch_lab_default_gate(config, root=tmp_path)
+
+    assert result["passed"] is False
+    assert (
+        "full_fetch:stream_queue_budget_first_cell_issue_lead_tokens_mismatch"
+        in result["failures"]
+    )
+
+
+def test_prefetch_lab_default_gate_rejects_queue_budget_string_cell_index(
+    tmp_path: Path,
+):
+    config = _write_fixture(tmp_path)
+    payload = yaml.safe_load(config.read_text(encoding="utf-8"))
+    stream_path = Path(payload["full_fetch"]["stream_queue_budget_report"])
+    stream = json.loads(stream_path.read_text(encoding="utf-8"))
+    stream["first_model_passing_cell"]["cell_index"] = "0"
+    stream_path.write_text(json.dumps(stream), encoding="utf-8")
+
+    result = check_prefetch_lab_default_gate(config, root=tmp_path)
+
+    assert result["passed"] is False
+    assert "full_fetch:stream_queue_budget_first_cell_index_missing" in result[
+        "failures"
+    ]
 
 
 def test_prefetch_lab_default_gate_rechecks_direct_snapshot_report(

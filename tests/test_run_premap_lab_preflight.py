@@ -4577,6 +4577,10 @@ def _write_prefetch_lab_default_gate(root: Path) -> str:
         "outputs/reports/premap_kernel_consumer/"
         "premap_payload_cache_stream_shifted_issue_replay_contract_token_index_test.json"
     )
+    stream_queue_budget = (
+        "outputs/reports/premap_kernel_consumer/"
+        "premap_payload_cache_issue_stream_executor_queue_budget_token_index_test.json"
+    )
     capacity_gate = (
         "configs/runtime/"
         "premap_address_capacity_gate_dolly128_gen64_awq_w7900_gpu1.yaml"
@@ -4886,6 +4890,65 @@ def _write_prefetch_lab_default_gate(root: Path) -> str:
         + "\n",
     )
     _write(
+        root / stream_queue_budget,
+        json.dumps(
+            {
+                "artifact_kind": (
+                    "premap_payload_cache_issue_stream_executor_queue_budget_sweep"
+                ),
+                "passed": True,
+                "failures": [],
+                "event_timing_mode": "token_index",
+                "cell_count": 1,
+                "cells": [
+                    {
+                        "capacity": 4096,
+                        "cell_index": 0,
+                        "model_passed": True,
+                        "passed": True,
+                        "queue_deadline_us": 100.0,
+                        "first_model_passing_issue_lead_tokens": 32,
+                        "first_model_passing_lookahead_us": 2400000.0,
+                        "first_model_passing_shifted_issue_accounting": {
+                            "shifted_issue_accounting_enabled": True,
+                            "shifted_issue_lead_tokens": 32,
+                            "shifted_issue_clamped_issue_count": 12,
+                            "shifted_issue_duplicate_issue_key_count": 12,
+                            "shifted_issue_unique_issue_key_count": 16,
+                            "shifted_issue_accounted_packet_count": 28,
+                            "shifted_issue_invalid_export_count": 0,
+                            "shifted_issue_row_shift_mismatch_count": 0,
+                            "shifted_issue_row_clamp_mismatch_count": 0,
+                        },
+                    },
+                ],
+                "first_model_passing_cell": {
+                    "capacity": 4096,
+                    "cell_index": 0,
+                    "issue_lead_tokens": 32,
+                    "lookahead_us": 2400000.0,
+                    "queue_deadline_us": 100.0,
+                    "shifted_issue_accounting": {
+                        "shifted_issue_accounting_enabled": True,
+                        "shifted_issue_lead_tokens": 32,
+                        "shifted_issue_clamped_issue_count": 12,
+                        "shifted_issue_duplicate_issue_key_count": 12,
+                        "shifted_issue_unique_issue_key_count": 16,
+                        "shifted_issue_accounted_packet_count": 28,
+                        "shifted_issue_invalid_export_count": 0,
+                        "shifted_issue_row_shift_mismatch_count": 0,
+                        "shifted_issue_row_clamp_mismatch_count": 0,
+                    },
+                },
+                "full_fetch_allowed": False,
+                "full_fetch_block_reason": "real_payload_runtime_not_enabled",
+                **no_op_fields,
+            },
+            sort_keys=True,
+        )
+        + "\n",
+    )
+    _write(
         root / metadata_premap_summary,
         json.dumps(
             {
@@ -4915,6 +4978,7 @@ def _write_prefetch_lab_default_gate(root: Path) -> str:
         f"  stream_earlier_issue_feasibility_report: {stream_feasibility}\n"
         f"  stream_earlier_issue_lead_token_sweep_report: {stream_lead_sweep}\n"
         f"  stream_shifted_issue_replay_contract_report: {stream_shifted_issue_contract}\n"
+        f"  stream_queue_budget_report: {stream_queue_budget}\n"
         "  stream_shifted_issue_replay_required_lead_tokens: 32\n"
         "  stream_shifted_issue_replay_min_schedulable_packets: 4\n"
         "metadata:\n"
@@ -6930,6 +6994,61 @@ def test_premap_lab_preflight_accepts_default_readonly_wiring(tmp_path: Path):
     assert (
         summary["prefetch_lab_default_stream_shifted_issue_replay_contract_passed"]
         is True
+    )
+    assert summary["prefetch_lab_default_stream_queue_budget_present"] is True
+    assert summary["prefetch_lab_default_stream_queue_budget_passed"] is True
+    assert summary["prefetch_lab_default_stream_queue_budget_cell_count"] == 1
+    assert (
+        summary[
+            "prefetch_lab_default_stream_queue_budget_first_model_passing_issue_lead_tokens"
+        ]
+        == 32
+    )
+    assert (
+        summary["prefetch_lab_default_stream_queue_budget_first_model_passing_capacity"]
+        == 4096
+    )
+    assert (
+        summary[
+            "prefetch_lab_default_stream_queue_budget_first_shifted_issue_accounted_packet_count"
+        ]
+        == 28
+    )
+    assert summary["prefetch_lab_default_stream_queue_budget_payload_bytes"] == 0
+    assert (
+        summary["prefetch_lab_default_stream_queue_budget_payload_transfer_enabled"]
+        is False
+    )
+    assert (
+        summary["prefetch_lab_default_stream_queue_budget_payload_deref_allowed"]
+        is False
+    )
+    assert (
+        summary["prefetch_lab_default_stream_queue_budget_ready_before_demand_credit"]
+        is False
+    )
+    assert (
+        summary["prefetch_lab_default_stream_queue_budget_real_ready_credit_granted"]
+        is False
+    )
+    assert (
+        summary["prefetch_lab_default_stream_queue_budget_kernel_arg_pass_allowed"]
+        is False
+    )
+    assert (
+        summary["prefetch_lab_default_stream_queue_budget_passed_to_kernel"] is False
+    )
+    assert (
+        summary["prefetch_lab_default_stream_queue_budget_changes_kernel_launch_args"]
+        is False
+    )
+    assert (
+        summary["prefetch_lab_default_stream_queue_budget_uses_current_wna16_args"]
+        is False
+    )
+    assert (
+        summary["prefetch_lab_default_stream_queue_budget_passes_current_wna16_args"]
+        is False
     )
     assert (
         summary[

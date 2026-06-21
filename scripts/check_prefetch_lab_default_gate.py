@@ -86,6 +86,11 @@ def _check_full_fetch(section: dict[str, Any], *, root: Path) -> dict[str, Any]:
         root,
         failures,
     )
+    stream_queue_budget = _check_optional_stream_queue_budget_sweep(
+        section,
+        root,
+        failures,
+    )
     direct_snapshot = _check_ready_time_direct_snapshot_gate(
         section,
         root,
@@ -169,6 +174,7 @@ def _check_full_fetch(section: dict[str, Any], *, root: Path) -> dict[str, Any]:
         **stream_decision,
         **stream_lead_sweep,
         **stream_shifted_issue,
+        **stream_queue_budget,
         **direct_snapshot,
     }
 
@@ -1124,6 +1130,171 @@ def _check_stream_shifted_issue_replay_contract(
     }
 
 
+def _check_optional_stream_queue_budget_sweep(
+    section: dict[str, Any],
+    root: Path,
+    failures: list[str],
+) -> dict[str, Any]:
+    path_value = section.get("stream_queue_budget_report")
+    if path_value in (None, ""):
+        failures.append("stream_queue_budget_report_missing")
+        return {
+            "stream_queue_budget_present": False,
+            "stream_queue_budget_report": None,
+            "stream_queue_budget_passed": None,
+        }
+    path = _resolve(path_value, root=root)
+    report = _load_json(path, failures, label="stream_queue_budget_report")
+    if report.get("artifact_kind") != "premap_payload_cache_issue_stream_executor_queue_budget_sweep":
+        failures.append("stream_queue_budget_artifact_kind_mismatch")
+    passed = _strict_passed(report, failures, label="stream_queue_budget")
+    if not passed:
+        failures.append("stream_queue_budget_not_passed")
+    if report.get("full_fetch_allowed") is not False:
+        failures.append("stream_queue_budget_allows_full_fetch")
+    _check_stream_noop_safety(report, failures, label="stream_queue_budget")
+    if report.get("event_timing_mode") != "token_index":
+        failures.append("stream_queue_budget_event_timing_mode_mismatch")
+    cell_count = _optional_int(report, "cell_count")
+    if cell_count is None or cell_count <= 0:
+        failures.append("stream_queue_budget_cell_count_invalid")
+    cells = report.get("cells")
+    if not isinstance(cells, list) or not cells:
+        failures.append("stream_queue_budget_cells_missing")
+    elif cell_count is not None and len(cells) != cell_count:
+        failures.append("stream_queue_budget_cell_count_mismatch")
+    first_cell = report.get("first_model_passing_cell")
+    first_cell = first_cell if isinstance(first_cell, dict) else {}
+    if not first_cell:
+        failures.append("stream_queue_budget_first_model_passing_cell_missing")
+    first_capacity = _strict_int(first_cell, "capacity")
+    first_lead = _strict_int(first_cell, "issue_lead_tokens")
+    first_queue_deadline_us = _optional_float(first_cell, "queue_deadline_us")
+    first_lookahead_us = _optional_float(first_cell, "lookahead_us")
+    if first_capacity is None or first_capacity <= 0:
+        failures.append("stream_queue_budget_first_capacity_invalid")
+    if first_lead != 32:
+        failures.append("stream_queue_budget_first_issue_lead_tokens_mismatch")
+    if first_queue_deadline_us is None or first_queue_deadline_us <= 0.0:
+        failures.append("stream_queue_budget_first_queue_deadline_us_invalid")
+    if first_lookahead_us is None or first_lookahead_us <= 0.0:
+        failures.append("stream_queue_budget_first_lookahead_us_invalid")
+    first_index = _strict_int(first_cell, "cell_index")
+    first_cell_from_rows = None
+    if not isinstance(cells, list) or first_index is None:
+        failures.append("stream_queue_budget_first_cell_index_missing")
+    elif first_index < 0 or first_index >= len(cells):
+        failures.append("stream_queue_budget_first_cell_index_invalid")
+    else:
+        first_cell_from_rows = cells[first_index]
+        if not isinstance(first_cell_from_rows, dict):
+            failures.append("stream_queue_budget_first_cell_index_not_object")
+            first_cell_from_rows = None
+    if first_cell_from_rows is not None:
+        if first_cell_from_rows.get("model_passed") is not True:
+            failures.append("stream_queue_budget_first_cell_model_passed_mismatch")
+        for field, expected in (
+            ("cell_index", first_index),
+            ("capacity", first_capacity),
+            ("queue_deadline_us", first_queue_deadline_us),
+        ):
+            if first_cell_from_rows.get(field) != expected:
+                failures.append(f"stream_queue_budget_first_cell_{field}_mismatch")
+        if first_cell_from_rows.get("first_model_passing_issue_lead_tokens") != first_lead:
+            failures.append("stream_queue_budget_first_cell_issue_lead_tokens_mismatch")
+        if first_cell_from_rows.get("first_model_passing_lookahead_us") != first_lookahead_us:
+            failures.append("stream_queue_budget_first_cell_lookahead_us_mismatch")
+    shifted_issue = first_cell.get("shifted_issue_accounting")
+    shifted_issue = shifted_issue if isinstance(shifted_issue, dict) else {}
+    if first_cell_from_rows is not None:
+        row_shifted_issue = first_cell_from_rows.get(
+            "first_model_passing_shifted_issue_accounting",
+        )
+        if row_shifted_issue != shifted_issue:
+            failures.append("stream_queue_budget_first_shifted_issue_cell_mismatch")
+    _check_required_shifted_issue_accounting(
+        shifted_issue,
+        failures,
+        label="stream_queue_budget_first_shifted_issue",
+    )
+    return {
+        "stream_queue_budget_present": True,
+        "stream_queue_budget_report": str(path),
+        "stream_queue_budget_passed": passed,
+        "stream_queue_budget_cell_count": cell_count,
+        "stream_queue_budget_event_timing_mode": (
+            report.get("event_timing_mode")
+            if isinstance(report.get("event_timing_mode"), str)
+            else None
+        ),
+        "stream_queue_budget_first_model_passing_capacity": first_capacity,
+        "stream_queue_budget_first_model_passing_issue_lead_tokens": first_lead,
+        "stream_queue_budget_first_model_passing_queue_deadline_us": (
+            first_queue_deadline_us
+        ),
+        "stream_queue_budget_first_model_passing_lookahead_us": first_lookahead_us,
+        "stream_queue_budget_first_shifted_issue_accounting_enabled": (
+            _optional_bool(shifted_issue, "shifted_issue_accounting_enabled")
+        ),
+        "stream_queue_budget_first_shifted_issue_accounted_packet_count": (
+            _optional_int(shifted_issue, "shifted_issue_accounted_packet_count")
+        ),
+        "stream_queue_budget_first_shifted_issue_unique_issue_key_count": (
+            _optional_int(shifted_issue, "shifted_issue_unique_issue_key_count")
+        ),
+        "stream_queue_budget_payload_bytes": _optional_int(report, "payload_bytes"),
+        "stream_queue_budget_payload_transfer_enabled": _optional_bool(
+            report,
+            "payload_transfer_enabled",
+        ),
+        "stream_queue_budget_payload_deref_allowed": _optional_bool(
+            report,
+            "payload_deref_allowed",
+        ),
+        "stream_queue_budget_full_fetch_allowed": _optional_bool(
+            report,
+            "full_fetch_allowed",
+        ),
+        "stream_queue_budget_ready_credit": _optional_bool(report, "ready_credit"),
+        "stream_queue_budget_ready_before_demand_credit": _optional_bool(
+            report,
+            "ready_before_demand_credit",
+        ),
+        "stream_queue_budget_real_ready_credit_granted": _optional_bool(
+            report,
+            "real_ready_credit_granted",
+        ),
+        "stream_queue_budget_kernel_arg_pass_allowed": _optional_bool(
+            report,
+            "kernel_arg_pass_allowed",
+        ),
+        "stream_queue_budget_passed_to_kernel": _optional_bool(
+            report,
+            "passed_to_kernel",
+        ),
+        "stream_queue_budget_changes_kernel_launch_args": _optional_bool(
+            report,
+            "changes_kernel_launch_args",
+        ),
+        "stream_queue_budget_uses_current_wna16_args": _optional_bool(
+            report,
+            "uses_current_wna16_args",
+        ),
+        "stream_queue_budget_passes_current_wna16_args": _optional_bool(
+            report,
+            "passes_current_wna16_args",
+        ),
+        "stream_queue_budget_measures_tpot": _optional_bool(
+            report,
+            "measures_tpot",
+        ),
+        "stream_queue_budget_measures_vllm_latency": _optional_bool(
+            report,
+            "measures_vllm_latency",
+        ),
+    }
+
+
 def _check_stream_noop_safety(
     report: dict[str, Any],
     failures: list[str],
@@ -1312,6 +1483,13 @@ def _optional_int(payload: dict[str, Any], key: str) -> int | None:
         return int(value)
     except (TypeError, ValueError):
         return None
+
+
+def _strict_int(payload: dict[str, Any], key: str) -> int | None:
+    value = payload.get(key)
+    if isinstance(value, bool):
+        return None
+    return value if type(value) is int else None
 
 
 def _optional_bool(payload: dict[str, Any], key: str) -> bool | None:
