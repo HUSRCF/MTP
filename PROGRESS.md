@@ -2,10 +2,10 @@
 
 ## Progress Version
 
-- Version: `v1.34-live-runtime-object-adapter-preflight`
+- Version: `v1.35-live-runtime-adapter-materialization-preflight`
 - Updated: 2026-06-22
 
-## Latest Update: Live Runtime Object-Adapter Preflight
+## Latest Update: Live Runtime Adapter-Materialization Preflight
 
 The payload/cache lab chain still includes the first concrete manager
 implementation artifact:
@@ -350,16 +350,70 @@ queue_wait_us = 0.0
 queue_max_delay_us = 0.0
 ```
 
+The object-adapter preflight now feeds a still-blocked adapter-materialization
+preflight:
+
+```text
+PayloadCacheLiveRuntimeAdapterMaterializationPreflight
+```
+
+This is a materialization/check preflight, not runtime materialization.  It
+proves that the future adapter materialization boundary can check the declared
+issue-queue, demand-state, resident-index, and queue-timing adapter shapes
+without instantiating the live runtime or enabling any payload/cache-manager
+side effect.
+
+Required adapter-materialization preflight contract:
+
+```text
+stage = payload_cache_live_runtime_adapter_materialization_preflight
+status = blocked_by_object_adapter_preflight:<object_adapter_status>
+consumes_object_adapter_preflight = true
+state_shape_schema = ready_time_issue_demand_state_shape_v1
+runtime_adapter_schema = ready_time_payload_cache_runtime_adapter_v1
+object_construction_preflight_instantiated = true
+adapter_materialization_preflight_instantiated = true
+runtime_object_adapter_declared = true
+issue_queue_materialization_checked = true
+demand_state_materialization_checked = true
+resident_index_materialization_checked = true
+queue_timing_materialization_checked = true
+live_runtime_instantiated = false
+decision = blocked
+block_reason = live_runtime_adapter_materialization_preflight_only
+execution_mode = payload_cache_live_runtime_adapter_materialization_preflight_disabled
+capacity_entries = 4096
+issue_lead_tokens = 32
+queue_deadline_us = 100.0
+lookahead_us = 2400000.0
+queue_batch_size = 1
+resident_count = 0
+issued_fetch_count = 0
+used_fetch_count = 0
+unused_fetch_count = 0
+demand_count = 0
+demand_hit_count = 0
+demand_miss_count = 0
+evicted_before_use_count = 0
+ready_late_miss_count = 0
+late_completion_unused_count = 0
+queue_batch_count = 0
+queue_service_us = 0.0
+queue_total_span_us = 0.0
+queue_wait_us = 0.0
+queue_max_delay_us = 0.0
+```
+
 The summary checker also rejects mixed queue-budget summaries.  Live-stage,
 live-runtime, manager-artifact, runtime-skeleton, and runtime-snapshot
 queue-budget fields, plus the snapshot-backed live-runtime preflight, must
 match the same summary's `first_model_passing_*` and `first_shifted_issue_*`
 envelope fields.  The snapshot-backed live-runtime canary and the new
 state-shape check, object-construction preflight, and object-adapter preflight
-must also match that chain, while the lab-default gate still requires the
-measured 4096-entry / 32-token / 100us / 2.4M-us cell.  This prevents stale
-downstream artifacts from passing if the compact summary is manually mixed with
-a different queue-budget envelope.
+and adapter-materialization preflight must also match that chain, while the
+lab-default gate still requires the measured 4096-entry / 32-token / 100us /
+2.4M-us cell.  This prevents stale downstream artifacts from passing if the
+compact summary is manually mixed with a different queue-budget envelope.
 
 The no-side-effect boundary remains closed:
 
@@ -396,7 +450,7 @@ Validation:
   tests/test_check_premap_payload_cache_ready_time_gate.py \
   tests/test_vllm_router_shadow_sink.py -q
 
-512 passed
+516 passed
 
 /home/husrcf/anaconda3/envs/TRY/bin/python scripts/check_prefetch_lab_default_gate.py \
   configs/runtime/prefetch_lab_default_gate_gpu1.yaml
@@ -413,10 +467,10 @@ passed = true
 Next gate:
 
 ```text
-continue toward a still-disabled runtime adapter materialization/check boundary
-behind this object-adapter preflight.  Payload dereference, ready credit, kernel
-argument handoff, current WNA16 argument passing, and TPOT/vLLM latency claims
-must remain disabled until a strict live-runtime gate passes.
+continue toward a still-disabled runtime adapter state-object/check boundary
+behind this adapter-materialization preflight.  Payload dereference, ready
+credit, kernel argument handoff, current WNA16 argument passing, and TPOT/vLLM
+latency claims must remain disabled until a strict live-runtime gate passes.
 ```
 
 ## Previous Update: Live Payload Runtime Disabled Canary
