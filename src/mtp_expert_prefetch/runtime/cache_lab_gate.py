@@ -369,6 +369,13 @@ class PayloadCacheLivePayloadStagePreflight:
     status: str
     consumes_queue_budget_runtime_envelope: bool
     queue_budget_envelope_status: str
+    queue_budget_capacity_entries: int
+    queue_budget_issue_lead_tokens: int
+    queue_budget_queue_deadline_us: float
+    queue_budget_lookahead_us: float
+    shifted_issue_accounting_enabled: bool
+    shifted_issue_accounted_packet_count: int
+    shifted_issue_unique_issue_key_count: int
     decision: str = "blocked"
     block_reason: str = "live_payload_runtime_disabled"
     execution_mode: str = "payloadless_live_payload_stage_preflight"
@@ -414,6 +421,26 @@ class PayloadCacheLivePayloadStagePreflight:
             raise ValueError("live payload stage block reason mismatch")
         if self.execution_mode != "payloadless_live_payload_stage_preflight":
             raise ValueError("live payload stage execution mode mismatch")
+        for field_name in (
+            "queue_budget_capacity_entries",
+            "queue_budget_issue_lead_tokens",
+            "shifted_issue_accounted_packet_count",
+            "shifted_issue_unique_issue_key_count",
+        ):
+            value = getattr(self, field_name)
+            if not isinstance(value, int) or isinstance(value, bool):
+                raise TypeError(f"{field_name} must be an integer")
+            if value <= 0:
+                raise ValueError(f"{field_name} must be positive")
+        for field_name in ("queue_budget_queue_deadline_us", "queue_budget_lookahead_us"):
+            value = getattr(self, field_name)
+            if not isinstance(value, (int, float)) or isinstance(value, bool):
+                raise TypeError(f"{field_name} must be numeric")
+            numeric = float(value)
+            if not math.isfinite(numeric) or numeric <= 0.0:
+                raise ValueError(f"{field_name} must be positive")
+        if self.shifted_issue_accounting_enabled is not True:
+            raise ValueError("shifted issue accounting must be enabled")
         for field_name in ("issued_payload_count", "payload_bytes"):
             value = getattr(self, field_name)
             if not isinstance(value, int) or isinstance(value, bool):
@@ -440,7 +467,7 @@ class PayloadCacheLivePayloadStagePreflight:
             if getattr(self, field_name) is not False:
                 raise ValueError(f"{field_name} must remain disabled")
 
-    def as_dict(self) -> dict[str, bool | int | str]:
+    def as_dict(self) -> dict[str, bool | float | int | str]:
         return asdict(self)
 
 
@@ -460,6 +487,13 @@ class PayloadCacheLivePayloadRuntimeDisabledCanary:
     status: str
     consumes_live_payload_stage_preflight: bool
     live_payload_stage_status: str
+    queue_budget_capacity_entries: int
+    queue_budget_issue_lead_tokens: int
+    queue_budget_queue_deadline_us: float
+    queue_budget_lookahead_us: float
+    shifted_issue_accounting_enabled: bool
+    shifted_issue_accounted_packet_count: int
+    shifted_issue_unique_issue_key_count: int
     decision: str = "blocked"
     block_reason: str = "live_payload_runtime_disabled"
     execution_mode: str = "payloadless_live_payload_runtime_disabled_canary"
@@ -502,6 +536,26 @@ class PayloadCacheLivePayloadRuntimeDisabledCanary:
             raise ValueError("live payload runtime canary block reason mismatch")
         if self.execution_mode != "payloadless_live_payload_runtime_disabled_canary":
             raise ValueError("live payload runtime canary execution mode mismatch")
+        for field_name in (
+            "queue_budget_capacity_entries",
+            "queue_budget_issue_lead_tokens",
+            "shifted_issue_accounted_packet_count",
+            "shifted_issue_unique_issue_key_count",
+        ):
+            value = getattr(self, field_name)
+            if not isinstance(value, int) or isinstance(value, bool):
+                raise TypeError(f"{field_name} must be an integer")
+            if value <= 0:
+                raise ValueError(f"{field_name} must be positive")
+        for field_name in ("queue_budget_queue_deadline_us", "queue_budget_lookahead_us"):
+            value = getattr(self, field_name)
+            if not isinstance(value, (int, float)) or isinstance(value, bool):
+                raise TypeError(f"{field_name} must be numeric")
+            numeric = float(value)
+            if not math.isfinite(numeric) or numeric <= 0.0:
+                raise ValueError(f"{field_name} must be positive")
+        if self.shifted_issue_accounting_enabled is not True:
+            raise ValueError("shifted issue accounting must be enabled")
         for field_name in ("issued_payload_count", "payload_bytes"):
             value = getattr(self, field_name)
             if not isinstance(value, int) or isinstance(value, bool):
@@ -528,7 +582,128 @@ class PayloadCacheLivePayloadRuntimeDisabledCanary:
             if getattr(self, field_name) is not False:
                 raise ValueError(f"{field_name} must remain disabled")
 
-    def as_dict(self) -> dict[str, bool | int | str]:
+    def as_dict(self) -> dict[str, bool | float | int | str]:
+        return asdict(self)
+
+
+@dataclass(frozen=True)
+class PayloadCacheManagerImplementationArtifact:
+    """Concrete payload/cache-manager implementation artifact, still disabled.
+
+    This is the first object after the disabled live-runtime canary that names
+    an actual runtime primitive and its queue-budget envelope.  It is not a
+    live payload runtime permit: the implementation remains default-disabled
+    and cannot dereference payload, grant ready credit, pass kernel args, or
+    claim endpoint latency.
+    """
+
+    present: bool
+    stage: str
+    status: str
+    consumes_live_payload_runtime_canary: bool
+    live_payload_runtime_status: str
+    manager_backend: str
+    manager_contract: str
+    capacity_entries: int
+    issue_lead_tokens: int
+    queue_deadline_us: float
+    lookahead_us: float
+    shifted_issue_accounting_enabled: bool
+    shifted_issue_accounted_packet_count: int
+    shifted_issue_unique_issue_key_count: int
+    decision: str = "blocked"
+    block_reason: str = "implementation_artifact_default_disabled"
+    execution_mode: str = "payload_cache_manager_implementation_artifact_disabled"
+    live_payload_runtime_enabled: bool = False
+    payload_transfer_runtime_enabled: bool = False
+    payload_deref_allowed: bool = False
+    payload_deref_runtime_allowed: bool = False
+    issued_payload_count: int = 0
+    payload_bytes: int = 0
+    ready_credit: bool = False
+    ready_before_demand_credit: bool = False
+    real_ready_credit_granted: bool = False
+    kernel_arg_pass_allowed: bool = False
+    passed_to_kernel: bool = False
+    changes_kernel_launch_args: bool = False
+    full_fetch_runtime_allowed: bool = False
+    uses_current_wna16_args: bool = False
+    passes_current_wna16_args: bool = False
+    measures_tpot: bool = False
+    measures_vllm_latency: bool = False
+
+    def __post_init__(self) -> None:
+        if self.present is not True:
+            raise ValueError("payload cache manager artifact must be present")
+        if self.stage != "payload_cache_manager_implementation_artifact":
+            raise ValueError("payload cache manager artifact stage mismatch")
+        if self.consumes_live_payload_runtime_canary is not True:
+            raise ValueError("payload cache manager artifact must consume runtime canary")
+        if (
+            not isinstance(self.live_payload_runtime_status, str)
+            or not self.live_payload_runtime_status
+        ):
+            raise TypeError("live_payload_runtime_status must be a nonempty string")
+        expected_status = f"blocked_by_live_payload_runtime:{self.live_payload_runtime_status}"
+        if self.status != expected_status:
+            raise ValueError("payload cache manager artifact status mismatch")
+        if self.manager_backend != "ReadyTimeExpertCacheManager":
+            raise ValueError("payload cache manager backend mismatch")
+        if self.manager_contract != "event_driven_queue_budget_cache_manager_v1":
+            raise ValueError("payload cache manager contract mismatch")
+        if self.decision != "blocked":
+            raise ValueError("payload cache manager artifact decision must stay blocked")
+        if self.block_reason != "implementation_artifact_default_disabled":
+            raise ValueError("payload cache manager artifact block reason mismatch")
+        if self.execution_mode != "payload_cache_manager_implementation_artifact_disabled":
+            raise ValueError("payload cache manager artifact execution mode mismatch")
+        for field_name in (
+            "capacity_entries",
+            "issue_lead_tokens",
+            "shifted_issue_accounted_packet_count",
+            "shifted_issue_unique_issue_key_count",
+        ):
+            value = getattr(self, field_name)
+            if not isinstance(value, int) or isinstance(value, bool):
+                raise TypeError(f"{field_name} must be an integer")
+            if value <= 0:
+                raise ValueError(f"{field_name} must be positive")
+        for field_name in ("queue_deadline_us", "lookahead_us"):
+            value = getattr(self, field_name)
+            if not isinstance(value, (int, float)) or isinstance(value, bool):
+                raise TypeError(f"{field_name} must be numeric")
+            numeric = float(value)
+            if not math.isfinite(numeric) or numeric <= 0.0:
+                raise ValueError(f"{field_name} must be positive")
+        if self.shifted_issue_accounting_enabled is not True:
+            raise ValueError("shifted issue accounting must be enabled")
+        for field_name in ("issued_payload_count", "payload_bytes"):
+            value = getattr(self, field_name)
+            if not isinstance(value, int) or isinstance(value, bool):
+                raise TypeError(f"{field_name} must be an integer")
+            if value != 0:
+                raise ValueError(f"{field_name} must remain zero")
+        for field_name in (
+            "live_payload_runtime_enabled",
+            "payload_transfer_runtime_enabled",
+            "payload_deref_allowed",
+            "payload_deref_runtime_allowed",
+            "ready_credit",
+            "ready_before_demand_credit",
+            "real_ready_credit_granted",
+            "kernel_arg_pass_allowed",
+            "passed_to_kernel",
+            "changes_kernel_launch_args",
+            "full_fetch_runtime_allowed",
+            "uses_current_wna16_args",
+            "passes_current_wna16_args",
+            "measures_tpot",
+            "measures_vllm_latency",
+        ):
+            if getattr(self, field_name) is not False:
+                raise ValueError(f"{field_name} must remain disabled")
+
+    def as_dict(self) -> dict[str, bool | float | int | str]:
         return asdict(self)
 
 
@@ -734,16 +909,67 @@ def build_payload_cache_live_payload_stage_preflight(
         status=f"blocked_by_queue_budget_runtime_envelope:{status}",
         consumes_queue_budget_runtime_envelope=True,
         queue_budget_envelope_status=status,
+        queue_budget_capacity_entries=int(envelope.first_model_passing_capacity),
+        queue_budget_issue_lead_tokens=int(
+            envelope.first_model_passing_issue_lead_tokens,
+        ),
+        queue_budget_queue_deadline_us=float(
+            envelope.first_model_passing_queue_deadline_us,
+        ),
+        queue_budget_lookahead_us=float(envelope.first_model_passing_lookahead_us),
+        shifted_issue_accounting_enabled=bool(envelope.shifted_issue_accounting_enabled),
+        shifted_issue_accounted_packet_count=int(
+            envelope.shifted_issue_accounted_packet_count,
+        ),
+        shifted_issue_unique_issue_key_count=int(
+            envelope.shifted_issue_unique_issue_key_count,
+        ),
     )
 
 
 def build_payload_cache_live_payload_runtime_disabled_canary(
     preflight: PayloadCacheLivePayloadStagePreflight,
+    envelope: PayloadCacheQueueBudgetRuntimeEnvelope,
 ) -> PayloadCacheLivePayloadRuntimeDisabledCanary:
     """Build the blocked canary for the future live payload runtime."""
 
     if not isinstance(preflight, PayloadCacheLivePayloadStagePreflight):
         raise TypeError("preflight must be a PayloadCacheLivePayloadStagePreflight")
+    if not isinstance(envelope, PayloadCacheQueueBudgetRuntimeEnvelope):
+        raise TypeError("envelope must be a PayloadCacheQueueBudgetRuntimeEnvelope")
+    if preflight.queue_budget_envelope_status != envelope.status:
+        raise ValueError("preflight and envelope status mismatch")
+    if int(envelope.first_model_passing_capacity) != preflight.queue_budget_capacity_entries:
+        raise ValueError("preflight and envelope capacity mismatch")
+    if (
+        int(envelope.first_model_passing_issue_lead_tokens)
+        != preflight.queue_budget_issue_lead_tokens
+    ):
+        raise ValueError("preflight and envelope issue lead mismatch")
+    if (
+        float(envelope.first_model_passing_queue_deadline_us)
+        != float(preflight.queue_budget_queue_deadline_us)
+    ):
+        raise ValueError("preflight and envelope queue deadline mismatch")
+    if float(envelope.first_model_passing_lookahead_us) != float(
+        preflight.queue_budget_lookahead_us,
+    ):
+        raise ValueError("preflight and envelope lookahead mismatch")
+    if (
+        bool(envelope.shifted_issue_accounting_enabled)
+        is not bool(preflight.shifted_issue_accounting_enabled)
+    ):
+        raise ValueError("preflight and envelope shifted issue accounting mismatch")
+    if (
+        int(envelope.shifted_issue_accounted_packet_count)
+        != preflight.shifted_issue_accounted_packet_count
+    ):
+        raise ValueError("preflight and envelope shifted packet count mismatch")
+    if (
+        int(envelope.shifted_issue_unique_issue_key_count)
+        != preflight.shifted_issue_unique_issue_key_count
+    ):
+        raise ValueError("preflight and envelope shifted unique issue count mismatch")
     status = str(preflight.status)
     return PayloadCacheLivePayloadRuntimeDisabledCanary(
         present=True,
@@ -751,6 +977,89 @@ def build_payload_cache_live_payload_runtime_disabled_canary(
         status=f"blocked_by_live_payload_stage:{status}",
         consumes_live_payload_stage_preflight=True,
         live_payload_stage_status=status,
+        queue_budget_capacity_entries=int(envelope.first_model_passing_capacity),
+        queue_budget_issue_lead_tokens=int(
+            envelope.first_model_passing_issue_lead_tokens,
+        ),
+        queue_budget_queue_deadline_us=float(
+            envelope.first_model_passing_queue_deadline_us,
+        ),
+        queue_budget_lookahead_us=float(envelope.first_model_passing_lookahead_us),
+        shifted_issue_accounting_enabled=bool(envelope.shifted_issue_accounting_enabled),
+        shifted_issue_accounted_packet_count=int(
+            envelope.shifted_issue_accounted_packet_count,
+        ),
+        shifted_issue_unique_issue_key_count=int(
+            envelope.shifted_issue_unique_issue_key_count,
+        ),
+    )
+
+
+def build_payload_cache_manager_implementation_artifact(
+    canary: PayloadCacheLivePayloadRuntimeDisabledCanary,
+    envelope: PayloadCacheQueueBudgetRuntimeEnvelope,
+) -> PayloadCacheManagerImplementationArtifact:
+    """Build the disabled concrete manager artifact behind the runtime canary."""
+
+    if not isinstance(canary, PayloadCacheLivePayloadRuntimeDisabledCanary):
+        raise TypeError("canary must be a PayloadCacheLivePayloadRuntimeDisabledCanary")
+    if not isinstance(envelope, PayloadCacheQueueBudgetRuntimeEnvelope):
+        raise TypeError("envelope must be a PayloadCacheQueueBudgetRuntimeEnvelope")
+    expected_live_stage_status = f"blocked_by_queue_budget_runtime_envelope:{envelope.status}"
+    if canary.live_payload_stage_status != expected_live_stage_status:
+        raise ValueError("canary and envelope live-stage status mismatch")
+    if canary.status != f"blocked_by_live_payload_stage:{expected_live_stage_status}":
+        raise ValueError("canary and envelope runtime status mismatch")
+    if int(envelope.first_model_passing_capacity) != canary.queue_budget_capacity_entries:
+        raise ValueError("canary and envelope capacity mismatch")
+    if (
+        int(envelope.first_model_passing_issue_lead_tokens)
+        != canary.queue_budget_issue_lead_tokens
+    ):
+        raise ValueError("canary and envelope issue lead mismatch")
+    if (
+        float(envelope.first_model_passing_queue_deadline_us)
+        != float(canary.queue_budget_queue_deadline_us)
+    ):
+        raise ValueError("canary and envelope queue deadline mismatch")
+    if float(envelope.first_model_passing_lookahead_us) != float(
+        canary.queue_budget_lookahead_us,
+    ):
+        raise ValueError("canary and envelope lookahead mismatch")
+    if (
+        bool(envelope.shifted_issue_accounting_enabled)
+        is not bool(canary.shifted_issue_accounting_enabled)
+    ):
+        raise ValueError("canary and envelope shifted issue accounting mismatch")
+    if (
+        int(envelope.shifted_issue_accounted_packet_count)
+        != canary.shifted_issue_accounted_packet_count
+    ):
+        raise ValueError("canary and envelope shifted packet count mismatch")
+    if (
+        int(envelope.shifted_issue_unique_issue_key_count)
+        != canary.shifted_issue_unique_issue_key_count
+    ):
+        raise ValueError("canary and envelope shifted unique issue count mismatch")
+    return PayloadCacheManagerImplementationArtifact(
+        present=True,
+        stage="payload_cache_manager_implementation_artifact",
+        status=f"blocked_by_live_payload_runtime:{canary.status}",
+        consumes_live_payload_runtime_canary=True,
+        live_payload_runtime_status=str(canary.status),
+        manager_backend="ReadyTimeExpertCacheManager",
+        manager_contract="event_driven_queue_budget_cache_manager_v1",
+        capacity_entries=int(envelope.first_model_passing_capacity),
+        issue_lead_tokens=int(envelope.first_model_passing_issue_lead_tokens),
+        queue_deadline_us=float(envelope.first_model_passing_queue_deadline_us),
+        lookahead_us=float(envelope.first_model_passing_lookahead_us),
+        shifted_issue_accounting_enabled=bool(envelope.shifted_issue_accounting_enabled),
+        shifted_issue_accounted_packet_count=int(
+            envelope.shifted_issue_accounted_packet_count,
+        ),
+        shifted_issue_unique_issue_key_count=int(
+            envelope.shifted_issue_unique_issue_key_count,
+        ),
     )
 
 

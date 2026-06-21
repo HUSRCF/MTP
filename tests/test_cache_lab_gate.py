@@ -8,10 +8,12 @@ from mtp_expert_prefetch.runtime import (
     CacheLabRuntimeSignals,
     PayloadCacheLivePayloadRuntimeDisabledCanary,
     PayloadCacheLivePayloadStagePreflight,
+    PayloadCacheManagerImplementationArtifact,
     PayloadCacheRuntimeExecutionDryRun,
     PayloadCacheQueueBudgetRuntimeEnvelope,
     PayloadCacheRuntimeParticipation,
     PayloadCacheRuntimePlan,
+    build_payload_cache_manager_implementation_artifact,
     build_payload_cache_live_payload_runtime_disabled_canary,
     build_payload_cache_live_payload_stage_preflight,
     build_payload_cache_queue_budget_runtime_envelope,
@@ -471,6 +473,13 @@ def test_payload_cache_live_payload_stage_preflight_consumes_envelope() -> None:
     )
     assert payload["queue_budget_envelope_status"] == envelope.status
     assert payload["consumes_queue_budget_runtime_envelope"] is True
+    assert payload["queue_budget_capacity_entries"] == 4096
+    assert payload["queue_budget_issue_lead_tokens"] == 32
+    assert payload["queue_budget_queue_deadline_us"] == 100.0
+    assert payload["queue_budget_lookahead_us"] == 2_400_000.0
+    assert payload["shifted_issue_accounting_enabled"] is True
+    assert payload["shifted_issue_accounted_packet_count"] == 28
+    assert payload["shifted_issue_unique_issue_key_count"] == 16
     assert payload["decision"] == "blocked"
     assert payload["block_reason"] == "live_payload_runtime_disabled"
     assert payload["execution_mode"] == "payloadless_live_payload_stage_preflight"
@@ -493,50 +502,80 @@ def test_payload_cache_live_payload_stage_preflight_consumes_envelope() -> None:
     assert payload["measures_vllm_latency"] is False
 
 
-def test_payload_cache_live_payload_stage_preflight_rejects_side_effects() -> None:
+def _live_payload_stage_preflight_kwargs() -> dict[str, object]:
     status = "model_queue_budget_satisfied_runtime_disabled"
+    return {
+        "present": True,
+        "stage": "payload_cache_live_payload_stage_preflight",
+        "status": f"blocked_by_queue_budget_runtime_envelope:{status}",
+        "consumes_queue_budget_runtime_envelope": True,
+        "queue_budget_envelope_status": status,
+        "queue_budget_capacity_entries": 4096,
+        "queue_budget_issue_lead_tokens": 32,
+        "queue_budget_queue_deadline_us": 100.0,
+        "queue_budget_lookahead_us": 2_400_000.0,
+        "shifted_issue_accounting_enabled": True,
+        "shifted_issue_accounted_packet_count": 28,
+        "shifted_issue_unique_issue_key_count": 16,
+    }
+
+
+def test_payload_cache_live_payload_stage_preflight_rejects_side_effects() -> None:
     with pytest.raises(ValueError, match="payload_bytes"):
         PayloadCacheLivePayloadStagePreflight(
-            present=True,
-            stage="payload_cache_live_payload_stage_preflight",
-            status=f"blocked_by_queue_budget_runtime_envelope:{status}",
-            consumes_queue_budget_runtime_envelope=True,
-            queue_budget_envelope_status=status,
+            **_live_payload_stage_preflight_kwargs(),
             payload_bytes=1,
         )
 
     with pytest.raises(ValueError, match="decision"):
         PayloadCacheLivePayloadStagePreflight(
-            present=True,
-            stage="payload_cache_live_payload_stage_preflight",
-            status=f"blocked_by_queue_budget_runtime_envelope:{status}",
-            consumes_queue_budget_runtime_envelope=True,
-            queue_budget_envelope_status=status,
+            **_live_payload_stage_preflight_kwargs(),
             decision="execute",
         )
 
     with pytest.raises(ValueError, match="kernel_arg_pass_allowed"):
         PayloadCacheLivePayloadStagePreflight(
-            present=True,
-            stage="payload_cache_live_payload_stage_preflight",
-            status=f"blocked_by_queue_budget_runtime_envelope:{status}",
-            consumes_queue_budget_runtime_envelope=True,
-            queue_budget_envelope_status=status,
+            **_live_payload_stage_preflight_kwargs(),
             kernel_arg_pass_allowed=True,
         )
 
     with pytest.raises(ValueError, match="payload_deref_allowed"):
         PayloadCacheLivePayloadStagePreflight(
-            present=True,
-            stage="payload_cache_live_payload_stage_preflight",
-            status=f"blocked_by_queue_budget_runtime_envelope:{status}",
-            consumes_queue_budget_runtime_envelope=True,
-            queue_budget_envelope_status=status,
+            **_live_payload_stage_preflight_kwargs(),
             payload_deref_allowed=True,
+        )
+
+    with pytest.raises(ValueError, match="queue_budget_capacity_entries"):
+        PayloadCacheLivePayloadStagePreflight(
+            **{
+                **_live_payload_stage_preflight_kwargs(),
+                "queue_budget_capacity_entries": 0,
+            },
         )
 
     with pytest.raises(TypeError, match="envelope"):
         build_payload_cache_live_payload_stage_preflight(object())  # type: ignore[arg-type]
+
+
+def _live_payload_runtime_canary_kwargs() -> dict[str, object]:
+    live_status = (
+        "blocked_by_queue_budget_runtime_envelope:"
+        "model_queue_budget_satisfied_runtime_disabled"
+    )
+    return {
+        "present": True,
+        "stage": "payload_cache_live_payload_runtime_disabled_canary",
+        "status": f"blocked_by_live_payload_stage:{live_status}",
+        "consumes_live_payload_stage_preflight": True,
+        "live_payload_stage_status": live_status,
+        "queue_budget_capacity_entries": 4096,
+        "queue_budget_issue_lead_tokens": 32,
+        "queue_budget_queue_deadline_us": 100.0,
+        "queue_budget_lookahead_us": 2_400_000.0,
+        "shifted_issue_accounting_enabled": True,
+        "shifted_issue_accounted_packet_count": 28,
+        "shifted_issue_unique_issue_key_count": 16,
+    }
 
 
 def test_payload_cache_live_payload_runtime_disabled_canary_consumes_preflight() -> None:
@@ -553,7 +592,10 @@ def test_payload_cache_live_payload_runtime_disabled_canary_consumes_preflight()
     )
     preflight = build_payload_cache_live_payload_stage_preflight(envelope)
 
-    canary = build_payload_cache_live_payload_runtime_disabled_canary(preflight)
+    canary = build_payload_cache_live_payload_runtime_disabled_canary(
+        preflight,
+        envelope,
+    )
     payload = canary.as_dict()
 
     assert payload["present"] is True
@@ -561,6 +603,13 @@ def test_payload_cache_live_payload_runtime_disabled_canary_consumes_preflight()
     assert payload["status"] == f"blocked_by_live_payload_stage:{preflight.status}"
     assert payload["consumes_live_payload_stage_preflight"] is True
     assert payload["live_payload_stage_status"] == preflight.status
+    assert payload["queue_budget_capacity_entries"] == 4096
+    assert payload["queue_budget_issue_lead_tokens"] == 32
+    assert payload["queue_budget_queue_deadline_us"] == 100.0
+    assert payload["queue_budget_lookahead_us"] == 2_400_000.0
+    assert payload["shifted_issue_accounting_enabled"] is True
+    assert payload["shifted_issue_accounted_packet_count"] == 28
+    assert payload["shifted_issue_unique_issue_key_count"] == 16
     assert payload["decision"] == "blocked"
     assert payload["block_reason"] == "live_payload_runtime_disabled"
     assert payload["execution_mode"] == "payloadless_live_payload_runtime_disabled_canary"
@@ -584,60 +633,303 @@ def test_payload_cache_live_payload_runtime_disabled_canary_consumes_preflight()
 
 
 def test_payload_cache_live_payload_runtime_disabled_canary_rejects_side_effects() -> None:
-    live_status = (
-        "blocked_by_queue_budget_runtime_envelope:"
-        "model_queue_budget_satisfied_runtime_disabled"
-    )
     with pytest.raises(ValueError, match="payload_bytes"):
         PayloadCacheLivePayloadRuntimeDisabledCanary(
-            present=True,
-            stage="payload_cache_live_payload_runtime_disabled_canary",
-            status=f"blocked_by_live_payload_stage:{live_status}",
-            consumes_live_payload_stage_preflight=True,
-            live_payload_stage_status=live_status,
+            **_live_payload_runtime_canary_kwargs(),
             payload_bytes=1,
         )
 
     with pytest.raises(ValueError, match="payload_deref_allowed"):
         PayloadCacheLivePayloadRuntimeDisabledCanary(
-            present=True,
-            stage="payload_cache_live_payload_runtime_disabled_canary",
-            status=f"blocked_by_live_payload_stage:{live_status}",
-            consumes_live_payload_stage_preflight=True,
-            live_payload_stage_status=live_status,
+            **_live_payload_runtime_canary_kwargs(),
             payload_deref_allowed=True,
         )
 
     with pytest.raises(ValueError, match="kernel_arg_pass_allowed"):
         PayloadCacheLivePayloadRuntimeDisabledCanary(
-            present=True,
-            stage="payload_cache_live_payload_runtime_disabled_canary",
-            status=f"blocked_by_live_payload_stage:{live_status}",
-            consumes_live_payload_stage_preflight=True,
-            live_payload_stage_status=live_status,
+            **_live_payload_runtime_canary_kwargs(),
             kernel_arg_pass_allowed=True,
         )
 
     with pytest.raises(ValueError, match="consume"):
         PayloadCacheLivePayloadRuntimeDisabledCanary(
-            present=True,
-            stage="payload_cache_live_payload_runtime_disabled_canary",
-            status=f"blocked_by_live_payload_stage:{live_status}",
-            consumes_live_payload_stage_preflight=False,
-            live_payload_stage_status=live_status,
+            **{
+                **_live_payload_runtime_canary_kwargs(),
+                "consumes_live_payload_stage_preflight": False,
+            },
         )
 
     with pytest.raises(ValueError, match="status"):
         PayloadCacheLivePayloadRuntimeDisabledCanary(
-            present=True,
-            stage="payload_cache_live_payload_runtime_disabled_canary",
-            status="blocked_by_live_payload_stage:stale_status",
-            consumes_live_payload_stage_preflight=True,
-            live_payload_stage_status=live_status,
+            **{
+                **_live_payload_runtime_canary_kwargs(),
+                "status": "blocked_by_live_payload_stage:stale_status",
+            },
+        )
+
+    with pytest.raises(ValueError, match="queue_budget_capacity_entries"):
+        PayloadCacheLivePayloadRuntimeDisabledCanary(
+            **{
+                **_live_payload_runtime_canary_kwargs(),
+                "queue_budget_capacity_entries": 0,
+            },
+        )
+
+    with pytest.raises(ValueError, match="shifted issue accounting"):
+        PayloadCacheLivePayloadRuntimeDisabledCanary(
+            **{
+                **_live_payload_runtime_canary_kwargs(),
+                "shifted_issue_accounting_enabled": False,
+            },
         )
 
     with pytest.raises(TypeError, match="preflight"):
-        build_payload_cache_live_payload_runtime_disabled_canary(object())  # type: ignore[arg-type]
+        build_payload_cache_live_payload_runtime_disabled_canary(
+            object(),  # type: ignore[arg-type]
+            build_payload_cache_queue_budget_runtime_envelope(
+                cell_count=16,
+                event_timing_mode="token_index",
+                first_model_passing_capacity=4096,
+                first_model_passing_issue_lead_tokens=32,
+                first_model_passing_queue_deadline_us=100.0,
+                first_model_passing_lookahead_us=2_400_000.0,
+                shifted_issue_accounting_enabled=True,
+                shifted_issue_accounted_packet_count=28,
+                shifted_issue_unique_issue_key_count=16,
+            ),
+        )
+
+    with pytest.raises(TypeError, match="envelope"):
+        build_payload_cache_live_payload_runtime_disabled_canary(
+            PayloadCacheLivePayloadStagePreflight(**_live_payload_stage_preflight_kwargs()),
+            object(),  # type: ignore[arg-type]
+        )
+
+
+def test_payload_cache_live_payload_runtime_disabled_canary_rejects_status_mismatch() -> None:
+    envelope = build_payload_cache_queue_budget_runtime_envelope(
+        cell_count=16,
+        event_timing_mode="token_index",
+        first_model_passing_capacity=4096,
+        first_model_passing_issue_lead_tokens=32,
+        first_model_passing_queue_deadline_us=100.0,
+        first_model_passing_lookahead_us=2_400_000.0,
+        shifted_issue_accounting_enabled=True,
+        shifted_issue_accounted_packet_count=28,
+        shifted_issue_unique_issue_key_count=16,
+    )
+    preflight = PayloadCacheLivePayloadStagePreflight(
+        **{
+            **_live_payload_stage_preflight_kwargs(),
+            "status": "blocked_by_queue_budget_runtime_envelope:other_status",
+            "queue_budget_envelope_status": "other_status",
+        },
+    )
+
+    with pytest.raises(ValueError, match="status mismatch"):
+        build_payload_cache_live_payload_runtime_disabled_canary(preflight, envelope)
+
+    mismatched_preflight = PayloadCacheLivePayloadStagePreflight(
+        **{
+            **_live_payload_stage_preflight_kwargs(),
+            "queue_budget_capacity_entries": 8192,
+        },
+    )
+
+    with pytest.raises(ValueError, match="capacity mismatch"):
+        build_payload_cache_live_payload_runtime_disabled_canary(
+            mismatched_preflight,
+            envelope,
+        )
+
+
+def test_payload_cache_manager_implementation_artifact_rejects_cross_chain() -> None:
+    envelope = build_payload_cache_queue_budget_runtime_envelope(
+        cell_count=16,
+        event_timing_mode="token_index",
+        first_model_passing_capacity=4096,
+        first_model_passing_issue_lead_tokens=32,
+        first_model_passing_queue_deadline_us=100.0,
+        first_model_passing_lookahead_us=2_400_000.0,
+        shifted_issue_accounting_enabled=True,
+        shifted_issue_accounted_packet_count=28,
+        shifted_issue_unique_issue_key_count=16,
+    )
+    preflight = build_payload_cache_live_payload_stage_preflight(envelope)
+    canary = PayloadCacheLivePayloadRuntimeDisabledCanary(
+        **{
+            **_live_payload_runtime_canary_kwargs(),
+            "queue_budget_capacity_entries": 8192,
+        },
+    )
+
+    with pytest.raises(ValueError, match="capacity mismatch"):
+        build_payload_cache_manager_implementation_artifact(canary, envelope)
+
+    stale_status_canary = PayloadCacheLivePayloadRuntimeDisabledCanary(
+        **{
+            **_live_payload_runtime_canary_kwargs(),
+            "status": (
+                "blocked_by_live_payload_stage:"
+                "blocked_by_queue_budget_runtime_envelope:stale_queue_budget_status"
+            ),
+            "live_payload_stage_status": (
+                "blocked_by_queue_budget_runtime_envelope:stale_queue_budget_status"
+            ),
+        },
+    )
+
+    with pytest.raises(ValueError, match="live-stage status mismatch"):
+        build_payload_cache_manager_implementation_artifact(
+            stale_status_canary,
+            envelope,
+        )
+
+    valid_canary = build_payload_cache_live_payload_runtime_disabled_canary(
+        preflight,
+        envelope,
+    )
+    other_envelope = build_payload_cache_queue_budget_runtime_envelope(
+        cell_count=16,
+        event_timing_mode="token_index",
+        first_model_passing_capacity=8192,
+        first_model_passing_issue_lead_tokens=32,
+        first_model_passing_queue_deadline_us=100.0,
+        first_model_passing_lookahead_us=2_400_000.0,
+        shifted_issue_accounting_enabled=True,
+        shifted_issue_accounted_packet_count=28,
+        shifted_issue_unique_issue_key_count=16,
+    )
+
+    with pytest.raises(ValueError, match="capacity mismatch"):
+        build_payload_cache_manager_implementation_artifact(valid_canary, other_envelope)
+
+
+def test_payload_cache_manager_implementation_artifact_binds_queue_budget() -> None:
+    envelope = build_payload_cache_queue_budget_runtime_envelope(
+        cell_count=16,
+        event_timing_mode="token_index",
+        first_model_passing_capacity=4096,
+        first_model_passing_issue_lead_tokens=32,
+        first_model_passing_queue_deadline_us=100.0,
+        first_model_passing_lookahead_us=2_400_000.0,
+        shifted_issue_accounting_enabled=True,
+        shifted_issue_accounted_packet_count=28,
+        shifted_issue_unique_issue_key_count=16,
+    )
+    preflight = build_payload_cache_live_payload_stage_preflight(envelope)
+    canary = build_payload_cache_live_payload_runtime_disabled_canary(
+        preflight,
+        envelope,
+    )
+
+    artifact = build_payload_cache_manager_implementation_artifact(canary, envelope)
+    payload = artifact.as_dict()
+
+    assert payload["present"] is True
+    assert payload["stage"] == "payload_cache_manager_implementation_artifact"
+    assert payload["status"] == f"blocked_by_live_payload_runtime:{canary.status}"
+    assert payload["consumes_live_payload_runtime_canary"] is True
+    assert payload["live_payload_runtime_status"] == canary.status
+    assert payload["manager_backend"] == "ReadyTimeExpertCacheManager"
+    assert payload["manager_contract"] == "event_driven_queue_budget_cache_manager_v1"
+    assert payload["capacity_entries"] == 4096
+    assert payload["issue_lead_tokens"] == 32
+    assert payload["queue_deadline_us"] == 100.0
+    assert payload["lookahead_us"] == 2_400_000.0
+    assert payload["shifted_issue_accounting_enabled"] is True
+    assert payload["shifted_issue_accounted_packet_count"] == 28
+    assert payload["shifted_issue_unique_issue_key_count"] == 16
+    assert payload["decision"] == "blocked"
+    assert payload["block_reason"] == "implementation_artifact_default_disabled"
+    assert payload["execution_mode"] == (
+        "payload_cache_manager_implementation_artifact_disabled"
+    )
+    assert payload["payload_deref_allowed"] is False
+    assert payload["payload_deref_runtime_allowed"] is False
+    assert payload["payload_bytes"] == 0
+    assert payload["ready_before_demand_credit"] is False
+    assert payload["kernel_arg_pass_allowed"] is False
+    assert payload["measures_tpot"] is False
+
+
+def test_payload_cache_manager_implementation_artifact_rejects_side_effects() -> None:
+    runtime_status = (
+        "blocked_by_live_payload_stage:"
+        "blocked_by_queue_budget_runtime_envelope:"
+        "model_queue_budget_satisfied_runtime_disabled"
+    )
+    with pytest.raises(ValueError, match="manager backend"):
+        PayloadCacheManagerImplementationArtifact(
+            present=True,
+            stage="payload_cache_manager_implementation_artifact",
+            status=f"blocked_by_live_payload_runtime:{runtime_status}",
+            consumes_live_payload_runtime_canary=True,
+            live_payload_runtime_status=runtime_status,
+            manager_backend="OtherManager",
+            manager_contract="event_driven_queue_budget_cache_manager_v1",
+            capacity_entries=4096,
+            issue_lead_tokens=32,
+            queue_deadline_us=100.0,
+            lookahead_us=2_400_000.0,
+            shifted_issue_accounting_enabled=True,
+            shifted_issue_accounted_packet_count=28,
+            shifted_issue_unique_issue_key_count=16,
+        )
+
+    with pytest.raises(ValueError, match="payload_deref_allowed"):
+        PayloadCacheManagerImplementationArtifact(
+            present=True,
+            stage="payload_cache_manager_implementation_artifact",
+            status=f"blocked_by_live_payload_runtime:{runtime_status}",
+            consumes_live_payload_runtime_canary=True,
+            live_payload_runtime_status=runtime_status,
+            manager_backend="ReadyTimeExpertCacheManager",
+            manager_contract="event_driven_queue_budget_cache_manager_v1",
+            capacity_entries=4096,
+            issue_lead_tokens=32,
+            queue_deadline_us=100.0,
+            lookahead_us=2_400_000.0,
+            shifted_issue_accounting_enabled=True,
+            shifted_issue_accounted_packet_count=28,
+            shifted_issue_unique_issue_key_count=16,
+            payload_deref_allowed=True,
+        )
+
+    with pytest.raises(ValueError, match="payload_bytes"):
+        PayloadCacheManagerImplementationArtifact(
+            present=True,
+            stage="payload_cache_manager_implementation_artifact",
+            status=f"blocked_by_live_payload_runtime:{runtime_status}",
+            consumes_live_payload_runtime_canary=True,
+            live_payload_runtime_status=runtime_status,
+            manager_backend="ReadyTimeExpertCacheManager",
+            manager_contract="event_driven_queue_budget_cache_manager_v1",
+            capacity_entries=4096,
+            issue_lead_tokens=32,
+            queue_deadline_us=100.0,
+            lookahead_us=2_400_000.0,
+            shifted_issue_accounting_enabled=True,
+            shifted_issue_accounted_packet_count=28,
+            shifted_issue_unique_issue_key_count=16,
+            payload_bytes=1,
+        )
+
+    with pytest.raises(TypeError, match="canary"):
+        build_payload_cache_manager_implementation_artifact(
+            object(),  # type: ignore[arg-type]
+            build_payload_cache_queue_budget_runtime_envelope(
+                cell_count=16,
+                event_timing_mode="token_index",
+                first_model_passing_capacity=4096,
+                first_model_passing_issue_lead_tokens=32,
+                first_model_passing_queue_deadline_us=100.0,
+                first_model_passing_lookahead_us=2_400_000.0,
+                shifted_issue_accounting_enabled=True,
+                shifted_issue_accounted_packet_count=28,
+                shifted_issue_unique_issue_key_count=16,
+            ),
+        )
 
 
 def test_payload_cache_runtime_execution_dry_run_consumes_plan() -> None:

@@ -2,10 +2,111 @@
 
 ## Progress Version
 
-- Version: `v1.26-live-payload-runtime-disabled-canary`
+- Version: `v1.27-payload-cache-manager-implementation-artifact`
 - Updated: 2026-06-22
 
-## Latest Update: Live Payload Runtime Disabled Canary
+## Latest Update: Payload Cache Manager Implementation Artifact
+
+The live-runtime disabled canary now feeds the first concrete payload/cache
+manager implementation artifact:
+
+```text
+PayloadCacheManagerImplementationArtifact
+```
+
+This is still not a live payload runtime.  It binds the future implementation
+entry to a concrete manager primitive and the measured queue-budget envelope,
+while continuing to forbid payload dereference, ready credit, kernel argument
+handoff, and endpoint latency claims.
+
+Required artifact contract:
+
+```text
+stage = payload_cache_manager_implementation_artifact
+status = blocked_by_live_payload_runtime:blocked_by_live_payload_stage:blocked_by_queue_budget_runtime_envelope:model_queue_budget_satisfied_runtime_disabled
+decision = blocked
+block_reason = implementation_artifact_default_disabled
+execution_mode = payload_cache_manager_implementation_artifact_disabled
+manager_backend = ReadyTimeExpertCacheManager
+manager_contract = event_driven_queue_budget_cache_manager_v1
+capacity_entries = 4096
+issue_lead_tokens = 32
+queue_deadline_us = 100.0
+lookahead_us = 2400000.0
+shifted_issue_accounting_enabled = true
+shifted_issue_accounted_packet_count = 28
+shifted_issue_unique_issue_key_count = 16
+```
+
+The implementation artifact is chained to the same queue-budget evidence.  The
+live-runtime canary now carries the queue-budget parameters, and the artifact
+builder rejects canary/envelope cross-chain mismatches before constructing the
+artifact.
+
+The summary checker also rejects mixed queue-budget summaries.  Live-stage,
+live-runtime, and manager-artifact queue-budget fields must match the same
+summary's `first_model_passing_*` and `first_shifted_issue_*` envelope fields,
+while the lab-default gate still requires the measured 4096-entry / 32-token /
+100us / 2.4M-us cell.  This prevents stale downstream artifacts from passing if
+the compact summary is manually mixed with a different queue-budget envelope.
+
+The no-side-effect boundary remains closed:
+
+```text
+live_payload_runtime_enabled = false
+payload_transfer_runtime_enabled = false
+payload_deref_allowed = false
+payload_deref_runtime_allowed = false
+issued_payload_count = 0
+payload_bytes = 0
+ready_credit = false
+ready_before_demand_credit = false
+real_ready_credit_granted = false
+kernel_arg_pass_allowed = false
+passed_to_kernel = false
+changes_kernel_launch_args = false
+full_fetch_runtime_allowed = false
+uses_current_wna16_args = false
+passes_current_wna16_args = false
+measures_tpot = false
+measures_vllm_latency = false
+```
+
+Validation:
+
+```text
+/home/husrcf/anaconda3/envs/TRY/bin/python -m pytest \
+  tests/test_cache_lab_gate.py \
+  tests/test_check_prefetch_lab_default_gate.py \
+  tests/test_run_premap_lab_preflight.py \
+  tests/test_check_premap_lab_preflight_summary.py \
+  tests/test_check_premap_payload_cache_ready_time_gate.py \
+  tests/test_vllm_router_shadow_sink.py -q
+
+494 passed
+
+/home/husrcf/anaconda3/envs/TRY/bin/python scripts/check_prefetch_lab_default_gate.py \
+  configs/runtime/prefetch_lab_default_gate_gpu1.yaml
+
+passed = true
+
+/home/husrcf/anaconda3/envs/TRY/bin/python scripts/check_premap_lab_preflight_summary.py \
+  outputs/reports/premap_lab_preflight_status_queue_budget_gate_summary_20260622.json \
+  --output-json outputs/reports/premap_lab_preflight_status_queue_budget_gate_summary_20260622.check.json
+
+passed = true
+```
+
+Next gate:
+
+```text
+instantiate a default-disabled cache-manager runtime skeleton behind this
+artifact, using ReadyTimeExpertCacheManager state and issue/demand contracts.
+It must still keep payload dereference, ready credit, kernel argument handoff,
+and TPOT claims disabled until a strict live-runtime gate passes.
+```
+
+## Previous Update: Live Payload Runtime Disabled Canary
 
 The live payload stage preflight now feeds one more blocked object:
 

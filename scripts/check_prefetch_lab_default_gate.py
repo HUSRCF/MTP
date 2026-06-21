@@ -36,6 +36,7 @@ from scripts.check_premap_payload_cache_ready_time_gate import (  # noqa: E402
 from mtp_expert_prefetch.runtime import (  # noqa: E402
     build_payload_cache_live_payload_runtime_disabled_canary,
     build_payload_cache_live_payload_stage_preflight,
+    build_payload_cache_manager_implementation_artifact,
     build_payload_cache_queue_budget_runtime_envelope,
 )
 
@@ -1228,6 +1229,7 @@ def _check_optional_stream_queue_budget_sweep(
     envelope_payload: dict[str, Any] = {}
     live_payload_stage_payload: dict[str, Any] = {}
     live_payload_runtime_payload: dict[str, Any] = {}
+    manager_artifact_payload: dict[str, Any] = {}
     if len(failures) == queue_failure_base:
         try:
             envelope = build_payload_cache_queue_budget_runtime_envelope(
@@ -1254,10 +1256,18 @@ def _check_optional_stream_queue_budget_sweep(
             live_payload_stage_payload = live_payload_stage.as_dict()
             live_payload_runtime = build_payload_cache_live_payload_runtime_disabled_canary(
                 live_payload_stage,
+                envelope,
             )
             live_payload_runtime_payload = live_payload_runtime.as_dict()
+            manager_artifact = build_payload_cache_manager_implementation_artifact(
+                live_payload_runtime,
+                envelope,
+            )
+            manager_artifact_payload = manager_artifact.as_dict()
         except (TypeError, ValueError) as exc:
-            if live_payload_stage_payload:
+            if live_payload_runtime_payload:
+                label = "stream_queue_budget_manager_artifact_invalid"
+            elif live_payload_stage_payload:
                 label = "stream_queue_budget_live_payload_runtime_invalid"
             elif envelope_payload:
                 label = "stream_queue_budget_live_payload_stage_invalid"
@@ -1361,6 +1371,27 @@ def _check_optional_stream_queue_budget_sweep(
         "stream_queue_budget_live_payload_stage_queue_budget_envelope_status": (
             live_payload_stage_payload.get("queue_budget_envelope_status")
         ),
+        "stream_queue_budget_live_payload_stage_queue_budget_capacity_entries": (
+            live_payload_stage_payload.get("queue_budget_capacity_entries")
+        ),
+        "stream_queue_budget_live_payload_stage_queue_budget_issue_lead_tokens": (
+            live_payload_stage_payload.get("queue_budget_issue_lead_tokens")
+        ),
+        "stream_queue_budget_live_payload_stage_queue_budget_queue_deadline_us": (
+            live_payload_stage_payload.get("queue_budget_queue_deadline_us")
+        ),
+        "stream_queue_budget_live_payload_stage_queue_budget_lookahead_us": (
+            live_payload_stage_payload.get("queue_budget_lookahead_us")
+        ),
+        "stream_queue_budget_live_payload_stage_shifted_issue_accounting_enabled": (
+            live_payload_stage_payload.get("shifted_issue_accounting_enabled")
+        ),
+        "stream_queue_budget_live_payload_stage_shifted_issue_accounted_packet_count": (
+            live_payload_stage_payload.get("shifted_issue_accounted_packet_count")
+        ),
+        "stream_queue_budget_live_payload_stage_shifted_issue_unique_issue_key_count": (
+            live_payload_stage_payload.get("shifted_issue_unique_issue_key_count")
+        ),
         "stream_queue_budget_live_payload_stage_decision": live_payload_stage_payload.get(
             "decision",
         ),
@@ -1436,6 +1467,27 @@ def _check_optional_stream_queue_budget_sweep(
         "stream_queue_budget_live_payload_runtime_live_payload_stage_status": (
             live_payload_runtime_payload.get("live_payload_stage_status")
         ),
+        "stream_queue_budget_live_payload_runtime_queue_budget_capacity_entries": (
+            live_payload_runtime_payload.get("queue_budget_capacity_entries")
+        ),
+        "stream_queue_budget_live_payload_runtime_queue_budget_issue_lead_tokens": (
+            live_payload_runtime_payload.get("queue_budget_issue_lead_tokens")
+        ),
+        "stream_queue_budget_live_payload_runtime_queue_budget_queue_deadline_us": (
+            live_payload_runtime_payload.get("queue_budget_queue_deadline_us")
+        ),
+        "stream_queue_budget_live_payload_runtime_queue_budget_lookahead_us": (
+            live_payload_runtime_payload.get("queue_budget_lookahead_us")
+        ),
+        "stream_queue_budget_live_payload_runtime_shifted_issue_accounting_enabled": (
+            live_payload_runtime_payload.get("shifted_issue_accounting_enabled")
+        ),
+        "stream_queue_budget_live_payload_runtime_shifted_issue_accounted_packet_count": (
+            live_payload_runtime_payload.get("shifted_issue_accounted_packet_count")
+        ),
+        "stream_queue_budget_live_payload_runtime_shifted_issue_unique_issue_key_count": (
+            live_payload_runtime_payload.get("shifted_issue_unique_issue_key_count")
+        ),
         "stream_queue_budget_live_payload_runtime_decision": (
             live_payload_runtime_payload.get("decision")
         ),
@@ -1495,6 +1547,108 @@ def _check_optional_stream_queue_budget_sweep(
         ),
         "stream_queue_budget_live_payload_runtime_measures_vllm_latency": (
             live_payload_runtime_payload.get("measures_vllm_latency")
+        ),
+        "stream_queue_budget_manager_artifact_present": (
+            manager_artifact_payload.get("present")
+        ),
+        "stream_queue_budget_manager_artifact_stage": (
+            manager_artifact_payload.get("stage")
+        ),
+        "stream_queue_budget_manager_artifact_status": (
+            manager_artifact_payload.get("status")
+        ),
+        "stream_queue_budget_manager_artifact_consumes_live_payload_runtime_canary": (
+            manager_artifact_payload.get("consumes_live_payload_runtime_canary")
+        ),
+        "stream_queue_budget_manager_artifact_live_payload_runtime_status": (
+            manager_artifact_payload.get("live_payload_runtime_status")
+        ),
+        "stream_queue_budget_manager_artifact_manager_backend": (
+            manager_artifact_payload.get("manager_backend")
+        ),
+        "stream_queue_budget_manager_artifact_manager_contract": (
+            manager_artifact_payload.get("manager_contract")
+        ),
+        "stream_queue_budget_manager_artifact_capacity_entries": (
+            manager_artifact_payload.get("capacity_entries")
+        ),
+        "stream_queue_budget_manager_artifact_issue_lead_tokens": (
+            manager_artifact_payload.get("issue_lead_tokens")
+        ),
+        "stream_queue_budget_manager_artifact_queue_deadline_us": (
+            manager_artifact_payload.get("queue_deadline_us")
+        ),
+        "stream_queue_budget_manager_artifact_lookahead_us": (
+            manager_artifact_payload.get("lookahead_us")
+        ),
+        "stream_queue_budget_manager_artifact_shifted_issue_accounting_enabled": (
+            manager_artifact_payload.get("shifted_issue_accounting_enabled")
+        ),
+        "stream_queue_budget_manager_artifact_shifted_issue_accounted_packet_count": (
+            manager_artifact_payload.get("shifted_issue_accounted_packet_count")
+        ),
+        "stream_queue_budget_manager_artifact_shifted_issue_unique_issue_key_count": (
+            manager_artifact_payload.get("shifted_issue_unique_issue_key_count")
+        ),
+        "stream_queue_budget_manager_artifact_decision": (
+            manager_artifact_payload.get("decision")
+        ),
+        "stream_queue_budget_manager_artifact_block_reason": (
+            manager_artifact_payload.get("block_reason")
+        ),
+        "stream_queue_budget_manager_artifact_execution_mode": (
+            manager_artifact_payload.get("execution_mode")
+        ),
+        "stream_queue_budget_manager_artifact_live_payload_runtime_enabled": (
+            manager_artifact_payload.get("live_payload_runtime_enabled")
+        ),
+        "stream_queue_budget_manager_artifact_payload_transfer_runtime_enabled": (
+            manager_artifact_payload.get("payload_transfer_runtime_enabled")
+        ),
+        "stream_queue_budget_manager_artifact_payload_deref_allowed": (
+            manager_artifact_payload.get("payload_deref_allowed")
+        ),
+        "stream_queue_budget_manager_artifact_payload_deref_runtime_allowed": (
+            manager_artifact_payload.get("payload_deref_runtime_allowed")
+        ),
+        "stream_queue_budget_manager_artifact_issued_payload_count": (
+            manager_artifact_payload.get("issued_payload_count")
+        ),
+        "stream_queue_budget_manager_artifact_payload_bytes": (
+            manager_artifact_payload.get("payload_bytes")
+        ),
+        "stream_queue_budget_manager_artifact_ready_credit": (
+            manager_artifact_payload.get("ready_credit")
+        ),
+        "stream_queue_budget_manager_artifact_ready_before_demand_credit": (
+            manager_artifact_payload.get("ready_before_demand_credit")
+        ),
+        "stream_queue_budget_manager_artifact_real_ready_credit_granted": (
+            manager_artifact_payload.get("real_ready_credit_granted")
+        ),
+        "stream_queue_budget_manager_artifact_kernel_arg_pass_allowed": (
+            manager_artifact_payload.get("kernel_arg_pass_allowed")
+        ),
+        "stream_queue_budget_manager_artifact_passed_to_kernel": (
+            manager_artifact_payload.get("passed_to_kernel")
+        ),
+        "stream_queue_budget_manager_artifact_changes_kernel_launch_args": (
+            manager_artifact_payload.get("changes_kernel_launch_args")
+        ),
+        "stream_queue_budget_manager_artifact_full_fetch_runtime_allowed": (
+            manager_artifact_payload.get("full_fetch_runtime_allowed")
+        ),
+        "stream_queue_budget_manager_artifact_uses_current_wna16_args": (
+            manager_artifact_payload.get("uses_current_wna16_args")
+        ),
+        "stream_queue_budget_manager_artifact_passes_current_wna16_args": (
+            manager_artifact_payload.get("passes_current_wna16_args")
+        ),
+        "stream_queue_budget_manager_artifact_measures_tpot": (
+            manager_artifact_payload.get("measures_tpot")
+        ),
+        "stream_queue_budget_manager_artifact_measures_vllm_latency": (
+            manager_artifact_payload.get("measures_vllm_latency")
         ),
         "stream_queue_budget_payload_bytes": _optional_int(report, "payload_bytes"),
         "stream_queue_budget_payload_transfer_enabled": _optional_bool(

@@ -1598,16 +1598,33 @@ def _check_stream_queue_budget(summary: dict[str, Any], failures: list[str]) -> 
         summary,
         f"{prefix}_first_model_passing_lookahead_us",
     )
+    first_shifted_enabled = summary.get(
+        f"{prefix}_first_shifted_issue_accounting_enabled",
+    )
+    first_shifted_packet_count = _int_metric(
+        summary,
+        f"{prefix}_first_shifted_issue_accounted_packet_count",
+    )
+    first_shifted_unique_count = _int_metric(
+        summary,
+        f"{prefix}_first_shifted_issue_unique_issue_key_count",
+    )
     if cell_count is None or cell_count <= 0:
         failures.append(f"{prefix}_cell_count_invalid")
     if first_capacity is None or first_capacity <= 0:
         failures.append(f"{prefix}_first_model_passing_capacity_invalid")
+    if first_capacity != 4096:
+        failures.append(f"{prefix}_first_model_passing_capacity_mismatch")
     if first_lead != 32:
         failures.append(f"{prefix}_first_model_passing_issue_lead_tokens_mismatch")
     if first_deadline is None or first_deadline <= 0.0:
         failures.append(f"{prefix}_first_model_passing_queue_deadline_us_invalid")
+    if first_deadline != 100.0:
+        failures.append(f"{prefix}_first_model_passing_queue_deadline_us_mismatch")
     if first_lookahead is None or first_lookahead <= 0.0:
         failures.append(f"{prefix}_first_model_passing_lookahead_us_invalid")
+    if first_lookahead != 2_400_000.0:
+        failures.append(f"{prefix}_first_model_passing_lookahead_us_mismatch")
 
     envelope_prefix = f"{prefix}_runtime_envelope"
     if summary.get(f"{envelope_prefix}_present") is not True:
@@ -1664,6 +1681,32 @@ def _check_stream_queue_budget(summary: dict[str, Any], failures: list[str]) -> 
         failures.append(f"{live_prefix}_consumes_queue_budget_runtime_envelope_mismatch")
     if summary.get(f"{live_prefix}_queue_budget_envelope_status") != expected_envelope_status:
         failures.append(f"{live_prefix}_queue_budget_envelope_status_mismatch")
+    if _int_metric(summary, f"{live_prefix}_queue_budget_capacity_entries") != first_capacity:
+        failures.append(f"{live_prefix}_queue_budget_capacity_entries_mismatch")
+    if _int_metric(summary, f"{live_prefix}_queue_budget_issue_lead_tokens") != first_lead:
+        failures.append(f"{live_prefix}_queue_budget_issue_lead_tokens_mismatch")
+    if (
+        _float_metric(summary, f"{live_prefix}_queue_budget_queue_deadline_us")
+        != first_deadline
+    ):
+        failures.append(f"{live_prefix}_queue_budget_queue_deadline_us_mismatch")
+    if _float_metric(summary, f"{live_prefix}_queue_budget_lookahead_us") != first_lookahead:
+        failures.append(f"{live_prefix}_queue_budget_lookahead_us_mismatch")
+    if (
+        summary.get(f"{live_prefix}_shifted_issue_accounting_enabled")
+        is not first_shifted_enabled
+    ):
+        failures.append(f"{live_prefix}_shifted_issue_accounting_enabled_mismatch")
+    if (
+        _int_metric(summary, f"{live_prefix}_shifted_issue_accounted_packet_count")
+        != first_shifted_packet_count
+    ):
+        failures.append(f"{live_prefix}_shifted_issue_accounted_packet_count_mismatch")
+    if (
+        _int_metric(summary, f"{live_prefix}_shifted_issue_unique_issue_key_count")
+        != first_shifted_unique_count
+    ):
+        failures.append(f"{live_prefix}_shifted_issue_unique_issue_key_count_mismatch")
     if summary.get(f"{live_prefix}_decision") != "blocked":
         failures.append(f"{live_prefix}_decision_mismatch")
     if summary.get(f"{live_prefix}_block_reason") != "live_payload_runtime_disabled":
@@ -1717,6 +1760,35 @@ def _check_stream_queue_budget(summary: dict[str, Any], failures: list[str]) -> 
         failures.append(f"{runtime_prefix}_consumes_live_payload_stage_preflight_mismatch")
     if summary.get(f"{runtime_prefix}_live_payload_stage_status") != expected_live_status:
         failures.append(f"{runtime_prefix}_live_payload_stage_status_mismatch")
+    if _int_metric(summary, f"{runtime_prefix}_queue_budget_capacity_entries") != first_capacity:
+        failures.append(f"{runtime_prefix}_queue_budget_capacity_entries_mismatch")
+    if _int_metric(summary, f"{runtime_prefix}_queue_budget_issue_lead_tokens") != first_lead:
+        failures.append(f"{runtime_prefix}_queue_budget_issue_lead_tokens_mismatch")
+    if (
+        _float_metric(summary, f"{runtime_prefix}_queue_budget_queue_deadline_us")
+        != first_deadline
+    ):
+        failures.append(f"{runtime_prefix}_queue_budget_queue_deadline_us_mismatch")
+    if (
+        _float_metric(summary, f"{runtime_prefix}_queue_budget_lookahead_us")
+        != first_lookahead
+    ):
+        failures.append(f"{runtime_prefix}_queue_budget_lookahead_us_mismatch")
+    if (
+        summary.get(f"{runtime_prefix}_shifted_issue_accounting_enabled")
+        is not first_shifted_enabled
+    ):
+        failures.append(f"{runtime_prefix}_shifted_issue_accounting_enabled_mismatch")
+    if (
+        _int_metric(summary, f"{runtime_prefix}_shifted_issue_accounted_packet_count")
+        != first_shifted_packet_count
+    ):
+        failures.append(f"{runtime_prefix}_shifted_issue_accounted_packet_count_mismatch")
+    if (
+        _int_metric(summary, f"{runtime_prefix}_shifted_issue_unique_issue_key_count")
+        != first_shifted_unique_count
+    ):
+        failures.append(f"{runtime_prefix}_shifted_issue_unique_issue_key_count_mismatch")
     if summary.get(f"{runtime_prefix}_decision") != "blocked":
         failures.append(f"{runtime_prefix}_decision_mismatch")
     if summary.get(f"{runtime_prefix}_block_reason") != "live_payload_runtime_disabled":
@@ -1750,16 +1822,94 @@ def _check_stream_queue_budget(summary: dict[str, Any], failures: list[str]) -> 
         if summary.get(f"{runtime_prefix}_{key}") is not False:
             failures.append(f"{runtime_prefix}_{key}_mismatch")
 
+    manager_prefix = f"{prefix}_manager_artifact"
+    expected_runtime_status = f"blocked_by_live_payload_stage:{expected_live_status}"
+    if summary.get(f"{manager_prefix}_present") is not True:
+        failures.append(f"{manager_prefix}_present_mismatch")
+    if summary.get(f"{manager_prefix}_stage") != "payload_cache_manager_implementation_artifact":
+        failures.append(f"{manager_prefix}_stage_mismatch")
     if (
-        summary.get(f"{prefix}_first_shifted_issue_accounting_enabled")
-        is not True
+        summary.get(f"{manager_prefix}_status")
+        != f"blocked_by_live_payload_runtime:{expected_runtime_status}"
     ):
+        failures.append(f"{manager_prefix}_status_mismatch")
+    if summary.get(f"{manager_prefix}_consumes_live_payload_runtime_canary") is not True:
+        failures.append(f"{manager_prefix}_consumes_live_payload_runtime_canary_mismatch")
+    if summary.get(f"{manager_prefix}_live_payload_runtime_status") != expected_runtime_status:
+        failures.append(f"{manager_prefix}_live_payload_runtime_status_mismatch")
+    if summary.get(f"{manager_prefix}_manager_backend") != "ReadyTimeExpertCacheManager":
+        failures.append(f"{manager_prefix}_manager_backend_mismatch")
+    if (
+        summary.get(f"{manager_prefix}_manager_contract")
+        != "event_driven_queue_budget_cache_manager_v1"
+    ):
+        failures.append(f"{manager_prefix}_manager_contract_mismatch")
+    if _int_metric(summary, f"{manager_prefix}_capacity_entries") != first_capacity:
+        failures.append(f"{manager_prefix}_capacity_entries_mismatch")
+    if _int_metric(summary, f"{manager_prefix}_issue_lead_tokens") != first_lead:
+        failures.append(f"{manager_prefix}_issue_lead_tokens_mismatch")
+    if _float_metric(summary, f"{manager_prefix}_queue_deadline_us") != first_deadline:
+        failures.append(f"{manager_prefix}_queue_deadline_us_mismatch")
+    if _float_metric(summary, f"{manager_prefix}_lookahead_us") != first_lookahead:
+        failures.append(f"{manager_prefix}_lookahead_us_mismatch")
+    if (
+        summary.get(f"{manager_prefix}_shifted_issue_accounting_enabled")
+        is not first_shifted_enabled
+    ):
+        failures.append(f"{manager_prefix}_shifted_issue_accounting_enabled_mismatch")
+    if (
+        _int_metric(summary, f"{manager_prefix}_shifted_issue_accounted_packet_count")
+        != first_shifted_packet_count
+    ):
+        failures.append(f"{manager_prefix}_shifted_issue_accounted_packet_count_mismatch")
+    if (
+        _int_metric(summary, f"{manager_prefix}_shifted_issue_unique_issue_key_count")
+        != first_shifted_unique_count
+    ):
+        failures.append(f"{manager_prefix}_shifted_issue_unique_issue_key_count_mismatch")
+    if summary.get(f"{manager_prefix}_decision") != "blocked":
+        failures.append(f"{manager_prefix}_decision_mismatch")
+    if (
+        summary.get(f"{manager_prefix}_block_reason")
+        != "implementation_artifact_default_disabled"
+    ):
+        failures.append(f"{manager_prefix}_block_reason_mismatch")
+    if (
+        summary.get(f"{manager_prefix}_execution_mode")
+        != "payload_cache_manager_implementation_artifact_disabled"
+    ):
+        failures.append(f"{manager_prefix}_execution_mode_mismatch")
+    if _int_metric(summary, f"{manager_prefix}_issued_payload_count") != 0:
+        failures.append(f"{manager_prefix}_issued_payload_count_mismatch")
+    if _int_metric(summary, f"{manager_prefix}_payload_bytes") != 0:
+        failures.append(f"{manager_prefix}_payload_bytes_mismatch")
+    for key in (
+        "live_payload_runtime_enabled",
+        "payload_transfer_runtime_enabled",
+        "payload_deref_allowed",
+        "payload_deref_runtime_allowed",
+        "ready_credit",
+        "ready_before_demand_credit",
+        "real_ready_credit_granted",
+        "kernel_arg_pass_allowed",
+        "passed_to_kernel",
+        "changes_kernel_launch_args",
+        "full_fetch_runtime_allowed",
+        "uses_current_wna16_args",
+        "passes_current_wna16_args",
+        "measures_tpot",
+        "measures_vllm_latency",
+    ):
+        if summary.get(f"{manager_prefix}_{key}") is not False:
+            failures.append(f"{manager_prefix}_{key}_mismatch")
+
+    if first_shifted_enabled is not True:
         failures.append(f"{prefix}_first_shifted_issue_accounting_enabled_mismatch")
-    if _int_metric(summary, f"{prefix}_first_shifted_issue_accounted_packet_count") != 28:
+    if first_shifted_packet_count != 28:
         failures.append(
             f"{prefix}_first_shifted_issue_accounted_packet_count_mismatch"
         )
-    if _int_metric(summary, f"{prefix}_first_shifted_issue_unique_issue_key_count") != 16:
+    if first_shifted_unique_count != 16:
         failures.append(
             f"{prefix}_first_shifted_issue_unique_issue_key_count_mismatch"
         )
