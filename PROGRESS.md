@@ -40830,3 +40830,100 @@ The next producer-side runtime contract must include bootstrap issue handling
 and issue-key coalescing before full_fetch can be reconsidered.
 Current lab default remains metadata/premap/descriptor-prep; full_fetch stays blocked.
 ```
+
+## Shifted issue replay is now a required final preflight summary gate
+
+The lead32 bootstrap/coalescing shifted issue replay contract is now wired
+through the full lab preflight closure path:
+
+```text
+child contract checker
+  -> check_prefetch_lab_default_gate.py
+  -> run_premap_lab_preflight.py summary
+  -> check_premap_lab_preflight_summary.py
+  -> run_premap_lab_gate_closure.py
+```
+
+The final summary checker now fails closed on the shifted issue replay evidence:
+
+```text
+contract_present = true
+contract_passed = true
+contract_required_lead_tokens = 32
+contract_min_schedulable_packets = 28
+issue_lead_tokens = 32
+schedulable_packet_count >= 28
+row_shift_mismatch_count = 0
+row_clamp_mismatch_count = 0
+```
+
+It also independently checks both direct and source no-runtime fields:
+
+```text
+payload_bytes = 0
+source_payload_bytes = 0
+full_fetch_runtime_allowed = false
+source_full_fetch_runtime_allowed = false
+full_fetch_allowed = false
+source_full_fetch_allowed = false
+ready_credit = false
+source_ready_credit = false
+ready_before_demand_credit = false
+source_ready_before_demand_credit = false
+real_ready_credit_granted = false
+source_real_ready_credit_granted = false
+payload_transfer_enabled = false
+source_payload_transfer_enabled = false
+payload_deref_allowed = false
+source_payload_deref_allowed = false
+kernel_arg_pass_allowed = false
+source_kernel_arg_pass_allowed = false
+passed_to_kernel = false
+source_passed_to_kernel = false
+changes_kernel_launch_args = false
+source_changes_kernel_launch_args = false
+uses_current_wna16_args = false
+source_uses_current_wna16_args = false
+passes_current_wna16_args = false
+source_passes_current_wna16_args = false
+current_wna16_arg_compatible = false
+source_current_wna16_arg_compatible = false
+requires_wna16_arg_reinterpretation = false
+source_requires_wna16_arg_reinterpretation = false
+wna16_benchmark_ready = false
+source_wna16_benchmark_ready = false
+measures_tpot = false
+source_measures_tpot = false
+measures_vllm_latency = false
+source_measures_vllm_latency = false
+```
+
+The final checker uses strict bool/int checks so `1 == true`, `0 == false`, and
+`false == 0` cannot mask unsafe values.
+
+Validation:
+
+```bash
+/home/husrcf/anaconda3/envs/TRY/bin/python -m pytest \
+  tests/test_run_premap_lab_preflight.py \
+  tests/test_check_prefetch_lab_default_gate.py \
+  tests/test_check_premap_payload_cache_stream_shifted_issue_replay_contract.py \
+  tests/test_build_premap_payload_cache_stream_shifted_issue_replay_contract.py \
+  tests/test_check_premap_lab_preflight_summary.py -q
+# 318 passed
+
+/home/husrcf/anaconda3/envs/TRY/bin/python scripts/run_premap_lab_gate_closure.py \
+  --skip-arg-slot-runner \
+  --output-json outputs/reports/premap_lab_preflight/\
+premap_lab_gate_closure_shifted_issue_summary_gate_v1.json
+# passed = true
+```
+
+Current interpretation:
+
+```text
+The shifted issue replay contract is now part of the lab default preflight.
+It remains evidence for a producer-side issue schedule only.
+It still does not enable payload movement, ready credit, current WNA16 args,
+kernel arg pass, or endpoint benchmark claims.
+```
