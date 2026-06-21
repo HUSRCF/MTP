@@ -2136,6 +2136,205 @@ class PayloadCacheLiveRuntimeAdapterMaterializationPreflight:
         return asdict(self)
 
 
+@dataclass(frozen=True)
+class PayloadCacheLiveRuntimeAdapterStateObjectPreflight:
+    """Blocked preflight for the future runtime adapter state object."""
+
+    present: bool
+    stage: str
+    status: str
+    consumes_adapter_materialization_preflight: bool
+    adapter_materialization_status: str
+    manager_backend: str
+    manager_runtime_contract: str
+    manager_runtime_mode: str
+    state_shape_schema: str
+    runtime_adapter_schema: str
+    adapter_state_object_schema: str
+    adapter_materialization_preflight_instantiated: bool
+    adapter_state_object_declared: bool
+    issue_queue_state_object_declared: bool
+    demand_state_object_declared: bool
+    resident_index_state_object_declared: bool
+    queue_timing_state_object_declared: bool
+    live_runtime_instantiated: bool
+    capacity_entries: int
+    issue_lead_tokens: int
+    queue_deadline_us: float
+    lookahead_us: float
+    queue_batch_size: int
+    resident_count: int
+    issued_fetch_count: int
+    used_fetch_count: int
+    unused_fetch_count: int
+    demand_count: int
+    demand_hit_count: int
+    demand_miss_count: int
+    evicted_before_use_count: int
+    ready_late_miss_count: int
+    late_completion_unused_count: int
+    queue_batch_count: int
+    queue_service_us: float
+    queue_total_span_us: float
+    queue_wait_us: float
+    queue_max_delay_us: float
+    shifted_issue_accounting_enabled: bool
+    shifted_issue_accounted_packet_count: int
+    shifted_issue_unique_issue_key_count: int
+    decision: str = "blocked"
+    block_reason: str = "live_runtime_adapter_state_object_preflight_only"
+    execution_mode: str = (
+        "payload_cache_live_runtime_adapter_state_object_preflight_disabled"
+    )
+    live_payload_runtime_enabled: bool = False
+    payload_transfer_runtime_enabled: bool = False
+    payload_deref_allowed: bool = False
+    payload_deref_runtime_allowed: bool = False
+    issued_payload_count: int = 0
+    payload_bytes: int = 0
+    ready_credit: bool = False
+    ready_before_demand_credit: bool = False
+    real_ready_credit_granted: bool = False
+    kernel_arg_pass_allowed: bool = False
+    passed_to_kernel: bool = False
+    changes_kernel_launch_args: bool = False
+    full_fetch_runtime_allowed: bool = False
+    uses_current_wna16_args: bool = False
+    passes_current_wna16_args: bool = False
+    measures_tpot: bool = False
+    measures_vllm_latency: bool = False
+
+    def __post_init__(self) -> None:
+        if self.present is not True:
+            raise ValueError("adapter state-object preflight must be present")
+        if self.stage != "payload_cache_live_runtime_adapter_state_object_preflight":
+            raise ValueError("adapter state-object preflight stage mismatch")
+        if self.consumes_adapter_materialization_preflight is not True:
+            raise ValueError("state-object preflight must consume materialization")
+        if (
+            not isinstance(self.adapter_materialization_status, str)
+            or not self.adapter_materialization_status
+        ):
+            raise TypeError("adapter_materialization_status must be a nonempty string")
+        expected_status = (
+            "blocked_by_adapter_materialization_preflight:"
+            f"{self.adapter_materialization_status}"
+        )
+        if self.status != expected_status:
+            raise ValueError("adapter state-object preflight status mismatch")
+        if self.manager_backend != "ReadyTimeExpertCacheManager":
+            raise ValueError("adapter state-object backend mismatch")
+        if self.manager_runtime_contract != "ready_time_issue_demand_skeleton_v1":
+            raise ValueError("adapter state-object contract mismatch")
+        if self.manager_runtime_mode != "ready_time_payload_cache_skeleton":
+            raise ValueError("adapter state-object mode mismatch")
+        if self.state_shape_schema != "ready_time_issue_demand_state_shape_v1":
+            raise ValueError("adapter state-object state-shape schema mismatch")
+        if self.runtime_adapter_schema != "ready_time_payload_cache_runtime_adapter_v1":
+            raise ValueError("adapter state-object runtime adapter schema mismatch")
+        if self.adapter_state_object_schema != "ready_time_payload_cache_adapter_state_v1":
+            raise ValueError("adapter state-object schema mismatch")
+        for field_name in (
+            "adapter_materialization_preflight_instantiated",
+            "adapter_state_object_declared",
+            "issue_queue_state_object_declared",
+            "demand_state_object_declared",
+            "resident_index_state_object_declared",
+            "queue_timing_state_object_declared",
+        ):
+            if getattr(self, field_name) is not True:
+                raise ValueError(f"{field_name} must be declared")
+        if self.live_runtime_instantiated is not False:
+            raise ValueError("live runtime must not be instantiated")
+        if self.decision != "blocked":
+            raise ValueError("adapter state-object decision must stay blocked")
+        if self.block_reason != "live_runtime_adapter_state_object_preflight_only":
+            raise ValueError("adapter state-object block reason mismatch")
+        if (
+            self.execution_mode
+            != "payload_cache_live_runtime_adapter_state_object_preflight_disabled"
+        ):
+            raise ValueError("adapter state-object execution mode mismatch")
+        for field_name in (
+            "capacity_entries",
+            "issue_lead_tokens",
+            "queue_batch_size",
+            "shifted_issue_accounted_packet_count",
+            "shifted_issue_unique_issue_key_count",
+        ):
+            value = getattr(self, field_name)
+            if not isinstance(value, int) or isinstance(value, bool):
+                raise TypeError(f"{field_name} must be an integer")
+            if value <= 0:
+                raise ValueError(f"{field_name} must be positive")
+        for field_name in (
+            "resident_count",
+            "issued_fetch_count",
+            "used_fetch_count",
+            "unused_fetch_count",
+            "demand_count",
+            "demand_hit_count",
+            "demand_miss_count",
+            "evicted_before_use_count",
+            "ready_late_miss_count",
+            "late_completion_unused_count",
+            "queue_batch_count",
+        ):
+            value = getattr(self, field_name)
+            if not isinstance(value, int) or isinstance(value, bool):
+                raise TypeError(f"{field_name} must be an integer")
+            if value != 0:
+                raise ValueError(f"{field_name} must remain zero")
+        for field_name in (
+            "queue_deadline_us",
+            "lookahead_us",
+            "queue_service_us",
+            "queue_total_span_us",
+            "queue_wait_us",
+            "queue_max_delay_us",
+        ):
+            value = getattr(self, field_name)
+            if not isinstance(value, (int, float)) or isinstance(value, bool):
+                raise TypeError(f"{field_name} must be numeric")
+            numeric = float(value)
+            if not math.isfinite(numeric):
+                raise ValueError(f"{field_name} must be finite")
+            if field_name in ("queue_deadline_us", "lookahead_us") and numeric <= 0.0:
+                raise ValueError(f"{field_name} must be positive")
+            if field_name not in ("queue_deadline_us", "lookahead_us") and numeric != 0.0:
+                raise ValueError(f"{field_name} must remain zero")
+        if self.shifted_issue_accounting_enabled is not True:
+            raise ValueError("shifted issue accounting must be enabled")
+        for field_name in ("issued_payload_count", "payload_bytes"):
+            value = getattr(self, field_name)
+            if not isinstance(value, int) or isinstance(value, bool):
+                raise TypeError(f"{field_name} must be an integer")
+            if value != 0:
+                raise ValueError(f"{field_name} must remain zero")
+        for field_name in (
+            "live_payload_runtime_enabled",
+            "payload_transfer_runtime_enabled",
+            "payload_deref_allowed",
+            "payload_deref_runtime_allowed",
+            "ready_credit",
+            "ready_before_demand_credit",
+            "real_ready_credit_granted",
+            "kernel_arg_pass_allowed",
+            "passed_to_kernel",
+            "changes_kernel_launch_args",
+            "full_fetch_runtime_allowed",
+            "uses_current_wna16_args",
+            "passes_current_wna16_args",
+            "measures_tpot",
+            "measures_vllm_latency",
+        ):
+            if getattr(self, field_name) is not False:
+                raise ValueError(f"{field_name} must remain disabled")
+
+    def as_dict(self) -> dict[str, bool | float | int | str]:
+        return asdict(self)
+
+
 def select_cache_lab_prefetch_gate(
     signals: CacheLabRuntimeSignals,
     *,
@@ -3359,6 +3558,166 @@ def build_payload_cache_live_runtime_adapter_materialization_preflight(
         ),
         shifted_issue_unique_issue_key_count=int(
             object_adapter.shifted_issue_unique_issue_key_count,
+        ),
+    )
+
+
+def build_payload_cache_live_runtime_adapter_state_object_preflight(
+    materialization: PayloadCacheLiveRuntimeAdapterMaterializationPreflight,
+) -> PayloadCacheLiveRuntimeAdapterStateObjectPreflight:
+    """Build the blocked adapter state-object preflight behind materialization."""
+
+    if not isinstance(
+        materialization,
+        PayloadCacheLiveRuntimeAdapterMaterializationPreflight,
+    ):
+        raise TypeError(
+            "materialization must be a "
+            "PayloadCacheLiveRuntimeAdapterMaterializationPreflight",
+        )
+    if materialization.present is not True:
+        raise ValueError("adapter materialization preflight must be present")
+    if (
+        materialization.stage
+        != "payload_cache_live_runtime_adapter_materialization_preflight"
+    ):
+        raise ValueError("adapter materialization stage mismatch")
+    if materialization.consumes_object_adapter_preflight is not True:
+        raise ValueError("adapter materialization must consume object adapter")
+    if (
+        not isinstance(materialization.object_adapter_status, str)
+        or not materialization.object_adapter_status
+    ):
+        raise TypeError("adapter materialization object_adapter_status invalid")
+    expected_materialization_status = (
+        "blocked_by_object_adapter_preflight:"
+        f"{materialization.object_adapter_status}"
+    )
+    if materialization.status != expected_materialization_status:
+        raise ValueError("adapter materialization status mismatch")
+    if materialization.decision != "blocked":
+        raise ValueError("adapter materialization preflight must stay blocked")
+    if (
+        materialization.block_reason
+        != "live_runtime_adapter_materialization_preflight_only"
+    ):
+        raise ValueError("adapter materialization block reason mismatch")
+    for field_name in (
+        "object_construction_preflight_instantiated",
+        "adapter_materialization_preflight_instantiated",
+        "runtime_object_adapter_declared",
+        "issue_queue_materialization_checked",
+        "demand_state_materialization_checked",
+        "resident_index_materialization_checked",
+        "queue_timing_materialization_checked",
+    ):
+        if getattr(materialization, field_name) is not True:
+            raise ValueError(f"adapter materialization {field_name} must be checked")
+    if materialization.live_runtime_instantiated is not False:
+        raise ValueError("adapter materialization must not instantiate live runtime")
+    if (
+        materialization.execution_mode
+        != "payload_cache_live_runtime_adapter_materialization_preflight_disabled"
+    ):
+        raise ValueError("adapter materialization execution mode mismatch")
+    for field_name in (
+        "resident_count",
+        "issued_fetch_count",
+        "used_fetch_count",
+        "unused_fetch_count",
+        "demand_count",
+        "demand_hit_count",
+        "demand_miss_count",
+        "evicted_before_use_count",
+        "ready_late_miss_count",
+        "late_completion_unused_count",
+        "queue_batch_count",
+    ):
+        if getattr(materialization, field_name) != 0:
+            raise ValueError(f"adapter materialization {field_name} must remain zero")
+    for field_name in (
+        "queue_service_us",
+        "queue_total_span_us",
+        "queue_wait_us",
+        "queue_max_delay_us",
+    ):
+        if float(getattr(materialization, field_name)) != 0.0:
+            raise ValueError(f"adapter materialization {field_name} must remain zero")
+    for field_name in (
+        "live_payload_runtime_enabled",
+        "payload_transfer_runtime_enabled",
+        "payload_deref_allowed",
+        "payload_deref_runtime_allowed",
+        "ready_credit",
+        "ready_before_demand_credit",
+        "real_ready_credit_granted",
+        "kernel_arg_pass_allowed",
+        "passed_to_kernel",
+        "changes_kernel_launch_args",
+        "full_fetch_runtime_allowed",
+        "uses_current_wna16_args",
+        "passes_current_wna16_args",
+        "measures_tpot",
+        "measures_vllm_latency",
+    ):
+        if getattr(materialization, field_name) is not False:
+            raise ValueError(f"adapter materialization {field_name} must remain disabled")
+    for field_name in ("issued_payload_count", "payload_bytes"):
+        if getattr(materialization, field_name) != 0:
+            raise ValueError(f"adapter materialization {field_name} must remain zero")
+
+    return PayloadCacheLiveRuntimeAdapterStateObjectPreflight(
+        present=True,
+        stage="payload_cache_live_runtime_adapter_state_object_preflight",
+        status=(
+            "blocked_by_adapter_materialization_preflight:"
+            f"{materialization.status}"
+        ),
+        consumes_adapter_materialization_preflight=True,
+        adapter_materialization_status=str(materialization.status),
+        manager_backend=str(materialization.manager_backend),
+        manager_runtime_contract=str(materialization.manager_runtime_contract),
+        manager_runtime_mode=str(materialization.manager_runtime_mode),
+        state_shape_schema=str(materialization.state_shape_schema),
+        runtime_adapter_schema=str(materialization.runtime_adapter_schema),
+        adapter_state_object_schema="ready_time_payload_cache_adapter_state_v1",
+        adapter_materialization_preflight_instantiated=bool(
+            materialization.adapter_materialization_preflight_instantiated,
+        ),
+        adapter_state_object_declared=True,
+        issue_queue_state_object_declared=True,
+        demand_state_object_declared=True,
+        resident_index_state_object_declared=True,
+        queue_timing_state_object_declared=True,
+        live_runtime_instantiated=False,
+        capacity_entries=int(materialization.capacity_entries),
+        issue_lead_tokens=int(materialization.issue_lead_tokens),
+        queue_deadline_us=float(materialization.queue_deadline_us),
+        lookahead_us=float(materialization.lookahead_us),
+        queue_batch_size=int(materialization.queue_batch_size),
+        resident_count=int(materialization.resident_count),
+        issued_fetch_count=int(materialization.issued_fetch_count),
+        used_fetch_count=int(materialization.used_fetch_count),
+        unused_fetch_count=int(materialization.unused_fetch_count),
+        demand_count=int(materialization.demand_count),
+        demand_hit_count=int(materialization.demand_hit_count),
+        demand_miss_count=int(materialization.demand_miss_count),
+        evicted_before_use_count=int(materialization.evicted_before_use_count),
+        ready_late_miss_count=int(materialization.ready_late_miss_count),
+        late_completion_unused_count=int(materialization.late_completion_unused_count),
+        queue_batch_count=int(materialization.queue_batch_count),
+        queue_service_us=float(materialization.queue_service_us),
+        queue_total_span_us=float(materialization.queue_total_span_us),
+        queue_wait_us=float(materialization.queue_wait_us),
+        queue_max_delay_us=float(materialization.queue_max_delay_us),
+        shifted_issue_accounting_enabled=bool(
+            materialization.shifted_issue_accounting_enabled,
+        ),
+        shifted_issue_accounted_packet_count=int(
+            materialization.shifted_issue_accounted_packet_count,
+        ),
+        shifted_issue_unique_issue_key_count=int(
+            materialization.shifted_issue_unique_issue_key_count,
         ),
     )
 
