@@ -49,6 +49,17 @@ def _write_fixture(tmp_path: Path, *, allow_full_fetch: bool = False) -> Path:
                 "required_stream_lookahead_us": 2400000.0,
                 "lookahead_deficit_us": 2400000.0,
                 "first_model_passing_lookahead_us": 2400000.0,
+                "required_shifted_issue_accounting": {
+                    "shifted_issue_accounting_enabled": True,
+                    "shifted_issue_lead_tokens": 32,
+                    "shifted_issue_clamped_issue_count": 12,
+                    "shifted_issue_duplicate_issue_key_count": 12,
+                    "shifted_issue_unique_issue_key_count": 16,
+                    "shifted_issue_accounted_packet_count": 28,
+                    "shifted_issue_invalid_export_count": 0,
+                    "shifted_issue_row_shift_mismatch_count": 0,
+                    "shifted_issue_row_clamp_mismatch_count": 0,
+                },
                 "metadata_premap_runtime_preferred": True,
                 "descriptor_prep_runtime_preferred": True,
                 **_FULL_FETCH_DECISION_NOOP_FIELDS,
@@ -256,6 +267,28 @@ def test_prefetch_lab_default_gate_rejects_missing_stream_reports(tmp_path: Path
         "full_fetch:stream_shifted_issue_replay_contract_report_missing"
         in result["failures"]
     )
+    full_fetch = result["sections"]["full_fetch"]
+    assert full_fetch["stream_required_shifted_issue_accounting_enabled"] is None
+    assert full_fetch["stream_required_shifted_issue_lead_tokens"] is None
+    assert full_fetch["stream_required_shifted_issue_clamped_issue_count"] is None
+    assert (
+        full_fetch["stream_required_shifted_issue_duplicate_issue_key_count"]
+        is None
+    )
+    assert full_fetch["stream_required_shifted_issue_unique_issue_key_count"] is None
+    assert (
+        full_fetch["stream_required_shifted_issue_accounted_packet_count"]
+        is None
+    )
+    assert full_fetch["stream_required_shifted_issue_invalid_export_count"] is None
+    assert (
+        full_fetch["stream_required_shifted_issue_row_shift_mismatch_count"]
+        is None
+    )
+    assert (
+        full_fetch["stream_required_shifted_issue_row_clamp_mismatch_count"]
+        is None
+    )
 
 
 def test_prefetch_lab_default_gate_accepts_full_fetch_decision_gate(tmp_path: Path):
@@ -329,6 +362,17 @@ def test_prefetch_lab_default_gate_accepts_stream_full_fetch_block_evidence(
                 "required_stream_lookahead_us": 2400000.0,
                 "lookahead_deficit_us": 2400000.0,
                 "first_model_passing_lookahead_us": 2400000.0,
+                "required_shifted_issue_accounting": {
+                    "shifted_issue_accounting_enabled": True,
+                    "shifted_issue_lead_tokens": 32,
+                    "shifted_issue_clamped_issue_count": 12,
+                    "shifted_issue_duplicate_issue_key_count": 12,
+                    "shifted_issue_unique_issue_key_count": 16,
+                    "shifted_issue_accounted_packet_count": 28,
+                    "shifted_issue_invalid_export_count": 0,
+                    "shifted_issue_row_shift_mismatch_count": 0,
+                    "shifted_issue_row_clamp_mismatch_count": 0,
+                },
                 "metadata_premap_runtime_preferred": True,
                 "descriptor_prep_runtime_preferred": True,
                 **_FULL_FETCH_DECISION_NOOP_FIELDS,
@@ -400,6 +444,15 @@ def test_prefetch_lab_default_gate_accepts_stream_full_fetch_block_evidence(
     assert full_fetch["stream_lead_token_sweep_event_timing_mode"] == "token_index"
     assert full_fetch["stream_lead_token_sweep_token_timing_enabled"] is True
     assert full_fetch["stream_first_model_passing_lead_tokens"] == 32
+    assert full_fetch["stream_required_shifted_issue_accounting_enabled"] is True
+    assert full_fetch["stream_required_shifted_issue_lead_tokens"] == 32
+    assert full_fetch["stream_required_shifted_issue_clamped_issue_count"] == 12
+    assert full_fetch["stream_required_shifted_issue_duplicate_issue_key_count"] == 12
+    assert full_fetch["stream_required_shifted_issue_unique_issue_key_count"] == 16
+    assert full_fetch["stream_required_shifted_issue_accounted_packet_count"] == 28
+    assert full_fetch["stream_required_shifted_issue_invalid_export_count"] == 0
+    assert full_fetch["stream_required_shifted_issue_row_shift_mismatch_count"] == 0
+    assert full_fetch["stream_required_shifted_issue_row_clamp_mismatch_count"] == 0
 
 
 def test_prefetch_lab_default_gate_rejects_unsafe_stream_evidence(tmp_path: Path):

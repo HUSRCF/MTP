@@ -221,6 +221,15 @@ def _check_optional_stream_decision_gate(
             "stream_decision_gate_report": None,
             "stream_decision_gate_passed": None,
             "stream_full_fetch_runtime_allowed": None,
+            "stream_required_shifted_issue_accounting_enabled": None,
+            "stream_required_shifted_issue_lead_tokens": None,
+            "stream_required_shifted_issue_clamped_issue_count": None,
+            "stream_required_shifted_issue_duplicate_issue_key_count": None,
+            "stream_required_shifted_issue_unique_issue_key_count": None,
+            "stream_required_shifted_issue_accounted_packet_count": None,
+            "stream_required_shifted_issue_invalid_export_count": None,
+            "stream_required_shifted_issue_row_shift_mismatch_count": None,
+            "stream_required_shifted_issue_row_clamp_mismatch_count": None,
         }
     path = _resolve(path_value, root=root)
     report = _load_json(path, failures, label="stream_decision_gate_report")
@@ -232,6 +241,12 @@ def _check_optional_stream_decision_gate(
     if report.get("full_fetch_runtime_allowed") is not False:
         failures.append("stream_decision_gate_allows_full_fetch")
     _check_stream_noop_safety(report, failures, label="stream_decision_gate")
+    required_shifted_issue = report.get("required_shifted_issue_accounting")
+    required_shifted_issue = (
+        required_shifted_issue
+        if isinstance(required_shifted_issue, dict)
+        else {}
+    )
     return {
         "stream_decision_gate_present": True,
         "stream_decision_gate_report": str(path),
@@ -271,6 +286,42 @@ def _check_optional_stream_decision_gate(
         "stream_descriptor_prep_runtime_preferred": _optional_bool(
             report,
             "descriptor_prep_runtime_preferred",
+        ),
+        "stream_required_shifted_issue_accounting_enabled": _optional_bool(
+            required_shifted_issue,
+            "shifted_issue_accounting_enabled",
+        ),
+        "stream_required_shifted_issue_lead_tokens": _optional_int(
+            required_shifted_issue,
+            "shifted_issue_lead_tokens",
+        ),
+        "stream_required_shifted_issue_clamped_issue_count": _optional_int(
+            required_shifted_issue,
+            "shifted_issue_clamped_issue_count",
+        ),
+        "stream_required_shifted_issue_duplicate_issue_key_count": _optional_int(
+            required_shifted_issue,
+            "shifted_issue_duplicate_issue_key_count",
+        ),
+        "stream_required_shifted_issue_unique_issue_key_count": _optional_int(
+            required_shifted_issue,
+            "shifted_issue_unique_issue_key_count",
+        ),
+        "stream_required_shifted_issue_accounted_packet_count": _optional_int(
+            required_shifted_issue,
+            "shifted_issue_accounted_packet_count",
+        ),
+        "stream_required_shifted_issue_invalid_export_count": _optional_int(
+            required_shifted_issue,
+            "shifted_issue_invalid_export_count",
+        ),
+        "stream_required_shifted_issue_row_shift_mismatch_count": _optional_int(
+            required_shifted_issue,
+            "shifted_issue_row_shift_mismatch_count",
+        ),
+        "stream_required_shifted_issue_row_clamp_mismatch_count": _optional_int(
+            required_shifted_issue,
+            "shifted_issue_row_clamp_mismatch_count",
         ),
     }
 
