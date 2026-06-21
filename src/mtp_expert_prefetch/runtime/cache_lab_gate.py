@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass
+from typing import Sequence
 
 
 @dataclass(frozen=True)
@@ -51,6 +52,63 @@ class CacheLabGateDecision:
         return asdict(self)
 
 
+@dataclass(frozen=True)
+class PayloadCacheRuntimeParticipation:
+    """Payload-cache runtime participation contract before live transfer.
+
+    This object is intentionally payloadless. It records that the online path
+    has a manager snapshot and enough issue/demand accounting to be considered
+    by a future cache-manager runtime, while keeping all side-effectful gates
+    closed: no payload transfer, no ready credit, and no kernel argument
+    mutation.
+    """
+
+    present: bool
+    stage: str
+    status: str
+    consumes_manager_snapshot: bool
+    manager_mode: str
+    issue_sources: tuple[str, ...]
+    demand_on_consumer: bool
+    payload_bytes: int = 0
+    ready_credit: bool = False
+    real_ready_credit_granted: bool = False
+    kernel_arg_pass_allowed: bool = False
+    changes_kernel_launch_args: bool = False
+    full_fetch_runtime_allowed: bool = False
+    payload_transfer_runtime_enabled: bool = False
+    issued_fetch_count: int = 0
+    used_fetch_count: int = 0
+    demand_count: int = 0
+    demand_hit_count: int = 0
+    ready_late_miss_count: int = 0
+    queue_batch_size: int | None = None
+    queue_deadline_us: float | None = None
+    candidate_reason: str | None = None
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.payload_bytes, int) or isinstance(
+            self.payload_bytes,
+            bool,
+        ):
+            raise TypeError("payload_bytes must be an integer")
+        if self.payload_bytes != 0:
+            raise ValueError("payload-cache runtime participation must be payloadless")
+        for field_name in (
+            "ready_credit",
+            "real_ready_credit_granted",
+            "kernel_arg_pass_allowed",
+            "changes_kernel_launch_args",
+            "full_fetch_runtime_allowed",
+            "payload_transfer_runtime_enabled",
+        ):
+            if getattr(self, field_name) is not False:
+                raise ValueError(f"{field_name} must remain disabled")
+
+    def as_dict(self) -> dict[str, bool | float | int | str | tuple[str, ...] | None]:
+        return asdict(self)
+
+
 def select_cache_lab_prefetch_gate(
     signals: CacheLabRuntimeSignals,
     *,
@@ -73,6 +131,58 @@ def select_cache_lab_prefetch_gate(
         bandwidth_gbps=float(signals.bandwidth_gbps),
         stress_fallback_active=bool(signals.stress_fallback_active),
         ready_time_allow_full_fetch=signals.ready_time_allow_full_fetch,
+    )
+
+
+def build_payload_cache_runtime_participation(
+    *,
+    manager_mode: str,
+    issue_sources: Sequence[str],
+    demand_on_consumer: bool,
+    issued_fetch_count: int,
+    used_fetch_count: int,
+    demand_count: int,
+    demand_hit_count: int,
+    ready_late_miss_count: int,
+    candidate_reason: str | None,
+    queue_batch_size: int | None = None,
+    queue_deadline_us: float | None = None,
+) -> PayloadCacheRuntimeParticipation:
+    """Build the payloadless runtime-participation object for online summaries."""
+
+    mode = str(manager_mode)
+    stage = (
+        "online_ready_time_payload_cache_runtime_participation_dry_run"
+        if mode == "ready_time"
+        else "online_payload_cache_runtime_participation_dry_run"
+    )
+    reason = str(candidate_reason or "unknown")
+    if mode != "ready_time":
+        status = f"accounting_only_not_ready_time_manager:{mode}"
+    elif reason == "candidate_requires_ready_time_gate":
+        status = "ready_time_candidate_requires_lab_gate"
+    else:
+        status = f"accounting_only_{reason}"
+    return PayloadCacheRuntimeParticipation(
+        present=True,
+        stage=stage,
+        status=status,
+        consumes_manager_snapshot=True,
+        manager_mode=mode,
+        issue_sources=tuple(str(source) for source in issue_sources),
+        demand_on_consumer=bool(demand_on_consumer),
+        issued_fetch_count=int(issued_fetch_count),
+        used_fetch_count=int(used_fetch_count),
+        demand_count=int(demand_count),
+        demand_hit_count=int(demand_hit_count),
+        ready_late_miss_count=int(ready_late_miss_count),
+        queue_batch_size=(
+            None if queue_batch_size is None else int(queue_batch_size)
+        ),
+        queue_deadline_us=(
+            None if queue_deadline_us is None else float(queue_deadline_us)
+        ),
+        candidate_reason=reason,
     )
 
 

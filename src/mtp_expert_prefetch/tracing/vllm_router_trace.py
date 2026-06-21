@@ -49,6 +49,9 @@ from mtp_expert_prefetch.runtime.cache_manager import (
     PremapPayloadCacheProducerTransitionStatePacket,
     PremapRealDescriptorHandle,
 )
+from mtp_expert_prefetch.runtime.cache_lab_gate import (
+    build_payload_cache_runtime_participation,
+)
 from mtp_expert_prefetch.runtime.online_shadow import OnlineShadowLogger
 from mtp_expert_prefetch.runtime.premap import (
     ExpertPrefetchDescriptor,
@@ -2586,6 +2589,28 @@ def _add_premap_payload_cache_manager_snapshot_to_performance(
     performance[f"{prefix}full_fetch_ready_time_gate_candidate_reason"] = (
         full_fetch_gate_candidate_reason
     )
+    runtime_participation = build_payload_cache_runtime_participation(
+        manager_mode=manager_mode,
+        issue_sources=(
+            recorder.shadow_premap_payload_cache_manager_issue_sources or ()
+        ),
+        demand_on_consumer=bool(
+            recorder.shadow_premap_payload_cache_manager_demand_on_consumer
+        ),
+        issued_fetch_count=int(snapshot.issued_fetch_count),
+        used_fetch_count=int(snapshot.used_fetch_count),
+        demand_count=int(snapshot.demand_count),
+        demand_hit_count=int(snapshot.demand_hit_count),
+        ready_late_miss_count=ready_late_miss_count,
+        candidate_reason=full_fetch_gate_candidate_reason,
+        queue_batch_size=getattr(snapshot, "queue_batch_size", None),
+        queue_deadline_us=getattr(snapshot, "queue_deadline_us", None),
+    )
+    runtime_participation_prefix = f"{prefix}runtime_participation_"
+    for field_name, value in runtime_participation.as_dict().items():
+        if isinstance(value, tuple):
+            value = list(value)
+        performance[f"{runtime_participation_prefix}{field_name}"] = value
     performance[f"{prefix}transition_issue_attempt_count"] = int(
         recorder._premap_payload_cache_transition_issue_attempt_count
     )

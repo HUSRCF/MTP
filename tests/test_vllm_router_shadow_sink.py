@@ -775,6 +775,42 @@ def test_premap_payload_cache_manager_snapshot_flattens_without_jsonl_rows():
         performance["runtime_shadow_premap_payload_cache_direct_ready_late_miss_rate"]
         == 0.0
     )
+    participation_prefix = (
+        "runtime_shadow_premap_payload_cache_direct_runtime_participation_"
+    )
+    assert performance[f"{participation_prefix}present"] is True
+    assert (
+        performance[f"{participation_prefix}stage"]
+        == "online_payload_cache_runtime_participation_dry_run"
+    )
+    assert (
+        performance[f"{participation_prefix}status"]
+        == "accounting_only_not_ready_time_manager:resident"
+    )
+    assert (
+        performance[f"{participation_prefix}candidate_reason"]
+        == performance[
+            "runtime_shadow_premap_payload_cache_direct_full_fetch_ready_time_gate_candidate_reason"
+        ]
+    )
+    assert performance[f"{participation_prefix}consumes_manager_snapshot"] is True
+    assert performance[f"{participation_prefix}payload_bytes"] == 0
+    assert performance[f"{participation_prefix}ready_credit"] is False
+    assert performance[f"{participation_prefix}real_ready_credit_granted"] is False
+    assert performance[f"{participation_prefix}kernel_arg_pass_allowed"] is False
+    assert performance[f"{participation_prefix}changes_kernel_launch_args"] is False
+    assert performance[f"{participation_prefix}full_fetch_runtime_allowed"] is False
+    assert (
+        performance[f"{participation_prefix}payload_transfer_runtime_enabled"]
+        is False
+    )
+    assert performance[f"{participation_prefix}issued_fetch_count"] == 1
+    assert performance[f"{participation_prefix}used_fetch_count"] == 1
+    assert performance[f"{participation_prefix}demand_count"] == 2
+    assert performance[f"{participation_prefix}demand_hit_count"] == 1
+    assert performance[f"{participation_prefix}issue_sources"] == [
+        "previous_token_transition_premap_shadow"
+    ]
     assert not performance[
         "runtime_shadow_premap_payload_cache_direct_full_fetch_ready_time_gate_candidate"
     ]
@@ -1017,6 +1053,27 @@ def test_premap_payload_cache_manager_snapshot_flattens_ready_time_fields():
     assert performance[
         "runtime_shadow_premap_payload_cache_direct_full_fetch_ready_time_gate_candidate"
     ]
+    participation_prefix = (
+        "runtime_shadow_premap_payload_cache_direct_runtime_participation_"
+    )
+    assert (
+        performance[f"{participation_prefix}stage"]
+        == "online_ready_time_payload_cache_runtime_participation_dry_run"
+    )
+    assert (
+        performance[f"{participation_prefix}status"]
+        == "ready_time_candidate_requires_lab_gate"
+    )
+    assert (
+        performance[f"{participation_prefix}candidate_reason"]
+        == performance[
+            "runtime_shadow_premap_payload_cache_direct_full_fetch_ready_time_gate_candidate_reason"
+        ]
+    )
+    assert performance[f"{participation_prefix}queue_batch_size"] == 2
+    assert performance[f"{participation_prefix}queue_deadline_us"] == 10.0
+    assert performance[f"{participation_prefix}payload_bytes"] == 0
+    assert performance[f"{participation_prefix}full_fetch_runtime_allowed"] is False
     assert (
         performance[
             "runtime_shadow_premap_payload_cache_direct_full_fetch_ready_time_gate_candidate_reason"
