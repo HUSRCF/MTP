@@ -2,10 +2,102 @@
 
 ## Progress Version
 
-- Version: `v1.23-queue-budget-stream-executor-gate`
+- Version: `v1.24-queue-budget-runtime-envelope-gate`
 - Updated: 2026-06-22
 
-## Latest Update: Queue-Budget Stream Executor Lab Gate
+## Latest Update: Queue-Budget Runtime Envelope Gate
+
+The queue-budget stream executor evidence now feeds an explicit runtime-layer
+contract:
+
+```text
+PayloadCacheQueueBudgetRuntimeEnvelope
+```
+
+This object records that the token-index issue stream has a model-passing
+queue-budget cell, but it is intentionally not an execution permit.  The
+envelope is generated only when the queue-budget sweep itself has no checker
+failures.  Invalid or mismatched queue-budget artifacts do not produce a
+`model_queue_budget_satisfied_runtime_disabled` envelope.
+
+The envelope records:
+
+```text
+stage = payload_cache_queue_budget_runtime_envelope_lab_gate
+status = model_queue_budget_satisfied_runtime_disabled
+execution_mode = payloadless_queue_budget_lab_gate
+consumes_queue_budget_sweep = true
+event_timing_mode = token_index
+cell_count = 16
+first_model_passing_capacity = 4096
+first_model_passing_issue_lead_tokens = 32
+first_model_passing_queue_deadline_us = 100.0
+first_model_passing_lookahead_us = 2400000.0
+```
+
+The builder and dataclass are strict:
+
+```text
+integer fields reject bool/string/float
+boolean fields reject string/bool-like values
+deadline/lookahead must be finite positive numbers
+```
+
+The no-side-effect boundary remains closed in the runtime envelope, artifact
+checker, and compact preflight summary:
+
+```text
+payload_bytes = 0
+payload_transfer_enabled = false
+payload_deref_allowed = false
+full_fetch_allowed = false
+ready_credit = false
+ready_before_demand_credit = false
+real_ready_credit_granted = false
+kernel_arg_pass_allowed = false
+passed_to_kernel = false
+changes_kernel_launch_args = false
+uses_current_wna16_args = false
+passes_current_wna16_args = false
+measures_tpot = false
+measures_vllm_latency = false
+```
+
+Validation:
+
+```text
+/home/husrcf/anaconda3/envs/TRY/bin/python -m pytest \
+  tests/test_cache_lab_gate.py \
+  tests/test_check_prefetch_lab_default_gate.py \
+  tests/test_run_premap_lab_preflight.py \
+  tests/test_check_premap_lab_preflight_summary.py \
+  tests/test_check_premap_payload_cache_ready_time_gate.py \
+  tests/test_vllm_router_shadow_sink.py -q
+
+506 passed
+
+/home/husrcf/anaconda3/envs/TRY/bin/python scripts/check_prefetch_lab_default_gate.py \
+  configs/runtime/prefetch_lab_default_gate_gpu1.yaml
+
+passed = true
+
+/home/husrcf/anaconda3/envs/TRY/bin/python scripts/check_premap_lab_preflight_summary.py \
+  outputs/reports/premap_lab_preflight_status_queue_budget_gate_summary_20260622.json \
+  --output-json outputs/reports/premap_lab_preflight_status_queue_budget_gate_summary_20260622.check.json
+
+passed = true
+```
+
+Next gate:
+
+```text
+connect this runtime envelope to the next payload/cache-manager stage, still
+without moving payload, granting ready credit, passing kernel args, or claiming
+endpoint TPOT.  The first live payload stage must consume the envelope and have
+separate strict evidence before enabling side effects.
+```
+
+## Previous Update: Queue-Budget Stream Executor Lab Gate
 
 The lab default preflight now requires the Dolly128 token-index queue-budget
 stream executor evidence in addition to the payload-cache execution envelope.
