@@ -40928,6 +40928,92 @@ It still does not enable payload movement, ready credit, current WNA16 args,
 kernel arg pass, or endpoint benchmark claims.
 ```
 
+## Shifted issue accounting promoted to the lab-default gate layer
+
+The stream full-fetch decision gate now exports the shifted issue accounting
+that explains the token-index issue schedule selected by the queue/lookahead
+sweeps:
+
+```text
+required_shifted_issue_accounting:
+  shifted_issue_accounting_enabled = true
+  shifted_issue_lead_tokens = 32
+  shifted_issue_accounted_packet_count = 28
+  shifted_issue_clamped_issue_count = 12
+  shifted_issue_duplicate_issue_key_count = 12
+  shifted_issue_unique_issue_key_count = 16
+  shifted_issue_invalid_export_count = 0
+  shifted_issue_row_shift_mismatch_count = 0
+  shifted_issue_row_clamp_mismatch_count = 0
+```
+
+This evidence is now required in two places:
+
+```text
+check_prefetch_lab_default_gate.py:
+  rejects missing or malformed required_shifted_issue_accounting directly
+
+check_premap_lab_preflight_summary.py:
+  rejects missing or malformed flattened
+  prefetch_lab_default_stream_required_shifted_issue_* fields
+```
+
+Final artifacts:
+
+```text
+outputs/reports/prefetch_action_replay/
+  prefetch_lab_default_gate_gpu1_shifted_issue_accounting_summary_strict_v2.json
+
+outputs/reports/premap_lab_preflight/
+  premap_lab_preflight_default_gpu1_shifted_issue_accounting_summary_strict_v3.json
+  premap_lab_preflight_default_gpu1_shifted_issue_accounting_summary_strict_v3.checked.json
+  premap_lab_gate_closure_shifted_issue_accounting_required_v1.json
+```
+
+Validation:
+
+```bash
+/home/husrcf/anaconda3/envs/TRY/bin/python -m pytest \
+  tests/test_check_prefetch_lab_default_gate.py \
+  tests/test_run_premap_lab_preflight.py \
+  tests/test_check_premap_lab_preflight_summary.py -q
+# 299 passed
+
+/home/husrcf/anaconda3/envs/TRY/bin/python scripts/run_premap_lab_gate_closure.py \
+  --skip-arg-slot-runner \
+  --output-json outputs/reports/premap_lab_preflight/\
+premap_lab_gate_closure_shifted_issue_accounting_required_v1.json
+# passed = true
+```
+
+GPT-5.5 review first identified that the shifted accounting was only visible in
+the final summary checker; this was fixed by making
+`check_prefetch_lab_default_gate.py` fail closed on missing or wrong accounting.
+Second review found no blocker.
+
+Boundary remains unchanged:
+
+```text
+full_fetch_runtime_allowed = false
+payload_bytes = 0
+payload_transfer_enabled = false
+payload_deref_allowed = false
+kernel_arg_pass_allowed = false
+passed_to_kernel = false
+changes_kernel_launch_args = false
+measures_tpot = false
+measures_vllm_latency = false
+```
+
+Interpretation:
+
+```text
+The lab-default preflight now requires not only that full_fetch stays blocked,
+but also that the blocked producer-side issue schedule has explicit shifted
+issue accounting.  This closes the evidence gap before any real payload or
+kernel-arg runtime can be reconsidered.
+```
+
 ### Shifted issue accounting is now visible in queue/lookahead sweep artifacts
 
 The payload-cache stream lookahead and queue-budget sweeps now preserve the
