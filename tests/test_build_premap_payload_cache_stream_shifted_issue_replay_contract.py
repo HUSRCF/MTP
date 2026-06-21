@@ -46,6 +46,8 @@ def _write_json(path: Path, payload: dict) -> None:
 
 def _safe_fields() -> dict:
     return {
+        "full_fetch_runtime_allowed": False,
+        "full_fetch_allowed": False,
         "payload_bytes": 0,
         "ready_credit": False,
         "ready_before_demand_credit": False,
@@ -57,6 +59,9 @@ def _safe_fields() -> dict:
         "changes_kernel_launch_args": False,
         "uses_current_wna16_args": False,
         "passes_current_wna16_args": False,
+        "current_wna16_arg_compatible": False,
+        "requires_wna16_arg_reinterpretation": False,
+        "wna16_benchmark_ready": False,
         "measures_tpot": False,
         "measures_vllm_latency": False,
     }
@@ -205,6 +210,56 @@ def test_shifted_issue_replay_contract_rejects_bool_payload_bytes(tmp_path: Path
     assert "packet_0_payload_bytes_not_zero" in result["failures"]
     assert "packet_0_export_context_payload_bytes_not_zero" in result["failures"]
     assert result["payload_bytes"] == 0
+
+
+def test_shifted_issue_replay_contract_rejects_optional_full_fetch_source_flag(
+    tmp_path: Path,
+):
+    module = _load_module()
+    packet0 = tmp_path / "packet0.json"
+    online = tmp_path / "online.json"
+    packet = _packet(token_index=8)
+    packet["full_fetch_allowed"] = True
+    packet["_export_context"]["full_fetch_runtime_allowed"] = True
+    online_payload = _online([packet0])
+    online_payload["full_fetch_allowed"] = True
+    _write_json(packet0, packet)
+    _write_json(online, online_payload)
+
+    result = _run(module, online, tmp_path / "out.json")
+
+    assert result["passed"] is False
+    assert "online_full_fetch_allowed_not_false" in result["failures"]
+    assert "packet_0_full_fetch_allowed_not_false" in result["failures"]
+    assert (
+        "packet_0_export_context_full_fetch_runtime_allowed_not_false"
+        in result["failures"]
+    )
+
+
+def test_shifted_issue_replay_contract_rejects_optional_wna16_source_flag(
+    tmp_path: Path,
+):
+    module = _load_module()
+    packet0 = tmp_path / "packet0.json"
+    online = tmp_path / "online.json"
+    packet = _packet(token_index=8)
+    packet["current_wna16_arg_compatible"] = True
+    packet["_export_context"]["requires_wna16_arg_reinterpretation"] = True
+    online_payload = _online([packet0])
+    online_payload["wna16_benchmark_ready"] = True
+    _write_json(packet0, packet)
+    _write_json(online, online_payload)
+
+    result = _run(module, online, tmp_path / "out.json")
+
+    assert result["passed"] is False
+    assert "online_wna16_benchmark_ready_not_false" in result["failures"]
+    assert "packet_0_current_wna16_arg_compatible_not_false" in result["failures"]
+    assert (
+        "packet_0_export_context_requires_wna16_arg_reinterpretation_not_false"
+        in result["failures"]
+    )
 
 
 def test_shifted_issue_replay_contract_rejects_issue_candidate_mismatch(

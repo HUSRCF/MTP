@@ -50,6 +50,13 @@ SAFE_FALSE_FLAGS = (
     "measures_tpot",
     "measures_vllm_latency",
 )
+OPTIONAL_SAFE_FALSE_FLAGS = (
+    "full_fetch_runtime_allowed",
+    "full_fetch_allowed",
+    "current_wna16_arg_compatible",
+    "requires_wna16_arg_reinterpretation",
+    "wna16_benchmark_ready",
+)
 SAFE_ZERO_FLAGS = ("payload_bytes",)
 
 
@@ -97,6 +104,9 @@ def _check_safe_flags(
         if key not in payload:
             failures.append(f"{prefix}_{key}_missing")
         elif payload.get(key) is not False:
+            failures.append(f"{prefix}_{key}_not_false")
+    for key in OPTIONAL_SAFE_FALSE_FLAGS:
+        if key in payload and payload.get(key) is not False:
             failures.append(f"{prefix}_{key}_not_false")
     for key in SAFE_ZERO_FLAGS:
         if key not in payload:
@@ -428,6 +438,9 @@ def build_shifted_issue_replay_contract(args: argparse.Namespace) -> dict[str, A
         "changes_kernel_launch_args": False,
         "uses_current_wna16_args": False,
         "passes_current_wna16_args": False,
+        "current_wna16_arg_compatible": False,
+        "requires_wna16_arg_reinterpretation": False,
+        "wna16_benchmark_ready": False,
         "measures_tpot": False,
         "measures_vllm_latency": False,
         "rows": rows,
