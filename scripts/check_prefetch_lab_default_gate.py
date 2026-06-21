@@ -22,14 +22,19 @@ from typing import Any
 import yaml
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-if str(REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(REPO_ROOT))
+SRC_ROOT = REPO_ROOT / "src"
+for _path in (REPO_ROOT, SRC_ROOT):
+    if str(_path) not in sys.path:
+        sys.path.insert(0, str(_path))
 
 from scripts.check_premap_payload_cache_stream_shifted_issue_replay_contract import (  # noqa: E402
     check_shifted_issue_replay_contract,
 )
 from scripts.check_premap_payload_cache_ready_time_gate import (  # noqa: E402
     check_summary as check_ready_time_summary,
+)
+from mtp_expert_prefetch.runtime import (  # noqa: E402
+    build_payload_cache_queue_budget_runtime_envelope,
 )
 
 
@@ -1135,6 +1140,7 @@ def _check_optional_stream_queue_budget_sweep(
     root: Path,
     failures: list[str],
 ) -> dict[str, Any]:
+    queue_failure_base = len(failures)
     path_value = section.get("stream_queue_budget_report")
     if path_value in (None, ""):
         failures.append("stream_queue_budget_report_missing")
@@ -1155,7 +1161,7 @@ def _check_optional_stream_queue_budget_sweep(
     _check_stream_noop_safety(report, failures, label="stream_queue_budget")
     if report.get("event_timing_mode") != "token_index":
         failures.append("stream_queue_budget_event_timing_mode_mismatch")
-    cell_count = _optional_int(report, "cell_count")
+    cell_count = _strict_int(report, "cell_count")
     if cell_count is None or cell_count <= 0:
         failures.append("stream_queue_budget_cell_count_invalid")
     cells = report.get("cells")
@@ -1217,6 +1223,34 @@ def _check_optional_stream_queue_budget_sweep(
         failures,
         label="stream_queue_budget_first_shifted_issue",
     )
+    envelope_payload: dict[str, Any] = {}
+    if len(failures) == queue_failure_base:
+        try:
+            envelope = build_payload_cache_queue_budget_runtime_envelope(
+                cell_count=cell_count,
+                event_timing_mode=report.get("event_timing_mode"),
+                first_model_passing_capacity=first_capacity,
+                first_model_passing_issue_lead_tokens=first_lead,
+                first_model_passing_queue_deadline_us=first_queue_deadline_us,
+                first_model_passing_lookahead_us=first_lookahead_us,
+                shifted_issue_accounting_enabled=shifted_issue.get(
+                    "shifted_issue_accounting_enabled",
+                ),
+                shifted_issue_accounted_packet_count=shifted_issue.get(
+                    "shifted_issue_accounted_packet_count",
+                ),
+                shifted_issue_unique_issue_key_count=shifted_issue.get(
+                    "shifted_issue_unique_issue_key_count",
+                ),
+            )
+            envelope_payload = envelope.as_dict()
+        except (TypeError, ValueError) as exc:
+            failures.append(
+                "stream_queue_budget_runtime_envelope_invalid:"
+                f"{type(exc).__name__}:{exc}",
+            )
+    else:
+        failures.append("stream_queue_budget_runtime_envelope_skipped_due_to_failures")
     return {
         "stream_queue_budget_present": True,
         "stream_queue_budget_report": str(path),
@@ -1241,6 +1275,59 @@ def _check_optional_stream_queue_budget_sweep(
         ),
         "stream_queue_budget_first_shifted_issue_unique_issue_key_count": (
             _optional_int(shifted_issue, "shifted_issue_unique_issue_key_count")
+        ),
+        "stream_queue_budget_runtime_envelope_present": envelope_payload.get(
+            "present",
+        ),
+        "stream_queue_budget_runtime_envelope_stage": envelope_payload.get("stage"),
+        "stream_queue_budget_runtime_envelope_status": envelope_payload.get("status"),
+        "stream_queue_budget_runtime_envelope_execution_mode": envelope_payload.get(
+            "execution_mode",
+        ),
+        "stream_queue_budget_runtime_envelope_consumes_queue_budget_sweep": (
+            envelope_payload.get("consumes_queue_budget_sweep")
+        ),
+        "stream_queue_budget_runtime_envelope_payload_bytes": envelope_payload.get(
+            "payload_bytes",
+        ),
+        "stream_queue_budget_runtime_envelope_payload_transfer_enabled": (
+            envelope_payload.get("payload_transfer_enabled")
+        ),
+        "stream_queue_budget_runtime_envelope_payload_deref_allowed": (
+            envelope_payload.get("payload_deref_allowed")
+        ),
+        "stream_queue_budget_runtime_envelope_full_fetch_allowed": (
+            envelope_payload.get("full_fetch_allowed")
+        ),
+        "stream_queue_budget_runtime_envelope_ready_credit": envelope_payload.get(
+            "ready_credit",
+        ),
+        "stream_queue_budget_runtime_envelope_ready_before_demand_credit": (
+            envelope_payload.get("ready_before_demand_credit")
+        ),
+        "stream_queue_budget_runtime_envelope_real_ready_credit_granted": (
+            envelope_payload.get("real_ready_credit_granted")
+        ),
+        "stream_queue_budget_runtime_envelope_kernel_arg_pass_allowed": (
+            envelope_payload.get("kernel_arg_pass_allowed")
+        ),
+        "stream_queue_budget_runtime_envelope_passed_to_kernel": envelope_payload.get(
+            "passed_to_kernel",
+        ),
+        "stream_queue_budget_runtime_envelope_changes_kernel_launch_args": (
+            envelope_payload.get("changes_kernel_launch_args")
+        ),
+        "stream_queue_budget_runtime_envelope_uses_current_wna16_args": (
+            envelope_payload.get("uses_current_wna16_args")
+        ),
+        "stream_queue_budget_runtime_envelope_passes_current_wna16_args": (
+            envelope_payload.get("passes_current_wna16_args")
+        ),
+        "stream_queue_budget_runtime_envelope_measures_tpot": envelope_payload.get(
+            "measures_tpot",
+        ),
+        "stream_queue_budget_runtime_envelope_measures_vllm_latency": (
+            envelope_payload.get("measures_vllm_latency")
         ),
         "stream_queue_budget_payload_bytes": _optional_int(report, "payload_bytes"),
         "stream_queue_budget_payload_transfer_enabled": _optional_bool(

@@ -7,8 +7,10 @@ from mtp_expert_prefetch.runtime import (
     CacheLabGateDecision,
     CacheLabRuntimeSignals,
     PayloadCacheRuntimeExecutionDryRun,
+    PayloadCacheQueueBudgetRuntimeEnvelope,
     PayloadCacheRuntimeParticipation,
     PayloadCacheRuntimePlan,
+    build_payload_cache_queue_budget_runtime_envelope,
     build_payload_cache_runtime_execution_dry_run,
     build_payload_cache_runtime_participation,
     build_payload_cache_runtime_plan,
@@ -268,6 +270,176 @@ def test_payload_cache_runtime_plan_rejects_side_effectful_construction() -> Non
             status="participation_not_full_fetch_candidate:accounting_only_no_used_fetch",
             consumes_participation=True,
             participation_status="accounting_only_no_used_fetch",
+        )
+
+
+def test_payload_cache_queue_budget_runtime_envelope_keeps_payloadless_boundary() -> None:
+    envelope = build_payload_cache_queue_budget_runtime_envelope(
+        cell_count=16,
+        event_timing_mode="token_index",
+        first_model_passing_capacity=4096,
+        first_model_passing_issue_lead_tokens=32,
+        first_model_passing_queue_deadline_us=100.0,
+        first_model_passing_lookahead_us=2_400_000.0,
+        shifted_issue_accounting_enabled=True,
+        shifted_issue_accounted_packet_count=28,
+        shifted_issue_unique_issue_key_count=16,
+    )
+    payload = envelope.as_dict()
+
+    assert payload["present"] is True
+    assert payload["stage"] == "payload_cache_queue_budget_runtime_envelope_lab_gate"
+    assert payload["status"] == "model_queue_budget_satisfied_runtime_disabled"
+    assert payload["consumes_queue_budget_sweep"] is True
+    assert payload["execution_mode"] == "payloadless_queue_budget_lab_gate"
+    assert payload["event_timing_mode"] == "token_index"
+    assert payload["cell_count"] == 16
+    assert payload["first_model_passing_capacity"] == 4096
+    assert payload["first_model_passing_issue_lead_tokens"] == 32
+    assert payload["first_model_passing_queue_deadline_us"] == 100.0
+    assert payload["first_model_passing_lookahead_us"] == 2_400_000.0
+    assert payload["shifted_issue_accounting_enabled"] is True
+    assert payload["shifted_issue_accounted_packet_count"] == 28
+    assert payload["shifted_issue_unique_issue_key_count"] == 16
+    assert payload["payload_bytes"] == 0
+    assert payload["payload_transfer_enabled"] is False
+    assert payload["payload_deref_allowed"] is False
+    assert payload["full_fetch_allowed"] is False
+    assert payload["ready_credit"] is False
+    assert payload["ready_before_demand_credit"] is False
+    assert payload["real_ready_credit_granted"] is False
+    assert payload["kernel_arg_pass_allowed"] is False
+    assert payload["passed_to_kernel"] is False
+    assert payload["changes_kernel_launch_args"] is False
+    assert payload["uses_current_wna16_args"] is False
+    assert payload["passes_current_wna16_args"] is False
+    assert payload["measures_tpot"] is False
+    assert payload["measures_vllm_latency"] is False
+
+
+def test_payload_cache_queue_budget_runtime_envelope_rejects_side_effects() -> None:
+    with pytest.raises(ValueError, match="payloadless"):
+        PayloadCacheQueueBudgetRuntimeEnvelope(
+            present=True,
+            stage="payload_cache_queue_budget_runtime_envelope_lab_gate",
+            status="model_queue_budget_satisfied_runtime_disabled",
+            consumes_queue_budget_sweep=True,
+            event_timing_mode="token_index",
+            cell_count=16,
+            first_model_passing_capacity=4096,
+            first_model_passing_issue_lead_tokens=32,
+            first_model_passing_queue_deadline_us=100.0,
+            first_model_passing_lookahead_us=2_400_000.0,
+            shifted_issue_accounting_enabled=True,
+            shifted_issue_accounted_packet_count=28,
+            shifted_issue_unique_issue_key_count=16,
+            payload_bytes=1,
+        )
+
+    with pytest.raises(ValueError, match="token_index"):
+        PayloadCacheQueueBudgetRuntimeEnvelope(
+            present=True,
+            stage="payload_cache_queue_budget_runtime_envelope_lab_gate",
+            status="model_queue_budget_satisfied_runtime_disabled",
+            consumes_queue_budget_sweep=True,
+            event_timing_mode="wall_time",
+            cell_count=16,
+            first_model_passing_capacity=4096,
+            first_model_passing_issue_lead_tokens=32,
+            first_model_passing_queue_deadline_us=100.0,
+            first_model_passing_lookahead_us=2_400_000.0,
+            shifted_issue_accounting_enabled=True,
+            shifted_issue_accounted_packet_count=28,
+            shifted_issue_unique_issue_key_count=16,
+        )
+
+    with pytest.raises(ValueError, match="kernel_arg_pass_allowed"):
+        PayloadCacheQueueBudgetRuntimeEnvelope(
+            present=True,
+            stage="payload_cache_queue_budget_runtime_envelope_lab_gate",
+            status="model_queue_budget_satisfied_runtime_disabled",
+            consumes_queue_budget_sweep=True,
+            event_timing_mode="token_index",
+            cell_count=16,
+            first_model_passing_capacity=4096,
+            first_model_passing_issue_lead_tokens=32,
+            first_model_passing_queue_deadline_us=100.0,
+            first_model_passing_lookahead_us=2_400_000.0,
+            shifted_issue_accounting_enabled=True,
+            shifted_issue_accounted_packet_count=28,
+            shifted_issue_unique_issue_key_count=16,
+            kernel_arg_pass_allowed=True,
+        )
+
+
+def test_payload_cache_queue_budget_runtime_envelope_builder_is_strict() -> None:
+    with pytest.raises(TypeError, match="cell_count"):
+        build_payload_cache_queue_budget_runtime_envelope(
+            cell_count="16",  # type: ignore[arg-type]
+            event_timing_mode="token_index",
+            first_model_passing_capacity=4096,
+            first_model_passing_issue_lead_tokens=32,
+            first_model_passing_queue_deadline_us=100.0,
+            first_model_passing_lookahead_us=2_400_000.0,
+            shifted_issue_accounting_enabled=True,
+            shifted_issue_accounted_packet_count=28,
+            shifted_issue_unique_issue_key_count=16,
+        )
+
+    with pytest.raises(TypeError, match="first_model_passing_capacity"):
+        build_payload_cache_queue_budget_runtime_envelope(
+            cell_count=16,
+            event_timing_mode="token_index",
+            first_model_passing_capacity=4096.5,  # type: ignore[arg-type]
+            first_model_passing_issue_lead_tokens=32,
+            first_model_passing_queue_deadline_us=100.0,
+            first_model_passing_lookahead_us=2_400_000.0,
+            shifted_issue_accounting_enabled=True,
+            shifted_issue_accounted_packet_count=28,
+            shifted_issue_unique_issue_key_count=16,
+        )
+
+    with pytest.raises(TypeError, match="shifted_issue_accounting_enabled"):
+        build_payload_cache_queue_budget_runtime_envelope(
+            cell_count=16,
+            event_timing_mode="token_index",
+            first_model_passing_capacity=4096,
+            first_model_passing_issue_lead_tokens=32,
+            first_model_passing_queue_deadline_us=100.0,
+            first_model_passing_lookahead_us=2_400_000.0,
+            shifted_issue_accounting_enabled="true",  # type: ignore[arg-type]
+            shifted_issue_accounted_packet_count=28,
+            shifted_issue_unique_issue_key_count=16,
+        )
+
+    with pytest.raises(ValueError, match="lookahead"):
+        build_payload_cache_queue_budget_runtime_envelope(
+            cell_count=16,
+            event_timing_mode="token_index",
+            first_model_passing_capacity=4096,
+            first_model_passing_issue_lead_tokens=32,
+            first_model_passing_queue_deadline_us=100.0,
+            first_model_passing_lookahead_us=float("nan"),
+            shifted_issue_accounting_enabled=True,
+            shifted_issue_accounted_packet_count=28,
+            shifted_issue_unique_issue_key_count=16,
+        )
+
+    with pytest.raises(ValueError, match="deadline"):
+        PayloadCacheQueueBudgetRuntimeEnvelope(
+            present=True,
+            stage="payload_cache_queue_budget_runtime_envelope_lab_gate",
+            status="model_queue_budget_satisfied_runtime_disabled",
+            consumes_queue_budget_sweep=True,
+            event_timing_mode="token_index",
+            cell_count=16,
+            first_model_passing_capacity=4096,
+            first_model_passing_issue_lead_tokens=32,
+            first_model_passing_queue_deadline_us=float("inf"),
+            first_model_passing_lookahead_us=2_400_000.0,
+            shifted_issue_accounting_enabled=True,
+            shifted_issue_accounted_packet_count=28,
+            shifted_issue_unique_issue_key_count=16,
         )
 
 

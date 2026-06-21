@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass
+import math
 from typing import Sequence
 
 
@@ -244,6 +245,115 @@ class PayloadCacheRuntimeExecutionDryRun:
         return asdict(self)
 
 
+@dataclass(frozen=True)
+class PayloadCacheQueueBudgetRuntimeEnvelope:
+    """Payloadless queue-budget runtime envelope before live full-fetch.
+
+    This object records that the token-index issue stream has a model-passing
+    queue-budget cell under the lab gate.  It is intentionally not an execution
+    permit: payload movement, ready credit, kernel argument handoff, and TPOT
+    measurement remain disabled until a separate live payload/cache-manager
+    stage provides strict evidence.
+    """
+
+    present: bool
+    stage: str
+    status: str
+    consumes_queue_budget_sweep: bool
+    event_timing_mode: str
+    cell_count: int
+    first_model_passing_capacity: int
+    first_model_passing_issue_lead_tokens: int
+    first_model_passing_queue_deadline_us: float
+    first_model_passing_lookahead_us: float
+    shifted_issue_accounting_enabled: bool
+    shifted_issue_accounted_packet_count: int
+    shifted_issue_unique_issue_key_count: int
+    execution_mode: str = "payloadless_queue_budget_lab_gate"
+    payload_bytes: int = 0
+    payload_transfer_enabled: bool = False
+    payload_deref_allowed: bool = False
+    full_fetch_allowed: bool = False
+    ready_credit: bool = False
+    ready_before_demand_credit: bool = False
+    real_ready_credit_granted: bool = False
+    kernel_arg_pass_allowed: bool = False
+    passed_to_kernel: bool = False
+    changes_kernel_launch_args: bool = False
+    uses_current_wna16_args: bool = False
+    passes_current_wna16_args: bool = False
+    measures_tpot: bool = False
+    measures_vllm_latency: bool = False
+
+    def __post_init__(self) -> None:
+        if self.present is not True:
+            raise ValueError("queue-budget runtime envelope must be present")
+        if self.stage != "payload_cache_queue_budget_runtime_envelope_lab_gate":
+            raise ValueError("queue-budget runtime envelope stage mismatch")
+        if self.status != "model_queue_budget_satisfied_runtime_disabled":
+            raise ValueError("queue-budget runtime envelope status mismatch")
+        if self.consumes_queue_budget_sweep is not True:
+            raise ValueError("queue-budget runtime envelope must consume sweep")
+        if self.execution_mode != "payloadless_queue_budget_lab_gate":
+            raise ValueError("queue-budget runtime envelope mode mismatch")
+        if self.event_timing_mode != "token_index":
+            raise ValueError("queue-budget runtime envelope requires token_index timing")
+        for field_name in (
+            "cell_count",
+            "first_model_passing_capacity",
+            "first_model_passing_issue_lead_tokens",
+            "shifted_issue_accounted_packet_count",
+            "shifted_issue_unique_issue_key_count",
+            "payload_bytes",
+        ):
+            value = getattr(self, field_name)
+            if not isinstance(value, int) or isinstance(value, bool):
+                raise TypeError(f"{field_name} must be an integer")
+        for field_name in (
+            "cell_count",
+            "first_model_passing_capacity",
+            "first_model_passing_issue_lead_tokens",
+            "shifted_issue_accounted_packet_count",
+            "shifted_issue_unique_issue_key_count",
+        ):
+            if getattr(self, field_name) <= 0:
+                raise ValueError(f"{field_name} must be positive")
+        for field_name in (
+            "first_model_passing_queue_deadline_us",
+            "first_model_passing_lookahead_us",
+        ):
+            value = getattr(self, field_name)
+            if not isinstance(value, (int, float)) or isinstance(value, bool):
+                raise TypeError(f"{field_name} must be numeric")
+            numeric = float(value)
+            if not math.isfinite(numeric) or numeric <= 0.0:
+                raise ValueError(f"{field_name} must be positive")
+        if self.shifted_issue_accounting_enabled is not True:
+            raise ValueError("shifted issue accounting must be enabled")
+        if self.payload_bytes != 0:
+            raise ValueError("queue-budget runtime envelope must be payloadless")
+        for field_name in (
+            "payload_transfer_enabled",
+            "payload_deref_allowed",
+            "full_fetch_allowed",
+            "ready_credit",
+            "ready_before_demand_credit",
+            "real_ready_credit_granted",
+            "kernel_arg_pass_allowed",
+            "passed_to_kernel",
+            "changes_kernel_launch_args",
+            "uses_current_wna16_args",
+            "passes_current_wna16_args",
+            "measures_tpot",
+            "measures_vllm_latency",
+        ):
+            if getattr(self, field_name) is not False:
+                raise ValueError(f"{field_name} must remain disabled")
+
+    def as_dict(self) -> dict[str, bool | float | int | str]:
+        return asdict(self)
+
+
 def select_cache_lab_prefetch_gate(
     signals: CacheLabRuntimeSignals,
     *,
@@ -357,6 +467,78 @@ def build_payload_cache_runtime_execution_dry_run(
         decision="blocked",
         block_reason=plan_status,
         execution_mode="payloadless_lab_gate_dry_run",
+    )
+
+
+def build_payload_cache_queue_budget_runtime_envelope(
+    *,
+    cell_count: int,
+    event_timing_mode: str,
+    first_model_passing_capacity: int,
+    first_model_passing_issue_lead_tokens: int,
+    first_model_passing_queue_deadline_us: float,
+    first_model_passing_lookahead_us: float,
+    shifted_issue_accounting_enabled: bool,
+    shifted_issue_accounted_packet_count: int,
+    shifted_issue_unique_issue_key_count: int,
+) -> PayloadCacheQueueBudgetRuntimeEnvelope:
+    """Build the payloadless runtime envelope from queue-budget sweep evidence."""
+
+    def require_int(name: str, value: int) -> int:
+        if type(value) is not int:
+            raise TypeError(f"{name} must be an integer")
+        return value
+
+    def require_bool(name: str, value: bool) -> bool:
+        if type(value) is not bool:
+            raise TypeError(f"{name} must be a boolean")
+        return value
+
+    def require_positive_number(name: str, value: float) -> float:
+        if isinstance(value, bool) or not isinstance(value, (int, float)):
+            raise TypeError(f"{name} must be numeric")
+        numeric = float(value)
+        if not math.isfinite(numeric) or numeric <= 0.0:
+            raise ValueError(f"{name} must be positive")
+        return numeric
+
+    if type(event_timing_mode) is not str:
+        raise TypeError("event_timing_mode must be a string")
+    return PayloadCacheQueueBudgetRuntimeEnvelope(
+        present=True,
+        stage="payload_cache_queue_budget_runtime_envelope_lab_gate",
+        status="model_queue_budget_satisfied_runtime_disabled",
+        consumes_queue_budget_sweep=True,
+        event_timing_mode=event_timing_mode,
+        cell_count=require_int("cell_count", cell_count),
+        first_model_passing_capacity=require_int(
+            "first_model_passing_capacity",
+            first_model_passing_capacity,
+        ),
+        first_model_passing_issue_lead_tokens=require_int(
+            "first_model_passing_issue_lead_tokens",
+            first_model_passing_issue_lead_tokens,
+        ),
+        first_model_passing_queue_deadline_us=require_positive_number(
+            "first_model_passing_queue_deadline_us",
+            first_model_passing_queue_deadline_us,
+        ),
+        first_model_passing_lookahead_us=require_positive_number(
+            "first_model_passing_lookahead_us",
+            first_model_passing_lookahead_us,
+        ),
+        shifted_issue_accounting_enabled=require_bool(
+            "shifted_issue_accounting_enabled",
+            shifted_issue_accounting_enabled,
+        ),
+        shifted_issue_accounted_packet_count=require_int(
+            "shifted_issue_accounted_packet_count",
+            shifted_issue_accounted_packet_count,
+        ),
+        shifted_issue_unique_issue_key_count=require_int(
+            "shifted_issue_unique_issue_key_count",
+            shifted_issue_unique_issue_key_count,
+        ),
     )
 
 

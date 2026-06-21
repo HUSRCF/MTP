@@ -609,6 +609,24 @@ def test_prefetch_lab_default_gate_passes_low_risk_premap_path(tmp_path: Path):
         full_fetch["stream_queue_budget_first_shifted_issue_accounted_packet_count"]
         == 28
     )
+    assert full_fetch["stream_queue_budget_runtime_envelope_present"] is True
+    assert (
+        full_fetch["stream_queue_budget_runtime_envelope_stage"]
+        == "payload_cache_queue_budget_runtime_envelope_lab_gate"
+    )
+    assert (
+        full_fetch["stream_queue_budget_runtime_envelope_status"]
+        == "model_queue_budget_satisfied_runtime_disabled"
+    )
+    assert (
+        full_fetch["stream_queue_budget_runtime_envelope_execution_mode"]
+        == "payloadless_queue_budget_lab_gate"
+    )
+    assert full_fetch["stream_queue_budget_runtime_envelope_payload_bytes"] == 0
+    assert (
+        full_fetch["stream_queue_budget_runtime_envelope_kernel_arg_pass_allowed"]
+        is False
+    )
     assert full_fetch["stream_queue_budget_payload_bytes"] == 0
     assert full_fetch["stream_queue_budget_payload_transfer_enabled"] is False
     assert full_fetch["stream_queue_budget_payload_deref_allowed"] is False
@@ -641,6 +659,12 @@ def test_prefetch_lab_default_gate_rejects_queue_budget_first_cell_mismatch(
         "full_fetch:stream_queue_budget_first_cell_issue_lead_tokens_mismatch"
         in result["failures"]
     )
+    assert (
+        "full_fetch:stream_queue_budget_runtime_envelope_skipped_due_to_failures"
+        in result["failures"]
+    )
+    full_fetch = result["sections"]["full_fetch"]
+    assert full_fetch["stream_queue_budget_runtime_envelope_present"] is None
 
 
 def test_prefetch_lab_default_gate_rejects_queue_budget_string_cell_index(

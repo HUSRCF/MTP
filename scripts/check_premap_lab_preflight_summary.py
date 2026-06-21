@@ -1609,6 +1609,46 @@ def _check_stream_queue_budget(summary: dict[str, Any], failures: list[str]) -> 
     if first_lookahead is None or first_lookahead <= 0.0:
         failures.append(f"{prefix}_first_model_passing_lookahead_us_invalid")
 
+    envelope_prefix = f"{prefix}_runtime_envelope"
+    if summary.get(f"{envelope_prefix}_present") is not True:
+        failures.append(f"{envelope_prefix}_present_mismatch")
+    if (
+        summary.get(f"{envelope_prefix}_stage")
+        != "payload_cache_queue_budget_runtime_envelope_lab_gate"
+    ):
+        failures.append(f"{envelope_prefix}_stage_mismatch")
+    if (
+        summary.get(f"{envelope_prefix}_status")
+        != "model_queue_budget_satisfied_runtime_disabled"
+    ):
+        failures.append(f"{envelope_prefix}_status_mismatch")
+    if (
+        summary.get(f"{envelope_prefix}_execution_mode")
+        != "payloadless_queue_budget_lab_gate"
+    ):
+        failures.append(f"{envelope_prefix}_execution_mode_mismatch")
+    if summary.get(f"{envelope_prefix}_consumes_queue_budget_sweep") is not True:
+        failures.append(f"{envelope_prefix}_consumes_queue_budget_sweep_mismatch")
+    if _int_metric(summary, f"{envelope_prefix}_payload_bytes") != 0:
+        failures.append(f"{envelope_prefix}_payload_bytes_mismatch")
+    for key in (
+        "payload_transfer_enabled",
+        "payload_deref_allowed",
+        "full_fetch_allowed",
+        "ready_credit",
+        "ready_before_demand_credit",
+        "real_ready_credit_granted",
+        "kernel_arg_pass_allowed",
+        "passed_to_kernel",
+        "changes_kernel_launch_args",
+        "uses_current_wna16_args",
+        "passes_current_wna16_args",
+        "measures_tpot",
+        "measures_vllm_latency",
+    ):
+        if summary.get(f"{envelope_prefix}_{key}") is not False:
+            failures.append(f"{envelope_prefix}_{key}_mismatch")
+
     if (
         summary.get(f"{prefix}_first_shifted_issue_accounting_enabled")
         is not True
