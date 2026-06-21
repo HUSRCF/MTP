@@ -1225,6 +1225,43 @@ def _summary() -> dict[str, object]:
         "prefetch_lab_default_stream_queue_budget_manager_artifact_passes_current_wna16_args": False,
         "prefetch_lab_default_stream_queue_budget_manager_artifact_measures_tpot": False,
         "prefetch_lab_default_stream_queue_budget_manager_artifact_measures_vllm_latency": False,
+        "prefetch_lab_default_stream_queue_budget_manager_runtime_skeleton_present": True,
+        "prefetch_lab_default_stream_queue_budget_manager_runtime_skeleton_stage": "payload_cache_manager_runtime_skeleton",
+        "prefetch_lab_default_stream_queue_budget_manager_runtime_skeleton_status": "blocked_by_manager_artifact:blocked_by_live_payload_runtime:blocked_by_live_payload_stage:blocked_by_queue_budget_runtime_envelope:model_queue_budget_satisfied_runtime_disabled",
+        "prefetch_lab_default_stream_queue_budget_manager_runtime_skeleton_consumes_manager_implementation_artifact": True,
+        "prefetch_lab_default_stream_queue_budget_manager_runtime_skeleton_manager_artifact_status": "blocked_by_live_payload_runtime:blocked_by_live_payload_stage:blocked_by_queue_budget_runtime_envelope:model_queue_budget_satisfied_runtime_disabled",
+        "prefetch_lab_default_stream_queue_budget_manager_runtime_skeleton_manager_backend": "ReadyTimeExpertCacheManager",
+        "prefetch_lab_default_stream_queue_budget_manager_runtime_skeleton_manager_contract": "event_driven_queue_budget_cache_manager_v1",
+        "prefetch_lab_default_stream_queue_budget_manager_runtime_skeleton_manager_runtime_contract": "ready_time_issue_demand_skeleton_v1",
+        "prefetch_lab_default_stream_queue_budget_manager_runtime_skeleton_manager_runtime_mode": "ready_time_payload_cache_skeleton",
+        "prefetch_lab_default_stream_queue_budget_manager_runtime_skeleton_capacity_entries": 4096,
+        "prefetch_lab_default_stream_queue_budget_manager_runtime_skeleton_issue_lead_tokens": 32,
+        "prefetch_lab_default_stream_queue_budget_manager_runtime_skeleton_queue_deadline_us": 100.0,
+        "prefetch_lab_default_stream_queue_budget_manager_runtime_skeleton_lookahead_us": 2400000.0,
+        "prefetch_lab_default_stream_queue_budget_manager_runtime_skeleton_shifted_issue_accounting_enabled": True,
+        "prefetch_lab_default_stream_queue_budget_manager_runtime_skeleton_shifted_issue_accounted_packet_count": 28,
+        "prefetch_lab_default_stream_queue_budget_manager_runtime_skeleton_shifted_issue_unique_issue_key_count": 16,
+        "prefetch_lab_default_stream_queue_budget_manager_runtime_skeleton_runtime_instantiated": False,
+        "prefetch_lab_default_stream_queue_budget_manager_runtime_skeleton_decision": "blocked",
+        "prefetch_lab_default_stream_queue_budget_manager_runtime_skeleton_block_reason": "runtime_skeleton_default_disabled",
+        "prefetch_lab_default_stream_queue_budget_manager_runtime_skeleton_execution_mode": "payload_cache_manager_runtime_skeleton_disabled",
+        "prefetch_lab_default_stream_queue_budget_manager_runtime_skeleton_live_payload_runtime_enabled": False,
+        "prefetch_lab_default_stream_queue_budget_manager_runtime_skeleton_payload_transfer_runtime_enabled": False,
+        "prefetch_lab_default_stream_queue_budget_manager_runtime_skeleton_payload_deref_allowed": False,
+        "prefetch_lab_default_stream_queue_budget_manager_runtime_skeleton_payload_deref_runtime_allowed": False,
+        "prefetch_lab_default_stream_queue_budget_manager_runtime_skeleton_issued_payload_count": 0,
+        "prefetch_lab_default_stream_queue_budget_manager_runtime_skeleton_payload_bytes": 0,
+        "prefetch_lab_default_stream_queue_budget_manager_runtime_skeleton_ready_credit": False,
+        "prefetch_lab_default_stream_queue_budget_manager_runtime_skeleton_ready_before_demand_credit": False,
+        "prefetch_lab_default_stream_queue_budget_manager_runtime_skeleton_real_ready_credit_granted": False,
+        "prefetch_lab_default_stream_queue_budget_manager_runtime_skeleton_kernel_arg_pass_allowed": False,
+        "prefetch_lab_default_stream_queue_budget_manager_runtime_skeleton_passed_to_kernel": False,
+        "prefetch_lab_default_stream_queue_budget_manager_runtime_skeleton_changes_kernel_launch_args": False,
+        "prefetch_lab_default_stream_queue_budget_manager_runtime_skeleton_full_fetch_runtime_allowed": False,
+        "prefetch_lab_default_stream_queue_budget_manager_runtime_skeleton_uses_current_wna16_args": False,
+        "prefetch_lab_default_stream_queue_budget_manager_runtime_skeleton_passes_current_wna16_args": False,
+        "prefetch_lab_default_stream_queue_budget_manager_runtime_skeleton_measures_tpot": False,
+        "prefetch_lab_default_stream_queue_budget_manager_runtime_skeleton_measures_vllm_latency": False,
         "prefetch_lab_default_stream_queue_budget_payload_bytes": 0,
         "prefetch_lab_default_stream_queue_budget_payload_transfer_enabled": False,
         "prefetch_lab_default_stream_queue_budget_payload_deref_allowed": False,
@@ -2943,6 +2980,21 @@ def test_check_premap_lab_preflight_summary_rejects_stream_queue_budget_mismatch
     summary[
         "prefetch_lab_default_stream_queue_budget_manager_artifact_payload_deref_allowed"
     ] = True
+    summary[
+        "prefetch_lab_default_stream_queue_budget_manager_runtime_skeleton_present"
+    ] = False
+    summary[
+        "prefetch_lab_default_stream_queue_budget_manager_runtime_skeleton_capacity_entries"
+    ] = 8192
+    summary[
+        "prefetch_lab_default_stream_queue_budget_manager_runtime_skeleton_runtime_instantiated"
+    ] = True
+    summary[
+        "prefetch_lab_default_stream_queue_budget_manager_runtime_skeleton_payload_bytes"
+    ] = 64
+    summary[
+        "prefetch_lab_default_stream_queue_budget_manager_runtime_skeleton_kernel_arg_pass_allowed"
+    ] = True
     summary["prefetch_lab_default_stream_queue_budget_full_fetch_allowed"] = True
     summary[
         "prefetch_lab_default_stream_queue_budget_first_model_passing_issue_lead_tokens"
@@ -3033,6 +3085,26 @@ def test_check_premap_lab_preflight_summary_rejects_stream_queue_budget_mismatch
         "prefetch_lab_default_stream_queue_budget_manager_artifact_payload_deref_allowed_mismatch"
         in result["failures"]
     )
+    assert (
+        "prefetch_lab_default_stream_queue_budget_manager_runtime_skeleton_present_mismatch"
+        in result["failures"]
+    )
+    assert (
+        "prefetch_lab_default_stream_queue_budget_manager_runtime_skeleton_capacity_entries_mismatch"
+        in result["failures"]
+    )
+    assert (
+        "prefetch_lab_default_stream_queue_budget_manager_runtime_skeleton_runtime_instantiated_mismatch"
+        in result["failures"]
+    )
+    assert (
+        "prefetch_lab_default_stream_queue_budget_manager_runtime_skeleton_payload_bytes_mismatch"
+        in result["failures"]
+    )
+    assert (
+        "prefetch_lab_default_stream_queue_budget_manager_runtime_skeleton_kernel_arg_pass_allowed_mismatch"
+        in result["failures"]
+    )
     assert "prefetch_lab_default_stream_queue_budget_full_fetch_allowed_mismatch" in result[
         "failures"
     ]
@@ -3081,6 +3153,10 @@ def test_check_premap_lab_preflight_summary_rejects_queue_budget_summary_mixing(
         "prefetch_lab_default_stream_queue_budget_manager_artifact_queue_deadline_us_mismatch",
         "prefetch_lab_default_stream_queue_budget_manager_artifact_lookahead_us_mismatch",
         "prefetch_lab_default_stream_queue_budget_manager_artifact_shifted_issue_accounted_packet_count_mismatch",
+        "prefetch_lab_default_stream_queue_budget_manager_runtime_skeleton_capacity_entries_mismatch",
+        "prefetch_lab_default_stream_queue_budget_manager_runtime_skeleton_queue_deadline_us_mismatch",
+        "prefetch_lab_default_stream_queue_budget_manager_runtime_skeleton_lookahead_us_mismatch",
+        "prefetch_lab_default_stream_queue_budget_manager_runtime_skeleton_shifted_issue_accounted_packet_count_mismatch",
     ):
         assert failure in result["failures"]
 

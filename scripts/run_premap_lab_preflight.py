@@ -13355,6 +13355,218 @@ def run_premap_lab_preflight(
                 "stream_queue_budget_manager_artifact_measures_vllm_latency",
             )
         ),
+        "prefetch_lab_default_stream_queue_budget_manager_runtime_skeleton_present": (
+            _bool_metric(
+                prefetch_lab_default_full_fetch,
+                "stream_queue_budget_manager_runtime_skeleton_present",
+            )
+        ),
+        "prefetch_lab_default_stream_queue_budget_manager_runtime_skeleton_stage": (
+            prefetch_lab_default_full_fetch.get(
+                "stream_queue_budget_manager_runtime_skeleton_stage",
+            )
+        ),
+        "prefetch_lab_default_stream_queue_budget_manager_runtime_skeleton_status": (
+            prefetch_lab_default_full_fetch.get(
+                "stream_queue_budget_manager_runtime_skeleton_status",
+            )
+        ),
+        "prefetch_lab_default_stream_queue_budget_manager_runtime_skeleton_consumes_manager_implementation_artifact": (
+            _bool_metric(
+                prefetch_lab_default_full_fetch,
+                "stream_queue_budget_manager_runtime_skeleton_consumes_manager_implementation_artifact",
+            )
+        ),
+        "prefetch_lab_default_stream_queue_budget_manager_runtime_skeleton_manager_artifact_status": (
+            prefetch_lab_default_full_fetch.get(
+                "stream_queue_budget_manager_runtime_skeleton_manager_artifact_status",
+            )
+        ),
+        "prefetch_lab_default_stream_queue_budget_manager_runtime_skeleton_manager_backend": (
+            prefetch_lab_default_full_fetch.get(
+                "stream_queue_budget_manager_runtime_skeleton_manager_backend",
+            )
+        ),
+        "prefetch_lab_default_stream_queue_budget_manager_runtime_skeleton_manager_contract": (
+            prefetch_lab_default_full_fetch.get(
+                "stream_queue_budget_manager_runtime_skeleton_manager_contract",
+            )
+        ),
+        "prefetch_lab_default_stream_queue_budget_manager_runtime_skeleton_manager_runtime_contract": (
+            prefetch_lab_default_full_fetch.get(
+                "stream_queue_budget_manager_runtime_skeleton_manager_runtime_contract",
+            )
+        ),
+        "prefetch_lab_default_stream_queue_budget_manager_runtime_skeleton_manager_runtime_mode": (
+            prefetch_lab_default_full_fetch.get(
+                "stream_queue_budget_manager_runtime_skeleton_manager_runtime_mode",
+            )
+        ),
+        "prefetch_lab_default_stream_queue_budget_manager_runtime_skeleton_capacity_entries": (
+            _int_metric(
+                prefetch_lab_default_full_fetch,
+                "stream_queue_budget_manager_runtime_skeleton_capacity_entries",
+            )
+        ),
+        "prefetch_lab_default_stream_queue_budget_manager_runtime_skeleton_issue_lead_tokens": (
+            _int_metric(
+                prefetch_lab_default_full_fetch,
+                "stream_queue_budget_manager_runtime_skeleton_issue_lead_tokens",
+            )
+        ),
+        "prefetch_lab_default_stream_queue_budget_manager_runtime_skeleton_queue_deadline_us": (
+            _float_metric(
+                prefetch_lab_default_full_fetch,
+                "stream_queue_budget_manager_runtime_skeleton_queue_deadline_us",
+            )
+        ),
+        "prefetch_lab_default_stream_queue_budget_manager_runtime_skeleton_lookahead_us": (
+            _float_metric(
+                prefetch_lab_default_full_fetch,
+                "stream_queue_budget_manager_runtime_skeleton_lookahead_us",
+            )
+        ),
+        "prefetch_lab_default_stream_queue_budget_manager_runtime_skeleton_shifted_issue_accounting_enabled": (
+            _bool_metric(
+                prefetch_lab_default_full_fetch,
+                "stream_queue_budget_manager_runtime_skeleton_shifted_issue_accounting_enabled",
+            )
+        ),
+        "prefetch_lab_default_stream_queue_budget_manager_runtime_skeleton_shifted_issue_accounted_packet_count": (
+            _int_metric(
+                prefetch_lab_default_full_fetch,
+                "stream_queue_budget_manager_runtime_skeleton_shifted_issue_accounted_packet_count",
+            )
+        ),
+        "prefetch_lab_default_stream_queue_budget_manager_runtime_skeleton_shifted_issue_unique_issue_key_count": (
+            _int_metric(
+                prefetch_lab_default_full_fetch,
+                "stream_queue_budget_manager_runtime_skeleton_shifted_issue_unique_issue_key_count",
+            )
+        ),
+        "prefetch_lab_default_stream_queue_budget_manager_runtime_skeleton_runtime_instantiated": (
+            _bool_metric(
+                prefetch_lab_default_full_fetch,
+                "stream_queue_budget_manager_runtime_skeleton_runtime_instantiated",
+            )
+        ),
+        "prefetch_lab_default_stream_queue_budget_manager_runtime_skeleton_decision": (
+            prefetch_lab_default_full_fetch.get(
+                "stream_queue_budget_manager_runtime_skeleton_decision",
+            )
+        ),
+        "prefetch_lab_default_stream_queue_budget_manager_runtime_skeleton_block_reason": (
+            prefetch_lab_default_full_fetch.get(
+                "stream_queue_budget_manager_runtime_skeleton_block_reason",
+            )
+        ),
+        "prefetch_lab_default_stream_queue_budget_manager_runtime_skeleton_execution_mode": (
+            prefetch_lab_default_full_fetch.get(
+                "stream_queue_budget_manager_runtime_skeleton_execution_mode",
+            )
+        ),
+        "prefetch_lab_default_stream_queue_budget_manager_runtime_skeleton_live_payload_runtime_enabled": (
+            _bool_metric(
+                prefetch_lab_default_full_fetch,
+                "stream_queue_budget_manager_runtime_skeleton_live_payload_runtime_enabled",
+            )
+        ),
+        "prefetch_lab_default_stream_queue_budget_manager_runtime_skeleton_payload_transfer_runtime_enabled": (
+            _bool_metric(
+                prefetch_lab_default_full_fetch,
+                "stream_queue_budget_manager_runtime_skeleton_payload_transfer_runtime_enabled",
+            )
+        ),
+        "prefetch_lab_default_stream_queue_budget_manager_runtime_skeleton_payload_deref_allowed": (
+            _bool_metric(
+                prefetch_lab_default_full_fetch,
+                "stream_queue_budget_manager_runtime_skeleton_payload_deref_allowed",
+            )
+        ),
+        "prefetch_lab_default_stream_queue_budget_manager_runtime_skeleton_payload_deref_runtime_allowed": (
+            _bool_metric(
+                prefetch_lab_default_full_fetch,
+                "stream_queue_budget_manager_runtime_skeleton_payload_deref_runtime_allowed",
+            )
+        ),
+        "prefetch_lab_default_stream_queue_budget_manager_runtime_skeleton_issued_payload_count": (
+            _int_metric(
+                prefetch_lab_default_full_fetch,
+                "stream_queue_budget_manager_runtime_skeleton_issued_payload_count",
+            )
+        ),
+        "prefetch_lab_default_stream_queue_budget_manager_runtime_skeleton_payload_bytes": (
+            _int_metric(
+                prefetch_lab_default_full_fetch,
+                "stream_queue_budget_manager_runtime_skeleton_payload_bytes",
+            )
+        ),
+        "prefetch_lab_default_stream_queue_budget_manager_runtime_skeleton_ready_credit": (
+            _bool_metric(
+                prefetch_lab_default_full_fetch,
+                "stream_queue_budget_manager_runtime_skeleton_ready_credit",
+            )
+        ),
+        "prefetch_lab_default_stream_queue_budget_manager_runtime_skeleton_ready_before_demand_credit": (
+            _bool_metric(
+                prefetch_lab_default_full_fetch,
+                "stream_queue_budget_manager_runtime_skeleton_ready_before_demand_credit",
+            )
+        ),
+        "prefetch_lab_default_stream_queue_budget_manager_runtime_skeleton_real_ready_credit_granted": (
+            _bool_metric(
+                prefetch_lab_default_full_fetch,
+                "stream_queue_budget_manager_runtime_skeleton_real_ready_credit_granted",
+            )
+        ),
+        "prefetch_lab_default_stream_queue_budget_manager_runtime_skeleton_kernel_arg_pass_allowed": (
+            _bool_metric(
+                prefetch_lab_default_full_fetch,
+                "stream_queue_budget_manager_runtime_skeleton_kernel_arg_pass_allowed",
+            )
+        ),
+        "prefetch_lab_default_stream_queue_budget_manager_runtime_skeleton_passed_to_kernel": (
+            _bool_metric(
+                prefetch_lab_default_full_fetch,
+                "stream_queue_budget_manager_runtime_skeleton_passed_to_kernel",
+            )
+        ),
+        "prefetch_lab_default_stream_queue_budget_manager_runtime_skeleton_changes_kernel_launch_args": (
+            _bool_metric(
+                prefetch_lab_default_full_fetch,
+                "stream_queue_budget_manager_runtime_skeleton_changes_kernel_launch_args",
+            )
+        ),
+        "prefetch_lab_default_stream_queue_budget_manager_runtime_skeleton_full_fetch_runtime_allowed": (
+            _bool_metric(
+                prefetch_lab_default_full_fetch,
+                "stream_queue_budget_manager_runtime_skeleton_full_fetch_runtime_allowed",
+            )
+        ),
+        "prefetch_lab_default_stream_queue_budget_manager_runtime_skeleton_uses_current_wna16_args": (
+            _bool_metric(
+                prefetch_lab_default_full_fetch,
+                "stream_queue_budget_manager_runtime_skeleton_uses_current_wna16_args",
+            )
+        ),
+        "prefetch_lab_default_stream_queue_budget_manager_runtime_skeleton_passes_current_wna16_args": (
+            _bool_metric(
+                prefetch_lab_default_full_fetch,
+                "stream_queue_budget_manager_runtime_skeleton_passes_current_wna16_args",
+            )
+        ),
+        "prefetch_lab_default_stream_queue_budget_manager_runtime_skeleton_measures_tpot": (
+            _bool_metric(
+                prefetch_lab_default_full_fetch,
+                "stream_queue_budget_manager_runtime_skeleton_measures_tpot",
+            )
+        ),
+        "prefetch_lab_default_stream_queue_budget_manager_runtime_skeleton_measures_vllm_latency": (
+            _bool_metric(
+                prefetch_lab_default_full_fetch,
+                "stream_queue_budget_manager_runtime_skeleton_measures_vllm_latency",
+            )
+        ),
         "prefetch_lab_default_stream_queue_budget_payload_bytes": _int_metric(
             prefetch_lab_default_full_fetch,
             "stream_queue_budget_payload_bytes",

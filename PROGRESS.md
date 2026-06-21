@@ -2,10 +2,10 @@
 
 ## Progress Version
 
-- Version: `v1.27-payload-cache-manager-implementation-artifact`
+- Version: `v1.28-payload-cache-manager-runtime-skeleton`
 - Updated: 2026-06-22
 
-## Latest Update: Payload Cache Manager Implementation Artifact
+## Latest Update: Payload Cache Manager Runtime Skeleton
 
 The live-runtime disabled canary now feeds the first concrete payload/cache
 manager implementation artifact:
@@ -38,21 +38,47 @@ shifted_issue_accounted_packet_count = 28
 shifted_issue_unique_issue_key_count = 16
 ```
 
+That artifact now feeds a default-disabled runtime skeleton:
+
+```text
+PayloadCacheManagerRuntimeSkeleton
+```
+
+Required skeleton contract:
+
+```text
+stage = payload_cache_manager_runtime_skeleton
+status = blocked_by_manager_artifact:<manager_artifact_status>
+decision = blocked
+block_reason = runtime_skeleton_default_disabled
+execution_mode = payload_cache_manager_runtime_skeleton_disabled
+manager_runtime_contract = ready_time_issue_demand_skeleton_v1
+manager_runtime_mode = ready_time_payload_cache_skeleton
+runtime_instantiated = false
+capacity_entries = 4096
+issue_lead_tokens = 32
+queue_deadline_us = 100.0
+lookahead_us = 2400000.0
+```
+
 The implementation artifact is chained to the same queue-budget evidence.  The
 live-runtime canary now carries the queue-budget parameters, and the artifact
 builder rejects canary/envelope cross-chain mismatches before constructing the
-artifact.
+artifact.  The runtime skeleton consumes only that manager artifact and keeps
+the concrete runtime uninstantiated.
 
 The summary checker also rejects mixed queue-budget summaries.  Live-stage,
-live-runtime, and manager-artifact queue-budget fields must match the same
-summary's `first_model_passing_*` and `first_shifted_issue_*` envelope fields,
-while the lab-default gate still requires the measured 4096-entry / 32-token /
-100us / 2.4M-us cell.  This prevents stale downstream artifacts from passing if
-the compact summary is manually mixed with a different queue-budget envelope.
+live-runtime, manager-artifact, and runtime-skeleton queue-budget fields must
+match the same summary's `first_model_passing_*` and `first_shifted_issue_*`
+envelope fields, while the lab-default gate still requires the measured
+4096-entry / 32-token / 100us / 2.4M-us cell.  This prevents stale downstream
+artifacts from passing if the compact summary is manually mixed with a
+different queue-budget envelope.
 
 The no-side-effect boundary remains closed:
 
 ```text
+runtime_instantiated = false
 live_payload_runtime_enabled = false
 payload_transfer_runtime_enabled = false
 payload_deref_allowed = false
@@ -83,7 +109,7 @@ Validation:
   tests/test_check_premap_payload_cache_ready_time_gate.py \
   tests/test_vllm_router_shadow_sink.py -q
 
-494 passed
+496 passed
 
 /home/husrcf/anaconda3/envs/TRY/bin/python scripts/check_prefetch_lab_default_gate.py \
   configs/runtime/prefetch_lab_default_gate_gpu1.yaml
@@ -100,10 +126,10 @@ passed = true
 Next gate:
 
 ```text
-instantiate a default-disabled cache-manager runtime skeleton behind this
-artifact, using ReadyTimeExpertCacheManager state and issue/demand contracts.
-It must still keep payload dereference, ready credit, kernel argument handoff,
-and TPOT claims disabled until a strict live-runtime gate passes.
+instantiate the next default-disabled manager runtime object/snapshot behind
+the skeleton, using ReadyTimeExpertCacheManager issue/demand state. It must
+still keep payload dereference, ready credit, kernel argument handoff, and TPOT
+claims disabled until a strict live-runtime gate passes.
 ```
 
 ## Previous Update: Live Payload Runtime Disabled Canary

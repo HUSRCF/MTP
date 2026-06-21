@@ -688,6 +688,75 @@ def test_prefetch_lab_default_gate_passes_low_risk_premap_path(tmp_path: Path):
         full_fetch["stream_queue_budget_live_payload_runtime_kernel_arg_pass_allowed"]
         is False
     )
+    assert full_fetch["stream_queue_budget_manager_artifact_present"] is True
+    assert (
+        full_fetch["stream_queue_budget_manager_artifact_status"]
+        == (
+            "blocked_by_live_payload_runtime:"
+            "blocked_by_live_payload_stage:"
+            "blocked_by_queue_budget_runtime_envelope:"
+            "model_queue_budget_satisfied_runtime_disabled"
+        )
+    )
+    assert (
+        full_fetch["stream_queue_budget_manager_artifact_manager_backend"]
+        == "ReadyTimeExpertCacheManager"
+    )
+    assert (
+        full_fetch["stream_queue_budget_manager_artifact_manager_contract"]
+        == "event_driven_queue_budget_cache_manager_v1"
+    )
+    assert full_fetch["stream_queue_budget_manager_artifact_capacity_entries"] == 4096
+    assert full_fetch["stream_queue_budget_manager_artifact_payload_bytes"] == 0
+    assert (
+        full_fetch["stream_queue_budget_manager_artifact_payload_deref_allowed"]
+        is False
+    )
+    assert (
+        full_fetch["stream_queue_budget_manager_artifact_kernel_arg_pass_allowed"]
+        is False
+    )
+    assert full_fetch["stream_queue_budget_manager_runtime_skeleton_present"] is True
+    assert (
+        full_fetch["stream_queue_budget_manager_runtime_skeleton_status"]
+        == (
+            "blocked_by_manager_artifact:"
+            "blocked_by_live_payload_runtime:"
+            "blocked_by_live_payload_stage:"
+            "blocked_by_queue_budget_runtime_envelope:"
+            "model_queue_budget_satisfied_runtime_disabled"
+        )
+    )
+    assert (
+        full_fetch[
+            "stream_queue_budget_manager_runtime_skeleton_manager_runtime_contract"
+        ]
+        == "ready_time_issue_demand_skeleton_v1"
+    )
+    assert (
+        full_fetch["stream_queue_budget_manager_runtime_skeleton_manager_runtime_mode"]
+        == "ready_time_payload_cache_skeleton"
+    )
+    assert full_fetch["stream_queue_budget_manager_runtime_skeleton_capacity_entries"] == 4096
+    assert (
+        full_fetch["stream_queue_budget_manager_runtime_skeleton_runtime_instantiated"]
+        is False
+    )
+    assert full_fetch["stream_queue_budget_manager_runtime_skeleton_payload_bytes"] == 0
+    assert (
+        full_fetch["stream_queue_budget_manager_runtime_skeleton_payload_deref_allowed"]
+        is False
+    )
+    assert (
+        full_fetch[
+            "stream_queue_budget_manager_runtime_skeleton_kernel_arg_pass_allowed"
+        ]
+        is False
+    )
+    assert (
+        full_fetch["stream_queue_budget_manager_runtime_skeleton_measures_tpot"]
+        is False
+    )
     assert full_fetch["stream_queue_budget_payload_bytes"] == 0
     assert full_fetch["stream_queue_budget_payload_transfer_enabled"] is False
     assert full_fetch["stream_queue_budget_payload_deref_allowed"] is False

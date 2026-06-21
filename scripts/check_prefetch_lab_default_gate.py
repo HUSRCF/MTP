@@ -37,6 +37,7 @@ from mtp_expert_prefetch.runtime import (  # noqa: E402
     build_payload_cache_live_payload_runtime_disabled_canary,
     build_payload_cache_live_payload_stage_preflight,
     build_payload_cache_manager_implementation_artifact,
+    build_payload_cache_manager_runtime_skeleton,
     build_payload_cache_queue_budget_runtime_envelope,
 )
 
@@ -1230,6 +1231,7 @@ def _check_optional_stream_queue_budget_sweep(
     live_payload_stage_payload: dict[str, Any] = {}
     live_payload_runtime_payload: dict[str, Any] = {}
     manager_artifact_payload: dict[str, Any] = {}
+    manager_runtime_skeleton_payload: dict[str, Any] = {}
     if len(failures) == queue_failure_base:
         try:
             envelope = build_payload_cache_queue_budget_runtime_envelope(
@@ -1264,8 +1266,14 @@ def _check_optional_stream_queue_budget_sweep(
                 envelope,
             )
             manager_artifact_payload = manager_artifact.as_dict()
+            manager_runtime_skeleton = build_payload_cache_manager_runtime_skeleton(
+                manager_artifact,
+            )
+            manager_runtime_skeleton_payload = manager_runtime_skeleton.as_dict()
         except (TypeError, ValueError) as exc:
-            if live_payload_runtime_payload:
+            if manager_artifact_payload:
+                label = "stream_queue_budget_manager_runtime_skeleton_invalid"
+            elif live_payload_runtime_payload:
                 label = "stream_queue_budget_manager_artifact_invalid"
             elif live_payload_stage_payload:
                 label = "stream_queue_budget_live_payload_runtime_invalid"
@@ -1649,6 +1657,123 @@ def _check_optional_stream_queue_budget_sweep(
         ),
         "stream_queue_budget_manager_artifact_measures_vllm_latency": (
             manager_artifact_payload.get("measures_vllm_latency")
+        ),
+        "stream_queue_budget_manager_runtime_skeleton_present": (
+            manager_runtime_skeleton_payload.get("present")
+        ),
+        "stream_queue_budget_manager_runtime_skeleton_stage": (
+            manager_runtime_skeleton_payload.get("stage")
+        ),
+        "stream_queue_budget_manager_runtime_skeleton_status": (
+            manager_runtime_skeleton_payload.get("status")
+        ),
+        "stream_queue_budget_manager_runtime_skeleton_consumes_manager_implementation_artifact": (
+            manager_runtime_skeleton_payload.get(
+                "consumes_manager_implementation_artifact",
+            )
+        ),
+        "stream_queue_budget_manager_runtime_skeleton_manager_artifact_status": (
+            manager_runtime_skeleton_payload.get("manager_artifact_status")
+        ),
+        "stream_queue_budget_manager_runtime_skeleton_manager_backend": (
+            manager_runtime_skeleton_payload.get("manager_backend")
+        ),
+        "stream_queue_budget_manager_runtime_skeleton_manager_contract": (
+            manager_runtime_skeleton_payload.get("manager_contract")
+        ),
+        "stream_queue_budget_manager_runtime_skeleton_manager_runtime_contract": (
+            manager_runtime_skeleton_payload.get("manager_runtime_contract")
+        ),
+        "stream_queue_budget_manager_runtime_skeleton_manager_runtime_mode": (
+            manager_runtime_skeleton_payload.get("manager_runtime_mode")
+        ),
+        "stream_queue_budget_manager_runtime_skeleton_capacity_entries": (
+            manager_runtime_skeleton_payload.get("capacity_entries")
+        ),
+        "stream_queue_budget_manager_runtime_skeleton_issue_lead_tokens": (
+            manager_runtime_skeleton_payload.get("issue_lead_tokens")
+        ),
+        "stream_queue_budget_manager_runtime_skeleton_queue_deadline_us": (
+            manager_runtime_skeleton_payload.get("queue_deadline_us")
+        ),
+        "stream_queue_budget_manager_runtime_skeleton_lookahead_us": (
+            manager_runtime_skeleton_payload.get("lookahead_us")
+        ),
+        "stream_queue_budget_manager_runtime_skeleton_shifted_issue_accounting_enabled": (
+            manager_runtime_skeleton_payload.get("shifted_issue_accounting_enabled")
+        ),
+        "stream_queue_budget_manager_runtime_skeleton_shifted_issue_accounted_packet_count": (
+            manager_runtime_skeleton_payload.get(
+                "shifted_issue_accounted_packet_count",
+            )
+        ),
+        "stream_queue_budget_manager_runtime_skeleton_shifted_issue_unique_issue_key_count": (
+            manager_runtime_skeleton_payload.get(
+                "shifted_issue_unique_issue_key_count",
+            )
+        ),
+        "stream_queue_budget_manager_runtime_skeleton_runtime_instantiated": (
+            manager_runtime_skeleton_payload.get("runtime_instantiated")
+        ),
+        "stream_queue_budget_manager_runtime_skeleton_decision": (
+            manager_runtime_skeleton_payload.get("decision")
+        ),
+        "stream_queue_budget_manager_runtime_skeleton_block_reason": (
+            manager_runtime_skeleton_payload.get("block_reason")
+        ),
+        "stream_queue_budget_manager_runtime_skeleton_execution_mode": (
+            manager_runtime_skeleton_payload.get("execution_mode")
+        ),
+        "stream_queue_budget_manager_runtime_skeleton_live_payload_runtime_enabled": (
+            manager_runtime_skeleton_payload.get("live_payload_runtime_enabled")
+        ),
+        "stream_queue_budget_manager_runtime_skeleton_payload_transfer_runtime_enabled": (
+            manager_runtime_skeleton_payload.get("payload_transfer_runtime_enabled")
+        ),
+        "stream_queue_budget_manager_runtime_skeleton_payload_deref_allowed": (
+            manager_runtime_skeleton_payload.get("payload_deref_allowed")
+        ),
+        "stream_queue_budget_manager_runtime_skeleton_payload_deref_runtime_allowed": (
+            manager_runtime_skeleton_payload.get("payload_deref_runtime_allowed")
+        ),
+        "stream_queue_budget_manager_runtime_skeleton_issued_payload_count": (
+            manager_runtime_skeleton_payload.get("issued_payload_count")
+        ),
+        "stream_queue_budget_manager_runtime_skeleton_payload_bytes": (
+            manager_runtime_skeleton_payload.get("payload_bytes")
+        ),
+        "stream_queue_budget_manager_runtime_skeleton_ready_credit": (
+            manager_runtime_skeleton_payload.get("ready_credit")
+        ),
+        "stream_queue_budget_manager_runtime_skeleton_ready_before_demand_credit": (
+            manager_runtime_skeleton_payload.get("ready_before_demand_credit")
+        ),
+        "stream_queue_budget_manager_runtime_skeleton_real_ready_credit_granted": (
+            manager_runtime_skeleton_payload.get("real_ready_credit_granted")
+        ),
+        "stream_queue_budget_manager_runtime_skeleton_kernel_arg_pass_allowed": (
+            manager_runtime_skeleton_payload.get("kernel_arg_pass_allowed")
+        ),
+        "stream_queue_budget_manager_runtime_skeleton_passed_to_kernel": (
+            manager_runtime_skeleton_payload.get("passed_to_kernel")
+        ),
+        "stream_queue_budget_manager_runtime_skeleton_changes_kernel_launch_args": (
+            manager_runtime_skeleton_payload.get("changes_kernel_launch_args")
+        ),
+        "stream_queue_budget_manager_runtime_skeleton_full_fetch_runtime_allowed": (
+            manager_runtime_skeleton_payload.get("full_fetch_runtime_allowed")
+        ),
+        "stream_queue_budget_manager_runtime_skeleton_uses_current_wna16_args": (
+            manager_runtime_skeleton_payload.get("uses_current_wna16_args")
+        ),
+        "stream_queue_budget_manager_runtime_skeleton_passes_current_wna16_args": (
+            manager_runtime_skeleton_payload.get("passes_current_wna16_args")
+        ),
+        "stream_queue_budget_manager_runtime_skeleton_measures_tpot": (
+            manager_runtime_skeleton_payload.get("measures_tpot")
+        ),
+        "stream_queue_budget_manager_runtime_skeleton_measures_vllm_latency": (
+            manager_runtime_skeleton_payload.get("measures_vllm_latency")
         ),
         "stream_queue_budget_payload_bytes": _optional_int(report, "payload_bytes"),
         "stream_queue_budget_payload_transfer_enabled": _optional_bool(

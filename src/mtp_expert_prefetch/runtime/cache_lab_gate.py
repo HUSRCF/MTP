@@ -707,6 +707,136 @@ class PayloadCacheManagerImplementationArtifact:
         return asdict(self)
 
 
+@dataclass(frozen=True)
+class PayloadCacheManagerRuntimeSkeleton:
+    """Default-disabled skeleton for the future payload/cache-manager runtime.
+
+    The skeleton consumes the concrete manager implementation artifact and
+    names the issue/demand accounting contract that a future runtime will use.
+    It is intentionally not a live manager instance: no payload is
+    dereferenced, no ready credit is granted, no kernel arguments are changed,
+    and no endpoint timing claim is made.
+    """
+
+    present: bool
+    stage: str
+    status: str
+    consumes_manager_implementation_artifact: bool
+    manager_artifact_status: str
+    manager_backend: str
+    manager_contract: str
+    manager_runtime_contract: str
+    manager_runtime_mode: str
+    capacity_entries: int
+    issue_lead_tokens: int
+    queue_deadline_us: float
+    lookahead_us: float
+    shifted_issue_accounting_enabled: bool
+    shifted_issue_accounted_packet_count: int
+    shifted_issue_unique_issue_key_count: int
+    runtime_instantiated: bool = False
+    decision: str = "blocked"
+    block_reason: str = "runtime_skeleton_default_disabled"
+    execution_mode: str = "payload_cache_manager_runtime_skeleton_disabled"
+    live_payload_runtime_enabled: bool = False
+    payload_transfer_runtime_enabled: bool = False
+    payload_deref_allowed: bool = False
+    payload_deref_runtime_allowed: bool = False
+    issued_payload_count: int = 0
+    payload_bytes: int = 0
+    ready_credit: bool = False
+    ready_before_demand_credit: bool = False
+    real_ready_credit_granted: bool = False
+    kernel_arg_pass_allowed: bool = False
+    passed_to_kernel: bool = False
+    changes_kernel_launch_args: bool = False
+    full_fetch_runtime_allowed: bool = False
+    uses_current_wna16_args: bool = False
+    passes_current_wna16_args: bool = False
+    measures_tpot: bool = False
+    measures_vllm_latency: bool = False
+
+    def __post_init__(self) -> None:
+        if self.present is not True:
+            raise ValueError("payload cache runtime skeleton must be present")
+        if self.stage != "payload_cache_manager_runtime_skeleton":
+            raise ValueError("payload cache runtime skeleton stage mismatch")
+        if self.consumes_manager_implementation_artifact is not True:
+            raise ValueError("runtime skeleton must consume manager artifact")
+        if (
+            not isinstance(self.manager_artifact_status, str)
+            or not self.manager_artifact_status
+        ):
+            raise TypeError("manager_artifact_status must be a nonempty string")
+        expected_status = f"blocked_by_manager_artifact:{self.manager_artifact_status}"
+        if self.status != expected_status:
+            raise ValueError("payload cache runtime skeleton status mismatch")
+        if self.manager_backend != "ReadyTimeExpertCacheManager":
+            raise ValueError("payload cache runtime skeleton backend mismatch")
+        if self.manager_contract != "event_driven_queue_budget_cache_manager_v1":
+            raise ValueError("payload cache runtime skeleton manager contract mismatch")
+        if self.manager_runtime_contract != "ready_time_issue_demand_skeleton_v1":
+            raise ValueError("payload cache runtime skeleton runtime contract mismatch")
+        if self.manager_runtime_mode != "ready_time_payload_cache_skeleton":
+            raise ValueError("payload cache runtime skeleton mode mismatch")
+        if self.runtime_instantiated is not False:
+            raise ValueError("runtime skeleton must not instantiate live runtime")
+        if self.decision != "blocked":
+            raise ValueError("runtime skeleton decision must stay blocked")
+        if self.block_reason != "runtime_skeleton_default_disabled":
+            raise ValueError("runtime skeleton block reason mismatch")
+        if self.execution_mode != "payload_cache_manager_runtime_skeleton_disabled":
+            raise ValueError("runtime skeleton execution mode mismatch")
+        for field_name in (
+            "capacity_entries",
+            "issue_lead_tokens",
+            "shifted_issue_accounted_packet_count",
+            "shifted_issue_unique_issue_key_count",
+        ):
+            value = getattr(self, field_name)
+            if not isinstance(value, int) or isinstance(value, bool):
+                raise TypeError(f"{field_name} must be an integer")
+            if value <= 0:
+                raise ValueError(f"{field_name} must be positive")
+        for field_name in ("queue_deadline_us", "lookahead_us"):
+            value = getattr(self, field_name)
+            if not isinstance(value, (int, float)) or isinstance(value, bool):
+                raise TypeError(f"{field_name} must be numeric")
+            numeric = float(value)
+            if not math.isfinite(numeric) or numeric <= 0.0:
+                raise ValueError(f"{field_name} must be positive")
+        if self.shifted_issue_accounting_enabled is not True:
+            raise ValueError("shifted issue accounting must be enabled")
+        for field_name in ("issued_payload_count", "payload_bytes"):
+            value = getattr(self, field_name)
+            if not isinstance(value, int) or isinstance(value, bool):
+                raise TypeError(f"{field_name} must be an integer")
+            if value != 0:
+                raise ValueError(f"{field_name} must remain zero")
+        for field_name in (
+            "live_payload_runtime_enabled",
+            "payload_transfer_runtime_enabled",
+            "payload_deref_allowed",
+            "payload_deref_runtime_allowed",
+            "ready_credit",
+            "ready_before_demand_credit",
+            "real_ready_credit_granted",
+            "kernel_arg_pass_allowed",
+            "passed_to_kernel",
+            "changes_kernel_launch_args",
+            "full_fetch_runtime_allowed",
+            "uses_current_wna16_args",
+            "passes_current_wna16_args",
+            "measures_tpot",
+            "measures_vllm_latency",
+        ):
+            if getattr(self, field_name) is not False:
+                raise ValueError(f"{field_name} must remain disabled")
+
+    def as_dict(self) -> dict[str, bool | float | int | str]:
+        return asdict(self)
+
+
 def select_cache_lab_prefetch_gate(
     signals: CacheLabRuntimeSignals,
     *,
@@ -1059,6 +1189,65 @@ def build_payload_cache_manager_implementation_artifact(
         ),
         shifted_issue_unique_issue_key_count=int(
             envelope.shifted_issue_unique_issue_key_count,
+        ),
+    )
+
+
+def build_payload_cache_manager_runtime_skeleton(
+    artifact: PayloadCacheManagerImplementationArtifact,
+) -> PayloadCacheManagerRuntimeSkeleton:
+    """Build the default-disabled runtime skeleton behind a manager artifact."""
+
+    if not isinstance(artifact, PayloadCacheManagerImplementationArtifact):
+        raise TypeError("artifact must be a PayloadCacheManagerImplementationArtifact")
+    if artifact.decision != "blocked":
+        raise ValueError("manager artifact must stay blocked")
+    if artifact.execution_mode != "payload_cache_manager_implementation_artifact_disabled":
+        raise ValueError("manager artifact execution mode mismatch")
+    for field_name in (
+        "live_payload_runtime_enabled",
+        "payload_transfer_runtime_enabled",
+        "payload_deref_allowed",
+        "payload_deref_runtime_allowed",
+        "ready_credit",
+        "ready_before_demand_credit",
+        "real_ready_credit_granted",
+        "kernel_arg_pass_allowed",
+        "passed_to_kernel",
+        "changes_kernel_launch_args",
+        "full_fetch_runtime_allowed",
+        "uses_current_wna16_args",
+        "passes_current_wna16_args",
+        "measures_tpot",
+        "measures_vllm_latency",
+    ):
+        if getattr(artifact, field_name) is not False:
+            raise ValueError(f"manager artifact {field_name} must remain disabled")
+    for field_name in ("issued_payload_count", "payload_bytes"):
+        if getattr(artifact, field_name) != 0:
+            raise ValueError(f"manager artifact {field_name} must remain zero")
+    return PayloadCacheManagerRuntimeSkeleton(
+        present=True,
+        stage="payload_cache_manager_runtime_skeleton",
+        status=f"blocked_by_manager_artifact:{artifact.status}",
+        consumes_manager_implementation_artifact=True,
+        manager_artifact_status=str(artifact.status),
+        manager_backend=str(artifact.manager_backend),
+        manager_contract=str(artifact.manager_contract),
+        manager_runtime_contract="ready_time_issue_demand_skeleton_v1",
+        manager_runtime_mode="ready_time_payload_cache_skeleton",
+        capacity_entries=int(artifact.capacity_entries),
+        issue_lead_tokens=int(artifact.issue_lead_tokens),
+        queue_deadline_us=float(artifact.queue_deadline_us),
+        lookahead_us=float(artifact.lookahead_us),
+        shifted_issue_accounting_enabled=bool(
+            artifact.shifted_issue_accounting_enabled,
+        ),
+        shifted_issue_accounted_packet_count=int(
+            artifact.shifted_issue_accounted_packet_count,
+        ),
+        shifted_issue_unique_issue_key_count=int(
+            artifact.shifted_issue_unique_issue_key_count,
         ),
     )
 

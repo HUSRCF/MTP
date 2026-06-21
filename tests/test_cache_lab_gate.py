@@ -9,11 +9,13 @@ from mtp_expert_prefetch.runtime import (
     PayloadCacheLivePayloadRuntimeDisabledCanary,
     PayloadCacheLivePayloadStagePreflight,
     PayloadCacheManagerImplementationArtifact,
+    PayloadCacheManagerRuntimeSkeleton,
     PayloadCacheRuntimeExecutionDryRun,
     PayloadCacheQueueBudgetRuntimeEnvelope,
     PayloadCacheRuntimeParticipation,
     PayloadCacheRuntimePlan,
     build_payload_cache_manager_implementation_artifact,
+    build_payload_cache_manager_runtime_skeleton,
     build_payload_cache_live_payload_runtime_disabled_canary,
     build_payload_cache_live_payload_stage_preflight,
     build_payload_cache_queue_budget_runtime_envelope,
@@ -930,6 +932,121 @@ def test_payload_cache_manager_implementation_artifact_rejects_side_effects() ->
                 shifted_issue_unique_issue_key_count=16,
             ),
         )
+
+
+def test_payload_cache_manager_runtime_skeleton_consumes_artifact() -> None:
+    envelope = build_payload_cache_queue_budget_runtime_envelope(
+        cell_count=16,
+        event_timing_mode="token_index",
+        first_model_passing_capacity=4096,
+        first_model_passing_issue_lead_tokens=32,
+        first_model_passing_queue_deadline_us=100.0,
+        first_model_passing_lookahead_us=2_400_000.0,
+        shifted_issue_accounting_enabled=True,
+        shifted_issue_accounted_packet_count=28,
+        shifted_issue_unique_issue_key_count=16,
+    )
+    preflight = build_payload_cache_live_payload_stage_preflight(envelope)
+    canary = build_payload_cache_live_payload_runtime_disabled_canary(
+        preflight,
+        envelope,
+    )
+    artifact = build_payload_cache_manager_implementation_artifact(canary, envelope)
+
+    skeleton = build_payload_cache_manager_runtime_skeleton(artifact)
+    payload = skeleton.as_dict()
+
+    assert payload["present"] is True
+    assert payload["stage"] == "payload_cache_manager_runtime_skeleton"
+    assert payload["status"] == f"blocked_by_manager_artifact:{artifact.status}"
+    assert payload["consumes_manager_implementation_artifact"] is True
+    assert payload["manager_artifact_status"] == artifact.status
+    assert payload["manager_backend"] == "ReadyTimeExpertCacheManager"
+    assert payload["manager_contract"] == "event_driven_queue_budget_cache_manager_v1"
+    assert payload["manager_runtime_contract"] == "ready_time_issue_demand_skeleton_v1"
+    assert payload["manager_runtime_mode"] == "ready_time_payload_cache_skeleton"
+    assert payload["capacity_entries"] == 4096
+    assert payload["issue_lead_tokens"] == 32
+    assert payload["queue_deadline_us"] == 100.0
+    assert payload["lookahead_us"] == 2_400_000.0
+    assert payload["shifted_issue_accounting_enabled"] is True
+    assert payload["shifted_issue_accounted_packet_count"] == 28
+    assert payload["shifted_issue_unique_issue_key_count"] == 16
+    assert payload["runtime_instantiated"] is False
+    assert payload["decision"] == "blocked"
+    assert payload["block_reason"] == "runtime_skeleton_default_disabled"
+    assert payload["execution_mode"] == "payload_cache_manager_runtime_skeleton_disabled"
+    assert payload["live_payload_runtime_enabled"] is False
+    assert payload["payload_transfer_runtime_enabled"] is False
+    assert payload["payload_deref_allowed"] is False
+    assert payload["payload_deref_runtime_allowed"] is False
+    assert payload["issued_payload_count"] == 0
+    assert payload["payload_bytes"] == 0
+    assert payload["ready_credit"] is False
+    assert payload["ready_before_demand_credit"] is False
+    assert payload["real_ready_credit_granted"] is False
+    assert payload["kernel_arg_pass_allowed"] is False
+    assert payload["passed_to_kernel"] is False
+    assert payload["changes_kernel_launch_args"] is False
+    assert payload["full_fetch_runtime_allowed"] is False
+    assert payload["uses_current_wna16_args"] is False
+    assert payload["passes_current_wna16_args"] is False
+    assert payload["measures_tpot"] is False
+    assert payload["measures_vllm_latency"] is False
+
+
+def test_payload_cache_manager_runtime_skeleton_rejects_side_effects() -> None:
+    artifact_status = (
+        "blocked_by_live_payload_runtime:"
+        "blocked_by_live_payload_stage:"
+        "blocked_by_queue_budget_runtime_envelope:"
+        "model_queue_budget_satisfied_runtime_disabled"
+    )
+    base_kwargs = {
+        "present": True,
+        "stage": "payload_cache_manager_runtime_skeleton",
+        "status": f"blocked_by_manager_artifact:{artifact_status}",
+        "consumes_manager_implementation_artifact": True,
+        "manager_artifact_status": artifact_status,
+        "manager_backend": "ReadyTimeExpertCacheManager",
+        "manager_contract": "event_driven_queue_budget_cache_manager_v1",
+        "manager_runtime_contract": "ready_time_issue_demand_skeleton_v1",
+        "manager_runtime_mode": "ready_time_payload_cache_skeleton",
+        "capacity_entries": 4096,
+        "issue_lead_tokens": 32,
+        "queue_deadline_us": 100.0,
+        "lookahead_us": 2_400_000.0,
+        "shifted_issue_accounting_enabled": True,
+        "shifted_issue_accounted_packet_count": 28,
+        "shifted_issue_unique_issue_key_count": 16,
+    }
+
+    with pytest.raises(ValueError, match="runtime"):
+        PayloadCacheManagerRuntimeSkeleton(
+            **{
+                **base_kwargs,
+                "runtime_instantiated": True,
+            },
+        )
+
+    with pytest.raises(ValueError, match="payload_bytes"):
+        PayloadCacheManagerRuntimeSkeleton(
+            **{
+                **base_kwargs,
+                "payload_bytes": 1,
+            },
+        )
+
+    with pytest.raises(ValueError, match="kernel_arg_pass_allowed"):
+        PayloadCacheManagerRuntimeSkeleton(
+            **{
+                **base_kwargs,
+                "kernel_arg_pass_allowed": True,
+            },
+        )
+
+    with pytest.raises(TypeError, match="artifact"):
+        build_payload_cache_manager_runtime_skeleton(object())  # type: ignore[arg-type]
 
 
 def test_payload_cache_runtime_execution_dry_run_consumes_plan() -> None:

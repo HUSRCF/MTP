@@ -1903,6 +1903,105 @@ def _check_stream_queue_budget(summary: dict[str, Any], failures: list[str]) -> 
         if summary.get(f"{manager_prefix}_{key}") is not False:
             failures.append(f"{manager_prefix}_{key}_mismatch")
 
+    skeleton_prefix = f"{prefix}_manager_runtime_skeleton"
+    expected_manager_status = f"blocked_by_live_payload_runtime:{expected_runtime_status}"
+    if summary.get(f"{skeleton_prefix}_present") is not True:
+        failures.append(f"{skeleton_prefix}_present_mismatch")
+    if summary.get(f"{skeleton_prefix}_stage") != "payload_cache_manager_runtime_skeleton":
+        failures.append(f"{skeleton_prefix}_stage_mismatch")
+    if (
+        summary.get(f"{skeleton_prefix}_status")
+        != f"blocked_by_manager_artifact:{expected_manager_status}"
+    ):
+        failures.append(f"{skeleton_prefix}_status_mismatch")
+    if (
+        summary.get(f"{skeleton_prefix}_consumes_manager_implementation_artifact")
+        is not True
+    ):
+        failures.append(
+            f"{skeleton_prefix}_consumes_manager_implementation_artifact_mismatch",
+        )
+    if summary.get(f"{skeleton_prefix}_manager_artifact_status") != expected_manager_status:
+        failures.append(f"{skeleton_prefix}_manager_artifact_status_mismatch")
+    if summary.get(f"{skeleton_prefix}_manager_backend") != "ReadyTimeExpertCacheManager":
+        failures.append(f"{skeleton_prefix}_manager_backend_mismatch")
+    if (
+        summary.get(f"{skeleton_prefix}_manager_contract")
+        != "event_driven_queue_budget_cache_manager_v1"
+    ):
+        failures.append(f"{skeleton_prefix}_manager_contract_mismatch")
+    if (
+        summary.get(f"{skeleton_prefix}_manager_runtime_contract")
+        != "ready_time_issue_demand_skeleton_v1"
+    ):
+        failures.append(f"{skeleton_prefix}_manager_runtime_contract_mismatch")
+    if (
+        summary.get(f"{skeleton_prefix}_manager_runtime_mode")
+        != "ready_time_payload_cache_skeleton"
+    ):
+        failures.append(f"{skeleton_prefix}_manager_runtime_mode_mismatch")
+    if _int_metric(summary, f"{skeleton_prefix}_capacity_entries") != first_capacity:
+        failures.append(f"{skeleton_prefix}_capacity_entries_mismatch")
+    if _int_metric(summary, f"{skeleton_prefix}_issue_lead_tokens") != first_lead:
+        failures.append(f"{skeleton_prefix}_issue_lead_tokens_mismatch")
+    if _float_metric(summary, f"{skeleton_prefix}_queue_deadline_us") != first_deadline:
+        failures.append(f"{skeleton_prefix}_queue_deadline_us_mismatch")
+    if _float_metric(summary, f"{skeleton_prefix}_lookahead_us") != first_lookahead:
+        failures.append(f"{skeleton_prefix}_lookahead_us_mismatch")
+    if (
+        summary.get(f"{skeleton_prefix}_shifted_issue_accounting_enabled")
+        is not first_shifted_enabled
+    ):
+        failures.append(f"{skeleton_prefix}_shifted_issue_accounting_enabled_mismatch")
+    if (
+        _int_metric(summary, f"{skeleton_prefix}_shifted_issue_accounted_packet_count")
+        != first_shifted_packet_count
+    ):
+        failures.append(
+            f"{skeleton_prefix}_shifted_issue_accounted_packet_count_mismatch",
+        )
+    if (
+        _int_metric(summary, f"{skeleton_prefix}_shifted_issue_unique_issue_key_count")
+        != first_shifted_unique_count
+    ):
+        failures.append(
+            f"{skeleton_prefix}_shifted_issue_unique_issue_key_count_mismatch",
+        )
+    if summary.get(f"{skeleton_prefix}_runtime_instantiated") is not False:
+        failures.append(f"{skeleton_prefix}_runtime_instantiated_mismatch")
+    if summary.get(f"{skeleton_prefix}_decision") != "blocked":
+        failures.append(f"{skeleton_prefix}_decision_mismatch")
+    if summary.get(f"{skeleton_prefix}_block_reason") != "runtime_skeleton_default_disabled":
+        failures.append(f"{skeleton_prefix}_block_reason_mismatch")
+    if (
+        summary.get(f"{skeleton_prefix}_execution_mode")
+        != "payload_cache_manager_runtime_skeleton_disabled"
+    ):
+        failures.append(f"{skeleton_prefix}_execution_mode_mismatch")
+    if _int_metric(summary, f"{skeleton_prefix}_issued_payload_count") != 0:
+        failures.append(f"{skeleton_prefix}_issued_payload_count_mismatch")
+    if _int_metric(summary, f"{skeleton_prefix}_payload_bytes") != 0:
+        failures.append(f"{skeleton_prefix}_payload_bytes_mismatch")
+    for key in (
+        "live_payload_runtime_enabled",
+        "payload_transfer_runtime_enabled",
+        "payload_deref_allowed",
+        "payload_deref_runtime_allowed",
+        "ready_credit",
+        "ready_before_demand_credit",
+        "real_ready_credit_granted",
+        "kernel_arg_pass_allowed",
+        "passed_to_kernel",
+        "changes_kernel_launch_args",
+        "full_fetch_runtime_allowed",
+        "uses_current_wna16_args",
+        "passes_current_wna16_args",
+        "measures_tpot",
+        "measures_vllm_latency",
+    ):
+        if summary.get(f"{skeleton_prefix}_{key}") is not False:
+            failures.append(f"{skeleton_prefix}_{key}_mismatch")
+
     if first_shifted_enabled is not True:
         failures.append(f"{prefix}_first_shifted_issue_accounting_enabled_mismatch")
     if first_shifted_packet_count != 28:
