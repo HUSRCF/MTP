@@ -171,6 +171,9 @@ def run_earlier_issue_lead_token_sweep(args: argparse.Namespace) -> dict[str, An
     allow_empty_config_packets = bool(
         getattr(args, "allow_empty_config_packets", False)
     )
+    event_timing_mode = str(getattr(args, "event_timing_mode", "token_index"))
+    if event_timing_mode != "token_index":
+        raise ValueError("event-timing-mode must be token_index for lead-token sweep")
     lookahead_values = [float(value) * decode_token_us for value in lead_tokens]
     lookahead_csv = ",".join(str(value) for value in lookahead_values)
     lead_token_csv = ",".join(str(value) for value in lead_tokens)
@@ -194,7 +197,7 @@ def run_earlier_issue_lead_token_sweep(args: argparse.Namespace) -> dict[str, An
             "--event-interval-us",
             str(args.event_interval_us),
             "--event-timing-mode",
-            "token_index",
+            event_timing_mode,
             "--decode-token-us",
             str(decode_token_us),
             "--layer-event-interval-us",
@@ -291,6 +294,8 @@ def run_earlier_issue_lead_token_sweep(args: argparse.Namespace) -> dict[str, An
         ),
         "lead_token_values": lead_tokens,
         "decode_token_us": decode_token_us,
+        "event_timing_mode": event_timing_mode,
+        "token_timing_enabled": True,
         "lookahead_us_values": lookahead_values,
         "queue_deadline_us": float(args.queue_deadline_us),
         "layer_event_interval_us": layer_event_interval_us,
@@ -378,6 +383,15 @@ def build_parser() -> argparse.ArgumentParser:
         default=bool(stream_defaults.allow_empty_config_packets),
     )
     parser.add_argument("--event-interval-us", type=float, default=1.0)
+    parser.add_argument(
+        "--event-timing-mode",
+        choices=("token_index",),
+        default="token_index",
+        help=(
+            "Lead-token sweep requires token-index provenance; packet-index "
+            "timing is intentionally unsupported here."
+        ),
+    )
     parser.add_argument("--issue-arrival-us", type=float, default=0.0)
     parser.add_argument("--decode-token-us", type=float, default=75_000.0)
     parser.add_argument("--lead-token-values", default="0,1,2,3,4")
