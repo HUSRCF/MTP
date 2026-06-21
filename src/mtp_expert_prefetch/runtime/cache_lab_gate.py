@@ -1196,6 +1196,186 @@ class PayloadCacheSnapshotBackedLiveRuntimePreflight:
         return asdict(self)
 
 
+@dataclass(frozen=True)
+class PayloadCacheSnapshotBackedLiveRuntimeDisabledCanary:
+    """Blocked canary behind the snapshot-backed live-runtime preflight."""
+
+    present: bool
+    stage: str
+    status: str
+    consumes_live_runtime_preflight: bool
+    live_runtime_preflight_status: str
+    manager_backend: str
+    manager_runtime_contract: str
+    manager_runtime_mode: str
+    live_runtime_canary_instantiated: bool
+    live_runtime_preflight_instantiated: bool
+    accounting_snapshot_instantiated: bool
+    live_runtime_instantiated: bool
+    capacity_entries: int
+    issue_lead_tokens: int
+    queue_deadline_us: float
+    lookahead_us: float
+    queue_batch_size: int
+    resident_count: int
+    issued_fetch_count: int
+    used_fetch_count: int
+    unused_fetch_count: int
+    demand_count: int
+    demand_hit_count: int
+    demand_miss_count: int
+    evicted_before_use_count: int
+    ready_late_miss_count: int
+    late_completion_unused_count: int
+    queue_batch_count: int
+    queue_service_us: float
+    queue_total_span_us: float
+    queue_wait_us: float
+    queue_max_delay_us: float
+    shifted_issue_accounting_enabled: bool
+    shifted_issue_accounted_packet_count: int
+    shifted_issue_unique_issue_key_count: int
+    decision: str = "blocked"
+    block_reason: str = "snapshot_backed_live_runtime_canary_disabled"
+    execution_mode: str = "payload_cache_snapshot_backed_live_runtime_canary_disabled"
+    live_payload_runtime_enabled: bool = False
+    payload_transfer_runtime_enabled: bool = False
+    payload_deref_allowed: bool = False
+    payload_deref_runtime_allowed: bool = False
+    issued_payload_count: int = 0
+    payload_bytes: int = 0
+    ready_credit: bool = False
+    ready_before_demand_credit: bool = False
+    real_ready_credit_granted: bool = False
+    kernel_arg_pass_allowed: bool = False
+    passed_to_kernel: bool = False
+    changes_kernel_launch_args: bool = False
+    full_fetch_runtime_allowed: bool = False
+    uses_current_wna16_args: bool = False
+    passes_current_wna16_args: bool = False
+    measures_tpot: bool = False
+    measures_vllm_latency: bool = False
+
+    def __post_init__(self) -> None:
+        if self.present is not True:
+            raise ValueError("snapshot-backed live-runtime canary must be present")
+        if self.stage != "payload_cache_snapshot_backed_live_runtime_disabled_canary":
+            raise ValueError("snapshot-backed live-runtime canary stage mismatch")
+        if self.consumes_live_runtime_preflight is not True:
+            raise ValueError("live-runtime canary must consume preflight")
+        if (
+            not isinstance(self.live_runtime_preflight_status, str)
+            or not self.live_runtime_preflight_status
+        ):
+            raise TypeError("live_runtime_preflight_status must be a nonempty string")
+        expected_status = (
+            f"blocked_by_live_runtime_preflight:{self.live_runtime_preflight_status}"
+        )
+        if self.status != expected_status:
+            raise ValueError("snapshot-backed live-runtime canary status mismatch")
+        if self.manager_backend != "ReadyTimeExpertCacheManager":
+            raise ValueError("snapshot-backed live-runtime canary backend mismatch")
+        if self.manager_runtime_contract != "ready_time_issue_demand_skeleton_v1":
+            raise ValueError("snapshot-backed live-runtime canary contract mismatch")
+        if self.manager_runtime_mode != "ready_time_payload_cache_skeleton":
+            raise ValueError("snapshot-backed live-runtime canary mode mismatch")
+        if self.live_runtime_canary_instantiated is not True:
+            raise ValueError("live-runtime canary object must be instantiated")
+        if self.live_runtime_preflight_instantiated is not True:
+            raise ValueError("live-runtime preflight object must be instantiated")
+        if self.accounting_snapshot_instantiated is not True:
+            raise ValueError("accounting snapshot must be instantiated")
+        if self.live_runtime_instantiated is not False:
+            raise ValueError("live runtime must not be instantiated")
+        if self.decision != "blocked":
+            raise ValueError("live-runtime canary decision must stay blocked")
+        if self.block_reason != "snapshot_backed_live_runtime_canary_disabled":
+            raise ValueError("live-runtime canary block reason mismatch")
+        if (
+            self.execution_mode
+            != "payload_cache_snapshot_backed_live_runtime_canary_disabled"
+        ):
+            raise ValueError("live-runtime canary execution mode mismatch")
+        for field_name in (
+            "capacity_entries",
+            "issue_lead_tokens",
+            "queue_batch_size",
+            "shifted_issue_accounted_packet_count",
+            "shifted_issue_unique_issue_key_count",
+        ):
+            value = getattr(self, field_name)
+            if not isinstance(value, int) or isinstance(value, bool):
+                raise TypeError(f"{field_name} must be an integer")
+            if value <= 0:
+                raise ValueError(f"{field_name} must be positive")
+        for field_name in (
+            "resident_count",
+            "issued_fetch_count",
+            "used_fetch_count",
+            "unused_fetch_count",
+            "demand_count",
+            "demand_hit_count",
+            "demand_miss_count",
+            "evicted_before_use_count",
+            "ready_late_miss_count",
+            "late_completion_unused_count",
+            "queue_batch_count",
+        ):
+            value = getattr(self, field_name)
+            if not isinstance(value, int) or isinstance(value, bool):
+                raise TypeError(f"{field_name} must be an integer")
+            if value != 0:
+                raise ValueError(f"{field_name} must remain zero")
+        for field_name in (
+            "queue_deadline_us",
+            "lookahead_us",
+            "queue_service_us",
+            "queue_total_span_us",
+            "queue_wait_us",
+            "queue_max_delay_us",
+        ):
+            value = getattr(self, field_name)
+            if not isinstance(value, (int, float)) or isinstance(value, bool):
+                raise TypeError(f"{field_name} must be numeric")
+            numeric = float(value)
+            if not math.isfinite(numeric):
+                raise ValueError(f"{field_name} must be finite")
+            if field_name in ("queue_deadline_us", "lookahead_us") and numeric <= 0.0:
+                raise ValueError(f"{field_name} must be positive")
+            if field_name not in ("queue_deadline_us", "lookahead_us") and numeric != 0.0:
+                raise ValueError(f"{field_name} must remain zero")
+        if self.shifted_issue_accounting_enabled is not True:
+            raise ValueError("shifted issue accounting must be enabled")
+        for field_name in ("issued_payload_count", "payload_bytes"):
+            value = getattr(self, field_name)
+            if not isinstance(value, int) or isinstance(value, bool):
+                raise TypeError(f"{field_name} must be an integer")
+            if value != 0:
+                raise ValueError(f"{field_name} must remain zero")
+        for field_name in (
+            "live_payload_runtime_enabled",
+            "payload_transfer_runtime_enabled",
+            "payload_deref_allowed",
+            "payload_deref_runtime_allowed",
+            "ready_credit",
+            "ready_before_demand_credit",
+            "real_ready_credit_granted",
+            "kernel_arg_pass_allowed",
+            "passed_to_kernel",
+            "changes_kernel_launch_args",
+            "full_fetch_runtime_allowed",
+            "uses_current_wna16_args",
+            "passes_current_wna16_args",
+            "measures_tpot",
+            "measures_vllm_latency",
+        ):
+            if getattr(self, field_name) is not False:
+                raise ValueError(f"{field_name} must remain disabled")
+
+    def as_dict(self) -> dict[str, bool | float | int | str]:
+        return asdict(self)
+
+
 def select_cache_lab_prefetch_gate(
     signals: CacheLabRuntimeSignals,
     *,
@@ -1803,6 +1983,123 @@ def build_payload_cache_snapshot_backed_live_runtime_preflight(
         ),
         shifted_issue_unique_issue_key_count=int(
             snapshot.shifted_issue_unique_issue_key_count,
+        ),
+    )
+
+
+def build_payload_cache_snapshot_backed_live_runtime_disabled_canary(
+    preflight: PayloadCacheSnapshotBackedLiveRuntimePreflight,
+) -> PayloadCacheSnapshotBackedLiveRuntimeDisabledCanary:
+    """Build the blocked live-runtime canary from the snapshot-backed preflight."""
+
+    if not isinstance(preflight, PayloadCacheSnapshotBackedLiveRuntimePreflight):
+        raise TypeError(
+            "preflight must be a PayloadCacheSnapshotBackedLiveRuntimePreflight",
+        )
+    if preflight.decision != "blocked":
+        raise ValueError("live-runtime preflight must stay blocked")
+    if preflight.live_runtime_preflight_instantiated is not True:
+        raise ValueError("live-runtime preflight object must be instantiated")
+    if preflight.accounting_snapshot_instantiated is not True:
+        raise ValueError("live-runtime preflight must consume accounting snapshot")
+    if preflight.live_runtime_instantiated is not False:
+        raise ValueError("live-runtime preflight must not instantiate live runtime")
+    if (
+        preflight.execution_mode
+        != "payload_cache_snapshot_backed_live_runtime_preflight_disabled"
+    ):
+        raise ValueError("live-runtime preflight execution mode mismatch")
+    for field_name in (
+        "resident_count",
+        "issued_fetch_count",
+        "used_fetch_count",
+        "unused_fetch_count",
+        "demand_count",
+        "demand_hit_count",
+        "demand_miss_count",
+        "evicted_before_use_count",
+        "ready_late_miss_count",
+        "late_completion_unused_count",
+        "queue_batch_count",
+    ):
+        if getattr(preflight, field_name) != 0:
+            raise ValueError(f"live-runtime preflight {field_name} must remain zero")
+    for field_name in (
+        "queue_service_us",
+        "queue_total_span_us",
+        "queue_wait_us",
+        "queue_max_delay_us",
+    ):
+        if float(getattr(preflight, field_name)) != 0.0:
+            raise ValueError(f"live-runtime preflight {field_name} must remain zero")
+    for field_name in (
+        "live_payload_runtime_enabled",
+        "payload_transfer_runtime_enabled",
+        "payload_deref_allowed",
+        "payload_deref_runtime_allowed",
+        "ready_credit",
+        "ready_before_demand_credit",
+        "real_ready_credit_granted",
+        "kernel_arg_pass_allowed",
+        "passed_to_kernel",
+        "changes_kernel_launch_args",
+        "full_fetch_runtime_allowed",
+        "uses_current_wna16_args",
+        "passes_current_wna16_args",
+        "measures_tpot",
+        "measures_vllm_latency",
+    ):
+        if getattr(preflight, field_name) is not False:
+            raise ValueError(f"live-runtime preflight {field_name} must remain disabled")
+    for field_name in ("issued_payload_count", "payload_bytes"):
+        if getattr(preflight, field_name) != 0:
+            raise ValueError(f"live-runtime preflight {field_name} must remain zero")
+
+    return PayloadCacheSnapshotBackedLiveRuntimeDisabledCanary(
+        present=True,
+        stage="payload_cache_snapshot_backed_live_runtime_disabled_canary",
+        status=f"blocked_by_live_runtime_preflight:{preflight.status}",
+        consumes_live_runtime_preflight=True,
+        live_runtime_preflight_status=str(preflight.status),
+        manager_backend=str(preflight.manager_backend),
+        manager_runtime_contract=str(preflight.manager_runtime_contract),
+        manager_runtime_mode=str(preflight.manager_runtime_mode),
+        live_runtime_canary_instantiated=True,
+        live_runtime_preflight_instantiated=bool(
+            preflight.live_runtime_preflight_instantiated,
+        ),
+        accounting_snapshot_instantiated=bool(
+            preflight.accounting_snapshot_instantiated,
+        ),
+        live_runtime_instantiated=False,
+        capacity_entries=int(preflight.capacity_entries),
+        issue_lead_tokens=int(preflight.issue_lead_tokens),
+        queue_deadline_us=float(preflight.queue_deadline_us),
+        lookahead_us=float(preflight.lookahead_us),
+        queue_batch_size=int(preflight.queue_batch_size),
+        resident_count=int(preflight.resident_count),
+        issued_fetch_count=int(preflight.issued_fetch_count),
+        used_fetch_count=int(preflight.used_fetch_count),
+        unused_fetch_count=int(preflight.unused_fetch_count),
+        demand_count=int(preflight.demand_count),
+        demand_hit_count=int(preflight.demand_hit_count),
+        demand_miss_count=int(preflight.demand_miss_count),
+        evicted_before_use_count=int(preflight.evicted_before_use_count),
+        ready_late_miss_count=int(preflight.ready_late_miss_count),
+        late_completion_unused_count=int(preflight.late_completion_unused_count),
+        queue_batch_count=int(preflight.queue_batch_count),
+        queue_service_us=float(preflight.queue_service_us),
+        queue_total_span_us=float(preflight.queue_total_span_us),
+        queue_wait_us=float(preflight.queue_wait_us),
+        queue_max_delay_us=float(preflight.queue_max_delay_us),
+        shifted_issue_accounting_enabled=bool(
+            preflight.shifted_issue_accounting_enabled,
+        ),
+        shifted_issue_accounted_packet_count=int(
+            preflight.shifted_issue_accounted_packet_count,
+        ),
+        shifted_issue_unique_issue_key_count=int(
+            preflight.shifted_issue_unique_issue_key_count,
         ),
     )
 

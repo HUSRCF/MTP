@@ -2,13 +2,13 @@
 
 ## Progress Version
 
-- Version: `v1.30-snapshot-backed-live-runtime-preflight`
+- Version: `v1.31-snapshot-backed-live-runtime-disabled-canary`
 - Updated: 2026-06-22
 
-## Latest Update: Snapshot-Backed Live Runtime Preflight
+## Latest Update: Snapshot-Backed Live Runtime Disabled Canary
 
-The live-runtime disabled canary now feeds the first concrete payload/cache
-manager implementation artifact:
+The payload/cache lab chain still includes the first concrete manager
+implementation artifact:
 
 ```text
 PayloadCacheManagerImplementationArtifact
@@ -152,11 +152,57 @@ queue_wait_us = 0.0
 queue_max_delay_us = 0.0
 ```
 
+The snapshot-backed live-runtime preflight now feeds one more blocked canary:
+
+```text
+PayloadCacheSnapshotBackedLiveRuntimeDisabledCanary
+```
+
+This is still not a live payload runtime.  It proves the next runtime entry
+point can consume the snapshot-backed preflight object, while keeping the real
+manager runtime uninstantiated and every side-effect path closed.
+
+Required canary contract:
+
+```text
+stage = payload_cache_snapshot_backed_live_runtime_disabled_canary
+status = blocked_by_live_runtime_preflight:<live_runtime_preflight_status>
+consumes_live_runtime_preflight = true
+live_runtime_canary_instantiated = true
+live_runtime_preflight_instantiated = true
+accounting_snapshot_instantiated = true
+live_runtime_instantiated = false
+decision = blocked
+block_reason = snapshot_backed_live_runtime_canary_disabled
+execution_mode = payload_cache_snapshot_backed_live_runtime_canary_disabled
+capacity_entries = 4096
+issue_lead_tokens = 32
+queue_deadline_us = 100.0
+lookahead_us = 2400000.0
+queue_batch_size = 1
+resident_count = 0
+issued_fetch_count = 0
+used_fetch_count = 0
+unused_fetch_count = 0
+demand_count = 0
+demand_hit_count = 0
+demand_miss_count = 0
+evicted_before_use_count = 0
+ready_late_miss_count = 0
+late_completion_unused_count = 0
+queue_batch_count = 0
+queue_service_us = 0.0
+queue_total_span_us = 0.0
+queue_wait_us = 0.0
+queue_max_delay_us = 0.0
+```
+
 The summary checker also rejects mixed queue-budget summaries.  Live-stage,
 live-runtime, manager-artifact, runtime-skeleton, and runtime-snapshot
 queue-budget fields, plus the snapshot-backed live-runtime preflight, must
 match the same summary's `first_model_passing_*` and `first_shifted_issue_*`
-envelope fields, while the lab-default gate still requires the measured
+envelope fields.  The new snapshot-backed live-runtime canary must also match
+that preflight chain, while the lab-default gate still requires the measured
 4096-entry / 32-token / 100us / 2.4M-us cell.  This prevents stale downstream
 artifacts from passing if the compact summary is manually mixed with a
 different queue-budget envelope.
@@ -196,7 +242,7 @@ Validation:
   tests/test_check_premap_payload_cache_ready_time_gate.py \
   tests/test_vllm_router_shadow_sink.py -q
 
-498 passed
+pending full validation for v1.31; v1.30 wide validation was 498 passed
 
 /home/husrcf/anaconda3/envs/TRY/bin/python scripts/check_prefetch_lab_default_gate.py \
   configs/runtime/prefetch_lab_default_gate_gpu1.yaml
@@ -213,10 +259,10 @@ passed = true
 Next gate:
 
 ```text
-add the next blocked live-runtime canary behind the snapshot-backed preflight.
-It may verify the issue/demand state shape, but payload dereference, ready
-credit, kernel argument handoff, and TPOT claims must remain disabled until a
-strict live-runtime gate passes.
+continue toward a still-disabled live-runtime shape checker behind this canary.
+It may validate issue/demand state layout and queue accounting shape, but
+payload dereference, ready credit, kernel argument handoff, and TPOT claims must
+remain disabled until a strict live-runtime gate passes.
 ```
 
 ## Previous Update: Live Payload Runtime Disabled Canary

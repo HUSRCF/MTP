@@ -39,6 +39,7 @@ from mtp_expert_prefetch.runtime import (  # noqa: E402
     build_payload_cache_manager_implementation_artifact,
     build_payload_cache_manager_runtime_snapshot_artifact,
     build_payload_cache_manager_runtime_skeleton,
+    build_payload_cache_snapshot_backed_live_runtime_disabled_canary,
     build_payload_cache_snapshot_backed_live_runtime_preflight,
     build_payload_cache_queue_budget_runtime_envelope,
 )
@@ -78,6 +79,10 @@ def check_prefetch_lab_default_gate(path: Path, *, root: Path) -> dict[str, Any]
             "premap": premap,
         },
     }
+
+
+def _prefixed_payload(prefix: str, payload: dict[str, Any]) -> dict[str, Any]:
+    return {f"{prefix}_{key}": payload.get(key) for key in payload}
 
 
 def _check_full_fetch(section: dict[str, Any], *, root: Path) -> dict[str, Any]:
@@ -1236,6 +1241,7 @@ def _check_optional_stream_queue_budget_sweep(
     manager_runtime_skeleton_payload: dict[str, Any] = {}
     manager_runtime_snapshot_payload: dict[str, Any] = {}
     snapshot_backed_live_runtime_preflight_payload: dict[str, Any] = {}
+    snapshot_backed_live_runtime_canary_payload: dict[str, Any] = {}
     if len(failures) == queue_failure_base:
         try:
             envelope = build_payload_cache_queue_budget_runtime_envelope(
@@ -1288,8 +1294,18 @@ def _check_optional_stream_queue_budget_sweep(
             snapshot_backed_live_runtime_preflight_payload = (
                 snapshot_backed_live_runtime_preflight.as_dict()
             )
+            snapshot_backed_live_runtime_canary = (
+                build_payload_cache_snapshot_backed_live_runtime_disabled_canary(
+                    snapshot_backed_live_runtime_preflight,
+                )
+            )
+            snapshot_backed_live_runtime_canary_payload = (
+                snapshot_backed_live_runtime_canary.as_dict()
+            )
         except (TypeError, ValueError) as exc:
-            if manager_runtime_snapshot_payload:
+            if snapshot_backed_live_runtime_preflight_payload:
+                label = "stream_queue_budget_snapshot_backed_live_runtime_canary_invalid"
+            elif manager_runtime_snapshot_payload:
                 label = (
                     "stream_queue_budget_snapshot_backed_live_runtime_preflight_invalid"
                 )
@@ -2171,6 +2187,10 @@ def _check_optional_stream_queue_budget_sweep(
             snapshot_backed_live_runtime_preflight_payload.get(
                 "measures_vllm_latency",
             )
+        ),
+        **_prefixed_payload(
+            "stream_queue_budget_snapshot_backed_live_runtime_canary",
+            snapshot_backed_live_runtime_canary_payload,
         ),
         "stream_queue_budget_payload_bytes": _optional_int(report, "payload_bytes"),
         "stream_queue_budget_payload_transfer_enabled": _optional_bool(

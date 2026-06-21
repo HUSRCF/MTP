@@ -565,7 +565,7 @@ def _enable_payloadless_useful_repeat_benchmark_ready(
 
 
 def _summary() -> dict[str, object]:
-    return {
+    summary = {
         "passed": True,
         "default_contract_passed": True,
         "default_required_evidence_passed": True,
@@ -1533,6 +1533,84 @@ def _summary() -> dict[str, object]:
             "evidence": {},
         },
     }
+    live_preflight_status = str(
+        summary[
+            "prefetch_lab_default_stream_queue_budget_"
+            "snapshot_backed_live_runtime_preflight_status"
+        ],
+    )
+    prefix = "prefetch_lab_default_stream_queue_budget_snapshot_backed_live_runtime_canary"
+    summary.update(
+        {
+            f"{prefix}_present": True,
+            f"{prefix}_stage": "payload_cache_snapshot_backed_live_runtime_disabled_canary",
+            f"{prefix}_status": f"blocked_by_live_runtime_preflight:{live_preflight_status}",
+            f"{prefix}_consumes_live_runtime_preflight": True,
+            f"{prefix}_live_runtime_preflight_status": live_preflight_status,
+            f"{prefix}_manager_backend": "ReadyTimeExpertCacheManager",
+            f"{prefix}_manager_runtime_contract": "ready_time_issue_demand_skeleton_v1",
+            f"{prefix}_manager_runtime_mode": "ready_time_payload_cache_skeleton",
+            f"{prefix}_live_runtime_canary_instantiated": True,
+            f"{prefix}_live_runtime_preflight_instantiated": True,
+            f"{prefix}_accounting_snapshot_instantiated": True,
+            f"{prefix}_live_runtime_instantiated": False,
+            f"{prefix}_capacity_entries": 4096,
+            f"{prefix}_issue_lead_tokens": 32,
+            f"{prefix}_queue_deadline_us": 100.0,
+            f"{prefix}_lookahead_us": 2400000.0,
+            f"{prefix}_queue_batch_size": 1,
+            f"{prefix}_shifted_issue_accounting_enabled": True,
+            f"{prefix}_shifted_issue_accounted_packet_count": 28,
+            f"{prefix}_shifted_issue_unique_issue_key_count": 16,
+            f"{prefix}_decision": "blocked",
+            f"{prefix}_block_reason": "snapshot_backed_live_runtime_canary_disabled",
+            f"{prefix}_execution_mode": (
+                "payload_cache_snapshot_backed_live_runtime_canary_disabled"
+            ),
+        },
+    )
+    for key in (
+        "resident_count",
+        "issued_fetch_count",
+        "used_fetch_count",
+        "unused_fetch_count",
+        "demand_count",
+        "demand_hit_count",
+        "demand_miss_count",
+        "evicted_before_use_count",
+        "ready_late_miss_count",
+        "late_completion_unused_count",
+        "queue_batch_count",
+        "issued_payload_count",
+        "payload_bytes",
+    ):
+        summary[f"{prefix}_{key}"] = 0
+    for key in (
+        "queue_service_us",
+        "queue_total_span_us",
+        "queue_wait_us",
+        "queue_max_delay_us",
+    ):
+        summary[f"{prefix}_{key}"] = 0.0
+    for key in (
+        "live_payload_runtime_enabled",
+        "payload_transfer_runtime_enabled",
+        "payload_deref_allowed",
+        "payload_deref_runtime_allowed",
+        "ready_credit",
+        "ready_before_demand_credit",
+        "real_ready_credit_granted",
+        "kernel_arg_pass_allowed",
+        "passed_to_kernel",
+        "changes_kernel_launch_args",
+        "full_fetch_runtime_allowed",
+        "uses_current_wna16_args",
+        "passes_current_wna16_args",
+        "measures_tpot",
+        "measures_vllm_latency",
+    ):
+        summary[f"{prefix}_{key}"] = False
+    return summary
 
 
 def test_check_premap_lab_preflight_summary_accepts_valid_summary() -> None:
