@@ -41496,3 +41496,97 @@ not ready credit
 not kernel arg handoff
 not endpoint benchmark evidence
 ```
+
+## Runtime-plan object online smoke promoted into lab default gate
+
+The ready-time direct snapshot evidence has been refreshed with an online-emitted
+payloadless runtime-plan object.  The new GPU1 smoke uses the production-batch
+premap payload-cache ready-time producer path with router top-k recording off:
+
+```text
+mode:
+  production_batch_premap_payload_cache_ready_time_producer_counter_off_reuse_llm
+samples:
+  8
+max_tokens:
+  4
+gpu:
+  1
+```
+
+The run passed through the telemetry ladder once executed outside the sandboxed
+GPU device namespace.  This is a trace/gate health signal only, not endpoint
+TPOT or payload-cache performance evidence:
+
+```text
+returncode = 0
+sample_count = 8
+requested_output_token_count = 32
+generate_seconds_per_requested_output_token = 0.034747032625
+```
+
+The derived gate artifact is now:
+
+```text
+outputs/reports/premap_kernel_consumer/
+  premap_payload_cache_ready_time_runtime_plan_object_smoke_gpu1_20260621.json
+```
+
+It is wired into `configs/runtime/prefetch_lab_default_gate_gpu1.yaml` as the
+default `ready_time_direct_snapshot_report`.  The refreshed default gate expands
+and validates:
+
+```text
+ready_time_direct_snapshot_runtime_participation_*
+ready_time_direct_snapshot_runtime_plan_*
+```
+
+with the same safety boundary:
+
+```text
+payload_bytes = 0
+ready_credit = false
+real_ready_credit_granted = false
+kernel_arg_pass_allowed = false
+changes_kernel_launch_args = false
+full_fetch_runtime_allowed = false
+```
+
+Validation:
+
+```bash
+/home/husrcf/anaconda3/envs/TRY/bin/python \
+  scripts/check_premap_payload_cache_ready_time_gate.py \
+  outputs/reports/awq_telemetry_ladder/gpu1_ready_time_runtime_plan_object_smoke8_gen4_20260621_hardpy_importpatch_escalated/production_batch_premap_payload_cache_ready_time_producer_counter_off_reuse_llm/repeat_00/performance_summary.json \
+  --root .
+# passed: true
+
+/home/husrcf/anaconda3/envs/TRY/bin/python \
+  scripts/check_prefetch_lab_default_gate.py \
+  configs/runtime/prefetch_lab_default_gate_gpu1.yaml
+# passed: true
+
+/home/husrcf/anaconda3/envs/TRY/bin/python \
+  scripts/run_premap_lab_preflight.py \
+  --summary-only \
+  --prefetch-lab-default-gate configs/runtime/prefetch_lab_default_gate_gpu1.yaml \
+  --output-json outputs/reports/premap_lab_preflight_status_runtime_plan_object_gate_summary_20260621.json
+
+/home/husrcf/anaconda3/envs/TRY/bin/python \
+  scripts/check_premap_lab_preflight_summary.py \
+  outputs/reports/premap_lab_preflight_status_runtime_plan_object_gate_summary_20260621.json \
+  --output-json outputs/reports/premap_lab_preflight_status_runtime_plan_object_gate_summary_20260621.check.json
+# passed: true
+```
+
+Runner note:
+
+```text
+scripts/run_awq_telemetry_ladder.py now sets both HIP_VISIBLE_DEVICES and
+CUDA_VISIBLE_DEVICES for child trace runs and prefers the hard-coded TRY python
+(`/home/husrcf/anaconda3/envs/TRY/bin/python`) over `conda run`.
+
+Real vLLM/GPU trace runs must be executed outside the Codex sandbox device
+namespace; inside the sandbox torch.cuda reports unavailable even when the host
+GPU is usable.
+```

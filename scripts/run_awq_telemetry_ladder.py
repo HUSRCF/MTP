@@ -2097,6 +2097,16 @@ def _read_perf(trace_dir: Path) -> dict[str, Any]:
     }
 
 
+def _trace_python_for_env(conda_env: str) -> Path | None:
+    env_name = str(conda_env).strip()
+    if not env_name:
+        return None
+    candidate = Path("/home/husrcf/anaconda3/envs") / env_name / "bin" / "python"
+    if candidate.exists():
+        return candidate
+    return None
+
+
 def _trace_command(conda_env: str, config_path: Path) -> list[str]:
     active_env = os.environ.get("CONDA_DEFAULT_ENV")
     active_prefix = os.environ.get("CONDA_PREFIX")
@@ -2104,6 +2114,9 @@ def _trace_command(conda_env: str, config_path: Path) -> list[str]:
         active_prefix is not None and Path(active_prefix).name == conda_env
     ):
         return [sys.executable, "scripts/trace_router_mtp.py", str(config_path)]
+    env_python = _trace_python_for_env(conda_env)
+    if env_python is not None:
+        return [str(env_python), "scripts/trace_router_mtp.py", str(config_path)]
     return [
         "conda",
         "run",
@@ -2113,6 +2126,15 @@ def _trace_command(conda_env: str, config_path: Path) -> list[str]:
         "scripts/trace_router_mtp.py",
         str(config_path),
     ]
+
+
+def _resolve_hip_visible_devices(gpu: str | None) -> str | None:
+    if gpu is None:
+        return None
+    value = str(gpu).strip()
+    if value.lower() in {"", "none", "off", "disabled", "unset"}:
+        return None
+    return value
 
 
 def _prepend_pythonpath(env: dict[str, str], path: str) -> None:
@@ -2154,7 +2176,14 @@ def main() -> None:
         default=None,
         help="Override trace.start_sample. Defaults to the base config value.",
     )
-    parser.add_argument("--gpu", default="1")
+    parser.add_argument(
+        "--gpu",
+        default="1",
+        help=(
+            "HIP_VISIBLE_DEVICES value for child trace runs. Use 'none' to leave "
+            "the variable unset and let vLLM see physical device ordinals."
+        ),
+    )
     parser.add_argument("--conda-env", default="TRY")
     parser.add_argument("--repeats", type=int, default=1)
     parser.add_argument(
@@ -2199,7 +2228,13 @@ def main() -> None:
                 start_sample=args.start_sample,
             )
             env = os.environ.copy()
-            env["HIP_VISIBLE_DEVICES"] = str(args.gpu)
+            visible_devices = _resolve_hip_visible_devices(args.gpu)
+            if visible_devices is None:
+                env.pop("HIP_VISIBLE_DEVICES", None)
+                env.pop("CUDA_VISIBLE_DEVICES", None)
+            else:
+                env["HIP_VISIBLE_DEVICES"] = visible_devices
+                env["CUDA_VISIBLE_DEVICES"] = visible_devices
             for key in MODES[mode].get("unset_env", ()):
                 env.pop(str(key), None)
             for key, value in dict(MODES[mode].get("env", {})).items():
@@ -2227,6 +2262,8 @@ def main() -> None:
                 "trace_config": str(config_path),
                 "trace_dir": str(trace_dir),
                 "log_path": str(log_path),
+                "hip_visible_devices": visible_devices,
+                "cuda_visible_devices": visible_devices,
                 "effective_start_sample": int(effective_split["start_sample"]),
                 "effective_max_samples": int(effective_split["max_samples"]),
                 "effective_max_tokens": int(effective_split["max_tokens"]),

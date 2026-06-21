@@ -6,6 +6,9 @@ from types import ModuleType
 
 import pytest
 from mtp_expert_prefetch.tracing import router_mtp
+from mtp_expert_prefetch.tracing.vllm_router_trace import (
+    _patch_vllm_warning_once_scope_import_for_trace,
+)
 
 
 @pytest.mark.parametrize("backend", ["vllm", "VLLM", " vllm "])
@@ -90,3 +93,25 @@ def test_trace_router_mtp_does_not_dispatch_non_vllm_backend(
 
     with pytest.raises(RuntimeError, match="produced no text records"):
         router_mtp.trace_router_mtp(config_path)
+
+
+def test_patch_vllm_warning_once_scope_import_is_local_and_idempotent(
+    monkeypatch,
+) -> None:
+    fake_vllm = ModuleType("vllm")
+    fake_logger = ModuleType("vllm.logger")
+
+    def original_should_log(scope: str) -> bool:
+        raise AssertionError(f"scope check should not import distributed: {scope}")
+
+    fake_logger._should_log_with_scope = original_should_log
+    monkeypatch.setitem(sys.modules, "vllm", fake_vllm)
+    monkeypatch.setitem(sys.modules, "vllm.logger", fake_logger)
+
+    assert _patch_vllm_warning_once_scope_import_for_trace() is True
+    assert fake_logger._mtp_warning_once_scope_import_patched is True
+    assert fake_logger._mtp_original_should_log_with_scope is original_should_log
+    assert fake_logger._should_log_with_scope("local") is True
+
+    assert _patch_vllm_warning_once_scope_import_for_trace() is True
+    assert fake_logger._mtp_original_should_log_with_scope is original_should_log

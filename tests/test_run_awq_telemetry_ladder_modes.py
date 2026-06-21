@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import importlib.util
 from pathlib import Path
+import sys
 
 import yaml
 
@@ -15,6 +16,48 @@ def _load_module():
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
+
+
+def test_resolve_visible_devices_accepts_unset_sentinel() -> None:
+    module = _load_module()
+
+    assert module._resolve_hip_visible_devices("1") == "1"
+    assert module._resolve_hip_visible_devices(" 0 ") == "0"
+    assert module._resolve_hip_visible_devices("none") is None
+    assert module._resolve_hip_visible_devices("disabled") is None
+    assert module._resolve_hip_visible_devices("") is None
+
+
+def test_trace_command_prefers_hardcoded_conda_python(monkeypatch, tmp_path) -> None:
+    module = _load_module()
+    config_path = tmp_path / "trace.yaml"
+    expected = Path("/home/husrcf/anaconda3/envs/TRY/bin/python")
+
+    monkeypatch.delenv("CONDA_DEFAULT_ENV", raising=False)
+    monkeypatch.delenv("CONDA_PREFIX", raising=False)
+
+    assert expected.exists()
+
+    assert module._trace_command("TRY", config_path) == [
+        str(expected),
+        "scripts/trace_router_mtp.py",
+        str(config_path),
+    ]
+
+
+def test_trace_command_uses_current_interpreter_inside_active_env(
+    monkeypatch, tmp_path
+) -> None:
+    module = _load_module()
+    config_path = tmp_path / "trace.yaml"
+
+    monkeypatch.setenv("CONDA_DEFAULT_ENV", "TRY")
+
+    assert module._trace_command("TRY", config_path) == [
+        sys.executable,
+        "scripts/trace_router_mtp.py",
+        str(config_path),
+    ]
 
 
 def test_attention_core_light_is_low_intrusion_mode() -> None:

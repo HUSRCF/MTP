@@ -18515,6 +18515,39 @@ def _set_text_only_vllm_env() -> None:
     importlib.util.find_spec = find_spec_without_flash_attn
 
 
+def _patch_vllm_warning_once_scope_import_for_trace() -> bool:
+    """Avoid vLLM ROCm platform import recursion in trace-only processes.
+
+    Some ROCm/vLLM builds fall back from AMDSMI to ``torch.cuda`` when probing
+    the GCN arch.  The fallback path logs via ``logger.warning_once`` with the
+    default ``scope='local'``.  During early ``vllm.platforms.rocm`` import that
+    scope check imports distributed state, which imports ``current_platform``
+    again before it has finished resolving.  For trace runs we do not need
+    rank-scoped logging, so keep the patch local to this process and let
+    warning_once log without importing distributed state.
+    """
+
+    try:
+        vllm_logger = importlib.import_module("vllm.logger")
+    except Exception:
+        return False
+
+    if getattr(vllm_logger, "_mtp_warning_once_scope_import_patched", False):
+        return True
+
+    original_should_log = getattr(vllm_logger, "_should_log_with_scope", None)
+    if not callable(original_should_log):
+        return False
+
+    def should_log_without_distributed_import(_scope: Any) -> bool:
+        return True
+
+    vllm_logger._mtp_original_should_log_with_scope = original_should_log
+    vllm_logger._should_log_with_scope = should_log_without_distributed_import
+    vllm_logger._mtp_warning_once_scope_import_patched = True
+    return True
+
+
 def _extract_text(record: dict[str, Any]) -> str:
     text = record.get("text")
     if isinstance(text, str) and text:
@@ -20662,6 +20695,9 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
     if bool(decode_workload_trace_options.get("enabled", False)):
         os.environ.setdefault("VLLM_ENABLE_V1_MULTIPROCESSING", "0")
 
+    patched_vllm_warning_once_scope_import = (
+        _patch_vllm_warning_once_scope_import_for_trace()
+    )
     from transformers import AutoTokenizer
     from vllm import LLM, SamplingParams
 
@@ -21762,6 +21798,9 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
         ),
         "runtime_patched_rocm_upstream_flash_attn_decoder_adapter": (
             patched_rocm_upstream_fa_adapter
+        ),
+        "runtime_patched_vllm_warning_once_scope_import": (
+            patched_vllm_warning_once_scope_import
         ),
         "decode_workload_trace_enabled": decode_workload_collector is not None,
         "decode_workload_trace_path": (
