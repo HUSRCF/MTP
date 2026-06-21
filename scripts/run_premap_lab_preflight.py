@@ -306,6 +306,7 @@ REQUIRED_DEFAULT_GATE_EVIDENCE_JSON_LABELS = {
     "future_wna16_typed_slot_payloadless_useful_repeat_benchmark_json",
     "wna16_side_consumer_variant_execution_128strict_runner_json",
     "payload_cache_producer_state_native_canary_json",
+    "payload_cache_shifted_issue_runtime_shadow_gate_json",
     "payload_cache_producer_state_online_nonempty_issue_canary_json",
     "payload_cache_producer_state_nonempty_issue_stub_json",
     "future_kernel_native_dispatch_consumer_online_artifact_check_32_128export_json",
@@ -2869,6 +2870,7 @@ def _validate_required_evidence_payload(
         "future_wna16_typed_slot_payloadless_useful_repeat_benchmark_json",
         "wna16_side_consumer_variant_execution_128strict_runner_json",
         "payload_cache_producer_state_native_canary_json",
+        "payload_cache_shifted_issue_runtime_shadow_gate_json",
         "payload_cache_producer_state_nonempty_issue_stub_json",
         "payload_cache_producer_state_online_nonempty_issue_canary_json",
         "future_kernel_native_arg_slot_packed_weight_mirror_canary_json",
@@ -4103,6 +4105,13 @@ def _validate_required_evidence_payload(
                 require_online_export=True,
                 require_nonempty_issue=True,
                 require_summary_first_nonempty_issue=True,
+            )
+        ]
+    if evidence_label == "payload_cache_shifted_issue_runtime_shadow_gate_json":
+        return [
+            f"{evidence_label}:{failure}"
+            for failure in _validate_payload_cache_shifted_issue_runtime_shadow_gate_evidence(
+                evidence
             )
         ]
     for (
@@ -7837,6 +7846,149 @@ def _validate_payload_cache_producer_state_native_canary_evidence(
             failures.append(
                 f"{failure_prefix}_online_packet_export_first_nonempty_issue_hash_mismatch"
             )
+    return failures
+
+
+def _validate_payload_cache_shifted_issue_runtime_shadow_gate_evidence(
+    evidence: dict[str, Any],
+) -> list[str]:
+    failures: list[str] = []
+    failure_prefix = "payload_cache_shifted_issue_runtime_shadow_gate"
+    expected_scalar_values = {
+        "artifact_kind": "premap_payload_cache_shifted_issue_runtime_shadow_gate",
+        "failures": [],
+    }
+    for key, expected_value in expected_scalar_values.items():
+        if evidence.get(key) != expected_value:
+            failures.append(f"{failure_prefix}_{key}_mismatch")
+    if evidence.get("passed") is not True:
+        failures.append(f"{failure_prefix}_passed_mismatch")
+
+    if _int_metric(evidence, "payload_bytes") != 0:
+        failures.append(f"{failure_prefix}_payload_bytes_mismatch")
+    expected_false_flags = (
+        "payload_transfer_enabled",
+        "payload_deref_allowed",
+        "ready_credit",
+        "ready_before_demand_credit",
+        "real_ready_credit_granted",
+        "kernel_arg_pass_allowed",
+        "passed_to_kernel",
+        "changes_kernel_launch_args",
+        "uses_current_wna16_args",
+        "passes_current_wna16_args",
+        "full_fetch_runtime_allowed",
+        "measures_tpot",
+        "measures_vllm_latency",
+    )
+    for key in expected_false_flags:
+        if evidence.get(key) is not False:
+            failures.append(f"{failure_prefix}_{key}_mismatch")
+
+    count_keys = (
+        "issue_lead_tokens",
+        "packet_count",
+        "schedulable_packet_count",
+        "empty_issue_exempt_count",
+        "safe_packet_count",
+        "unsafe_packet_count",
+        "invalid_packet_count",
+        "scan_error_count",
+        "clamped_issue_count",
+        "duplicate_demand_key_count",
+        "duplicate_issue_key_count",
+        "unique_demand_key_count",
+        "unique_issue_key_count",
+        "issue_hash_count",
+        "issue_hash_unique_count",
+        "total_issue_candidates",
+    )
+    counts: dict[str, int | None] = {}
+    for key in count_keys:
+        value = _int_metric(evidence, key)
+        counts[key] = value
+        if value is None:
+            failures.append(f"{failure_prefix}_{key}_missing_or_not_int")
+
+    packet_count = counts.get("packet_count")
+    schedulable_packet_count = counts.get("schedulable_packet_count")
+    empty_issue_exempt_count = counts.get("empty_issue_exempt_count")
+    safe_packet_count = counts.get("safe_packet_count")
+    unique_demand_key_count = counts.get("unique_demand_key_count")
+    unique_issue_key_count = counts.get("unique_issue_key_count")
+    issue_hash_count = counts.get("issue_hash_count")
+    issue_hash_unique_count = counts.get("issue_hash_unique_count")
+    total_issue_candidates = counts.get("total_issue_candidates")
+
+    if counts.get("issue_lead_tokens") != 1:
+        failures.append(f"{failure_prefix}_issue_lead_tokens_mismatch")
+    if packet_count is not None and packet_count < 32:
+        failures.append(f"{failure_prefix}_packet_count_too_small")
+    if schedulable_packet_count is not None and schedulable_packet_count < 28:
+        failures.append(f"{failure_prefix}_schedulable_packet_count_too_small")
+    if (
+        packet_count is not None
+        and schedulable_packet_count is not None
+        and empty_issue_exempt_count is not None
+        and schedulable_packet_count + empty_issue_exempt_count != packet_count
+    ):
+        failures.append(f"{failure_prefix}_schedulable_plus_empty_exempt_mismatch")
+    if (
+        safe_packet_count is not None
+        and packet_count is not None
+        and safe_packet_count != packet_count
+    ):
+        failures.append(f"{failure_prefix}_safe_packet_count_mismatch")
+    for key in (
+        "unsafe_packet_count",
+        "invalid_packet_count",
+        "scan_error_count",
+        "clamped_issue_count",
+        "duplicate_demand_key_count",
+        "duplicate_issue_key_count",
+    ):
+        if counts.get(key) != 0:
+            failures.append(f"{failure_prefix}_{key}_nonzero")
+    if (
+        unique_demand_key_count is not None
+        and schedulable_packet_count is not None
+        and unique_demand_key_count != schedulable_packet_count
+    ):
+        failures.append(f"{failure_prefix}_unique_demand_key_count_mismatch")
+    if (
+        unique_issue_key_count is not None
+        and schedulable_packet_count is not None
+        and unique_issue_key_count != schedulable_packet_count
+    ):
+        failures.append(f"{failure_prefix}_unique_issue_key_count_mismatch")
+    if (
+        issue_hash_count is not None
+        and schedulable_packet_count is not None
+        and issue_hash_count != schedulable_packet_count
+    ):
+        failures.append(f"{failure_prefix}_issue_hash_count_mismatch")
+    if (
+        issue_hash_unique_count is not None
+        and issue_hash_count is not None
+        and issue_hash_unique_count <= 0
+    ):
+        failures.append(f"{failure_prefix}_issue_hash_unique_count_nonpositive")
+    if (
+        issue_hash_unique_count is not None
+        and issue_hash_count is not None
+        and issue_hash_unique_count > issue_hash_count
+    ):
+        failures.append(f"{failure_prefix}_issue_hash_unique_count_too_large")
+    if (
+        total_issue_candidates is not None
+        and schedulable_packet_count is not None
+        and total_issue_candidates < schedulable_packet_count
+    ):
+        failures.append(f"{failure_prefix}_total_issue_candidates_too_small")
+
+    if not isinstance(evidence.get("performance_summary"), str):
+        failures.append(f"{failure_prefix}_performance_summary_missing")
+
     return failures
 
 

@@ -5,7 +5,75 @@
 - Version: `v1.21-payload-cache-issue-stream-executor`
 - Updated: 2026-06-20
 
-## Latest Update: Payload Cache Issue Stream Executor
+## Latest Update: Shifted Issue Runtime Shadow Lab Gate
+
+The online shifted-issue runtime shadow smoke is now promoted into the lab
+default preflight as required evidence:
+
+```text
+payload_cache_shifted_issue_runtime_shadow_gate_json
+```
+
+The required gate points at:
+
+```text
+outputs/reports/premap_kernel_consumer/premap_payload_cache_shifted_issue_runtime_shadow_gate_dolly4_awq_gpu1_smoke_v1.json
+```
+
+The validator now checks the artifact as a strict no-op runtime-shadow gate:
+
+```text
+artifact_kind = premap_payload_cache_shifted_issue_runtime_shadow_gate
+issue_lead_tokens = 1
+packet_count >= 32
+schedulable_packet_count >= 28
+safe_packet_count == packet_count
+unsafe/invalid/scan/clamped/duplicate counts = 0
+payload_bytes = 0
+ready_credit = false
+ready_before_demand_credit = false
+real_ready_credit_granted = false
+payload_transfer_enabled = false
+payload_deref_allowed = false
+kernel_arg_pass_allowed = false
+passed_to_kernel = false
+changes_kernel_launch_args = false
+uses_current_wna16_args = false
+passes_current_wna16_args = false
+measures_tpot = false
+measures_vllm_latency = false
+```
+
+Type checks are strict for this gate: boolean no-op fields must be actual JSON
+booleans, and integer counters must not be bools.
+
+Validation:
+
+```text
+/home/husrcf/anaconda3/envs/TRY/bin/python -m py_compile \
+  scripts/run_premap_lab_preflight.py tests/test_run_premap_lab_preflight.py
+
+/home/husrcf/anaconda3/envs/TRY/bin/python -m pytest \
+  tests/test_run_premap_lab_preflight.py -q
+
+206 passed
+
+/home/husrcf/anaconda3/envs/TRY/bin/python scripts/run_premap_lab_preflight.py \
+  --output-json outputs/reports/premap_kernel_consumer/lab_preflight_shifted_issue_required_gate_check_strict_types_v2.json
+
+passed = true
+required_evidence = 54 / 54
+```
+
+Next gate:
+
+```text
+continue payload/cache-manager runtime work under the stricter lab preflight,
+with shifted issue scheduling evidence required before any live payload/kernel
+handoff experiments.
+```
+
+## Previous Update: Payload Cache Issue Stream Executor
 
 The payload-cache replay path now has a stream-level executor:
 
