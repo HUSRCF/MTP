@@ -2,10 +2,64 @@
 
 ## Progress Version
 
-- Version: `v1.39-live-runtime-adapter-instantiation-canary`
+- Version: `v1.40-live-runtime-adapter-constructor-binding-preflight`
 - Updated: 2026-06-22
 
-## Latest Update: Live Runtime Adapter Instantiation Canary
+## Latest Update: Live Runtime Adapter Constructor-Binding Preflight
+
+The payload/cache lab chain now reaches a blocked constructor-binding preflight:
+
+```text
+PayloadCacheLiveRuntimeAdapterConstructorBindingPreflight
+```
+
+This preflight consumes `PayloadCacheLiveRuntimeAdapterInstantiationCanary` and
+binds the future adapter constructor inputs:
+
+```text
+constructor_inputs_bound = true
+binds_validated_state_artifact = true
+binds_queue_budget_parameters = true
+binds_shifted_issue_accounting = true
+```
+
+This is still not adapter construction.  The adapter instance and live runtime
+remain explicitly absent:
+
+```text
+adapter_instance_created = false
+live_runtime_instantiated = false
+decision = blocked
+block_reason = live_runtime_adapter_constructor_binding_preflight_only
+execution_mode = payload_cache_live_runtime_adapter_constructor_binding_preflight_disabled
+constructor_binding_schema = ready_time_payload_cache_runtime_adapter_constructor_binding_v1
+payload_bytes = 0
+ready_credit = false
+kernel_arg_pass_allowed = false
+changes_kernel_launch_args = false
+uses_current_wna16_args = false
+measures_tpot = false
+```
+
+The builder revalidates the upstream instantiation canary and requires the
+canonical
+`blocked_by_adapter_state_validation_preflight:blocked_by_adapter_state_object_preflight:blocked_by_adapter_materialization_preflight:blocked_by_object_adapter_preflight:*`
+ancestry before binding constructor inputs.  The compact lab preflight summary
+now includes
+`prefetch_lab_default_stream_queue_budget_live_runtime_adapter_constructor_binding_preflight_*`
+fields, and the final checker treats them as required gate evidence.
+
+Validation:
+
+```text
+py_compile runtime/cache_lab_gate.py and summary scripts: pass
+pytest tests/test_cache_lab_gate.py tests/test_check_premap_lab_preflight_summary.py -q: 158 passed
+pytest focused lab/preflight suite: 536 passed
+generated summary/check artifacts: pass
+Hubble static review: no blocker
+```
+
+## Previous Update: Live Runtime Adapter Instantiation Canary
 
 The payload/cache lab chain now reaches a blocked live-runtime adapter
 instantiation canary:

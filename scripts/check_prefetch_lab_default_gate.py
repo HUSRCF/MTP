@@ -36,6 +36,7 @@ from scripts.check_premap_payload_cache_ready_time_gate import (  # noqa: E402
 from mtp_expert_prefetch.runtime import (  # noqa: E402
     build_payload_cache_live_payload_runtime_disabled_canary,
     build_payload_cache_live_payload_stage_preflight,
+    build_payload_cache_live_runtime_adapter_constructor_binding_preflight,
     build_payload_cache_live_runtime_adapter_instantiation_canary,
     build_payload_cache_manager_implementation_artifact,
     build_payload_cache_manager_runtime_snapshot_artifact,
@@ -1258,6 +1259,7 @@ def _check_optional_stream_queue_budget_sweep(
     live_runtime_adapter_state_validation_preflight_payload: dict[str, Any] = {}
     live_runtime_adapter_state_validation_artifact_payload: dict[str, Any] = {}
     live_runtime_adapter_instantiation_canary_payload: dict[str, Any] = {}
+    live_runtime_adapter_constructor_binding_preflight_payload: dict[str, Any] = {}
     if len(failures) == queue_failure_base:
         try:
             envelope = build_payload_cache_queue_budget_runtime_envelope(
@@ -1378,8 +1380,21 @@ def _check_optional_stream_queue_budget_sweep(
             live_runtime_adapter_instantiation_canary_payload = (
                 live_runtime_adapter_instantiation_canary.as_dict()
             )
+            live_runtime_adapter_constructor_binding_preflight = (
+                build_payload_cache_live_runtime_adapter_constructor_binding_preflight(
+                    live_runtime_adapter_instantiation_canary,
+                )
+            )
+            live_runtime_adapter_constructor_binding_preflight_payload = (
+                live_runtime_adapter_constructor_binding_preflight.as_dict()
+            )
         except (TypeError, ValueError) as exc:
-            if live_runtime_adapter_state_validation_artifact_payload:
+            if live_runtime_adapter_instantiation_canary_payload:
+                label = (
+                    "stream_queue_budget_live_runtime_adapter_"
+                    "constructor_binding_preflight_invalid"
+                )
+            elif live_runtime_adapter_state_validation_artifact_payload:
                 label = (
                     "stream_queue_budget_live_runtime_adapter_"
                     "instantiation_canary_invalid"
@@ -2330,6 +2345,10 @@ def _check_optional_stream_queue_budget_sweep(
         **_prefixed_payload(
             "stream_queue_budget_live_runtime_adapter_instantiation_canary",
             live_runtime_adapter_instantiation_canary_payload,
+        ),
+        **_prefixed_payload(
+            "stream_queue_budget_live_runtime_adapter_constructor_binding_preflight",
+            live_runtime_adapter_constructor_binding_preflight_payload,
         ),
         "stream_queue_budget_payload_bytes": _optional_int(report, "payload_bytes"),
         "stream_queue_budget_payload_transfer_enabled": _optional_bool(

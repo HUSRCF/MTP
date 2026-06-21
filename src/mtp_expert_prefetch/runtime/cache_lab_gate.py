@@ -2944,6 +2944,211 @@ class PayloadCacheLiveRuntimeAdapterInstantiationCanary:
         return asdict(self)
 
 
+@dataclass(frozen=True)
+class PayloadCacheLiveRuntimeAdapterConstructorBindingPreflight:
+    """Blocked preflight for binding future adapter constructor inputs."""
+
+    present: bool
+    stage: str
+    status: str
+    consumes_instantiation_canary: bool
+    instantiation_canary_status: str
+    manager_backend: str
+    manager_runtime_contract: str
+    manager_runtime_mode: str
+    runtime_adapter_instantiation_schema: str
+    constructor_binding_schema: str
+    adapter_factory_declared: bool
+    adapter_constructor_resolved: bool
+    constructor_inputs_bound: bool
+    binds_validated_state_artifact: bool
+    binds_queue_budget_parameters: bool
+    binds_shifted_issue_accounting: bool
+    adapter_instance_created: bool
+    live_runtime_instantiated: bool
+    capacity_entries: int
+    issue_lead_tokens: int
+    queue_deadline_us: float
+    lookahead_us: float
+    queue_batch_size: int
+    resident_count: int
+    issued_fetch_count: int
+    used_fetch_count: int
+    unused_fetch_count: int
+    demand_count: int
+    demand_hit_count: int
+    demand_miss_count: int
+    evicted_before_use_count: int
+    ready_late_miss_count: int
+    late_completion_unused_count: int
+    queue_batch_count: int
+    queue_service_us: float
+    queue_total_span_us: float
+    queue_wait_us: float
+    queue_max_delay_us: float
+    shifted_issue_accounting_enabled: bool
+    shifted_issue_accounted_packet_count: int
+    shifted_issue_unique_issue_key_count: int
+    decision: str = "blocked"
+    block_reason: str = "live_runtime_adapter_constructor_binding_preflight_only"
+    execution_mode: str = (
+        "payload_cache_live_runtime_adapter_constructor_binding_preflight_disabled"
+    )
+    live_payload_runtime_enabled: bool = False
+    payload_transfer_runtime_enabled: bool = False
+    payload_deref_allowed: bool = False
+    payload_deref_runtime_allowed: bool = False
+    issued_payload_count: int = 0
+    payload_bytes: int = 0
+    ready_credit: bool = False
+    ready_before_demand_credit: bool = False
+    real_ready_credit_granted: bool = False
+    kernel_arg_pass_allowed: bool = False
+    passed_to_kernel: bool = False
+    changes_kernel_launch_args: bool = False
+    full_fetch_runtime_allowed: bool = False
+    uses_current_wna16_args: bool = False
+    passes_current_wna16_args: bool = False
+    measures_tpot: bool = False
+    measures_vllm_latency: bool = False
+
+    def __post_init__(self) -> None:
+        if self.present is not True:
+            raise ValueError("adapter constructor-binding preflight must be present")
+        if self.stage != "payload_cache_live_runtime_adapter_constructor_binding_preflight":
+            raise ValueError("adapter constructor-binding preflight stage mismatch")
+        if self.consumes_instantiation_canary is not True:
+            raise ValueError("constructor-binding preflight must consume canary")
+        if (
+            not isinstance(self.instantiation_canary_status, str)
+            or not self.instantiation_canary_status
+        ):
+            raise TypeError("instantiation_canary_status must be nonempty")
+        expected_status = (
+            "blocked_by_instantiation_canary:"
+            f"{self.instantiation_canary_status}"
+        )
+        if self.status != expected_status:
+            raise ValueError("adapter constructor-binding preflight status mismatch")
+        if self.manager_backend != "ReadyTimeExpertCacheManager":
+            raise ValueError("adapter constructor-binding backend mismatch")
+        if self.manager_runtime_contract != "ready_time_issue_demand_skeleton_v1":
+            raise ValueError("adapter constructor-binding contract mismatch")
+        if self.manager_runtime_mode != "ready_time_payload_cache_skeleton":
+            raise ValueError("adapter constructor-binding mode mismatch")
+        if (
+            self.runtime_adapter_instantiation_schema
+            != "ready_time_payload_cache_runtime_adapter_instantiation_v1"
+        ):
+            raise ValueError("runtime_adapter_instantiation_schema mismatch")
+        if (
+            self.constructor_binding_schema
+            != "ready_time_payload_cache_runtime_adapter_constructor_binding_v1"
+        ):
+            raise ValueError("constructor_binding_schema mismatch")
+        for field_name in (
+            "adapter_factory_declared",
+            "adapter_constructor_resolved",
+            "constructor_inputs_bound",
+            "binds_validated_state_artifact",
+            "binds_queue_budget_parameters",
+            "binds_shifted_issue_accounting",
+        ):
+            if getattr(self, field_name) is not True:
+                raise ValueError(f"{field_name} must be true")
+        if self.adapter_instance_created is not False:
+            raise ValueError("adapter instance must not be created")
+        if self.live_runtime_instantiated is not False:
+            raise ValueError("live runtime must not be instantiated")
+        if self.decision != "blocked":
+            raise ValueError("adapter constructor-binding decision must stay blocked")
+        if self.block_reason != "live_runtime_adapter_constructor_binding_preflight_only":
+            raise ValueError("adapter constructor-binding block reason mismatch")
+        if (
+            self.execution_mode
+            != "payload_cache_live_runtime_adapter_constructor_binding_preflight_disabled"
+        ):
+            raise ValueError("adapter constructor-binding execution mode mismatch")
+        for field_name in (
+            "capacity_entries",
+            "issue_lead_tokens",
+            "queue_batch_size",
+            "shifted_issue_accounted_packet_count",
+            "shifted_issue_unique_issue_key_count",
+        ):
+            value = getattr(self, field_name)
+            if not isinstance(value, int) or isinstance(value, bool):
+                raise TypeError(f"{field_name} must be an integer")
+            if value <= 0:
+                raise ValueError(f"{field_name} must be positive")
+        for field_name in (
+            "resident_count",
+            "issued_fetch_count",
+            "used_fetch_count",
+            "unused_fetch_count",
+            "demand_count",
+            "demand_hit_count",
+            "demand_miss_count",
+            "evicted_before_use_count",
+            "ready_late_miss_count",
+            "late_completion_unused_count",
+            "queue_batch_count",
+        ):
+            value = getattr(self, field_name)
+            if not isinstance(value, int) or isinstance(value, bool):
+                raise TypeError(f"{field_name} must be an integer")
+            if value != 0:
+                raise ValueError(f"{field_name} must remain zero")
+        for field_name in (
+            "queue_deadline_us",
+            "lookahead_us",
+            "queue_service_us",
+            "queue_total_span_us",
+            "queue_wait_us",
+            "queue_max_delay_us",
+        ):
+            value = getattr(self, field_name)
+            if not isinstance(value, (int, float)) or isinstance(value, bool):
+                raise TypeError(f"{field_name} must be numeric")
+            numeric = float(value)
+            if not math.isfinite(numeric):
+                raise ValueError(f"{field_name} must be finite")
+            if field_name in ("queue_deadline_us", "lookahead_us") and numeric <= 0.0:
+                raise ValueError(f"{field_name} must be positive")
+            if field_name not in ("queue_deadline_us", "lookahead_us") and numeric != 0.0:
+                raise ValueError(f"{field_name} must remain zero")
+        if self.shifted_issue_accounting_enabled is not True:
+            raise ValueError("shifted issue accounting must be enabled")
+        for field_name in ("issued_payload_count", "payload_bytes"):
+            value = getattr(self, field_name)
+            if not isinstance(value, int) or isinstance(value, bool):
+                raise TypeError(f"{field_name} must be an integer")
+            if value != 0:
+                raise ValueError(f"{field_name} must remain zero")
+        for field_name in (
+            "live_payload_runtime_enabled",
+            "payload_transfer_runtime_enabled",
+            "payload_deref_allowed",
+            "payload_deref_runtime_allowed",
+            "ready_credit",
+            "ready_before_demand_credit",
+            "real_ready_credit_granted",
+            "kernel_arg_pass_allowed",
+            "passed_to_kernel",
+            "changes_kernel_launch_args",
+            "full_fetch_runtime_allowed",
+            "uses_current_wna16_args",
+            "passes_current_wna16_args",
+            "measures_tpot",
+            "measures_vllm_latency",
+        ):
+            if getattr(self, field_name) is not False:
+                raise ValueError(f"{field_name} must remain disabled")
+
+    def as_dict(self) -> dict[str, bool | float | int | str]:
+        return asdict(self)
+
+
 def select_cache_lab_prefetch_gate(
     signals: CacheLabRuntimeSignals,
     *,
@@ -4795,6 +5000,159 @@ def build_payload_cache_live_runtime_adapter_instantiation_canary(
         ),
         shifted_issue_unique_issue_key_count=int(
             artifact.shifted_issue_unique_issue_key_count,
+        ),
+    )
+
+
+def build_payload_cache_live_runtime_adapter_constructor_binding_preflight(
+    canary: PayloadCacheLiveRuntimeAdapterInstantiationCanary,
+) -> PayloadCacheLiveRuntimeAdapterConstructorBindingPreflight:
+    """Bind future adapter constructor inputs without creating an instance."""
+
+    if not isinstance(canary, PayloadCacheLiveRuntimeAdapterInstantiationCanary):
+        raise TypeError(
+            "canary must be a PayloadCacheLiveRuntimeAdapterInstantiationCanary",
+        )
+    if canary.present is not True:
+        raise ValueError("adapter instantiation canary must be present")
+    if canary.stage != "payload_cache_live_runtime_adapter_instantiation_canary":
+        raise ValueError("adapter instantiation canary stage mismatch")
+    if canary.consumes_state_validation_artifact is not True:
+        raise ValueError("adapter instantiation canary must consume artifact")
+    if (
+        not isinstance(canary.state_validation_artifact_status, str)
+        or not canary.state_validation_artifact_status
+    ):
+        raise TypeError("adapter instantiation canary artifact status invalid")
+    if not canary.state_validation_artifact_status.startswith(
+        "blocked_by_adapter_state_validation_preflight:"
+        "blocked_by_adapter_state_object_preflight:"
+        "blocked_by_adapter_materialization_preflight:"
+        "blocked_by_object_adapter_preflight:",
+    ):
+        raise ValueError("adapter instantiation canary artifact status chain mismatch")
+    expected_canary_status = (
+        "blocked_by_state_validation_artifact:"
+        f"{canary.state_validation_artifact_status}"
+    )
+    if canary.status != expected_canary_status:
+        raise ValueError("adapter instantiation canary status mismatch")
+    if canary.decision != "blocked":
+        raise ValueError("adapter instantiation canary must stay blocked")
+    if canary.block_reason != "live_runtime_adapter_instantiation_canary_only":
+        raise ValueError("adapter instantiation canary block reason mismatch")
+    if (
+        canary.execution_mode
+        != "payload_cache_live_runtime_adapter_instantiation_canary_disabled"
+    ):
+        raise ValueError("adapter instantiation canary execution mode mismatch")
+    for field_name in (
+        "adapter_factory_declared",
+        "adapter_constructor_resolved",
+    ):
+        if getattr(canary, field_name) is not True:
+            raise ValueError(f"adapter instantiation canary {field_name} invalid")
+    if canary.adapter_instance_created is not False:
+        raise ValueError("adapter instantiation canary must not create instance")
+    if canary.live_runtime_instantiated is not False:
+        raise ValueError("adapter instantiation canary must not instantiate runtime")
+    for field_name in (
+        "resident_count",
+        "issued_fetch_count",
+        "used_fetch_count",
+        "unused_fetch_count",
+        "demand_count",
+        "demand_hit_count",
+        "demand_miss_count",
+        "evicted_before_use_count",
+        "ready_late_miss_count",
+        "late_completion_unused_count",
+        "queue_batch_count",
+    ):
+        if getattr(canary, field_name) != 0:
+            raise ValueError(f"adapter instantiation canary {field_name} must be zero")
+    for field_name in (
+        "queue_service_us",
+        "queue_total_span_us",
+        "queue_wait_us",
+        "queue_max_delay_us",
+    ):
+        if float(getattr(canary, field_name)) != 0.0:
+            raise ValueError(f"adapter instantiation canary {field_name} must be zero")
+    for field_name in (
+        "live_payload_runtime_enabled",
+        "payload_transfer_runtime_enabled",
+        "payload_deref_allowed",
+        "payload_deref_runtime_allowed",
+        "ready_credit",
+        "ready_before_demand_credit",
+        "real_ready_credit_granted",
+        "kernel_arg_pass_allowed",
+        "passed_to_kernel",
+        "changes_kernel_launch_args",
+        "full_fetch_runtime_allowed",
+        "uses_current_wna16_args",
+        "passes_current_wna16_args",
+        "measures_tpot",
+        "measures_vllm_latency",
+    ):
+        if getattr(canary, field_name) is not False:
+            raise ValueError(f"adapter instantiation canary {field_name} enabled")
+    for field_name in ("issued_payload_count", "payload_bytes"):
+        if getattr(canary, field_name) != 0:
+            raise ValueError(f"adapter instantiation canary {field_name} must be zero")
+
+    return PayloadCacheLiveRuntimeAdapterConstructorBindingPreflight(
+        present=True,
+        stage="payload_cache_live_runtime_adapter_constructor_binding_preflight",
+        status=f"blocked_by_instantiation_canary:{canary.status}",
+        consumes_instantiation_canary=True,
+        instantiation_canary_status=str(canary.status),
+        manager_backend=str(canary.manager_backend),
+        manager_runtime_contract=str(canary.manager_runtime_contract),
+        manager_runtime_mode=str(canary.manager_runtime_mode),
+        runtime_adapter_instantiation_schema=str(
+            canary.runtime_adapter_instantiation_schema,
+        ),
+        constructor_binding_schema=(
+            "ready_time_payload_cache_runtime_adapter_constructor_binding_v1"
+        ),
+        adapter_factory_declared=bool(canary.adapter_factory_declared),
+        adapter_constructor_resolved=bool(canary.adapter_constructor_resolved),
+        constructor_inputs_bound=True,
+        binds_validated_state_artifact=True,
+        binds_queue_budget_parameters=True,
+        binds_shifted_issue_accounting=True,
+        adapter_instance_created=False,
+        live_runtime_instantiated=False,
+        capacity_entries=int(canary.capacity_entries),
+        issue_lead_tokens=int(canary.issue_lead_tokens),
+        queue_deadline_us=float(canary.queue_deadline_us),
+        lookahead_us=float(canary.lookahead_us),
+        queue_batch_size=int(canary.queue_batch_size),
+        resident_count=int(canary.resident_count),
+        issued_fetch_count=int(canary.issued_fetch_count),
+        used_fetch_count=int(canary.used_fetch_count),
+        unused_fetch_count=int(canary.unused_fetch_count),
+        demand_count=int(canary.demand_count),
+        demand_hit_count=int(canary.demand_hit_count),
+        demand_miss_count=int(canary.demand_miss_count),
+        evicted_before_use_count=int(canary.evicted_before_use_count),
+        ready_late_miss_count=int(canary.ready_late_miss_count),
+        late_completion_unused_count=int(canary.late_completion_unused_count),
+        queue_batch_count=int(canary.queue_batch_count),
+        queue_service_us=float(canary.queue_service_us),
+        queue_total_span_us=float(canary.queue_total_span_us),
+        queue_wait_us=float(canary.queue_wait_us),
+        queue_max_delay_us=float(canary.queue_max_delay_us),
+        shifted_issue_accounting_enabled=bool(
+            canary.shifted_issue_accounting_enabled,
+        ),
+        shifted_issue_accounted_packet_count=int(
+            canary.shifted_issue_accounted_packet_count,
+        ),
+        shifted_issue_unique_issue_key_count=int(
+            canary.shifted_issue_unique_issue_key_count,
         ),
     )
 
