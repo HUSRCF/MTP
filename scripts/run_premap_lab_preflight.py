@@ -12221,6 +12221,60 @@ def run_premap_lab_preflight(
                 "stream_descriptor_prep_runtime_preferred",
             )
         ),
+        "prefetch_lab_default_stream_required_shifted_issue_accounting_enabled": (
+            _bool_metric(
+                prefetch_lab_default_full_fetch,
+                "stream_required_shifted_issue_accounting_enabled",
+            )
+        ),
+        "prefetch_lab_default_stream_required_shifted_issue_lead_tokens": (
+            _int_metric(
+                prefetch_lab_default_full_fetch,
+                "stream_required_shifted_issue_lead_tokens",
+            )
+        ),
+        "prefetch_lab_default_stream_required_shifted_issue_clamped_issue_count": (
+            _int_metric(
+                prefetch_lab_default_full_fetch,
+                "stream_required_shifted_issue_clamped_issue_count",
+            )
+        ),
+        "prefetch_lab_default_stream_required_shifted_issue_duplicate_issue_key_count": (
+            _int_metric(
+                prefetch_lab_default_full_fetch,
+                "stream_required_shifted_issue_duplicate_issue_key_count",
+            )
+        ),
+        "prefetch_lab_default_stream_required_shifted_issue_unique_issue_key_count": (
+            _int_metric(
+                prefetch_lab_default_full_fetch,
+                "stream_required_shifted_issue_unique_issue_key_count",
+            )
+        ),
+        "prefetch_lab_default_stream_required_shifted_issue_accounted_packet_count": (
+            _int_metric(
+                prefetch_lab_default_full_fetch,
+                "stream_required_shifted_issue_accounted_packet_count",
+            )
+        ),
+        "prefetch_lab_default_stream_required_shifted_issue_invalid_export_count": (
+            _int_metric(
+                prefetch_lab_default_full_fetch,
+                "stream_required_shifted_issue_invalid_export_count",
+            )
+        ),
+        "prefetch_lab_default_stream_required_shifted_issue_row_shift_mismatch_count": (
+            _int_metric(
+                prefetch_lab_default_full_fetch,
+                "stream_required_shifted_issue_row_shift_mismatch_count",
+            )
+        ),
+        "prefetch_lab_default_stream_required_shifted_issue_row_clamp_mismatch_count": (
+            _int_metric(
+                prefetch_lab_default_full_fetch,
+                "stream_required_shifted_issue_row_clamp_mismatch_count",
+            )
+        ),
         "prefetch_lab_default_stream_feasibility_present": _bool_metric(
             prefetch_lab_default_full_fetch,
             "stream_feasibility_present",

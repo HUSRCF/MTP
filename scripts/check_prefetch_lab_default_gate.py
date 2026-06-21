@@ -247,6 +247,11 @@ def _check_optional_stream_decision_gate(
         if isinstance(required_shifted_issue, dict)
         else {}
     )
+    _check_required_shifted_issue_accounting(
+        required_shifted_issue,
+        failures,
+        label="stream_decision_gate_required_shifted_issue",
+    )
     return {
         "stream_decision_gate_present": True,
         "stream_decision_gate_report": str(path),
@@ -324,6 +329,32 @@ def _check_optional_stream_decision_gate(
             "shifted_issue_row_clamp_mismatch_count",
         ),
     }
+
+
+def _check_required_shifted_issue_accounting(
+    payload: dict[str, Any],
+    failures: list[str],
+    *,
+    label: str,
+) -> None:
+    if not payload:
+        failures.append(f"{label}_missing")
+        return
+    if _optional_bool(payload, "shifted_issue_accounting_enabled") is not True:
+        failures.append(f"{label}_enabled_mismatch")
+    expected_counts = {
+        "shifted_issue_lead_tokens": 32,
+        "shifted_issue_clamped_issue_count": 12,
+        "shifted_issue_duplicate_issue_key_count": 12,
+        "shifted_issue_unique_issue_key_count": 16,
+        "shifted_issue_accounted_packet_count": 28,
+        "shifted_issue_invalid_export_count": 0,
+        "shifted_issue_row_shift_mismatch_count": 0,
+        "shifted_issue_row_clamp_mismatch_count": 0,
+    }
+    for key, expected in expected_counts.items():
+        if _optional_int(payload, key) != expected:
+            failures.append(f"{label}_{key}_mismatch")
 
 
 def _check_optional_stream_feasibility(

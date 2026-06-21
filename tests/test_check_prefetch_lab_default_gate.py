@@ -455,6 +455,81 @@ def test_prefetch_lab_default_gate_accepts_stream_full_fetch_block_evidence(
     assert full_fetch["stream_required_shifted_issue_row_clamp_mismatch_count"] == 0
 
 
+def test_prefetch_lab_default_gate_rejects_missing_required_shifted_issue(
+    tmp_path: Path,
+):
+    config = _write_fixture(tmp_path)
+    payload = yaml.safe_load(config.read_text(encoding="utf-8"))
+    stream_decision = tmp_path / "stream_decision.json"
+    stream_decision.write_text(
+        json.dumps(
+            {
+                "artifact_kind": "premap_payload_cache_stream_full_fetch_decision_gate",
+                "passed": True,
+                "decision": "block_full_fetch_insufficient_stream_lookahead",
+                "full_fetch_runtime_allowed": False,
+                **_FULL_FETCH_DECISION_NOOP_FIELDS,
+            }
+        ),
+        encoding="utf-8",
+    )
+    payload["full_fetch"]["stream_decision_gate_report"] = str(stream_decision)
+    config.write_text(yaml.safe_dump(payload), encoding="utf-8")
+
+    result = check_prefetch_lab_default_gate(config, root=tmp_path)
+
+    assert result["passed"] is False
+    assert (
+        "full_fetch:stream_decision_gate_required_shifted_issue_missing"
+        in result["failures"]
+    )
+
+
+def test_prefetch_lab_default_gate_rejects_wrong_required_shifted_issue(
+    tmp_path: Path,
+):
+    config = _write_fixture(tmp_path)
+    payload = yaml.safe_load(config.read_text(encoding="utf-8"))
+    stream_decision = tmp_path / "stream_decision.json"
+    stream_decision.write_text(
+        json.dumps(
+            {
+                "artifact_kind": "premap_payload_cache_stream_full_fetch_decision_gate",
+                "passed": True,
+                "decision": "block_full_fetch_insufficient_stream_lookahead",
+                "full_fetch_runtime_allowed": False,
+                "required_shifted_issue_accounting": {
+                    "shifted_issue_accounting_enabled": True,
+                    "shifted_issue_lead_tokens": 16,
+                    "shifted_issue_clamped_issue_count": 12,
+                    "shifted_issue_duplicate_issue_key_count": 12,
+                    "shifted_issue_unique_issue_key_count": 16,
+                    "shifted_issue_accounted_packet_count": 28,
+                    "shifted_issue_invalid_export_count": 1,
+                    "shifted_issue_row_shift_mismatch_count": 0,
+                    "shifted_issue_row_clamp_mismatch_count": 0,
+                },
+                **_FULL_FETCH_DECISION_NOOP_FIELDS,
+            }
+        ),
+        encoding="utf-8",
+    )
+    payload["full_fetch"]["stream_decision_gate_report"] = str(stream_decision)
+    config.write_text(yaml.safe_dump(payload), encoding="utf-8")
+
+    result = check_prefetch_lab_default_gate(config, root=tmp_path)
+
+    assert result["passed"] is False
+    assert (
+        "full_fetch:stream_decision_gate_required_shifted_issue_shifted_issue_lead_tokens_mismatch"
+        in result["failures"]
+    )
+    assert (
+        "full_fetch:stream_decision_gate_required_shifted_issue_shifted_issue_invalid_export_count_mismatch"
+        in result["failures"]
+    )
+
+
 def test_prefetch_lab_default_gate_rejects_unsafe_stream_evidence(tmp_path: Path):
     config = _write_fixture(tmp_path)
     payload = yaml.safe_load(config.read_text(encoding="utf-8"))

@@ -1300,6 +1300,41 @@ def _check_stream_full_fetch_block(
         summary,
         f"{prefix}_first_model_passing_lead_tokens",
     )
+    required_shifted_issue_enabled = summary.get(
+        f"{prefix}_required_shifted_issue_accounting_enabled"
+    )
+    required_shifted_issue_lead = _int_metric(
+        summary,
+        f"{prefix}_required_shifted_issue_lead_tokens",
+    )
+    required_shifted_issue_clamped = _int_metric(
+        summary,
+        f"{prefix}_required_shifted_issue_clamped_issue_count",
+    )
+    required_shifted_issue_duplicate = _int_metric(
+        summary,
+        f"{prefix}_required_shifted_issue_duplicate_issue_key_count",
+    )
+    required_shifted_issue_unique = _int_metric(
+        summary,
+        f"{prefix}_required_shifted_issue_unique_issue_key_count",
+    )
+    required_shifted_issue_accounted = _int_metric(
+        summary,
+        f"{prefix}_required_shifted_issue_accounted_packet_count",
+    )
+    required_shifted_issue_invalid_export = _int_metric(
+        summary,
+        f"{prefix}_required_shifted_issue_invalid_export_count",
+    )
+    required_shifted_issue_row_shift_mismatch = _int_metric(
+        summary,
+        f"{prefix}_required_shifted_issue_row_shift_mismatch_count",
+    )
+    required_shifted_issue_row_clamp_mismatch = _int_metric(
+        summary,
+        f"{prefix}_required_shifted_issue_row_clamp_mismatch_count",
+    )
 
     for key, value in (
         ("current_lookahead_us", current_lookahead),
@@ -1364,6 +1399,37 @@ def _check_stream_full_fetch_block(
         and first_passing_lead > max_candidate_lead
     ):
         failures.append(f"{prefix}_first_passing_lead_above_candidate")
+    if required_shifted_issue_enabled is not True:
+        failures.append(f"{prefix}_required_shifted_issue_accounting_enabled_mismatch")
+    expected_required_shifted_counts = {
+        "lead_tokens": 32,
+        "clamped_issue_count": 12,
+        "duplicate_issue_key_count": 12,
+        "unique_issue_key_count": 16,
+        "accounted_packet_count": 28,
+        "invalid_export_count": 0,
+        "row_shift_mismatch_count": 0,
+        "row_clamp_mismatch_count": 0,
+    }
+    observed_required_shifted_counts = {
+        "lead_tokens": required_shifted_issue_lead,
+        "clamped_issue_count": required_shifted_issue_clamped,
+        "duplicate_issue_key_count": required_shifted_issue_duplicate,
+        "unique_issue_key_count": required_shifted_issue_unique,
+        "accounted_packet_count": required_shifted_issue_accounted,
+        "invalid_export_count": required_shifted_issue_invalid_export,
+        "row_shift_mismatch_count": required_shifted_issue_row_shift_mismatch,
+        "row_clamp_mismatch_count": required_shifted_issue_row_clamp_mismatch,
+    }
+    for key, expected in expected_required_shifted_counts.items():
+        if observed_required_shifted_counts[key] != expected:
+            failures.append(f"{prefix}_required_shifted_issue_{key}_mismatch")
+    if (
+        first_passing_lead is not None
+        and required_shifted_issue_lead is not None
+        and first_passing_lead != required_shifted_issue_lead
+    ):
+        failures.append(f"{prefix}_required_shifted_issue_lead_mismatch")
 
 
 def _check_stream_shifted_issue_replay_contract(

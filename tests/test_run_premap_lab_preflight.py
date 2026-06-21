@@ -4630,6 +4630,17 @@ def _write_prefetch_lab_default_gate(root: Path) -> str:
                 "required_stream_lookahead_us": 2400000.0,
                 "lookahead_deficit_us": 2400000.0,
                 "first_model_passing_lookahead_us": 2400000.0,
+                "required_shifted_issue_accounting": {
+                    "shifted_issue_accounting_enabled": True,
+                    "shifted_issue_lead_tokens": 32,
+                    "shifted_issue_clamped_issue_count": 12,
+                    "shifted_issue_duplicate_issue_key_count": 12,
+                    "shifted_issue_unique_issue_key_count": 16,
+                    "shifted_issue_accounted_packet_count": 28,
+                    "shifted_issue_invalid_export_count": 0,
+                    "shifted_issue_row_shift_mismatch_count": 0,
+                    "shifted_issue_row_clamp_mismatch_count": 0,
+                },
                 "metadata_premap_runtime_preferred": True,
                 "descriptor_prep_runtime_preferred": True,
                 **no_op_fields,
@@ -6471,6 +6482,47 @@ def test_premap_lab_preflight_accepts_default_readonly_wiring(tmp_path: Path):
     assert summary["prefetch_lab_default_stream_current_lookahead_us"] == 0.0
     assert summary["prefetch_lab_default_stream_required_lookahead_us"] == 2400000.0
     assert summary["prefetch_lab_default_stream_lookahead_deficit_us"] == 2400000.0
+    assert (
+        summary["prefetch_lab_default_stream_required_shifted_issue_accounting_enabled"]
+        is True
+    )
+    assert summary["prefetch_lab_default_stream_required_shifted_issue_lead_tokens"] == 32
+    assert (
+        summary["prefetch_lab_default_stream_required_shifted_issue_clamped_issue_count"]
+        == 12
+    )
+    assert (
+        summary[
+            "prefetch_lab_default_stream_required_shifted_issue_duplicate_issue_key_count"
+        ]
+        == 12
+    )
+    assert (
+        summary["prefetch_lab_default_stream_required_shifted_issue_unique_issue_key_count"]
+        == 16
+    )
+    assert (
+        summary[
+            "prefetch_lab_default_stream_required_shifted_issue_accounted_packet_count"
+        ]
+        == 28
+    )
+    assert (
+        summary["prefetch_lab_default_stream_required_shifted_issue_invalid_export_count"]
+        == 0
+    )
+    assert (
+        summary[
+            "prefetch_lab_default_stream_required_shifted_issue_row_shift_mismatch_count"
+        ]
+        == 0
+    )
+    assert (
+        summary[
+            "prefetch_lab_default_stream_required_shifted_issue_row_clamp_mismatch_count"
+        ]
+        == 0
+    )
     assert summary["prefetch_lab_default_stream_feasibility_passed"] is True
     assert summary["prefetch_lab_default_stream_current_runtime_satisfies_model"] is False
     assert summary["prefetch_lab_default_stream_max_required_lead_tokens"] == 48

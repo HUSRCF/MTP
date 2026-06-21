@@ -982,6 +982,15 @@ def _summary() -> dict[str, object]:
         "prefetch_lab_default_stream_first_model_passing_lookahead_us": 2400000.0,
         "prefetch_lab_default_stream_metadata_premap_runtime_preferred": True,
         "prefetch_lab_default_stream_descriptor_prep_runtime_preferred": True,
+        "prefetch_lab_default_stream_required_shifted_issue_accounting_enabled": True,
+        "prefetch_lab_default_stream_required_shifted_issue_lead_tokens": 32,
+        "prefetch_lab_default_stream_required_shifted_issue_clamped_issue_count": 12,
+        "prefetch_lab_default_stream_required_shifted_issue_duplicate_issue_key_count": 12,
+        "prefetch_lab_default_stream_required_shifted_issue_unique_issue_key_count": 16,
+        "prefetch_lab_default_stream_required_shifted_issue_accounted_packet_count": 28,
+        "prefetch_lab_default_stream_required_shifted_issue_invalid_export_count": 0,
+        "prefetch_lab_default_stream_required_shifted_issue_row_shift_mismatch_count": 0,
+        "prefetch_lab_default_stream_required_shifted_issue_row_clamp_mismatch_count": 0,
         "prefetch_lab_default_stream_feasibility_present": True,
         "prefetch_lab_default_stream_feasibility_passed": True,
         "prefetch_lab_default_stream_current_runtime_satisfies_model": False,
@@ -2163,6 +2172,35 @@ def test_check_premap_lab_preflight_summary_rejects_stream_wrong_timing_mode() -
     assert result["passed"] is False
     assert (
         "prefetch_lab_default_stream_lead_token_sweep_event_timing_mode_mismatch"
+        in result["failures"]
+    )
+
+
+def test_check_premap_lab_preflight_summary_rejects_stream_required_shifted_issue_gap() -> None:
+    summary = _summary()
+    summary["prefetch_lab_default_stream_required_shifted_issue_lead_tokens"] = 16
+    summary["prefetch_lab_default_stream_required_shifted_issue_invalid_export_count"] = 1
+    summary[
+        "prefetch_lab_default_stream_required_shifted_issue_row_shift_mismatch_count"
+    ] = 1
+
+    result = check_premap_lab_preflight_summary(summary)
+
+    assert result["passed"] is False
+    assert (
+        "prefetch_lab_default_stream_required_shifted_issue_lead_tokens_mismatch"
+        in result["failures"]
+    )
+    assert (
+        "prefetch_lab_default_stream_required_shifted_issue_invalid_export_count_mismatch"
+        in result["failures"]
+    )
+    assert (
+        "prefetch_lab_default_stream_required_shifted_issue_row_shift_mismatch_count_mismatch"
+        in result["failures"]
+    )
+    assert (
+        "prefetch_lab_default_stream_required_shifted_issue_lead_mismatch"
         in result["failures"]
     )
 
