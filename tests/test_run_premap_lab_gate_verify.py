@@ -304,6 +304,7 @@ def test_run_premap_lab_gate_verify_dry_run_records_all_steps(tmp_path: Path):
         "scripts/check_premap_online_merged_native_arg_slot_all_field_window_sweep.py"
         in all_field_check_cmd
     )
+    assert "--expected-window-size" in all_field_check_cmd
     assert "--require-child-program-view-ptr-abi" in all_field_check_cmd
     assert "--require-child-kernel-arg-packet-abi" in all_field_check_cmd
     assert "--require-child-kernel-entry-args-abi" in all_field_check_cmd
@@ -317,6 +318,65 @@ def test_run_premap_lab_gate_verify_dry_run_records_all_steps(tmp_path: Path):
     assert "1024" in wna16_side_cmd
     assert "--block-threads" in wna16_side_cmd
     assert "256" in wna16_side_cmd
+
+
+def test_run_premap_lab_gate_verify_reuse_native_artifacts_records_skips(
+    tmp_path: Path,
+):
+    args = _build_parser().parse_args(
+        [
+            "--dry-run",
+            "--reuse-native-artifacts",
+            "--closure-json",
+            str(tmp_path / "closure.json"),
+            "--closure-check-json",
+            str(tmp_path / "closure.check.json"),
+            "--tail-closure-json",
+            str(tmp_path / "tail.json"),
+            "--tail-closure-check-json",
+            str(tmp_path / "tail.check.json"),
+            "--window-sweep-json",
+            str(tmp_path / "window_sweep.json"),
+            "--window-sweep-check-json",
+            str(tmp_path / "window_sweep.check.json"),
+            "--all-field-window-sweep-json",
+            str(tmp_path / "all_field_window_sweep.json"),
+            "--all-field-window-sweep-check-json",
+            str(tmp_path / "all_field_window_sweep.check.json"),
+            "--wna16-side-variant-json",
+            str(tmp_path / "wna16_side_variant.json"),
+            "--wna16-side-variant-stub-json",
+            str(tmp_path / "wna16_side_variant.stub.json"),
+            "--wna16-side-variant-merged-json",
+            str(tmp_path / "wna16_side_variant.merged.json"),
+        ]
+    )
+
+    result = run_verify(args)
+
+    assert result["passed"] is True
+    assert result["reuse_native_artifacts"] is True
+    for step_name in (
+        "default_closure",
+        "tail_window_closure",
+        "window_sweep",
+        "all_field_window_sweep",
+        "wna16_side_consumer_variant",
+    ):
+        step = result["steps"][step_name]
+        assert step["cmd"] == []
+        assert step["skipped"] is True
+        assert step["reuse_existing_artifact"] is True
+        assert step["reason"] == "reuse_native_artifacts"
+        assert step["returncode"] == 0
+    for step_name in (
+        "default_closure_check",
+        "tail_window_closure_check",
+        "window_sweep_check",
+        "all_field_window_sweep_check",
+    ):
+        assert result["steps"][step_name]["cmd"] != []
+        assert result["steps"][step_name].get("skipped") is not True
 
 
 def test_status_failures_reject_wna16_side_variant_without_execution_gate():

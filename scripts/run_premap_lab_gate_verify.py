@@ -255,6 +255,18 @@ def _run_step(cmd: list[str], *, dry_run: bool) -> dict[str, Any]:
     return result
 
 
+def _reuse_step(path: Path, *, reason: str, dry_run: bool) -> dict[str, Any]:
+    return {
+        "cmd": [],
+        "dry_run": bool(dry_run),
+        "output_json": str(path),
+        "reason": reason,
+        "reuse_existing_artifact": True,
+        "returncode": 0,
+        "skipped": True,
+    }
+
+
 def _optional_device_args(args: argparse.Namespace) -> list[str]:
     device_args: list[str] = []
     if args.device is not None:
@@ -690,16 +702,24 @@ def run_verify(args: argparse.Namespace) -> dict[str, Any]:
         default_closure_args.append("--skip-arg-slot-runner")
 
     steps = {
-        "default_closure": _run_step(
-            [
-                sys.executable,
-                "scripts/run_premap_lab_gate_closure.py",
-                "--output-json",
-                str(closure_json),
-                *default_closure_args,
-                *device_args,
-            ],
-            dry_run=bool(args.dry_run),
+        "default_closure": (
+            _reuse_step(
+                closure_json,
+                reason="reuse_native_artifacts",
+                dry_run=bool(args.dry_run),
+            )
+            if args.reuse_native_artifacts
+            else _run_step(
+                [
+                    sys.executable,
+                    "scripts/run_premap_lab_gate_closure.py",
+                    "--output-json",
+                    str(closure_json),
+                    *default_closure_args,
+                    *device_args,
+                ],
+                dry_run=bool(args.dry_run),
+            )
         ),
         "default_closure_check": _run_step(
             [
@@ -711,18 +731,26 @@ def run_verify(args: argparse.Namespace) -> dict[str, Any]:
             ],
             dry_run=bool(args.dry_run),
         ),
-        "tail_window_closure": _run_step(
-            [
-                sys.executable,
-                "scripts/run_premap_lab_gate_closure.py",
-                "--run-tail-window-probe",
-                "--tail-window-size",
-                str(int(args.tail_window_size)),
-                "--output-json",
-                str(tail_closure_json),
-                *device_args,
-            ],
-            dry_run=bool(args.dry_run),
+        "tail_window_closure": (
+            _reuse_step(
+                tail_closure_json,
+                reason="reuse_native_artifacts",
+                dry_run=bool(args.dry_run),
+            )
+            if args.reuse_native_artifacts
+            else _run_step(
+                [
+                    sys.executable,
+                    "scripts/run_premap_lab_gate_closure.py",
+                    "--run-tail-window-probe",
+                    "--tail-window-size",
+                    str(int(args.tail_window_size)),
+                    "--output-json",
+                    str(tail_closure_json),
+                    *device_args,
+                ],
+                dry_run=bool(args.dry_run),
+            )
         ),
         "tail_window_closure_check": _run_step(
             [
@@ -737,20 +765,28 @@ def run_verify(args: argparse.Namespace) -> dict[str, Any]:
             ],
             dry_run=bool(args.dry_run),
         ),
-        "window_sweep": _run_step(
-            [
-                sys.executable,
-                "scripts/run_premap_online_merged_native_arg_slot_window_sweep.py",
-                "--window-size",
-                "512",
-                "--require-program-view-ptr-abi",
-                "--require-launch-envelope-args-ptr-abi",
-                "--require-kernel-launch-descriptor-abi",
-                "--output-json",
-                str(window_sweep_json),
-                *device_args,
-            ],
-            dry_run=bool(args.dry_run),
+        "window_sweep": (
+            _reuse_step(
+                window_sweep_json,
+                reason="reuse_native_artifacts",
+                dry_run=bool(args.dry_run),
+            )
+            if args.reuse_native_artifacts
+            else _run_step(
+                [
+                    sys.executable,
+                    "scripts/run_premap_online_merged_native_arg_slot_window_sweep.py",
+                    "--window-size",
+                    "512",
+                    "--require-program-view-ptr-abi",
+                    "--require-launch-envelope-args-ptr-abi",
+                    "--require-kernel-launch-descriptor-abi",
+                    "--output-json",
+                    str(window_sweep_json),
+                    *device_args,
+                ],
+                dry_run=bool(args.dry_run),
+            )
         ),
         "window_sweep_check": _run_step(
             [
@@ -770,21 +806,29 @@ def run_verify(args: argparse.Namespace) -> dict[str, Any]:
             ],
             dry_run=bool(args.dry_run),
         ),
-        "all_field_window_sweep": _run_step(
-            [
-                sys.executable,
-                "scripts/run_premap_online_merged_native_arg_slot_all_field_window_sweep.py",
-                "--window-size",
-                "512",
-                "--require-program-view-ptr-abi",
-                "--require-kernel-arg-packet-abi",
-                "--require-kernel-entry-args-abi",
-                "--require-kernel-entry-args-ptr-abi",
-                "--output-json",
-                str(all_field_window_sweep_json),
-                *device_args,
-            ],
-            dry_run=bool(args.dry_run),
+        "all_field_window_sweep": (
+            _reuse_step(
+                all_field_window_sweep_json,
+                reason="reuse_native_artifacts",
+                dry_run=bool(args.dry_run),
+            )
+            if args.reuse_native_artifacts
+            else _run_step(
+                [
+                    sys.executable,
+                    "scripts/run_premap_online_merged_native_arg_slot_all_field_window_sweep.py",
+                    "--window-size",
+                    "512",
+                    "--require-program-view-ptr-abi",
+                    "--require-kernel-arg-packet-abi",
+                    "--require-kernel-entry-args-abi",
+                    "--require-kernel-entry-args-ptr-abi",
+                    "--output-json",
+                    str(all_field_window_sweep_json),
+                    *device_args,
+                ],
+                dry_run=bool(args.dry_run),
+            )
         ),
         "all_field_window_sweep_check": _run_step(
             [
@@ -802,28 +846,36 @@ def run_verify(args: argparse.Namespace) -> dict[str, Any]:
             ],
             dry_run=bool(args.dry_run),
         ),
-        "wna16_side_consumer_variant": _run_step(
-            [
-                sys.executable,
-                "scripts/run_premap_online_merged_native_arg_slot_canary.py",
-                "--require-wna16-side-consumer-variant-execution",
-                "--max-inputs",
-                "32",
-                "--min-source-count",
-                "32",
-                "--min-total-rows",
-                "1024",
-                "--block-threads",
-                "256",
-                "--output-json",
-                str(wna16_side_variant_json),
-                "--stub-output-json",
-                str(wna16_side_variant_stub_json),
-                "--merged-output-json",
-                str(wna16_side_variant_merged_json),
-                *device_args,
-            ],
-            dry_run=bool(args.dry_run),
+        "wna16_side_consumer_variant": (
+            _reuse_step(
+                wna16_side_variant_json,
+                reason="reuse_native_artifacts",
+                dry_run=bool(args.dry_run),
+            )
+            if args.reuse_native_artifacts
+            else _run_step(
+                [
+                    sys.executable,
+                    "scripts/run_premap_online_merged_native_arg_slot_canary.py",
+                    "--require-wna16-side-consumer-variant-execution",
+                    "--max-inputs",
+                    "32",
+                    "--min-source-count",
+                    "32",
+                    "--min-total-rows",
+                    "1024",
+                    "--block-threads",
+                    "256",
+                    "--output-json",
+                    str(wna16_side_variant_json),
+                    "--stub-output-json",
+                    str(wna16_side_variant_stub_json),
+                    "--merged-output-json",
+                    str(wna16_side_variant_merged_json),
+                    *device_args,
+                ],
+                dry_run=bool(args.dry_run),
+            )
         ),
     }
     step_failures = [
@@ -858,6 +910,7 @@ def run_verify(args: argparse.Namespace) -> dict[str, Any]:
         "failures": failures,
         "source": "premap_lab_gate_verify",
         "dry_run": bool(args.dry_run),
+        "reuse_native_artifacts": bool(args.reuse_native_artifacts),
         "skip_default_arg_slot_runner": bool(args.skip_default_arg_slot_runner),
         "tail_window_size": int(args.tail_window_size),
         "paths": {
@@ -950,6 +1003,15 @@ def _build_parser() -> argparse.ArgumentParser:
             "Pass --skip-arg-slot-runner to the default closure runner so it "
             "reuses the recorded arg-slot evidence while the closure checker "
             "still validates the reused artifact."
+        ),
+    )
+    parser.add_argument(
+        "--reuse-native-artifacts",
+        action="store_true",
+        help=(
+            "Do not refresh native/GPU producer artifacts. Reuse existing "
+            "closure/window/WNA16-side artifacts and run the static checkers "
+            "against them. Default behavior still refreshes artifacts."
         ),
     )
     parser.add_argument("--dry-run", action="store_true")
