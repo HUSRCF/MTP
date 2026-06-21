@@ -1769,6 +1769,94 @@ def _summary() -> dict[str, object]:
         "measures_vllm_latency",
     ):
         summary[f"{object_prefix}_{key}"] = False
+    adapter_prefix = (
+        "prefetch_lab_default_stream_queue_budget_"
+        "live_runtime_object_adapter_preflight"
+    )
+    object_status = str(summary[f"{object_prefix}_status"])
+    summary.update(
+        {
+            f"{adapter_prefix}_present": True,
+            f"{adapter_prefix}_stage": (
+                "payload_cache_live_runtime_object_adapter_preflight"
+            ),
+            f"{adapter_prefix}_status": (
+                f"blocked_by_object_construction_preflight:{object_status}"
+            ),
+            f"{adapter_prefix}_consumes_object_construction_preflight": True,
+            f"{adapter_prefix}_object_preflight_status": object_status,
+            f"{adapter_prefix}_manager_backend": "ReadyTimeExpertCacheManager",
+            f"{adapter_prefix}_manager_runtime_contract": "ready_time_issue_demand_skeleton_v1",
+            f"{adapter_prefix}_manager_runtime_mode": "ready_time_payload_cache_skeleton",
+            f"{adapter_prefix}_state_shape_schema": "ready_time_issue_demand_state_shape_v1",
+            f"{adapter_prefix}_runtime_adapter_schema": (
+                "ready_time_payload_cache_runtime_adapter_v1"
+            ),
+            f"{adapter_prefix}_object_construction_preflight_instantiated": True,
+            f"{adapter_prefix}_runtime_object_adapter_declared": True,
+            f"{adapter_prefix}_issue_queue_adapter_bound": True,
+            f"{adapter_prefix}_demand_state_adapter_bound": True,
+            f"{adapter_prefix}_resident_index_adapter_bound": True,
+            f"{adapter_prefix}_queue_timing_adapter_bound": True,
+            f"{adapter_prefix}_live_runtime_instantiated": False,
+            f"{adapter_prefix}_capacity_entries": 4096,
+            f"{adapter_prefix}_issue_lead_tokens": 32,
+            f"{adapter_prefix}_queue_deadline_us": 100.0,
+            f"{adapter_prefix}_lookahead_us": 2400000.0,
+            f"{adapter_prefix}_queue_batch_size": 1,
+            f"{adapter_prefix}_shifted_issue_accounting_enabled": True,
+            f"{adapter_prefix}_shifted_issue_accounted_packet_count": 28,
+            f"{adapter_prefix}_shifted_issue_unique_issue_key_count": 16,
+            f"{adapter_prefix}_decision": "blocked",
+            f"{adapter_prefix}_block_reason": (
+                "live_runtime_object_adapter_preflight_only"
+            ),
+            f"{adapter_prefix}_execution_mode": (
+                "payload_cache_live_runtime_object_adapter_preflight_disabled"
+            ),
+        },
+    )
+    for key in (
+        "resident_count",
+        "issued_fetch_count",
+        "used_fetch_count",
+        "unused_fetch_count",
+        "demand_count",
+        "demand_hit_count",
+        "demand_miss_count",
+        "evicted_before_use_count",
+        "ready_late_miss_count",
+        "late_completion_unused_count",
+        "queue_batch_count",
+        "issued_payload_count",
+        "payload_bytes",
+    ):
+        summary[f"{adapter_prefix}_{key}"] = 0
+    for key in (
+        "queue_service_us",
+        "queue_total_span_us",
+        "queue_wait_us",
+        "queue_max_delay_us",
+    ):
+        summary[f"{adapter_prefix}_{key}"] = 0.0
+    for key in (
+        "live_payload_runtime_enabled",
+        "payload_transfer_runtime_enabled",
+        "payload_deref_allowed",
+        "payload_deref_runtime_allowed",
+        "ready_credit",
+        "ready_before_demand_credit",
+        "real_ready_credit_granted",
+        "kernel_arg_pass_allowed",
+        "passed_to_kernel",
+        "changes_kernel_launch_args",
+        "full_fetch_runtime_allowed",
+        "uses_current_wna16_args",
+        "passes_current_wna16_args",
+        "measures_tpot",
+        "measures_vllm_latency",
+    ):
+        summary[f"{adapter_prefix}_{key}"] = False
     return summary
 
 
@@ -3470,6 +3558,26 @@ def test_check_premap_lab_preflight_summary_rejects_stream_queue_budget_mismatch
 def test_check_premap_lab_preflight_summary_rejects_object_preflight_escape() -> None:
     summary = _summary()
     prefix = "prefetch_lab_default_stream_queue_budget_live_runtime_object_preflight"
+    summary[f"{prefix}_status"] = "passed"
+    summary[f"{prefix}_payload_bytes"] = 64
+    summary[f"{prefix}_ready_credit"] = True
+    summary[f"{prefix}_kernel_arg_pass_allowed"] = True
+
+    result = check_premap_lab_preflight_summary(summary)
+
+    assert result["passed"] is False
+    assert f"{prefix}_status_mismatch" in result["failures"]
+    assert f"{prefix}_payload_bytes_mismatch" in result["failures"]
+    assert f"{prefix}_ready_credit_mismatch" in result["failures"]
+    assert f"{prefix}_kernel_arg_pass_allowed_mismatch" in result["failures"]
+
+
+def test_check_premap_lab_preflight_summary_rejects_object_adapter_escape() -> None:
+    summary = _summary()
+    prefix = (
+        "prefetch_lab_default_stream_queue_budget_"
+        "live_runtime_object_adapter_preflight"
+    )
     summary[f"{prefix}_status"] = "passed"
     summary[f"{prefix}_payload_bytes"] = 64
     summary[f"{prefix}_ready_credit"] = True
