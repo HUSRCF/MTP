@@ -51,6 +51,7 @@ from mtp_expert_prefetch.runtime.cache_manager import (
 )
 from mtp_expert_prefetch.runtime.cache_lab_gate import (
     build_payload_cache_runtime_participation,
+    build_payload_cache_runtime_plan,
 )
 from mtp_expert_prefetch.runtime.online_shadow import OnlineShadowLogger
 from mtp_expert_prefetch.runtime.premap import (
@@ -2611,6 +2612,10 @@ def _add_premap_payload_cache_manager_snapshot_to_performance(
         if isinstance(value, tuple):
             value = list(value)
         performance[f"{runtime_participation_prefix}{field_name}"] = value
+    runtime_plan = build_payload_cache_runtime_plan(runtime_participation)
+    runtime_plan_prefix = f"{prefix}runtime_plan_"
+    for field_name, value in runtime_plan.as_dict().items():
+        performance[f"{runtime_plan_prefix}{field_name}"] = value
     performance[f"{prefix}transition_issue_attempt_count"] = int(
         recorder._premap_payload_cache_transition_issue_attempt_count
     )

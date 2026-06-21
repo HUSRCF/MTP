@@ -41419,3 +41419,80 @@ not ready credit
 not kernel arg handoff
 not current WNA16 arg mutation
 ```
+
+## Payload-cache runtime plan object emitted by online summary
+
+The runtime plan layer is no longer only a lab-gate synthesized field.  The
+online payload-cache manager summary now builds a real payloadless
+`PayloadCacheRuntimePlan` object from `PayloadCacheRuntimeParticipation` and
+emits:
+
+```text
+runtime_shadow_premap_payload_cache_direct_runtime_plan_present
+runtime_shadow_premap_payload_cache_direct_runtime_plan_stage
+runtime_shadow_premap_payload_cache_direct_runtime_plan_status
+runtime_shadow_premap_payload_cache_direct_runtime_plan_consumes_participation
+runtime_shadow_premap_payload_cache_direct_runtime_plan_participation_status
+runtime_shadow_premap_payload_cache_direct_runtime_plan_live_payload_runtime_enabled
+runtime_shadow_premap_payload_cache_direct_runtime_plan_planned_issue_count
+runtime_shadow_premap_payload_cache_direct_runtime_plan_payload_bytes
+runtime_shadow_premap_payload_cache_direct_runtime_plan_ready_credit
+runtime_shadow_premap_payload_cache_direct_runtime_plan_kernel_arg_pass_allowed
+runtime_shadow_premap_payload_cache_direct_runtime_plan_changes_kernel_launch_args
+runtime_shadow_premap_payload_cache_direct_runtime_plan_full_fetch_runtime_allowed
+```
+
+`check_premap_payload_cache_ready_time_gate.py` now forwards these fields as
+`direct_snapshot_runtime_plan_*` when present.  For compatibility, completely
+old artifacts with no runtime-plan fields are still accepted.  However, any
+partial/new artifact containing any raw `runtime_plan_*` field triggers strict
+runtime-plan validation.  This prevents unsafe partial rows such as
+`runtime_plan_payload_bytes > 0` or `runtime_plan_ready_credit = true` from
+being silently ignored when `runtime_plan_present` is missing.
+
+The runtime object itself rejects direct construction that would break the lab
+contract:
+
+```text
+present must be true
+stage must equal payload_cache_runtime_plan_lab_gate_dry_run
+status must match participation_status
+consumes_participation must be true
+planned_issue_count = 0
+payload_bytes = 0
+ready_credit = false
+kernel_arg_pass_allowed = false
+changes_kernel_launch_args = false
+full_fetch_runtime_allowed = false
+```
+
+Validation:
+
+```bash
+/home/husrcf/anaconda3/envs/TRY/bin/python -m pytest \
+  tests/test_cache_lab_gate.py \
+  tests/test_vllm_router_shadow_sink.py \
+  tests/test_check_premap_payload_cache_ready_time_gate.py -q
+# 152 passed
+
+/home/husrcf/anaconda3/envs/TRY/bin/python -m pytest \
+  tests/test_cache_lab_gate.py \
+  tests/test_vllm_router_shadow_sink.py \
+  tests/test_check_premap_payload_cache_ready_time_gate.py \
+  tests/test_check_prefetch_lab_default_gate.py \
+  tests/test_check_premap_lab_preflight_summary.py \
+  tests/test_run_premap_lab_preflight.py -q
+# 466 passed
+```
+
+Current boundary:
+
+```text
+online runtime plan object exists
+ready-time checker validates it when present
+old artifacts remain compatible until the next online audit refresh
+not payload transfer
+not ready credit
+not kernel arg handoff
+not endpoint benchmark evidence
+```

@@ -29,6 +29,34 @@ _DIRECT_RUNTIME_PARTICIPATION_ALLOWED_STATUSES = frozenset(
         "accounting_only_all_demands_ready_late",
     }
 )
+_DIRECT_RUNTIME_PLAN_ALLOWED_STATUSES = frozenset(
+    {
+        "lab_gate_blocked:ready_time_direct_snapshot_disallows_full_fetch",
+        "participation_not_full_fetch_candidate:accounting_only_no_issued_fetch",
+        "participation_not_full_fetch_candidate:accounting_only_no_used_fetch",
+        "participation_not_full_fetch_candidate:accounting_only_all_demands_ready_late",
+    }
+)
+_DIRECT_RUNTIME_PLAN_RAW_FIELDS = (
+    "runtime_shadow_premap_payload_cache_direct_runtime_plan_present",
+    "runtime_shadow_premap_payload_cache_direct_runtime_plan_stage",
+    "runtime_shadow_premap_payload_cache_direct_runtime_plan_status",
+    "runtime_shadow_premap_payload_cache_direct_runtime_plan_consumes_participation",
+    "runtime_shadow_premap_payload_cache_direct_runtime_plan_participation_status",
+    "runtime_shadow_premap_payload_cache_direct_runtime_plan_live_payload_runtime_enabled",
+    "runtime_shadow_premap_payload_cache_direct_runtime_plan_planned_issue_count",
+    "runtime_shadow_premap_payload_cache_direct_runtime_plan_payload_bytes",
+    "runtime_shadow_premap_payload_cache_direct_runtime_plan_ready_credit",
+    "runtime_shadow_premap_payload_cache_direct_runtime_plan_kernel_arg_pass_allowed",
+    "runtime_shadow_premap_payload_cache_direct_runtime_plan_changes_kernel_launch_args",
+    "runtime_shadow_premap_payload_cache_direct_runtime_plan_full_fetch_runtime_allowed",
+)
+
+
+def _runtime_plan_status_from_participation(status: str) -> str:
+    if status == "ready_time_candidate_requires_lab_gate":
+        return "lab_gate_blocked:ready_time_direct_snapshot_disallows_full_fetch"
+    return f"participation_not_full_fetch_candidate:{status}"
 
 
 def check_summary(
@@ -400,6 +428,42 @@ def _with_gate_metric_aliases(metrics: dict[str, Any]) -> dict[str, Any]:
         "direct_snapshot_runtime_participation_candidate_reason": (
             "runtime_shadow_premap_payload_cache_direct_runtime_participation_candidate_reason"
         ),
+        "direct_snapshot_runtime_plan_present": (
+            "runtime_shadow_premap_payload_cache_direct_runtime_plan_present"
+        ),
+        "direct_snapshot_runtime_plan_stage": (
+            "runtime_shadow_premap_payload_cache_direct_runtime_plan_stage"
+        ),
+        "direct_snapshot_runtime_plan_status": (
+            "runtime_shadow_premap_payload_cache_direct_runtime_plan_status"
+        ),
+        "direct_snapshot_runtime_plan_consumes_participation": (
+            "runtime_shadow_premap_payload_cache_direct_runtime_plan_consumes_participation"
+        ),
+        "direct_snapshot_runtime_plan_participation_status": (
+            "runtime_shadow_premap_payload_cache_direct_runtime_plan_participation_status"
+        ),
+        "direct_snapshot_runtime_plan_live_payload_runtime_enabled": (
+            "runtime_shadow_premap_payload_cache_direct_runtime_plan_live_payload_runtime_enabled"
+        ),
+        "direct_snapshot_runtime_plan_planned_issue_count": (
+            "runtime_shadow_premap_payload_cache_direct_runtime_plan_planned_issue_count"
+        ),
+        "direct_snapshot_runtime_plan_payload_bytes": (
+            "runtime_shadow_premap_payload_cache_direct_runtime_plan_payload_bytes"
+        ),
+        "direct_snapshot_runtime_plan_ready_credit": (
+            "runtime_shadow_premap_payload_cache_direct_runtime_plan_ready_credit"
+        ),
+        "direct_snapshot_runtime_plan_kernel_arg_pass_allowed": (
+            "runtime_shadow_premap_payload_cache_direct_runtime_plan_kernel_arg_pass_allowed"
+        ),
+        "direct_snapshot_runtime_plan_changes_kernel_launch_args": (
+            "runtime_shadow_premap_payload_cache_direct_runtime_plan_changes_kernel_launch_args"
+        ),
+        "direct_snapshot_runtime_plan_full_fetch_runtime_allowed": (
+            "runtime_shadow_premap_payload_cache_direct_runtime_plan_full_fetch_runtime_allowed"
+        ),
     }
     normalized = dict(metrics)
     for short_key, raw_key in aliases.items():
@@ -468,6 +532,42 @@ def _direct_snapshot_report_metrics(metrics: dict[str, Any]) -> dict[str, Any]:
         "runtime_participation_candidate_reason": (
             "runtime_shadow_premap_payload_cache_direct_runtime_participation_candidate_reason"
         ),
+        "runtime_plan_present": (
+            "runtime_shadow_premap_payload_cache_direct_runtime_plan_present"
+        ),
+        "runtime_plan_stage": (
+            "runtime_shadow_premap_payload_cache_direct_runtime_plan_stage"
+        ),
+        "runtime_plan_status": (
+            "runtime_shadow_premap_payload_cache_direct_runtime_plan_status"
+        ),
+        "runtime_plan_consumes_participation": (
+            "runtime_shadow_premap_payload_cache_direct_runtime_plan_consumes_participation"
+        ),
+        "runtime_plan_participation_status": (
+            "runtime_shadow_premap_payload_cache_direct_runtime_plan_participation_status"
+        ),
+        "runtime_plan_live_payload_runtime_enabled": (
+            "runtime_shadow_premap_payload_cache_direct_runtime_plan_live_payload_runtime_enabled"
+        ),
+        "runtime_plan_planned_issue_count": (
+            "runtime_shadow_premap_payload_cache_direct_runtime_plan_planned_issue_count"
+        ),
+        "runtime_plan_payload_bytes": (
+            "runtime_shadow_premap_payload_cache_direct_runtime_plan_payload_bytes"
+        ),
+        "runtime_plan_ready_credit": (
+            "runtime_shadow_premap_payload_cache_direct_runtime_plan_ready_credit"
+        ),
+        "runtime_plan_kernel_arg_pass_allowed": (
+            "runtime_shadow_premap_payload_cache_direct_runtime_plan_kernel_arg_pass_allowed"
+        ),
+        "runtime_plan_changes_kernel_launch_args": (
+            "runtime_shadow_premap_payload_cache_direct_runtime_plan_changes_kernel_launch_args"
+        ),
+        "runtime_plan_full_fetch_runtime_allowed": (
+            "runtime_shadow_premap_payload_cache_direct_runtime_plan_full_fetch_runtime_allowed"
+        ),
     }
     return {
         f"direct_snapshot_{name}": metrics.get(raw_key)
@@ -526,6 +626,8 @@ def _validate_direct_snapshot(metrics: dict[str, Any], failures: list[str]) -> N
             failures.append("direct_snapshot_issue_sources_contains_non_transition_source")
 
     _validate_direct_runtime_participation(metrics, failures, issue_sources)
+    if any(metrics.get(field) is not None for field in _DIRECT_RUNTIME_PLAN_RAW_FIELDS):
+        _validate_direct_runtime_plan(metrics, failures)
 
 
 def _validate_direct_runtime_participation(
@@ -590,6 +692,64 @@ def _validate_direct_runtime_participation(
             failures.append(
                 "direct_runtime_participation_issue_sources_do_not_match_direct_snapshot"
             )
+
+
+def _validate_direct_runtime_plan(
+    metrics: dict[str, Any],
+    failures: list[str],
+) -> None:
+    expected_values = {
+        "runtime_shadow_premap_payload_cache_direct_runtime_plan_present": True,
+        "runtime_shadow_premap_payload_cache_direct_runtime_plan_stage": (
+            "payload_cache_runtime_plan_lab_gate_dry_run"
+        ),
+        "runtime_shadow_premap_payload_cache_direct_runtime_plan_consumes_participation": (
+            True
+        ),
+        "runtime_shadow_premap_payload_cache_direct_runtime_plan_live_payload_runtime_enabled": (
+            False
+        ),
+        "runtime_shadow_premap_payload_cache_direct_runtime_plan_planned_issue_count": 0,
+        "runtime_shadow_premap_payload_cache_direct_runtime_plan_payload_bytes": 0,
+        "runtime_shadow_premap_payload_cache_direct_runtime_plan_ready_credit": False,
+        "runtime_shadow_premap_payload_cache_direct_runtime_plan_kernel_arg_pass_allowed": (
+            False
+        ),
+        "runtime_shadow_premap_payload_cache_direct_runtime_plan_changes_kernel_launch_args": (
+            False
+        ),
+        "runtime_shadow_premap_payload_cache_direct_runtime_plan_full_fetch_runtime_allowed": (
+            False
+        ),
+    }
+    for field, expected in expected_values.items():
+        if not _direct_snapshot_value_matches(metrics.get(field), expected):
+            failures.append(f"direct_runtime_plan_{field}_mismatch")
+
+    participation_status = metrics.get(
+        "runtime_shadow_premap_payload_cache_direct_runtime_participation_status"
+    )
+    plan_participation_status = metrics.get(
+        "runtime_shadow_premap_payload_cache_direct_runtime_plan_participation_status"
+    )
+    if not isinstance(plan_participation_status, str) or not plan_participation_status:
+        failures.append("direct_runtime_plan_participation_status_missing_or_invalid")
+    elif plan_participation_status != participation_status:
+        failures.append("direct_runtime_plan_participation_status_mismatch")
+
+    status = metrics.get(
+        "runtime_shadow_premap_payload_cache_direct_runtime_plan_status"
+    )
+    if not isinstance(status, str) or not status:
+        failures.append("direct_runtime_plan_status_missing_or_invalid")
+    elif status not in _DIRECT_RUNTIME_PLAN_ALLOWED_STATUSES:
+        failures.append("direct_runtime_plan_status_unsupported")
+    elif isinstance(participation_status, str):
+        expected_status = _runtime_plan_status_from_participation(
+            participation_status
+        )
+        if status != expected_status:
+            failures.append("direct_runtime_plan_status_mismatch")
 
 
 def _direct_snapshot_value_matches(value: Any, expected: Any) -> bool:

@@ -7,7 +7,10 @@ from mtp_expert_prefetch.runtime import (
     CacheLabGateDecision,
     CacheLabRuntimeSignals,
     PayloadCacheRuntimeParticipation,
+    PayloadCacheRuntimePlan,
     build_payload_cache_runtime_participation,
+    build_payload_cache_runtime_plan,
+    runtime_plan_status_from_participation,
     select_cache_lab_prefetch_gate,
 )
 
@@ -180,3 +183,87 @@ def test_payload_cache_runtime_participation_marks_non_ready_time_accounting_onl
     assert participation.status == "accounting_only_not_ready_time_manager:resident"
     assert participation.payload_bytes == 0
     assert participation.full_fetch_runtime_allowed is False
+
+
+def test_payload_cache_runtime_plan_blocks_ready_time_candidate() -> None:
+    participation = build_payload_cache_runtime_participation(
+        manager_mode="ready_time",
+        issue_sources=["prelaunch_observed_transition_premap_shadow"],
+        demand_on_consumer=True,
+        issued_fetch_count=12,
+        used_fetch_count=5,
+        demand_count=9,
+        demand_hit_count=5,
+        ready_late_miss_count=0,
+        candidate_reason="candidate_requires_ready_time_gate",
+    )
+
+    plan = build_payload_cache_runtime_plan(participation)
+    payload = plan.as_dict()
+
+    assert payload["present"] is True
+    assert payload["stage"] == "payload_cache_runtime_plan_lab_gate_dry_run"
+    assert payload["status"] == (
+        "lab_gate_blocked:ready_time_direct_snapshot_disallows_full_fetch"
+    )
+    assert payload["participation_status"] == "ready_time_candidate_requires_lab_gate"
+    assert payload["consumes_participation"] is True
+    assert payload["live_payload_runtime_enabled"] is False
+    assert payload["planned_issue_count"] == 0
+    assert payload["payload_bytes"] == 0
+    assert payload["ready_credit"] is False
+    assert payload["kernel_arg_pass_allowed"] is False
+    assert payload["changes_kernel_launch_args"] is False
+    assert payload["full_fetch_runtime_allowed"] is False
+
+
+def test_payload_cache_runtime_plan_formats_accounting_only_status() -> None:
+    participation = build_payload_cache_runtime_participation(
+        manager_mode="ready_time",
+        issue_sources=["prelaunch_observed_transition_premap_shadow"],
+        demand_on_consumer=True,
+        issued_fetch_count=12,
+        used_fetch_count=0,
+        demand_count=9,
+        demand_hit_count=5,
+        ready_late_miss_count=0,
+        candidate_reason="no_used_fetch",
+    )
+
+    plan = build_payload_cache_runtime_plan(participation)
+
+    assert plan.status == "participation_not_full_fetch_candidate:accounting_only_no_used_fetch"
+    assert (
+        runtime_plan_status_from_participation(participation.status)
+        == plan.status
+    )
+
+
+def test_payload_cache_runtime_plan_rejects_side_effectful_construction() -> None:
+    with pytest.raises(ValueError, match="payload_bytes"):
+        PayloadCacheRuntimePlan(
+            present=True,
+            stage="payload_cache_runtime_plan_lab_gate_dry_run",
+            status="participation_not_full_fetch_candidate:accounting_only_no_used_fetch",
+            consumes_participation=True,
+            participation_status="accounting_only_no_used_fetch",
+            payload_bytes=1,
+        )
+
+    with pytest.raises(ValueError, match="status"):
+        PayloadCacheRuntimePlan(
+            present=True,
+            stage="payload_cache_runtime_plan_lab_gate_dry_run",
+            status="participation_not_full_fetch_candidate:accounting_only_no_used_fetch",
+            consumes_participation=True,
+            participation_status="ready_time_candidate_requires_lab_gate",
+        )
+
+    with pytest.raises(ValueError, match="present"):
+        PayloadCacheRuntimePlan(
+            present=False,
+            stage="payload_cache_runtime_plan_lab_gate_dry_run",
+            status="participation_not_full_fetch_candidate:accounting_only_no_used_fetch",
+            consumes_participation=True,
+            participation_status="accounting_only_no_used_fetch",
+        )

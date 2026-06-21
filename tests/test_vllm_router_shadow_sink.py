@@ -1074,6 +1074,26 @@ def test_premap_payload_cache_manager_snapshot_flattens_ready_time_fields():
     assert performance[f"{participation_prefix}queue_deadline_us"] == 10.0
     assert performance[f"{participation_prefix}payload_bytes"] == 0
     assert performance[f"{participation_prefix}full_fetch_runtime_allowed"] is False
+    plan_prefix = "runtime_shadow_premap_payload_cache_direct_runtime_plan_"
+    assert (
+        performance[f"{plan_prefix}stage"]
+        == "payload_cache_runtime_plan_lab_gate_dry_run"
+    )
+    assert (
+        performance[f"{plan_prefix}status"]
+        == "lab_gate_blocked:ready_time_direct_snapshot_disallows_full_fetch"
+    )
+    assert performance[f"{plan_prefix}participation_status"] == (
+        "ready_time_candidate_requires_lab_gate"
+    )
+    assert performance[f"{plan_prefix}consumes_participation"] is True
+    assert performance[f"{plan_prefix}live_payload_runtime_enabled"] is False
+    assert performance[f"{plan_prefix}planned_issue_count"] == 0
+    assert performance[f"{plan_prefix}payload_bytes"] == 0
+    assert performance[f"{plan_prefix}ready_credit"] is False
+    assert performance[f"{plan_prefix}kernel_arg_pass_allowed"] is False
+    assert performance[f"{plan_prefix}changes_kernel_launch_args"] is False
+    assert performance[f"{plan_prefix}full_fetch_runtime_allowed"] is False
     assert (
         performance[
             "runtime_shadow_premap_payload_cache_direct_full_fetch_ready_time_gate_candidate_reason"

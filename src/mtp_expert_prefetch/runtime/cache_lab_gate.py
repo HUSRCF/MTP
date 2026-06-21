@@ -109,6 +109,69 @@ class PayloadCacheRuntimeParticipation:
         return asdict(self)
 
 
+@dataclass(frozen=True)
+class PayloadCacheRuntimePlan:
+    """Payload-cache runtime plan dry-run before live payload execution.
+
+    This object is the next lab-gated contract after runtime participation.
+    It consumes the participation evidence and records the plan state that a
+    future payload/cache-manager runtime would inspect, while still forbidding
+    payload movement, ready credit, kernel argument handoff, and live full
+    fetch execution.
+    """
+
+    present: bool
+    stage: str
+    status: str
+    consumes_participation: bool
+    participation_status: str
+    live_payload_runtime_enabled: bool = False
+    planned_issue_count: int = 0
+    payload_bytes: int = 0
+    ready_credit: bool = False
+    kernel_arg_pass_allowed: bool = False
+    changes_kernel_launch_args: bool = False
+    full_fetch_runtime_allowed: bool = False
+
+    def __post_init__(self) -> None:
+        if self.present is not True:
+            raise ValueError("runtime plan must be present")
+        if self.stage != "payload_cache_runtime_plan_lab_gate_dry_run":
+            raise ValueError("runtime plan stage mismatch")
+        if not isinstance(self.participation_status, str) or not self.participation_status:
+            raise TypeError("participation_status must be a nonempty string")
+        if self.participation_status == "ready_time_candidate_requires_lab_gate":
+            expected_status = (
+                "lab_gate_blocked:ready_time_direct_snapshot_disallows_full_fetch"
+            )
+        else:
+            expected_status = (
+                f"participation_not_full_fetch_candidate:{self.participation_status}"
+            )
+        if self.status != expected_status:
+            raise ValueError("runtime plan status does not match participation status")
+        for field_name in ("planned_issue_count", "payload_bytes"):
+            value = getattr(self, field_name)
+            if not isinstance(value, int) or isinstance(value, bool):
+                raise TypeError(f"{field_name} must be an integer")
+            if value != 0:
+                raise ValueError(f"{field_name} must remain zero in dry-run")
+        for field_name in (
+            "live_payload_runtime_enabled",
+            "ready_credit",
+            "kernel_arg_pass_allowed",
+            "changes_kernel_launch_args",
+            "full_fetch_runtime_allowed",
+        ):
+            if getattr(self, field_name) is not False:
+                raise ValueError(f"{field_name} must remain disabled")
+        if self.consumes_participation is not True:
+            raise ValueError("runtime plan must consume participation evidence")
+
+    def as_dict(self) -> dict[str, bool | int | str]:
+        return asdict(self)
+
+
 def select_cache_lab_prefetch_gate(
     signals: CacheLabRuntimeSignals,
     *,
@@ -183,6 +246,27 @@ def build_payload_cache_runtime_participation(
             None if queue_deadline_us is None else float(queue_deadline_us)
         ),
         candidate_reason=reason,
+    )
+
+
+def runtime_plan_status_from_participation(status: str) -> str:
+    if status == "ready_time_candidate_requires_lab_gate":
+        return "lab_gate_blocked:ready_time_direct_snapshot_disallows_full_fetch"
+    return f"participation_not_full_fetch_candidate:{status}"
+
+
+def build_payload_cache_runtime_plan(
+    participation: PayloadCacheRuntimeParticipation,
+) -> PayloadCacheRuntimePlan:
+    """Build the payloadless runtime-plan dry-run object."""
+
+    status = runtime_plan_status_from_participation(str(participation.status))
+    return PayloadCacheRuntimePlan(
+        present=bool(participation.present),
+        stage="payload_cache_runtime_plan_lab_gate_dry_run",
+        status=status,
+        consumes_participation=True,
+        participation_status=str(participation.status),
     )
 
 

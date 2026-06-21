@@ -28,7 +28,10 @@ from mtp_expert_prefetch.runtime.cache_lab_gate import (
     CacheLabGateDecision,
     CacheLabRuntimeSignals,
     PayloadCacheRuntimeParticipation,
+    PayloadCacheRuntimePlan,
     build_payload_cache_runtime_participation,
+    build_payload_cache_runtime_plan,
+    runtime_plan_status_from_participation,
     select_cache_lab_prefetch_gate,
 )
 from mtp_expert_prefetch.runtime.cache_manager import (
@@ -194,6 +197,7 @@ __all__ = [
     "CacheLabGateDecision",
     "CacheLabRuntimeSignals",
     "PayloadCacheRuntimeParticipation",
+    "PayloadCacheRuntimePlan",
     "CacheManagerSnapshot",
     "ControlledExpertCacheManager",
     "ControlledPremapAddressManager",
@@ -325,6 +329,8 @@ __all__ = [
     "select_lds_stage_gate",
     "select_runtime_prefetch_policy",
     "build_payload_cache_runtime_participation",
+    "build_payload_cache_runtime_plan",
+    "runtime_plan_status_from_participation",
     "select_cache_lab_prefetch_gate",
     "order_tile_requests_with_layer_prior",
     "order_tile_requests",
