@@ -3,9 +3,11 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import scripts.run_premap_lab_gate_verify as gate_verify
 from scripts.run_premap_lab_gate_verify import (
     _build_parser,
     _load_status,
+    _reuse_artifact_refresh_reasons,
     _status_failures,
     main,
     run_verify,
@@ -377,6 +379,226 @@ def test_run_premap_lab_gate_verify_reuse_native_artifacts_records_skips(
     ):
         assert result["steps"][step_name]["cmd"] != []
         assert result["steps"][step_name].get("skipped") is not True
+
+
+def test_reuse_artifact_refresh_reasons_explain_stale_static_evidence():
+    statuses = _passing_lab_gate_statuses()
+    statuses["tail_window_closure"]["passed"] = False
+    statuses["tail_window_closure"]["failures"] = ["arg_slot_tail_window_runner"]
+    statuses["window_sweep_check"]["passed"] = False
+    statuses["window_sweep_check"]["failures"] = [
+        "full_child_require_kernel_launch_descriptor_abi_mismatch"
+    ]
+
+    reasons = _reuse_artifact_refresh_reasons(
+        statuses,
+        step_failures=["window_sweep_check"],
+        status_failures=[
+            "tail_window_closure_not_passed",
+            "window_sweep_check_did_not_require_kernel_launch_descriptor_abi",
+        ],
+    )
+
+    assert "tail_window_closure_artifact_not_passed" in reasons
+    assert "tail_window_closure_artifact_failures_not_empty" in reasons
+    assert "window_sweep_check_static_checker_failed" in reasons
+    assert "window_sweep_check_static_check_not_passed" in reasons
+    assert "window_sweep_check_static_check_failures_not_empty" in reasons
+    assert (
+        "stale_gate_requirement:"
+        "window_sweep_check_did_not_require_kernel_launch_descriptor_abi"
+    ) in reasons
+
+
+def test_run_premap_lab_gate_verify_reuse_native_artifacts_reports_refresh_needed(
+    tmp_path: Path,
+    monkeypatch,
+):
+    closure_json = tmp_path / "closure.json"
+    closure_check_json = tmp_path / "closure.check.json"
+    tail_json = tmp_path / "tail.json"
+    tail_check_json = tmp_path / "tail.check.json"
+    window_sweep_json = tmp_path / "window_sweep.json"
+    window_sweep_check_json = tmp_path / "window_sweep.check.json"
+    all_field_window_sweep_json = tmp_path / "all_field_window_sweep.json"
+    all_field_window_sweep_check_json = tmp_path / "all_field_window_sweep.check.json"
+    wna16_json = tmp_path / "wna16_side_variant.json"
+    wna16_stub_json = tmp_path / "wna16_side_variant.stub.json"
+    wna16_merged_json = tmp_path / "wna16_side_variant.merged.json"
+
+    for path, status in (
+        (closure_json, _passing_lab_gate_statuses()["default_closure"]),
+        (closure_check_json, _passing_lab_gate_statuses()["default_closure_check"]),
+        (tail_json, _passing_lab_gate_statuses()["tail_window_closure"]),
+        (all_field_window_sweep_json, _passing_lab_gate_statuses()["all_field_window_sweep"]),
+        (
+            all_field_window_sweep_check_json,
+            _passing_lab_gate_statuses()["all_field_window_sweep_check"],
+        ),
+        (wna16_json, _passing_lab_gate_statuses()["wna16_side_consumer_variant"]),
+    ):
+        path.write_text(json.dumps(status), encoding="utf-8")
+    tail_check_json.write_text(
+        json.dumps(
+            {
+                **_passing_lab_gate_statuses()["tail_window_closure_check"],
+                "passed": False,
+                "failures": ["closure_not_passed"],
+            }
+        ),
+        encoding="utf-8",
+    )
+    window_sweep_json.write_text(
+        json.dumps(_passing_lab_gate_statuses()["window_sweep"]),
+        encoding="utf-8",
+    )
+    window_sweep_check_json.write_text(
+        json.dumps(
+            {
+                **_passing_lab_gate_statuses()["window_sweep_check"],
+                "require_child_kernel_launch_descriptor_abi": False,
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    args = _build_parser().parse_args(
+        [
+            "--reuse-native-artifacts",
+            "--closure-json",
+            str(closure_json),
+            "--closure-check-json",
+            str(closure_check_json),
+            "--tail-closure-json",
+            str(tail_json),
+            "--tail-closure-check-json",
+            str(tail_check_json),
+            "--window-sweep-json",
+            str(window_sweep_json),
+            "--window-sweep-check-json",
+            str(window_sweep_check_json),
+            "--all-field-window-sweep-json",
+            str(all_field_window_sweep_json),
+            "--all-field-window-sweep-check-json",
+            str(all_field_window_sweep_check_json),
+            "--wna16-side-variant-json",
+            str(wna16_json),
+            "--wna16-side-variant-stub-json",
+            str(wna16_stub_json),
+            "--wna16-side-variant-merged-json",
+            str(wna16_merged_json),
+        ]
+    )
+    monkeypatch.setattr(
+        gate_verify,
+        "_run_step",
+        lambda cmd, *, dry_run: {"cmd": cmd, "dry_run": dry_run, "returncode": 0},
+    )
+
+    result = run_verify(args)
+
+    assert result["passed"] is False
+    assert "tail_window_closure_check_not_passed" in result["failures"]
+    assert (
+        "window_sweep_check_did_not_require_kernel_launch_descriptor_abi"
+        in result["failures"]
+    )
+    assert result["reuse_artifact_refresh_required"] is True
+    assert "tail_window_closure_check_static_check_not_passed" in result[
+        "reuse_artifact_refresh_reasons"
+    ]
+    assert (
+        "stale_gate_requirement:"
+        "window_sweep_check_did_not_require_kernel_launch_descriptor_abi"
+    ) in result["reuse_artifact_refresh_reasons"]
+
+
+def test_run_premap_lab_gate_verify_reuse_native_artifacts_accepts_fresh_evidence(
+    tmp_path: Path,
+    monkeypatch,
+):
+    status_map = _passing_lab_gate_statuses()
+    path_map = {
+        "closure_json": tmp_path / "closure.json",
+        "closure_check_json": tmp_path / "closure.check.json",
+        "tail_closure_json": tmp_path / "tail.json",
+        "tail_closure_check_json": tmp_path / "tail.check.json",
+        "window_sweep_json": tmp_path / "window_sweep.json",
+        "window_sweep_check_json": tmp_path / "window_sweep.check.json",
+        "all_field_window_sweep_json": tmp_path / "all_field_window_sweep.json",
+        "all_field_window_sweep_check_json": (
+            tmp_path / "all_field_window_sweep.check.json"
+        ),
+        "wna16_side_variant_json": tmp_path / "wna16_side_variant.json",
+        "wna16_side_variant_stub_json": tmp_path / "wna16_side_variant.stub.json",
+        "wna16_side_variant_merged_json": tmp_path / "wna16_side_variant.merged.json",
+    }
+    default_closure_payload = dict(status_map["default_closure"])
+    default_closure_payload["summaries"] = {
+        "arg_slot_runner": {
+            key.removeprefix("arg_slot_runner_"): value
+            for key, value in status_map["default_closure"].items()
+            if key.startswith("arg_slot_runner_")
+        }
+    }
+    for status_key, path_key in (
+        ("default_closure_check", "closure_check_json"),
+        ("tail_window_closure", "tail_closure_json"),
+        ("tail_window_closure_check", "tail_closure_check_json"),
+        ("window_sweep", "window_sweep_json"),
+        ("window_sweep_check", "window_sweep_check_json"),
+        ("all_field_window_sweep", "all_field_window_sweep_json"),
+        ("all_field_window_sweep_check", "all_field_window_sweep_check_json"),
+        ("wna16_side_consumer_variant", "wna16_side_variant_json"),
+    ):
+        path_map[path_key].write_text(
+            json.dumps(status_map[status_key]),
+            encoding="utf-8",
+        )
+    path_map["closure_json"].write_text(
+        json.dumps(default_closure_payload),
+        encoding="utf-8",
+    )
+
+    args = _build_parser().parse_args(
+        [
+            "--reuse-native-artifacts",
+            "--closure-json",
+            str(path_map["closure_json"]),
+            "--closure-check-json",
+            str(path_map["closure_check_json"]),
+            "--tail-closure-json",
+            str(path_map["tail_closure_json"]),
+            "--tail-closure-check-json",
+            str(path_map["tail_closure_check_json"]),
+            "--window-sweep-json",
+            str(path_map["window_sweep_json"]),
+            "--window-sweep-check-json",
+            str(path_map["window_sweep_check_json"]),
+            "--all-field-window-sweep-json",
+            str(path_map["all_field_window_sweep_json"]),
+            "--all-field-window-sweep-check-json",
+            str(path_map["all_field_window_sweep_check_json"]),
+            "--wna16-side-variant-json",
+            str(path_map["wna16_side_variant_json"]),
+            "--wna16-side-variant-stub-json",
+            str(path_map["wna16_side_variant_stub_json"]),
+            "--wna16-side-variant-merged-json",
+            str(path_map["wna16_side_variant_merged_json"]),
+        ]
+    )
+    monkeypatch.setattr(
+        gate_verify,
+        "_run_step",
+        lambda cmd, *, dry_run: {"cmd": cmd, "dry_run": dry_run, "returncode": 0},
+    )
+
+    result = run_verify(args)
+
+    assert result["passed"] is True
+    assert result["failures"] == []
+    assert result["reuse_artifact_refresh_required"] is False
+    assert result["reuse_artifact_refresh_reasons"] == []
 
 
 def test_status_failures_reject_wna16_side_variant_without_execution_gate():

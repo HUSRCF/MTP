@@ -682,6 +682,59 @@ def _status_failures(statuses: dict[str, dict[str, Any]]) -> list[str]:
     return failures
 
 
+def _reuse_artifact_refresh_reasons(
+    statuses: dict[str, dict[str, Any]],
+    step_failures: list[str],
+    status_failures: list[str],
+) -> list[str]:
+    """Explain why a static artifact-reuse run must refresh its evidence.
+
+    This is intentionally diagnostic only: the strict gate still fails through
+    the normal checker/status paths.  The extra field keeps stale or
+    accidentally overwritten artifacts from looking like a new code-path bug.
+    """
+
+    reasons: list[str] = []
+    reused_artifacts = (
+        "default_closure",
+        "tail_window_closure",
+        "window_sweep",
+        "all_field_window_sweep",
+        "wna16_side_consumer_variant",
+    )
+    for name in reused_artifacts:
+        status = statuses.get(name, {})
+        if status.get("exists") is not True:
+            reasons.append(f"{name}_artifact_missing")
+            continue
+        if status.get("passed") is not True:
+            reasons.append(f"{name}_artifact_not_passed")
+        if status.get("failures") != []:
+            reasons.append(f"{name}_artifact_failures_not_empty")
+
+    checker_steps = (
+        "default_closure_check",
+        "tail_window_closure_check",
+        "window_sweep_check",
+        "all_field_window_sweep_check",
+    )
+    for name in checker_steps:
+        status = statuses.get(name, {})
+        if name in step_failures:
+            reasons.append(f"{name}_static_checker_failed")
+        if status.get("exists") is not True:
+            reasons.append(f"{name}_static_check_artifact_missing")
+            continue
+        if status.get("passed") is not True:
+            reasons.append(f"{name}_static_check_not_passed")
+        if status.get("failures") != []:
+            reasons.append(f"{name}_static_check_failures_not_empty")
+
+    for failure in status_failures:
+        reasons.append(f"stale_gate_requirement:{failure}")
+    return sorted(set(reasons))
+
+
 def run_verify(args: argparse.Namespace) -> dict[str, Any]:
     closure_json = _resolve(args.closure_json)
     closure_check_json = _resolve(args.closure_check_json)
@@ -904,6 +957,11 @@ def run_verify(args: argparse.Namespace) -> dict[str, Any]:
         is not True
     ):
         status_failures.append("default_closure_arg_slot_runner_not_reused")
+    reuse_artifact_refresh_reasons = (
+        _reuse_artifact_refresh_reasons(statuses, step_failures, status_failures)
+        if args.reuse_native_artifacts and not args.dry_run
+        else []
+    )
     failures = step_failures + status_failures
     report = {
         "passed": not failures,
@@ -911,6 +969,8 @@ def run_verify(args: argparse.Namespace) -> dict[str, Any]:
         "source": "premap_lab_gate_verify",
         "dry_run": bool(args.dry_run),
         "reuse_native_artifacts": bool(args.reuse_native_artifacts),
+        "reuse_artifact_refresh_required": bool(reuse_artifact_refresh_reasons),
+        "reuse_artifact_refresh_reasons": reuse_artifact_refresh_reasons,
         "skip_default_arg_slot_runner": bool(args.skip_default_arg_slot_runner),
         "tail_window_size": int(args.tail_window_size),
         "paths": {

@@ -40491,3 +40491,73 @@ arg_slot_runner_reused = true
 
 so the verify-level flag cannot silently degrade into a normal refreshed
 closure or an unproven missing-reuse artifact.
+
+### 2026-06-21: static native artifact reuse now reports refresh-required failures
+
+The lab verify entrypoint now has an explicit static reuse diagnostic for
+native/GPU artifacts:
+
+```text
+scripts/run_premap_lab_gate_verify.py \
+  --reuse-native-artifacts \
+  --output-json outputs/reports/premap_lab_gate_verify_reuse_native_artifacts.json
+```
+
+This mode still runs the static checkers and still fails the strict gate when
+the reused evidence is stale, overwritten by a failed GPU run, or missing a
+newer ABI coverage requirement.  It now additionally reports:
+
+```text
+reuse_artifact_refresh_required = true/false
+reuse_artifact_refresh_reasons = [...]
+```
+
+These fields are diagnostic only.  They do not participate in the pass/fail
+decision; `passed` remains controlled by the step return codes and strict
+status failures.
+
+Current local static reuse result:
+
+```text
+outputs/reports/premap_lab_gate_verify_reuse_native_artifacts.json
+
+passed = false
+reuse_native_artifacts = true
+reuse_artifact_refresh_required = true
+```
+
+The failure is now attributed to stale or insufficient reused evidence.  The
+main reasons include:
+
+```text
+tail_window_closure_artifact_not_passed
+tail_window_closure_artifact_failures_not_empty
+tail_window_closure_check_static_checker_failed
+tail_window_closure_check_static_check_not_passed
+tail_window_closure_check_static_check_failures_not_empty
+window_sweep_check_static_checker_failed
+window_sweep_check_static_check_not_passed
+window_sweep_check_static_check_failures_not_empty
+stale_gate_requirement:tail_window_closure_not_passed
+stale_gate_requirement:tail_window_closure_failures_not_empty
+stale_gate_requirement:tail_window_closure_check_not_passed
+stale_gate_requirement:tail_window_closure_check_failures_not_empty
+stale_gate_requirement:window_sweep_check_not_passed
+stale_gate_requirement:window_sweep_check_failures_not_empty
+```
+
+This is the expected behavior on the current host because ROCm device probing
+reports no usable CUDA/HIP runtime through PyTorch, so the native artifacts
+cannot be refreshed locally.  The final lab gate remains strict: a static reuse
+run is acceptable only when the reused artifacts already satisfy the current
+no-payload / no-kernel-arg / typed ABI preflight requirements.
+
+Verification:
+
+```text
+/home/husrcf/anaconda3/envs/TRY/bin/python -m pytest tests/test_run_premap_lab_gate_verify.py -q
+30 passed
+
+/home/husrcf/anaconda3/envs/TRY/bin/python -m pytest tests -q
+2047 passed, 2 warnings
+```
