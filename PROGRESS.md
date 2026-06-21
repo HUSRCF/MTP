@@ -41249,3 +41249,75 @@ direct_snapshot_changes_kernel_launch_args = false
 The direct snapshot gate now accepts transition issue sources from both the
 offline previous-token replay path and the online prelaunch-observed producer
 path.  Mixed source lists containing non-transition sources are rejected.
+
+## Payload-cache runtime participation evidence promoted to lab gate
+
+The payload-cache path now has a stricter lab preflight boundary for the
+future full-payload/cache-manager runtime.
+
+The online manager snapshot emits a payloadless runtime-participation object:
+
+```text
+runtime_participation_stage = online_ready_time_payload_cache_runtime_participation_dry_run
+payload_bytes = 0
+ready_credit = false
+real_ready_credit_granted = false
+kernel_arg_pass_allowed = false
+changes_kernel_launch_args = false
+full_fetch_runtime_allowed = false
+payload_transfer_runtime_enabled = false
+```
+
+This evidence is now validated through the full chain:
+
+```text
+online performance_summary
+  -> check_premap_payload_cache_ready_time_gate.py
+  -> check_prefetch_lab_default_gate.py
+  -> run_premap_lab_preflight.py lab_gate_status_summary
+  -> check_premap_lab_preflight_summary.py
+```
+
+The preflight no longer synthesizes participation fields from the older direct
+snapshot boundary.  It consumes the rechecked
+`direct_snapshot_runtime_participation_*` fields from the ready-time checker.
+Valid ready-time statuses are restricted to:
+
+```text
+ready_time_candidate_requires_lab_gate
+accounting_only_no_issued_fetch
+accounting_only_no_used_fetch
+accounting_only_all_demands_ready_late
+```
+
+Non-ready-time participation states such as
+`accounting_only_not_ready_time_manager:resident` are rejected by both the
+ready-time checker and the final preflight checker.
+
+Validation:
+
+```bash
+/home/husrcf/anaconda3/envs/TRY/bin/python -m pytest \
+  tests/test_cache_lab_gate.py \
+  tests/test_vllm_router_shadow_sink.py \
+  tests/test_check_premap_payload_cache_ready_time_gate.py \
+  tests/test_check_prefetch_lab_default_gate.py \
+  tests/test_check_premap_lab_preflight_summary.py \
+  tests/test_run_premap_lab_preflight.py -q
+# 454 passed
+
+/home/husrcf/anaconda3/envs/TRY/bin/python \
+  scripts/check_prefetch_lab_default_gate.py \
+  configs/runtime/prefetch_lab_default_gate_gpu1.yaml --root .
+# passed = true
+```
+
+Boundary remains unchanged:
+
+```text
+not endpoint TPOT
+not payload transfer
+not ready credit
+not kernel arg handoff
+not a real WNA16 payload/cache-manager benchmark claim
+```
