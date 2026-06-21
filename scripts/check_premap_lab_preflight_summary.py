@@ -1649,6 +1649,54 @@ def _check_stream_queue_budget(summary: dict[str, Any], failures: list[str]) -> 
         if summary.get(f"{envelope_prefix}_{key}") is not False:
             failures.append(f"{envelope_prefix}_{key}_mismatch")
 
+    live_prefix = f"{prefix}_live_payload_stage"
+    if summary.get(f"{live_prefix}_present") is not True:
+        failures.append(f"{live_prefix}_present_mismatch")
+    if summary.get(f"{live_prefix}_stage") != "payload_cache_live_payload_stage_preflight":
+        failures.append(f"{live_prefix}_stage_mismatch")
+    expected_envelope_status = "model_queue_budget_satisfied_runtime_disabled"
+    if (
+        summary.get(f"{live_prefix}_status")
+        != f"blocked_by_queue_budget_runtime_envelope:{expected_envelope_status}"
+    ):
+        failures.append(f"{live_prefix}_status_mismatch")
+    if summary.get(f"{live_prefix}_consumes_queue_budget_runtime_envelope") is not True:
+        failures.append(f"{live_prefix}_consumes_queue_budget_runtime_envelope_mismatch")
+    if summary.get(f"{live_prefix}_queue_budget_envelope_status") != expected_envelope_status:
+        failures.append(f"{live_prefix}_queue_budget_envelope_status_mismatch")
+    if summary.get(f"{live_prefix}_decision") != "blocked":
+        failures.append(f"{live_prefix}_decision_mismatch")
+    if summary.get(f"{live_prefix}_block_reason") != "live_payload_runtime_disabled":
+        failures.append(f"{live_prefix}_block_reason_mismatch")
+    if (
+        summary.get(f"{live_prefix}_execution_mode")
+        != "payloadless_live_payload_stage_preflight"
+    ):
+        failures.append(f"{live_prefix}_execution_mode_mismatch")
+    if _int_metric(summary, f"{live_prefix}_issued_payload_count") != 0:
+        failures.append(f"{live_prefix}_issued_payload_count_mismatch")
+    if _int_metric(summary, f"{live_prefix}_payload_bytes") != 0:
+        failures.append(f"{live_prefix}_payload_bytes_mismatch")
+    for key in (
+        "live_payload_runtime_enabled",
+        "payload_transfer_runtime_enabled",
+        "payload_deref_allowed",
+        "payload_deref_runtime_allowed",
+        "ready_credit",
+        "ready_before_demand_credit",
+        "real_ready_credit_granted",
+        "kernel_arg_pass_allowed",
+        "passed_to_kernel",
+        "changes_kernel_launch_args",
+        "full_fetch_runtime_allowed",
+        "uses_current_wna16_args",
+        "passes_current_wna16_args",
+        "measures_tpot",
+        "measures_vllm_latency",
+    ):
+        if summary.get(f"{live_prefix}_{key}") is not False:
+            failures.append(f"{live_prefix}_{key}_mismatch")
+
     if (
         summary.get(f"{prefix}_first_shifted_issue_accounting_enabled")
         is not True

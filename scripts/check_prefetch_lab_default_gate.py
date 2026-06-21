@@ -34,6 +34,7 @@ from scripts.check_premap_payload_cache_ready_time_gate import (  # noqa: E402
     check_summary as check_ready_time_summary,
 )
 from mtp_expert_prefetch.runtime import (  # noqa: E402
+    build_payload_cache_live_payload_stage_preflight,
     build_payload_cache_queue_budget_runtime_envelope,
 )
 
@@ -1224,6 +1225,7 @@ def _check_optional_stream_queue_budget_sweep(
         label="stream_queue_budget_first_shifted_issue",
     )
     envelope_payload: dict[str, Any] = {}
+    live_payload_stage_payload: dict[str, Any] = {}
     if len(failures) == queue_failure_base:
         try:
             envelope = build_payload_cache_queue_budget_runtime_envelope(
@@ -1244,10 +1246,18 @@ def _check_optional_stream_queue_budget_sweep(
                 ),
             )
             envelope_payload = envelope.as_dict()
+            live_payload_stage = build_payload_cache_live_payload_stage_preflight(
+                envelope,
+            )
+            live_payload_stage_payload = live_payload_stage.as_dict()
         except (TypeError, ValueError) as exc:
+            label = (
+                "stream_queue_budget_live_payload_stage_invalid"
+                if envelope_payload
+                else "stream_queue_budget_runtime_envelope_invalid"
+            )
             failures.append(
-                "stream_queue_budget_runtime_envelope_invalid:"
-                f"{type(exc).__name__}:{exc}",
+                f"{label}:{type(exc).__name__}:{exc}",
             )
     else:
         failures.append("stream_queue_budget_runtime_envelope_skipped_due_to_failures")
@@ -1328,6 +1338,81 @@ def _check_optional_stream_queue_budget_sweep(
         ),
         "stream_queue_budget_runtime_envelope_measures_vllm_latency": (
             envelope_payload.get("measures_vllm_latency")
+        ),
+        "stream_queue_budget_live_payload_stage_present": (
+            live_payload_stage_payload.get("present")
+        ),
+        "stream_queue_budget_live_payload_stage_stage": live_payload_stage_payload.get(
+            "stage",
+        ),
+        "stream_queue_budget_live_payload_stage_status": live_payload_stage_payload.get(
+            "status",
+        ),
+        "stream_queue_budget_live_payload_stage_consumes_queue_budget_runtime_envelope": (
+            live_payload_stage_payload.get("consumes_queue_budget_runtime_envelope")
+        ),
+        "stream_queue_budget_live_payload_stage_queue_budget_envelope_status": (
+            live_payload_stage_payload.get("queue_budget_envelope_status")
+        ),
+        "stream_queue_budget_live_payload_stage_decision": live_payload_stage_payload.get(
+            "decision",
+        ),
+        "stream_queue_budget_live_payload_stage_block_reason": (
+            live_payload_stage_payload.get("block_reason")
+        ),
+        "stream_queue_budget_live_payload_stage_execution_mode": (
+            live_payload_stage_payload.get("execution_mode")
+        ),
+        "stream_queue_budget_live_payload_stage_live_payload_runtime_enabled": (
+            live_payload_stage_payload.get("live_payload_runtime_enabled")
+        ),
+        "stream_queue_budget_live_payload_stage_payload_transfer_runtime_enabled": (
+            live_payload_stage_payload.get("payload_transfer_runtime_enabled")
+        ),
+        "stream_queue_budget_live_payload_stage_payload_deref_allowed": (
+            live_payload_stage_payload.get("payload_deref_allowed")
+        ),
+        "stream_queue_budget_live_payload_stage_payload_deref_runtime_allowed": (
+            live_payload_stage_payload.get("payload_deref_runtime_allowed")
+        ),
+        "stream_queue_budget_live_payload_stage_issued_payload_count": (
+            live_payload_stage_payload.get("issued_payload_count")
+        ),
+        "stream_queue_budget_live_payload_stage_payload_bytes": (
+            live_payload_stage_payload.get("payload_bytes")
+        ),
+        "stream_queue_budget_live_payload_stage_ready_credit": (
+            live_payload_stage_payload.get("ready_credit")
+        ),
+        "stream_queue_budget_live_payload_stage_ready_before_demand_credit": (
+            live_payload_stage_payload.get("ready_before_demand_credit")
+        ),
+        "stream_queue_budget_live_payload_stage_real_ready_credit_granted": (
+            live_payload_stage_payload.get("real_ready_credit_granted")
+        ),
+        "stream_queue_budget_live_payload_stage_kernel_arg_pass_allowed": (
+            live_payload_stage_payload.get("kernel_arg_pass_allowed")
+        ),
+        "stream_queue_budget_live_payload_stage_passed_to_kernel": (
+            live_payload_stage_payload.get("passed_to_kernel")
+        ),
+        "stream_queue_budget_live_payload_stage_changes_kernel_launch_args": (
+            live_payload_stage_payload.get("changes_kernel_launch_args")
+        ),
+        "stream_queue_budget_live_payload_stage_full_fetch_runtime_allowed": (
+            live_payload_stage_payload.get("full_fetch_runtime_allowed")
+        ),
+        "stream_queue_budget_live_payload_stage_uses_current_wna16_args": (
+            live_payload_stage_payload.get("uses_current_wna16_args")
+        ),
+        "stream_queue_budget_live_payload_stage_passes_current_wna16_args": (
+            live_payload_stage_payload.get("passes_current_wna16_args")
+        ),
+        "stream_queue_budget_live_payload_stage_measures_tpot": (
+            live_payload_stage_payload.get("measures_tpot")
+        ),
+        "stream_queue_budget_live_payload_stage_measures_vllm_latency": (
+            live_payload_stage_payload.get("measures_vllm_latency")
         ),
         "stream_queue_budget_payload_bytes": _optional_int(report, "payload_bytes"),
         "stream_queue_budget_payload_transfer_enabled": _optional_bool(

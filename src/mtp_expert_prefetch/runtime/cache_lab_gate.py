@@ -354,6 +354,96 @@ class PayloadCacheQueueBudgetRuntimeEnvelope:
         return asdict(self)
 
 
+@dataclass(frozen=True)
+class PayloadCacheLivePayloadStagePreflight:
+    """Blocked preflight for the future live payload/cache-manager stage.
+
+    This is the contract immediately after the queue-budget runtime envelope.
+    It proves that the next stage has consumed the envelope, but it keeps live
+    payload transfer and all execution side effects disabled until a separate
+    payload/cache-manager implementation has strict evidence.
+    """
+
+    present: bool
+    stage: str
+    status: str
+    consumes_queue_budget_runtime_envelope: bool
+    queue_budget_envelope_status: str
+    decision: str = "blocked"
+    block_reason: str = "live_payload_runtime_disabled"
+    execution_mode: str = "payloadless_live_payload_stage_preflight"
+    live_payload_runtime_enabled: bool = False
+    payload_transfer_runtime_enabled: bool = False
+    payload_deref_allowed: bool = False
+    payload_deref_runtime_allowed: bool = False
+    issued_payload_count: int = 0
+    payload_bytes: int = 0
+    ready_credit: bool = False
+    ready_before_demand_credit: bool = False
+    real_ready_credit_granted: bool = False
+    kernel_arg_pass_allowed: bool = False
+    passed_to_kernel: bool = False
+    changes_kernel_launch_args: bool = False
+    full_fetch_runtime_allowed: bool = False
+    uses_current_wna16_args: bool = False
+    passes_current_wna16_args: bool = False
+    measures_tpot: bool = False
+    measures_vllm_latency: bool = False
+
+    def __post_init__(self) -> None:
+        if self.present is not True:
+            raise ValueError("live payload stage preflight must be present")
+        if self.stage != "payload_cache_live_payload_stage_preflight":
+            raise ValueError("live payload stage preflight stage mismatch")
+        if self.consumes_queue_budget_runtime_envelope is not True:
+            raise ValueError("live payload stage must consume queue-budget envelope")
+        if (
+            not isinstance(self.queue_budget_envelope_status, str)
+            or not self.queue_budget_envelope_status
+        ):
+            raise TypeError("queue_budget_envelope_status must be a nonempty string")
+        expected_status = (
+            "blocked_by_queue_budget_runtime_envelope:"
+            f"{self.queue_budget_envelope_status}"
+        )
+        if self.status != expected_status:
+            raise ValueError("live payload stage status mismatch")
+        if self.decision != "blocked":
+            raise ValueError("live payload stage decision must stay blocked")
+        if self.block_reason != "live_payload_runtime_disabled":
+            raise ValueError("live payload stage block reason mismatch")
+        if self.execution_mode != "payloadless_live_payload_stage_preflight":
+            raise ValueError("live payload stage execution mode mismatch")
+        for field_name in ("issued_payload_count", "payload_bytes"):
+            value = getattr(self, field_name)
+            if not isinstance(value, int) or isinstance(value, bool):
+                raise TypeError(f"{field_name} must be an integer")
+            if value != 0:
+                raise ValueError(f"{field_name} must remain zero")
+        for field_name in (
+            "live_payload_runtime_enabled",
+            "payload_transfer_runtime_enabled",
+            "payload_deref_allowed",
+            "payload_deref_runtime_allowed",
+            "ready_credit",
+            "ready_before_demand_credit",
+            "real_ready_credit_granted",
+            "kernel_arg_pass_allowed",
+            "passed_to_kernel",
+            "changes_kernel_launch_args",
+            "full_fetch_runtime_allowed",
+            "uses_current_wna16_args",
+            "passes_current_wna16_args",
+            "measures_tpot",
+            "measures_vllm_latency",
+        ):
+            if getattr(self, field_name) is not False:
+                raise ValueError(f"{field_name} must remain disabled")
+
+    def as_dict(self) -> dict[str, bool | int | str]:
+        return asdict(self)
+
+
 def select_cache_lab_prefetch_gate(
     signals: CacheLabRuntimeSignals,
     *,
@@ -539,6 +629,23 @@ def build_payload_cache_queue_budget_runtime_envelope(
             "shifted_issue_unique_issue_key_count",
             shifted_issue_unique_issue_key_count,
         ),
+    )
+
+
+def build_payload_cache_live_payload_stage_preflight(
+    envelope: PayloadCacheQueueBudgetRuntimeEnvelope,
+) -> PayloadCacheLivePayloadStagePreflight:
+    """Build the blocked preflight for the future live payload stage."""
+
+    if not isinstance(envelope, PayloadCacheQueueBudgetRuntimeEnvelope):
+        raise TypeError("envelope must be a PayloadCacheQueueBudgetRuntimeEnvelope")
+    status = str(envelope.status)
+    return PayloadCacheLivePayloadStagePreflight(
+        present=True,
+        stage="payload_cache_live_payload_stage_preflight",
+        status=f"blocked_by_queue_budget_runtime_envelope:{status}",
+        consumes_queue_budget_runtime_envelope=True,
+        queue_budget_envelope_status=status,
     )
 
 

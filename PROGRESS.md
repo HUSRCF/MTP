@@ -2,10 +2,99 @@
 
 ## Progress Version
 
-- Version: `v1.24-queue-budget-runtime-envelope-gate`
+- Version: `v1.25-live-payload-stage-preflight-gate`
 - Updated: 2026-06-22
 
-## Latest Update: Queue-Budget Runtime Envelope Gate
+## Latest Update: Live Payload Stage Preflight Gate
+
+The queue-budget runtime envelope now feeds the next explicit blocked stage:
+
+```text
+PayloadCacheLivePayloadStagePreflight
+```
+
+This object proves that the future live payload/cache-manager stage consumes the
+queue-budget runtime envelope, but it is still a lab precondition only.  It does
+not enable payload transfer, ready credit, kernel argument mutation, or endpoint
+latency measurement.
+
+Required live-stage contract:
+
+```text
+stage = payload_cache_live_payload_stage_preflight
+status = blocked_by_queue_budget_runtime_envelope:model_queue_budget_satisfied_runtime_disabled
+decision = blocked
+block_reason = live_payload_runtime_disabled
+execution_mode = payloadless_live_payload_stage_preflight
+consumes_queue_budget_runtime_envelope = true
+queue_budget_envelope_status = model_queue_budget_satisfied_runtime_disabled
+```
+
+The no-side-effect boundary is required across the dataclass, default gate
+checker, compact preflight summary, and summary checker:
+
+```text
+live_payload_runtime_enabled = false
+payload_transfer_runtime_enabled = false
+payload_deref_allowed = false
+payload_deref_runtime_allowed = false
+issued_payload_count = 0
+payload_bytes = 0
+ready_credit = false
+ready_before_demand_credit = false
+real_ready_credit_granted = false
+kernel_arg_pass_allowed = false
+passed_to_kernel = false
+changes_kernel_launch_args = false
+full_fetch_runtime_allowed = false
+uses_current_wna16_args = false
+passes_current_wna16_args = false
+measures_tpot = false
+measures_vllm_latency = false
+```
+
+Validation:
+
+```text
+/home/husrcf/anaconda3/envs/TRY/bin/python -m pytest \
+  tests/test_cache_lab_gate.py \
+  tests/test_check_prefetch_lab_default_gate.py \
+  tests/test_run_premap_lab_preflight.py \
+  tests/test_check_premap_lab_preflight_summary.py \
+  tests/test_check_premap_payload_cache_ready_time_gate.py \
+  tests/test_vllm_router_shadow_sink.py -q
+
+487 passed
+
+/home/husrcf/anaconda3/envs/TRY/bin/python scripts/check_prefetch_lab_default_gate.py \
+  configs/runtime/prefetch_lab_default_gate_gpu1.yaml
+
+passed = true
+
+/home/husrcf/anaconda3/envs/TRY/bin/python scripts/check_premap_lab_preflight_summary.py \
+  outputs/reports/premap_lab_preflight_status_queue_budget_gate_summary_20260622.json \
+  --output-json outputs/reports/premap_lab_preflight_status_queue_budget_gate_summary_20260622.check.json
+
+passed = true
+```
+
+Reviewer status:
+
+```text
+GPT-5.5 static review found no blockers.
+The payload dereference boundary is now explicit in the live-stage gate.
+```
+
+Next gate:
+
+```text
+use this live-stage preflight as the last no-op lab gate before any real
+payload/cache-manager runtime implementation.  The next implementation must
+still enter through a separate strict gate before it can dereference payload,
+grant ready credit, pass kernel args, or claim TPOT.
+```
+
+## Previous Update: Queue-Budget Runtime Envelope Gate
 
 The queue-budget stream executor evidence now feeds an explicit runtime-layer
 contract:

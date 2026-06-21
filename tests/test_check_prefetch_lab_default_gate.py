@@ -627,6 +627,39 @@ def test_prefetch_lab_default_gate_passes_low_risk_premap_path(tmp_path: Path):
         full_fetch["stream_queue_budget_runtime_envelope_kernel_arg_pass_allowed"]
         is False
     )
+    assert full_fetch["stream_queue_budget_live_payload_stage_present"] is True
+    assert (
+        full_fetch["stream_queue_budget_live_payload_stage_status"]
+        == (
+            "blocked_by_queue_budget_runtime_envelope:"
+            "model_queue_budget_satisfied_runtime_disabled"
+        )
+    )
+    assert (
+        full_fetch["stream_queue_budget_live_payload_stage_execution_mode"]
+        == "payloadless_live_payload_stage_preflight"
+    )
+    assert full_fetch["stream_queue_budget_live_payload_stage_payload_bytes"] == 0
+    assert (
+        full_fetch[
+            "stream_queue_budget_live_payload_stage_live_payload_runtime_enabled"
+        ]
+        is False
+    )
+    assert (
+        full_fetch["stream_queue_budget_live_payload_stage_payload_deref_allowed"]
+        is False
+    )
+    assert (
+        full_fetch[
+            "stream_queue_budget_live_payload_stage_payload_deref_runtime_allowed"
+        ]
+        is False
+    )
+    assert (
+        full_fetch["stream_queue_budget_live_payload_stage_kernel_arg_pass_allowed"]
+        is False
+    )
     assert full_fetch["stream_queue_budget_payload_bytes"] == 0
     assert full_fetch["stream_queue_budget_payload_transfer_enabled"] is False
     assert full_fetch["stream_queue_budget_payload_deref_allowed"] is False
@@ -665,6 +698,7 @@ def test_prefetch_lab_default_gate_rejects_queue_budget_first_cell_mismatch(
     )
     full_fetch = result["sections"]["full_fetch"]
     assert full_fetch["stream_queue_budget_runtime_envelope_present"] is None
+    assert full_fetch["stream_queue_budget_live_payload_stage_present"] is None
 
 
 def test_prefetch_lab_default_gate_rejects_queue_budget_string_cell_index(
