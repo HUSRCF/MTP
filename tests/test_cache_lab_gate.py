@@ -8,6 +8,7 @@ from mtp_expert_prefetch.runtime import (
     CacheLabRuntimeSignals,
     PayloadCacheLivePayloadRuntimeDisabledCanary,
     PayloadCacheLivePayloadStagePreflight,
+    PayloadCacheLiveRuntimeAdapterMaterializationPreflight,
     PayloadCacheLiveRuntimeObjectAdapterPreflight,
     PayloadCacheLiveRuntimeObjectConstructionPreflight,
     PayloadCacheLiveRuntimeStateShapeCheck,
@@ -23,6 +24,7 @@ from mtp_expert_prefetch.runtime import (
     build_payload_cache_manager_implementation_artifact,
     build_payload_cache_manager_runtime_snapshot_artifact,
     build_payload_cache_manager_runtime_skeleton,
+    build_payload_cache_live_runtime_adapter_materialization_preflight,
     build_payload_cache_live_runtime_object_adapter_preflight,
     build_payload_cache_live_runtime_object_construction_preflight,
     build_payload_cache_live_runtime_state_shape_check,
@@ -2204,6 +2206,231 @@ def test_live_runtime_object_adapter_preflight_builder_rejects_bad_object() -> N
     object.__setattr__(object_preflight, "kernel_arg_pass_allowed", True)
     with pytest.raises(ValueError, match="kernel_arg_pass_allowed"):
         build_payload_cache_live_runtime_object_adapter_preflight(object_preflight)
+
+
+def _build_live_runtime_object_adapter_preflight() -> (
+    PayloadCacheLiveRuntimeObjectAdapterPreflight
+):
+    return build_payload_cache_live_runtime_object_adapter_preflight(
+        _build_live_runtime_object_construction_preflight(),
+    )
+
+
+def test_live_runtime_adapter_materialization_preflight_consumes_adapter() -> None:
+    object_adapter = _build_live_runtime_object_adapter_preflight()
+
+    preflight = build_payload_cache_live_runtime_adapter_materialization_preflight(
+        object_adapter,
+    )
+    payload = preflight.as_dict()
+
+    assert payload["present"] is True
+    assert (
+        payload["stage"]
+        == "payload_cache_live_runtime_adapter_materialization_preflight"
+    )
+    assert payload["status"] == f"blocked_by_object_adapter_preflight:{object_adapter.status}"
+    assert payload["consumes_object_adapter_preflight"] is True
+    assert payload["object_adapter_status"] == object_adapter.status
+    assert payload["manager_backend"] == "ReadyTimeExpertCacheManager"
+    assert payload["manager_runtime_contract"] == "ready_time_issue_demand_skeleton_v1"
+    assert payload["manager_runtime_mode"] == "ready_time_payload_cache_skeleton"
+    assert payload["state_shape_schema"] == "ready_time_issue_demand_state_shape_v1"
+    assert payload["runtime_adapter_schema"] == "ready_time_payload_cache_runtime_adapter_v1"
+    assert payload["object_construction_preflight_instantiated"] is True
+    assert payload["adapter_materialization_preflight_instantiated"] is True
+    assert payload["runtime_object_adapter_declared"] is True
+    assert payload["issue_queue_materialization_checked"] is True
+    assert payload["demand_state_materialization_checked"] is True
+    assert payload["resident_index_materialization_checked"] is True
+    assert payload["queue_timing_materialization_checked"] is True
+    assert payload["live_runtime_instantiated"] is False
+    assert payload["capacity_entries"] == 4096
+    assert payload["issue_lead_tokens"] == 32
+    assert payload["queue_deadline_us"] == 100.0
+    assert payload["lookahead_us"] == 2_400_000.0
+    assert payload["queue_batch_size"] == 1
+    for key in (
+        "resident_count",
+        "issued_fetch_count",
+        "used_fetch_count",
+        "unused_fetch_count",
+        "demand_count",
+        "demand_hit_count",
+        "demand_miss_count",
+        "evicted_before_use_count",
+        "ready_late_miss_count",
+        "late_completion_unused_count",
+        "queue_batch_count",
+    ):
+        assert payload[key] == 0
+    for key in (
+        "queue_service_us",
+        "queue_total_span_us",
+        "queue_wait_us",
+        "queue_max_delay_us",
+    ):
+        assert payload[key] == 0.0
+    assert payload["shifted_issue_accounting_enabled"] is True
+    assert payload["shifted_issue_accounted_packet_count"] == 28
+    assert payload["shifted_issue_unique_issue_key_count"] == 16
+    assert payload["decision"] == "blocked"
+    assert payload["block_reason"] == "live_runtime_adapter_materialization_preflight_only"
+    assert (
+        payload["execution_mode"]
+        == "payload_cache_live_runtime_adapter_materialization_preflight_disabled"
+    )
+    assert payload["issued_payload_count"] == 0
+    assert payload["payload_bytes"] == 0
+    for key in (
+        "live_payload_runtime_enabled",
+        "payload_transfer_runtime_enabled",
+        "payload_deref_allowed",
+        "payload_deref_runtime_allowed",
+        "ready_credit",
+        "ready_before_demand_credit",
+        "real_ready_credit_granted",
+        "kernel_arg_pass_allowed",
+        "passed_to_kernel",
+        "changes_kernel_launch_args",
+        "full_fetch_runtime_allowed",
+        "uses_current_wna16_args",
+        "passes_current_wna16_args",
+        "measures_tpot",
+        "measures_vllm_latency",
+    ):
+        assert payload[key] is False
+
+
+def test_live_runtime_adapter_materialization_preflight_rejects_side_effects() -> None:
+    object_adapter_status = (
+        "blocked_by_object_construction_preflight:"
+        "blocked_by_state_shape_check:"
+        "blocked_by_live_runtime_canary:"
+        "blocked_by_live_runtime_preflight:"
+        "blocked_by_runtime_snapshot:"
+        "blocked_by_runtime_skeleton:"
+        "blocked_by_manager_artifact:"
+        "blocked_by_live_payload_runtime:"
+        "blocked_by_live_payload_stage:"
+        "blocked_by_queue_budget_runtime_envelope:"
+        "model_queue_budget_satisfied_runtime_disabled"
+    )
+    base_kwargs = {
+        "present": True,
+        "stage": "payload_cache_live_runtime_adapter_materialization_preflight",
+        "status": f"blocked_by_object_adapter_preflight:{object_adapter_status}",
+        "consumes_object_adapter_preflight": True,
+        "object_adapter_status": object_adapter_status,
+        "manager_backend": "ReadyTimeExpertCacheManager",
+        "manager_runtime_contract": "ready_time_issue_demand_skeleton_v1",
+        "manager_runtime_mode": "ready_time_payload_cache_skeleton",
+        "state_shape_schema": "ready_time_issue_demand_state_shape_v1",
+        "runtime_adapter_schema": "ready_time_payload_cache_runtime_adapter_v1",
+        "object_construction_preflight_instantiated": True,
+        "adapter_materialization_preflight_instantiated": True,
+        "runtime_object_adapter_declared": True,
+        "issue_queue_materialization_checked": True,
+        "demand_state_materialization_checked": True,
+        "resident_index_materialization_checked": True,
+        "queue_timing_materialization_checked": True,
+        "live_runtime_instantiated": False,
+        "capacity_entries": 4096,
+        "issue_lead_tokens": 32,
+        "queue_deadline_us": 100.0,
+        "lookahead_us": 2_400_000.0,
+        "queue_batch_size": 1,
+        "resident_count": 0,
+        "issued_fetch_count": 0,
+        "used_fetch_count": 0,
+        "unused_fetch_count": 0,
+        "demand_count": 0,
+        "demand_hit_count": 0,
+        "demand_miss_count": 0,
+        "evicted_before_use_count": 0,
+        "ready_late_miss_count": 0,
+        "late_completion_unused_count": 0,
+        "queue_batch_count": 0,
+        "queue_service_us": 0.0,
+        "queue_total_span_us": 0.0,
+        "queue_wait_us": 0.0,
+        "queue_max_delay_us": 0.0,
+        "shifted_issue_accounting_enabled": True,
+        "shifted_issue_accounted_packet_count": 28,
+        "shifted_issue_unique_issue_key_count": 16,
+    }
+
+    with pytest.raises(ValueError, match="adapter_materialization"):
+        PayloadCacheLiveRuntimeAdapterMaterializationPreflight(
+            **{
+                **base_kwargs,
+                "adapter_materialization_preflight_instantiated": False,
+            },
+        )
+
+    with pytest.raises(ValueError, match="live runtime"):
+        PayloadCacheLiveRuntimeAdapterMaterializationPreflight(
+            **{
+                **base_kwargs,
+                "live_runtime_instantiated": True,
+            },
+        )
+
+    with pytest.raises(ValueError, match="payload_bytes"):
+        PayloadCacheLiveRuntimeAdapterMaterializationPreflight(
+            **{
+                **base_kwargs,
+                "payload_bytes": 1,
+            },
+        )
+
+    for field_name in (
+        "ready_credit",
+        "kernel_arg_pass_allowed",
+        "uses_current_wna16_args",
+        "measures_tpot",
+    ):
+        with pytest.raises(ValueError, match=field_name):
+            PayloadCacheLiveRuntimeAdapterMaterializationPreflight(
+                **{
+                    **base_kwargs,
+                    field_name: True,
+                },
+            )
+
+    with pytest.raises(TypeError, match="object_adapter"):
+        build_payload_cache_live_runtime_adapter_materialization_preflight(object())  # type: ignore[arg-type]
+
+
+def test_live_runtime_adapter_materialization_preflight_builder_rejects_bad_adapter() -> None:
+    object_adapter = _build_live_runtime_object_adapter_preflight()
+
+    object.__setattr__(object_adapter, "decision", "allow")
+    with pytest.raises(ValueError, match="must stay blocked"):
+        build_payload_cache_live_runtime_adapter_materialization_preflight(
+            object_adapter,
+        )
+
+    object_adapter = _build_live_runtime_object_adapter_preflight()
+    object.__setattr__(object_adapter, "object_construction_preflight_instantiated", False)
+    with pytest.raises(ValueError, match="object_construction_preflight_instantiated"):
+        build_payload_cache_live_runtime_adapter_materialization_preflight(
+            object_adapter,
+        )
+
+    object_adapter = _build_live_runtime_object_adapter_preflight()
+    object.__setattr__(object_adapter, "payload_bytes", 1)
+    with pytest.raises(ValueError, match="payload_bytes"):
+        build_payload_cache_live_runtime_adapter_materialization_preflight(
+            object_adapter,
+        )
+
+    object_adapter = _build_live_runtime_object_adapter_preflight()
+    object.__setattr__(object_adapter, "passed_to_kernel", True)
+    with pytest.raises(ValueError, match="passed_to_kernel"):
+        build_payload_cache_live_runtime_adapter_materialization_preflight(
+            object_adapter,
+        )
 
 
 def test_payload_cache_runtime_execution_dry_run_consumes_plan() -> None:
