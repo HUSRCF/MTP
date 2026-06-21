@@ -2,10 +2,10 @@
 
 ## Progress Version
 
-- Version: `v1.28-payload-cache-manager-runtime-skeleton`
+- Version: `v1.29-payload-cache-manager-runtime-snapshot`
 - Updated: 2026-06-22
 
-## Latest Update: Payload Cache Manager Runtime Skeleton
+## Latest Update: Payload Cache Manager Runtime Snapshot
 
 The live-runtime disabled canary now feeds the first concrete payload/cache
 manager implementation artifact:
@@ -67,8 +67,55 @@ builder rejects canary/envelope cross-chain mismatches before constructing the
 artifact.  The runtime skeleton consumes only that manager artifact and keeps
 the concrete runtime uninstantiated.
 
+The runtime skeleton now feeds a default-disabled accounting snapshot artifact:
+
+```text
+PayloadCacheManagerRuntimeSnapshotArtifact
+```
+
+This snapshot is the first lab-gated object that touches the real
+`ReadyTimeExpertCacheManager` state shape.  It constructs an empty accounting
+manager and snapshots its queue/cache counters, but still does not instantiate
+the future live runtime, issue transfers, dereference payload, grant ready
+credit, mutate kernel arguments, or measure endpoint latency.
+
+Required snapshot contract:
+
+```text
+stage = payload_cache_manager_runtime_snapshot_artifact
+status = blocked_by_runtime_skeleton:<runtime_skeleton_status>
+consumes_runtime_skeleton = true
+manager_backend = ReadyTimeExpertCacheManager
+manager_runtime_contract = ready_time_issue_demand_skeleton_v1
+manager_runtime_mode = ready_time_payload_cache_skeleton
+snapshot_source = ReadyTimeExpertCacheManager.empty_snapshot
+accounting_snapshot_instantiated = true
+live_runtime_instantiated = false
+capacity_entries = 4096
+issue_lead_tokens = 32
+queue_deadline_us = 100.0
+lookahead_us = 2400000.0
+queue_batch_size = 1
+resident_count = 0
+issued_fetch_count = 0
+used_fetch_count = 0
+unused_fetch_count = 0
+demand_count = 0
+demand_hit_count = 0
+demand_miss_count = 0
+evicted_before_use_count = 0
+ready_late_miss_count = 0
+late_completion_unused_count = 0
+queue_batch_count = 0
+queue_service_us = 0.0
+queue_total_span_us = 0.0
+queue_wait_us = 0.0
+queue_max_delay_us = 0.0
+```
+
 The summary checker also rejects mixed queue-budget summaries.  Live-stage,
-live-runtime, manager-artifact, and runtime-skeleton queue-budget fields must
+live-runtime, manager-artifact, runtime-skeleton, and runtime-snapshot
+queue-budget fields must
 match the same summary's `first_model_passing_*` and `first_shifted_issue_*`
 envelope fields, while the lab-default gate still requires the measured
 4096-entry / 32-token / 100us / 2.4M-us cell.  This prevents stale downstream
@@ -79,6 +126,7 @@ The no-side-effect boundary remains closed:
 
 ```text
 runtime_instantiated = false
+live_runtime_instantiated = false
 live_payload_runtime_enabled = false
 payload_transfer_runtime_enabled = false
 payload_deref_allowed = false
@@ -109,7 +157,7 @@ Validation:
   tests/test_check_premap_payload_cache_ready_time_gate.py \
   tests/test_vllm_router_shadow_sink.py -q
 
-496 passed
+498 passed
 
 /home/husrcf/anaconda3/envs/TRY/bin/python scripts/check_prefetch_lab_default_gate.py \
   configs/runtime/prefetch_lab_default_gate_gpu1.yaml
@@ -126,10 +174,10 @@ passed = true
 Next gate:
 
 ```text
-instantiate the next default-disabled manager runtime object/snapshot behind
-the skeleton, using ReadyTimeExpertCacheManager issue/demand state. It must
-still keep payload dereference, ready credit, kernel argument handoff, and TPOT
-claims disabled until a strict live-runtime gate passes.
+promote the snapshot-backed queue/cache state into a still-disabled live-runtime
+preflight object. It may consume the empty ReadyTimeExpertCacheManager snapshot,
+but payload dereference, ready credit, kernel argument handoff, and TPOT claims
+must remain disabled until a strict live-runtime gate passes.
 ```
 
 ## Previous Update: Live Payload Runtime Disabled Canary

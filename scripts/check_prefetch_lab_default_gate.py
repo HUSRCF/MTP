@@ -37,6 +37,7 @@ from mtp_expert_prefetch.runtime import (  # noqa: E402
     build_payload_cache_live_payload_runtime_disabled_canary,
     build_payload_cache_live_payload_stage_preflight,
     build_payload_cache_manager_implementation_artifact,
+    build_payload_cache_manager_runtime_snapshot_artifact,
     build_payload_cache_manager_runtime_skeleton,
     build_payload_cache_queue_budget_runtime_envelope,
 )
@@ -1232,6 +1233,7 @@ def _check_optional_stream_queue_budget_sweep(
     live_payload_runtime_payload: dict[str, Any] = {}
     manager_artifact_payload: dict[str, Any] = {}
     manager_runtime_skeleton_payload: dict[str, Any] = {}
+    manager_runtime_snapshot_payload: dict[str, Any] = {}
     if len(failures) == queue_failure_base:
         try:
             envelope = build_payload_cache_queue_budget_runtime_envelope(
@@ -1270,8 +1272,16 @@ def _check_optional_stream_queue_budget_sweep(
                 manager_artifact,
             )
             manager_runtime_skeleton_payload = manager_runtime_skeleton.as_dict()
+            manager_runtime_snapshot = (
+                build_payload_cache_manager_runtime_snapshot_artifact(
+                    manager_runtime_skeleton,
+                )
+            )
+            manager_runtime_snapshot_payload = manager_runtime_snapshot.as_dict()
         except (TypeError, ValueError) as exc:
-            if manager_artifact_payload:
+            if manager_runtime_skeleton_payload:
+                label = "stream_queue_budget_manager_runtime_snapshot_invalid"
+            elif manager_artifact_payload:
                 label = "stream_queue_budget_manager_runtime_skeleton_invalid"
             elif live_payload_runtime_payload:
                 label = "stream_queue_budget_manager_artifact_invalid"
@@ -1774,6 +1784,172 @@ def _check_optional_stream_queue_budget_sweep(
         ),
         "stream_queue_budget_manager_runtime_skeleton_measures_vllm_latency": (
             manager_runtime_skeleton_payload.get("measures_vllm_latency")
+        ),
+        "stream_queue_budget_manager_runtime_snapshot_present": (
+            manager_runtime_snapshot_payload.get("present")
+        ),
+        "stream_queue_budget_manager_runtime_snapshot_stage": (
+            manager_runtime_snapshot_payload.get("stage")
+        ),
+        "stream_queue_budget_manager_runtime_snapshot_status": (
+            manager_runtime_snapshot_payload.get("status")
+        ),
+        "stream_queue_budget_manager_runtime_snapshot_consumes_runtime_skeleton": (
+            manager_runtime_snapshot_payload.get("consumes_runtime_skeleton")
+        ),
+        "stream_queue_budget_manager_runtime_snapshot_runtime_skeleton_status": (
+            manager_runtime_snapshot_payload.get("runtime_skeleton_status")
+        ),
+        "stream_queue_budget_manager_runtime_snapshot_manager_backend": (
+            manager_runtime_snapshot_payload.get("manager_backend")
+        ),
+        "stream_queue_budget_manager_runtime_snapshot_manager_runtime_contract": (
+            manager_runtime_snapshot_payload.get("manager_runtime_contract")
+        ),
+        "stream_queue_budget_manager_runtime_snapshot_manager_runtime_mode": (
+            manager_runtime_snapshot_payload.get("manager_runtime_mode")
+        ),
+        "stream_queue_budget_manager_runtime_snapshot_snapshot_source": (
+            manager_runtime_snapshot_payload.get("snapshot_source")
+        ),
+        "stream_queue_budget_manager_runtime_snapshot_accounting_snapshot_instantiated": (
+            manager_runtime_snapshot_payload.get("accounting_snapshot_instantiated")
+        ),
+        "stream_queue_budget_manager_runtime_snapshot_live_runtime_instantiated": (
+            manager_runtime_snapshot_payload.get("live_runtime_instantiated")
+        ),
+        "stream_queue_budget_manager_runtime_snapshot_capacity_entries": (
+            manager_runtime_snapshot_payload.get("capacity_entries")
+        ),
+        "stream_queue_budget_manager_runtime_snapshot_issue_lead_tokens": (
+            manager_runtime_snapshot_payload.get("issue_lead_tokens")
+        ),
+        "stream_queue_budget_manager_runtime_snapshot_queue_deadline_us": (
+            manager_runtime_snapshot_payload.get("queue_deadline_us")
+        ),
+        "stream_queue_budget_manager_runtime_snapshot_lookahead_us": (
+            manager_runtime_snapshot_payload.get("lookahead_us")
+        ),
+        "stream_queue_budget_manager_runtime_snapshot_queue_batch_size": (
+            manager_runtime_snapshot_payload.get("queue_batch_size")
+        ),
+        "stream_queue_budget_manager_runtime_snapshot_resident_count": (
+            manager_runtime_snapshot_payload.get("resident_count")
+        ),
+        "stream_queue_budget_manager_runtime_snapshot_issued_fetch_count": (
+            manager_runtime_snapshot_payload.get("issued_fetch_count")
+        ),
+        "stream_queue_budget_manager_runtime_snapshot_used_fetch_count": (
+            manager_runtime_snapshot_payload.get("used_fetch_count")
+        ),
+        "stream_queue_budget_manager_runtime_snapshot_unused_fetch_count": (
+            manager_runtime_snapshot_payload.get("unused_fetch_count")
+        ),
+        "stream_queue_budget_manager_runtime_snapshot_demand_count": (
+            manager_runtime_snapshot_payload.get("demand_count")
+        ),
+        "stream_queue_budget_manager_runtime_snapshot_demand_hit_count": (
+            manager_runtime_snapshot_payload.get("demand_hit_count")
+        ),
+        "stream_queue_budget_manager_runtime_snapshot_demand_miss_count": (
+            manager_runtime_snapshot_payload.get("demand_miss_count")
+        ),
+        "stream_queue_budget_manager_runtime_snapshot_evicted_before_use_count": (
+            manager_runtime_snapshot_payload.get("evicted_before_use_count")
+        ),
+        "stream_queue_budget_manager_runtime_snapshot_ready_late_miss_count": (
+            manager_runtime_snapshot_payload.get("ready_late_miss_count")
+        ),
+        "stream_queue_budget_manager_runtime_snapshot_late_completion_unused_count": (
+            manager_runtime_snapshot_payload.get("late_completion_unused_count")
+        ),
+        "stream_queue_budget_manager_runtime_snapshot_queue_batch_count": (
+            manager_runtime_snapshot_payload.get("queue_batch_count")
+        ),
+        "stream_queue_budget_manager_runtime_snapshot_queue_service_us": (
+            manager_runtime_snapshot_payload.get("queue_service_us")
+        ),
+        "stream_queue_budget_manager_runtime_snapshot_queue_total_span_us": (
+            manager_runtime_snapshot_payload.get("queue_total_span_us")
+        ),
+        "stream_queue_budget_manager_runtime_snapshot_queue_wait_us": (
+            manager_runtime_snapshot_payload.get("queue_wait_us")
+        ),
+        "stream_queue_budget_manager_runtime_snapshot_queue_max_delay_us": (
+            manager_runtime_snapshot_payload.get("queue_max_delay_us")
+        ),
+        "stream_queue_budget_manager_runtime_snapshot_shifted_issue_accounting_enabled": (
+            manager_runtime_snapshot_payload.get("shifted_issue_accounting_enabled")
+        ),
+        "stream_queue_budget_manager_runtime_snapshot_shifted_issue_accounted_packet_count": (
+            manager_runtime_snapshot_payload.get(
+                "shifted_issue_accounted_packet_count",
+            )
+        ),
+        "stream_queue_budget_manager_runtime_snapshot_shifted_issue_unique_issue_key_count": (
+            manager_runtime_snapshot_payload.get(
+                "shifted_issue_unique_issue_key_count",
+            )
+        ),
+        "stream_queue_budget_manager_runtime_snapshot_decision": (
+            manager_runtime_snapshot_payload.get("decision")
+        ),
+        "stream_queue_budget_manager_runtime_snapshot_block_reason": (
+            manager_runtime_snapshot_payload.get("block_reason")
+        ),
+        "stream_queue_budget_manager_runtime_snapshot_execution_mode": (
+            manager_runtime_snapshot_payload.get("execution_mode")
+        ),
+        "stream_queue_budget_manager_runtime_snapshot_live_payload_runtime_enabled": (
+            manager_runtime_snapshot_payload.get("live_payload_runtime_enabled")
+        ),
+        "stream_queue_budget_manager_runtime_snapshot_payload_transfer_runtime_enabled": (
+            manager_runtime_snapshot_payload.get("payload_transfer_runtime_enabled")
+        ),
+        "stream_queue_budget_manager_runtime_snapshot_payload_deref_allowed": (
+            manager_runtime_snapshot_payload.get("payload_deref_allowed")
+        ),
+        "stream_queue_budget_manager_runtime_snapshot_payload_deref_runtime_allowed": (
+            manager_runtime_snapshot_payload.get("payload_deref_runtime_allowed")
+        ),
+        "stream_queue_budget_manager_runtime_snapshot_issued_payload_count": (
+            manager_runtime_snapshot_payload.get("issued_payload_count")
+        ),
+        "stream_queue_budget_manager_runtime_snapshot_payload_bytes": (
+            manager_runtime_snapshot_payload.get("payload_bytes")
+        ),
+        "stream_queue_budget_manager_runtime_snapshot_ready_credit": (
+            manager_runtime_snapshot_payload.get("ready_credit")
+        ),
+        "stream_queue_budget_manager_runtime_snapshot_ready_before_demand_credit": (
+            manager_runtime_snapshot_payload.get("ready_before_demand_credit")
+        ),
+        "stream_queue_budget_manager_runtime_snapshot_real_ready_credit_granted": (
+            manager_runtime_snapshot_payload.get("real_ready_credit_granted")
+        ),
+        "stream_queue_budget_manager_runtime_snapshot_kernel_arg_pass_allowed": (
+            manager_runtime_snapshot_payload.get("kernel_arg_pass_allowed")
+        ),
+        "stream_queue_budget_manager_runtime_snapshot_passed_to_kernel": (
+            manager_runtime_snapshot_payload.get("passed_to_kernel")
+        ),
+        "stream_queue_budget_manager_runtime_snapshot_changes_kernel_launch_args": (
+            manager_runtime_snapshot_payload.get("changes_kernel_launch_args")
+        ),
+        "stream_queue_budget_manager_runtime_snapshot_full_fetch_runtime_allowed": (
+            manager_runtime_snapshot_payload.get("full_fetch_runtime_allowed")
+        ),
+        "stream_queue_budget_manager_runtime_snapshot_uses_current_wna16_args": (
+            manager_runtime_snapshot_payload.get("uses_current_wna16_args")
+        ),
+        "stream_queue_budget_manager_runtime_snapshot_passes_current_wna16_args": (
+            manager_runtime_snapshot_payload.get("passes_current_wna16_args")
+        ),
+        "stream_queue_budget_manager_runtime_snapshot_measures_tpot": (
+            manager_runtime_snapshot_payload.get("measures_tpot")
+        ),
+        "stream_queue_budget_manager_runtime_snapshot_measures_vllm_latency": (
+            manager_runtime_snapshot_payload.get("measures_vllm_latency")
         ),
         "stream_queue_budget_payload_bytes": _optional_int(report, "payload_bytes"),
         "stream_queue_budget_payload_transfer_enabled": _optional_bool(

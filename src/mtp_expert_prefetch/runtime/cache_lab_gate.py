@@ -4,6 +4,8 @@ from dataclasses import asdict, dataclass
 import math
 from typing import Sequence
 
+from mtp_expert_prefetch.runtime.cache_manager import ReadyTimeExpertCacheManager
+
 
 @dataclass(frozen=True)
 class CacheLabGateConfig:
@@ -837,6 +839,185 @@ class PayloadCacheManagerRuntimeSkeleton:
         return asdict(self)
 
 
+@dataclass(frozen=True)
+class PayloadCacheManagerRuntimeSnapshotArtifact:
+    """Default-disabled ready-time manager snapshot behind the skeleton.
+
+    This artifact is the first step that touches the real
+    ``ReadyTimeExpertCacheManager`` state shape.  It snapshots an empty
+    accounting manager to prove the future runtime state contract is available,
+    but it still does not issue transfers, grant ready credit, dereference
+    payload, mutate kernel arguments, or measure endpoint latency.
+    """
+
+    present: bool
+    stage: str
+    status: str
+    consumes_runtime_skeleton: bool
+    runtime_skeleton_status: str
+    manager_backend: str
+    manager_runtime_contract: str
+    manager_runtime_mode: str
+    snapshot_source: str
+    accounting_snapshot_instantiated: bool
+    live_runtime_instantiated: bool
+    capacity_entries: int
+    issue_lead_tokens: int
+    queue_deadline_us: float
+    lookahead_us: float
+    queue_batch_size: int
+    resident_count: int
+    issued_fetch_count: int
+    used_fetch_count: int
+    unused_fetch_count: int
+    demand_count: int
+    demand_hit_count: int
+    demand_miss_count: int
+    evicted_before_use_count: int
+    ready_late_miss_count: int
+    late_completion_unused_count: int
+    queue_batch_count: int
+    queue_service_us: float
+    queue_total_span_us: float
+    queue_wait_us: float
+    queue_max_delay_us: float
+    shifted_issue_accounting_enabled: bool
+    shifted_issue_accounted_packet_count: int
+    shifted_issue_unique_issue_key_count: int
+    decision: str = "blocked"
+    block_reason: str = "runtime_snapshot_default_disabled"
+    execution_mode: str = "payload_cache_manager_runtime_snapshot_disabled"
+    live_payload_runtime_enabled: bool = False
+    payload_transfer_runtime_enabled: bool = False
+    payload_deref_allowed: bool = False
+    payload_deref_runtime_allowed: bool = False
+    issued_payload_count: int = 0
+    payload_bytes: int = 0
+    ready_credit: bool = False
+    ready_before_demand_credit: bool = False
+    real_ready_credit_granted: bool = False
+    kernel_arg_pass_allowed: bool = False
+    passed_to_kernel: bool = False
+    changes_kernel_launch_args: bool = False
+    full_fetch_runtime_allowed: bool = False
+    uses_current_wna16_args: bool = False
+    passes_current_wna16_args: bool = False
+    measures_tpot: bool = False
+    measures_vllm_latency: bool = False
+
+    def __post_init__(self) -> None:
+        if self.present is not True:
+            raise ValueError("payload cache runtime snapshot must be present")
+        if self.stage != "payload_cache_manager_runtime_snapshot_artifact":
+            raise ValueError("payload cache runtime snapshot stage mismatch")
+        if self.consumes_runtime_skeleton is not True:
+            raise ValueError("runtime snapshot must consume runtime skeleton")
+        if (
+            not isinstance(self.runtime_skeleton_status, str)
+            or not self.runtime_skeleton_status
+        ):
+            raise TypeError("runtime_skeleton_status must be a nonempty string")
+        expected_status = f"blocked_by_runtime_skeleton:{self.runtime_skeleton_status}"
+        if self.status != expected_status:
+            raise ValueError("payload cache runtime snapshot status mismatch")
+        if self.manager_backend != "ReadyTimeExpertCacheManager":
+            raise ValueError("payload cache runtime snapshot backend mismatch")
+        if self.manager_runtime_contract != "ready_time_issue_demand_skeleton_v1":
+            raise ValueError("payload cache runtime snapshot contract mismatch")
+        if self.manager_runtime_mode != "ready_time_payload_cache_skeleton":
+            raise ValueError("payload cache runtime snapshot mode mismatch")
+        if self.snapshot_source != "ReadyTimeExpertCacheManager.empty_snapshot":
+            raise ValueError("payload cache runtime snapshot source mismatch")
+        if self.accounting_snapshot_instantiated is not True:
+            raise ValueError("accounting snapshot must be instantiated")
+        if self.live_runtime_instantiated is not False:
+            raise ValueError("live runtime must not be instantiated")
+        if self.decision != "blocked":
+            raise ValueError("runtime snapshot decision must stay blocked")
+        if self.block_reason != "runtime_snapshot_default_disabled":
+            raise ValueError("runtime snapshot block reason mismatch")
+        if self.execution_mode != "payload_cache_manager_runtime_snapshot_disabled":
+            raise ValueError("runtime snapshot execution mode mismatch")
+        for field_name in (
+            "capacity_entries",
+            "issue_lead_tokens",
+            "queue_batch_size",
+            "shifted_issue_accounted_packet_count",
+            "shifted_issue_unique_issue_key_count",
+        ):
+            value = getattr(self, field_name)
+            if not isinstance(value, int) or isinstance(value, bool):
+                raise TypeError(f"{field_name} must be an integer")
+            if value <= 0:
+                raise ValueError(f"{field_name} must be positive")
+        for field_name in (
+            "resident_count",
+            "issued_fetch_count",
+            "used_fetch_count",
+            "unused_fetch_count",
+            "demand_count",
+            "demand_hit_count",
+            "demand_miss_count",
+            "evicted_before_use_count",
+            "ready_late_miss_count",
+            "late_completion_unused_count",
+            "queue_batch_count",
+        ):
+            value = getattr(self, field_name)
+            if not isinstance(value, int) or isinstance(value, bool):
+                raise TypeError(f"{field_name} must be an integer")
+            if value != 0:
+                raise ValueError(f"{field_name} must remain zero")
+        for field_name in (
+            "queue_deadline_us",
+            "lookahead_us",
+            "queue_service_us",
+            "queue_total_span_us",
+            "queue_wait_us",
+            "queue_max_delay_us",
+        ):
+            value = getattr(self, field_name)
+            if not isinstance(value, (int, float)) or isinstance(value, bool):
+                raise TypeError(f"{field_name} must be numeric")
+            numeric = float(value)
+            if not math.isfinite(numeric):
+                raise ValueError(f"{field_name} must be finite")
+            if field_name in ("queue_deadline_us", "lookahead_us") and numeric <= 0.0:
+                raise ValueError(f"{field_name} must be positive")
+            if field_name not in ("queue_deadline_us", "lookahead_us") and numeric != 0.0:
+                raise ValueError(f"{field_name} must remain zero")
+        if self.shifted_issue_accounting_enabled is not True:
+            raise ValueError("shifted issue accounting must be enabled")
+        for field_name in ("issued_payload_count", "payload_bytes"):
+            value = getattr(self, field_name)
+            if not isinstance(value, int) or isinstance(value, bool):
+                raise TypeError(f"{field_name} must be an integer")
+            if value != 0:
+                raise ValueError(f"{field_name} must remain zero")
+        for field_name in (
+            "live_payload_runtime_enabled",
+            "payload_transfer_runtime_enabled",
+            "payload_deref_allowed",
+            "payload_deref_runtime_allowed",
+            "ready_credit",
+            "ready_before_demand_credit",
+            "real_ready_credit_granted",
+            "kernel_arg_pass_allowed",
+            "passed_to_kernel",
+            "changes_kernel_launch_args",
+            "full_fetch_runtime_allowed",
+            "uses_current_wna16_args",
+            "passes_current_wna16_args",
+            "measures_tpot",
+            "measures_vllm_latency",
+        ):
+            if getattr(self, field_name) is not False:
+                raise ValueError(f"{field_name} must remain disabled")
+
+    def as_dict(self) -> dict[str, bool | float | int | str]:
+        return asdict(self)
+
+
 def select_cache_lab_prefetch_gate(
     signals: CacheLabRuntimeSignals,
     *,
@@ -1248,6 +1429,94 @@ def build_payload_cache_manager_runtime_skeleton(
         ),
         shifted_issue_unique_issue_key_count=int(
             artifact.shifted_issue_unique_issue_key_count,
+        ),
+    )
+
+
+def build_payload_cache_manager_runtime_snapshot_artifact(
+    skeleton: PayloadCacheManagerRuntimeSkeleton,
+) -> PayloadCacheManagerRuntimeSnapshotArtifact:
+    """Build the default-disabled runtime snapshot artifact behind a skeleton."""
+
+    if not isinstance(skeleton, PayloadCacheManagerRuntimeSkeleton):
+        raise TypeError("skeleton must be a PayloadCacheManagerRuntimeSkeleton")
+    if skeleton.decision != "blocked":
+        raise ValueError("runtime skeleton must stay blocked")
+    if skeleton.runtime_instantiated is not False:
+        raise ValueError("runtime skeleton must not instantiate live runtime")
+    if skeleton.execution_mode != "payload_cache_manager_runtime_skeleton_disabled":
+        raise ValueError("runtime skeleton execution mode mismatch")
+    for field_name in (
+        "live_payload_runtime_enabled",
+        "payload_transfer_runtime_enabled",
+        "payload_deref_allowed",
+        "payload_deref_runtime_allowed",
+        "ready_credit",
+        "ready_before_demand_credit",
+        "real_ready_credit_granted",
+        "kernel_arg_pass_allowed",
+        "passed_to_kernel",
+        "changes_kernel_launch_args",
+        "full_fetch_runtime_allowed",
+        "uses_current_wna16_args",
+        "passes_current_wna16_args",
+        "measures_tpot",
+        "measures_vllm_latency",
+    ):
+        if getattr(skeleton, field_name) is not False:
+            raise ValueError(f"runtime skeleton {field_name} must remain disabled")
+    for field_name in ("issued_payload_count", "payload_bytes"):
+        if getattr(skeleton, field_name) != 0:
+            raise ValueError(f"runtime skeleton {field_name} must remain zero")
+
+    manager = ReadyTimeExpertCacheManager(
+        capacity=int(skeleton.capacity_entries),
+        service_us_per_issue=0.0,
+        service_us_per_batch=0.0,
+        queue_batch_size=1,
+        queue_deadline_us=float(skeleton.queue_deadline_us),
+    )
+    snapshot = manager.snapshot()
+    return PayloadCacheManagerRuntimeSnapshotArtifact(
+        present=True,
+        stage="payload_cache_manager_runtime_snapshot_artifact",
+        status=f"blocked_by_runtime_skeleton:{skeleton.status}",
+        consumes_runtime_skeleton=True,
+        runtime_skeleton_status=str(skeleton.status),
+        manager_backend=str(skeleton.manager_backend),
+        manager_runtime_contract=str(skeleton.manager_runtime_contract),
+        manager_runtime_mode=str(skeleton.manager_runtime_mode),
+        snapshot_source="ReadyTimeExpertCacheManager.empty_snapshot",
+        accounting_snapshot_instantiated=True,
+        live_runtime_instantiated=False,
+        capacity_entries=int(snapshot.capacity),
+        issue_lead_tokens=int(skeleton.issue_lead_tokens),
+        queue_deadline_us=float(snapshot.queue_deadline_us),
+        lookahead_us=float(skeleton.lookahead_us),
+        queue_batch_size=int(snapshot.queue_batch_size),
+        resident_count=int(snapshot.resident_count),
+        issued_fetch_count=int(snapshot.issued_fetch_count),
+        used_fetch_count=int(snapshot.used_fetch_count),
+        unused_fetch_count=int(snapshot.unused_fetch_count),
+        demand_count=int(snapshot.demand_count),
+        demand_hit_count=int(snapshot.demand_hit_count),
+        demand_miss_count=int(snapshot.demand_miss_count),
+        evicted_before_use_count=int(snapshot.evicted_before_use_count),
+        ready_late_miss_count=int(snapshot.ready_late_miss_count),
+        late_completion_unused_count=int(snapshot.late_completion_unused_count),
+        queue_batch_count=int(snapshot.queue_batch_count),
+        queue_service_us=float(snapshot.queue_service_us),
+        queue_total_span_us=float(snapshot.queue_total_span_us),
+        queue_wait_us=float(snapshot.queue_wait_us),
+        queue_max_delay_us=float(snapshot.queue_max_delay_us),
+        shifted_issue_accounting_enabled=bool(
+            skeleton.shifted_issue_accounting_enabled,
+        ),
+        shifted_issue_accounted_packet_count=int(
+            skeleton.shifted_issue_accounted_packet_count,
+        ),
+        shifted_issue_unique_issue_key_count=int(
+            skeleton.shifted_issue_unique_issue_key_count,
         ),
     )
 
