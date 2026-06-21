@@ -354,6 +354,48 @@ def test_prefetch_lab_default_gate_passes_low_risk_premap_path(tmp_path: Path):
         ]
         == ["prelaunch_observed_transition_premap_shadow"]
     )
+    assert full_fetch["ready_time_direct_snapshot_runtime_plan_present"] is True
+    assert (
+        full_fetch["ready_time_direct_snapshot_runtime_plan_stage"]
+        == "payload_cache_runtime_plan_lab_gate_dry_run"
+    )
+    assert (
+        full_fetch["ready_time_direct_snapshot_runtime_plan_status"]
+        == "participation_not_full_fetch_candidate:accounting_only_no_used_fetch"
+    )
+    assert (
+        full_fetch[
+            "ready_time_direct_snapshot_runtime_plan_consumes_participation"
+        ]
+        is True
+    )
+    assert (
+        full_fetch[
+            "ready_time_direct_snapshot_runtime_plan_live_payload_runtime_enabled"
+        ]
+        is False
+    )
+    assert full_fetch["ready_time_direct_snapshot_runtime_plan_planned_issue_count"] == 0
+    assert full_fetch["ready_time_direct_snapshot_runtime_plan_payload_bytes"] == 0
+    assert full_fetch["ready_time_direct_snapshot_runtime_plan_ready_credit"] is False
+    assert (
+        full_fetch[
+            "ready_time_direct_snapshot_runtime_plan_kernel_arg_pass_allowed"
+        ]
+        is False
+    )
+    assert (
+        full_fetch[
+            "ready_time_direct_snapshot_runtime_plan_changes_kernel_launch_args"
+        ]
+        is False
+    )
+    assert (
+        full_fetch[
+            "ready_time_direct_snapshot_runtime_plan_full_fetch_runtime_allowed"
+        ]
+        is False
+    )
     assert full_fetch["stream_shifted_issue_replay_contract_present"] is True
     assert full_fetch["stream_shifted_issue_replay_contract_passed"] is True
     assert full_fetch["stream_shifted_issue_replay_issue_lead_tokens"] == 32

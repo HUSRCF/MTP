@@ -6664,6 +6664,54 @@ def test_premap_lab_preflight_accepts_default_readonly_wiring(tmp_path: Path):
     ] == [
         "prelaunch_observed_transition_premap_shadow",
     ]
+    assert summary["prefetch_lab_default_payload_cache_runtime_plan_present"] is True
+    assert (
+        summary["prefetch_lab_default_payload_cache_runtime_plan_stage"]
+        == "payload_cache_runtime_plan_lab_gate_dry_run"
+    )
+    assert (
+        summary["prefetch_lab_default_payload_cache_runtime_plan_status"]
+        == "participation_not_full_fetch_candidate:accounting_only_no_used_fetch"
+    )
+    assert (
+        summary[
+            "prefetch_lab_default_payload_cache_runtime_plan_consumes_participation"
+        ]
+        is True
+    )
+    assert (
+        summary[
+            "prefetch_lab_default_payload_cache_runtime_plan_live_payload_runtime_enabled"
+        ]
+        is False
+    )
+    assert (
+        summary["prefetch_lab_default_payload_cache_runtime_plan_planned_issue_count"]
+        == 0
+    )
+    assert summary["prefetch_lab_default_payload_cache_runtime_plan_payload_bytes"] == 0
+    assert (
+        summary["prefetch_lab_default_payload_cache_runtime_plan_ready_credit"]
+        is False
+    )
+    assert (
+        summary[
+            "prefetch_lab_default_payload_cache_runtime_plan_kernel_arg_pass_allowed"
+        ]
+        is False
+    )
+    assert (
+        summary[
+            "prefetch_lab_default_payload_cache_runtime_plan_changes_kernel_launch_args"
+        ]
+        is False
+    )
+    assert (
+        summary[
+            "prefetch_lab_default_payload_cache_runtime_plan_full_fetch_runtime_allowed"
+        ]
+        is False
+    )
     assert summary["prefetch_lab_default_stream_decision_gate_present"] is True
     assert summary["prefetch_lab_default_stream_decision_gate_passed"] is True
     assert (

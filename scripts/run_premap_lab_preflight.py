@@ -12294,6 +12294,66 @@ def run_premap_lab_preflight(
             )
             or []
         ),
+        "prefetch_lab_default_payload_cache_runtime_plan_present": _bool_metric(
+            prefetch_lab_default_full_fetch,
+            "ready_time_direct_snapshot_runtime_plan_present",
+        ),
+        "prefetch_lab_default_payload_cache_runtime_plan_stage": (
+            prefetch_lab_default_full_fetch.get(
+                "ready_time_direct_snapshot_runtime_plan_stage"
+            )
+        ),
+        "prefetch_lab_default_payload_cache_runtime_plan_status": (
+            prefetch_lab_default_full_fetch.get(
+                "ready_time_direct_snapshot_runtime_plan_status"
+            )
+        ),
+        "prefetch_lab_default_payload_cache_runtime_plan_consumes_participation": (
+            _bool_metric(
+                prefetch_lab_default_full_fetch,
+                "ready_time_direct_snapshot_runtime_plan_consumes_participation",
+            )
+        ),
+        "prefetch_lab_default_payload_cache_runtime_plan_live_payload_runtime_enabled": (
+            _bool_metric(
+                prefetch_lab_default_full_fetch,
+                "ready_time_direct_snapshot_runtime_plan_live_payload_runtime_enabled",
+            )
+        ),
+        "prefetch_lab_default_payload_cache_runtime_plan_planned_issue_count": (
+            _int_metric(
+                prefetch_lab_default_full_fetch,
+                "ready_time_direct_snapshot_runtime_plan_planned_issue_count",
+            )
+        ),
+        "prefetch_lab_default_payload_cache_runtime_plan_payload_bytes": (
+            _int_metric(
+                prefetch_lab_default_full_fetch,
+                "ready_time_direct_snapshot_runtime_plan_payload_bytes",
+            )
+        ),
+        "prefetch_lab_default_payload_cache_runtime_plan_ready_credit": _bool_metric(
+            prefetch_lab_default_full_fetch,
+            "ready_time_direct_snapshot_runtime_plan_ready_credit",
+        ),
+        "prefetch_lab_default_payload_cache_runtime_plan_kernel_arg_pass_allowed": (
+            _bool_metric(
+                prefetch_lab_default_full_fetch,
+                "ready_time_direct_snapshot_runtime_plan_kernel_arg_pass_allowed",
+            )
+        ),
+        "prefetch_lab_default_payload_cache_runtime_plan_changes_kernel_launch_args": (
+            _bool_metric(
+                prefetch_lab_default_full_fetch,
+                "ready_time_direct_snapshot_runtime_plan_changes_kernel_launch_args",
+            )
+        ),
+        "prefetch_lab_default_payload_cache_runtime_plan_full_fetch_runtime_allowed": (
+            _bool_metric(
+                prefetch_lab_default_full_fetch,
+                "ready_time_direct_snapshot_runtime_plan_full_fetch_runtime_allowed",
+            )
+        ),
         "prefetch_lab_default_stream_decision_gate_present": _bool_metric(
             prefetch_lab_default_full_fetch,
             "stream_decision_gate_present",

@@ -224,6 +224,17 @@ def _check_ready_time_direct_snapshot_gate(
     runtime_participation_issue_sources = metrics.get(
         "direct_snapshot_runtime_participation_issue_sources"
     )
+    runtime_participation_status_label = (
+        runtime_participation_status
+        if isinstance(runtime_participation_status, str)
+        else None
+    )
+    if runtime_participation_status_label == "ready_time_candidate_requires_lab_gate":
+        runtime_plan_status = "lab_gate_blocked:ready_time_direct_snapshot_disallows_full_fetch"
+    else:
+        runtime_plan_status = (
+            f"participation_not_full_fetch_candidate:{runtime_participation_status_label}"
+        )
     if not passed:
         failures.append("ready_time_direct_snapshot_report_not_passed")
     if not recheck_passed:
@@ -247,7 +258,10 @@ def _check_ready_time_direct_snapshot_gate(
         != "online_ready_time_payload_cache_runtime_participation_dry_run"
     ):
         failures.append("ready_time_direct_snapshot_runtime_participation_stage_mismatch")
-    if not isinstance(runtime_participation_status, str) or not runtime_participation_status:
+    if (
+        not isinstance(runtime_participation_status, str)
+        or not runtime_participation_status
+    ):
         failures.append("ready_time_direct_snapshot_runtime_participation_status_invalid")
     if runtime_participation_payload_bytes != 0:
         failures.append(
@@ -326,9 +340,7 @@ def _check_ready_time_direct_snapshot_gate(
             else None
         ),
         "ready_time_direct_snapshot_runtime_participation_status": (
-            str(runtime_participation_status)
-            if runtime_participation_status is not None
-            else None
+            runtime_participation_status_label
         ),
         "ready_time_direct_snapshot_runtime_participation_consumes_manager_snapshot": (
             _optional_bool(
@@ -378,6 +390,25 @@ def _check_ready_time_direct_snapshot_gate(
         "ready_time_direct_snapshot_runtime_participation_issue_sources": (
             _string_list(runtime_participation_issue_sources)
         ),
+        "ready_time_direct_snapshot_runtime_plan_present": (
+            runtime_participation_present
+        ),
+        "ready_time_direct_snapshot_runtime_plan_stage": (
+            "payload_cache_runtime_plan_lab_gate_dry_run"
+        ),
+        "ready_time_direct_snapshot_runtime_plan_status": runtime_plan_status,
+        "ready_time_direct_snapshot_runtime_plan_consumes_participation": (
+            runtime_participation_present
+        ),
+        "ready_time_direct_snapshot_runtime_plan_live_payload_runtime_enabled": (
+            False
+        ),
+        "ready_time_direct_snapshot_runtime_plan_planned_issue_count": 0,
+        "ready_time_direct_snapshot_runtime_plan_payload_bytes": 0,
+        "ready_time_direct_snapshot_runtime_plan_ready_credit": False,
+        "ready_time_direct_snapshot_runtime_plan_kernel_arg_pass_allowed": False,
+        "ready_time_direct_snapshot_runtime_plan_changes_kernel_launch_args": False,
+        "ready_time_direct_snapshot_runtime_plan_full_fetch_runtime_allowed": False,
     }
 
 

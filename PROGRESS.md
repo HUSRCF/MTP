@@ -41321,3 +41321,101 @@ not ready credit
 not kernel arg handoff
 not a real WNA16 payload/cache-manager benchmark claim
 ```
+
+## Payload-cache runtime plan dry-run added to lab preflight
+
+The payload-cache lab gate now carries one more explicit contract layer after
+runtime participation:
+
+```text
+runtime_participation evidence
+  -> runtime_plan dry-run
+  -> lab preflight summary
+```
+
+The runtime plan is deliberately not a live payload/cache-manager action.  It
+only records whether the current ready-time direct snapshot can progress into a
+future full-fetch runtime plan.  In the current default lab gate, the plan is
+blocked because the rechecked participation status is accounting-only:
+
+```text
+runtime_plan_stage = payload_cache_runtime_plan_lab_gate_dry_run
+runtime_plan_status =
+  participation_not_full_fetch_candidate:accounting_only_no_used_fetch
+runtime_plan_consumes_participation = true
+runtime_plan_live_payload_runtime_enabled = false
+runtime_plan_planned_issue_count = 0
+runtime_plan_payload_bytes = 0
+runtime_plan_ready_credit = false
+runtime_plan_kernel_arg_pass_allowed = false
+runtime_plan_changes_kernel_launch_args = false
+runtime_plan_full_fetch_runtime_allowed = false
+```
+
+The final preflight checker now enforces semantic coupling between
+`runtime_participation_status` and `runtime_plan_status`.  Valid pairs are:
+
+```text
+ready_time_candidate_requires_lab_gate
+  -> lab_gate_blocked:ready_time_direct_snapshot_disallows_full_fetch
+
+accounting_only_no_issued_fetch
+  -> participation_not_full_fetch_candidate:accounting_only_no_issued_fetch
+
+accounting_only_no_used_fetch
+  -> participation_not_full_fetch_candidate:accounting_only_no_used_fetch
+
+accounting_only_all_demands_ready_late
+  -> participation_not_full_fetch_candidate:accounting_only_all_demands_ready_late
+```
+
+Allowed-but-mismatched pairs are rejected.  This prevents a handcrafted summary
+from reporting a lab-gate blocked plan when the participation evidence says
+accounting-only, or reporting an accounting-only plan when the participation
+evidence requires the lab gate to block full fetch.
+
+Validation:
+
+```bash
+/home/husrcf/anaconda3/envs/TRY/bin/python -m pytest \
+  tests/test_check_prefetch_lab_default_gate.py \
+  tests/test_check_premap_lab_preflight_summary.py \
+  tests/test_run_premap_lab_preflight.py -q
+# 314 passed
+
+/home/husrcf/anaconda3/envs/TRY/bin/python -m pytest \
+  tests/test_cache_lab_gate.py \
+  tests/test_vllm_router_shadow_sink.py \
+  tests/test_check_premap_payload_cache_ready_time_gate.py \
+  tests/test_check_prefetch_lab_default_gate.py \
+  tests/test_check_premap_lab_preflight_summary.py \
+  tests/test_run_premap_lab_preflight.py -q
+# 461 passed
+
+/home/husrcf/anaconda3/envs/TRY/bin/python \
+  scripts/check_prefetch_lab_default_gate.py \
+  configs/runtime/prefetch_lab_default_gate_gpu1.yaml --root .
+# passed = true
+
+/home/husrcf/anaconda3/envs/TRY/bin/python \
+  scripts/run_premap_lab_preflight.py --root . \
+  --prefetch-lab-default-gate configs/runtime/prefetch_lab_default_gate_gpu1.yaml \
+  --summary-only \
+  --output-json /tmp/premap_lab_preflight_runtime_plan_summary.json
+
+/home/husrcf/anaconda3/envs/TRY/bin/python \
+  scripts/check_premap_lab_preflight_summary.py \
+  /tmp/premap_lab_preflight_runtime_plan_summary.json
+# passed = true
+```
+
+Boundary remains unchanged:
+
+```text
+not endpoint TPOT
+not live payload runtime
+not payload transfer
+not ready credit
+not kernel arg handoff
+not current WNA16 arg mutation
+```
