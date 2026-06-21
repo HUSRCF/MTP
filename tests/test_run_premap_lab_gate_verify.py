@@ -216,6 +216,7 @@ def test_run_premap_lab_gate_verify_dry_run_records_all_steps(tmp_path: Path):
     args = _build_parser().parse_args(
         [
             "--dry-run",
+            "--skip-default-arg-slot-runner",
             "--closure-json",
             str(tmp_path / "closure.json"),
             "--closure-check-json",
@@ -250,6 +251,7 @@ def test_run_premap_lab_gate_verify_dry_run_records_all_steps(tmp_path: Path):
     assert result["payload_bytes"] == 0
     assert result["passed_to_kernel"] is False
     assert result["changes_kernel_launch_args"] is False
+    assert result["skip_default_arg_slot_runner"] is True
     assert result["tail_window_size"] == 8
     assert list(result["steps"]) == [
         "default_closure",
@@ -262,6 +264,10 @@ def test_run_premap_lab_gate_verify_dry_run_records_all_steps(tmp_path: Path):
         "all_field_window_sweep_check",
         "wna16_side_consumer_variant",
     ]
+    default_closure_cmd = result["steps"]["default_closure"]["cmd"]
+    assert "--skip-arg-slot-runner" in default_closure_cmd
+    tail_closure_cmd = result["steps"]["tail_window_closure"]["cmd"]
+    assert "--skip-arg-slot-runner" not in tail_closure_cmd
     tail_cmd = result["steps"]["tail_window_closure_check"]["cmd"]
     assert "--require-tail-window-probe" in tail_cmd
     assert "--expected-tail-window-size" in tail_cmd
@@ -702,6 +708,7 @@ def test_load_status_flattens_default_closure_invocation_summary(tmp_path: Path)
                 "payload_bytes": 0,
                 "passed_to_kernel": False,
                 "changes_kernel_launch_args": False,
+                "arg_slot_runner_reused": True,
                 "summaries": {
                     "arg_slot_runner": {
                         "require_kernel_invocation_abi": True,
@@ -735,11 +742,77 @@ def test_load_status_flattens_default_closure_invocation_summary(tmp_path: Path)
     assert status["arg_slot_runner_kernel_endpoint_all_handle_fields_read"] is True
     assert status["arg_slot_runner_kernel_endpoint_packet_chain_depth"] == 12
     assert status["arg_slot_runner_require_kernel_endpoint_ptr_abi"] is True
+    assert status["arg_slot_runner_reused"] is True
     assert status["arg_slot_runner_kernel_endpoint_ptr_checked"] is True
     assert (
         status["arg_slot_runner_kernel_endpoint_ptr_all_handle_fields_read"] is True
     )
     assert status["arg_slot_runner_kernel_endpoint_ptr_packet_chain_depth"] == 13
+
+
+def test_run_premap_lab_gate_verify_accepts_reuse_alias():
+    args = _build_parser().parse_args(
+        ["--dry-run", "--reuse-default-arg-slot-runner-artifact"]
+    )
+
+    assert args.skip_default_arg_slot_runner is True
+
+
+def test_run_premap_lab_gate_verify_requires_reuse_status_when_requested(
+    tmp_path: Path,
+    monkeypatch,
+):
+    args = _build_parser().parse_args(
+        [
+            "--skip-default-arg-slot-runner",
+            "--closure-json",
+            str(tmp_path / "closure.json"),
+            "--closure-check-json",
+            str(tmp_path / "closure.check.json"),
+            "--tail-closure-json",
+            str(tmp_path / "tail.json"),
+            "--tail-closure-check-json",
+            str(tmp_path / "tail.check.json"),
+            "--window-sweep-json",
+            str(tmp_path / "window_sweep.json"),
+            "--window-sweep-check-json",
+            str(tmp_path / "window_sweep.check.json"),
+            "--all-field-window-sweep-json",
+            str(tmp_path / "all_field_window_sweep.json"),
+            "--all-field-window-sweep-check-json",
+            str(tmp_path / "all_field_window_sweep.check.json"),
+            "--wna16-side-variant-json",
+            str(tmp_path / "wna16_side_variant.json"),
+            "--wna16-side-variant-stub-json",
+            str(tmp_path / "wna16_side_variant.stub.json"),
+            "--wna16-side-variant-merged-json",
+            str(tmp_path / "wna16_side_variant.merged.json"),
+        ]
+    )
+    statuses = _passing_lab_gate_statuses()
+    statuses["default_closure"]["arg_slot_runner_reused"] = False
+    for name, payload in statuses.items():
+        output_path = {
+            "default_closure": args.closure_json,
+            "default_closure_check": args.closure_check_json,
+            "tail_window_closure": args.tail_closure_json,
+            "tail_window_closure_check": args.tail_closure_check_json,
+            "window_sweep": args.window_sweep_json,
+            "window_sweep_check": args.window_sweep_check_json,
+            "all_field_window_sweep": args.all_field_window_sweep_json,
+            "all_field_window_sweep_check": args.all_field_window_sweep_check_json,
+            "wna16_side_consumer_variant": args.wna16_side_variant_json,
+        }[name]
+        output_path.write_text(json.dumps(payload) + "\n", encoding="utf-8")
+    monkeypatch.setattr(
+        "scripts.run_premap_lab_gate_verify._run_step",
+        lambda cmd, *, dry_run: {"cmd": list(cmd), "dry_run": dry_run, "returncode": 0},
+    )
+
+    result = run_verify(args)
+
+    assert result["passed"] is False
+    assert "default_closure_arg_slot_runner_not_reused" in result["failures"]
 
 
 def test_status_failures_reject_tail_checker_without_tail_requirement():

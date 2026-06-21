@@ -40472,3 +40472,22 @@ arg_slot_runner_reused = true
 This keeps the final lab closure usable on hosts where the arg-slot GPU canary
 cannot be refreshed, while preserving the requirement that the reused evidence
 is already a passed endpoint/endpoint-ptr ABI no-op artifact.
+
+The canonical lab verify entrypoint also exposes the same explicit reuse path:
+
+```text
+scripts/run_premap_lab_gate_verify.py \
+  --reuse-default-arg-slot-runner-artifact
+```
+
+This alias only affects the default closure step.  The tail-window closure,
+window sweeps, and WNA16-side consumer variant remain independent steps.  In
+non-dry-run mode, `run_premap_lab_gate_verify.py` now requires the loaded
+default closure status to report:
+
+```text
+arg_slot_runner_reused = true
+```
+
+so the verify-level flag cannot silently degrade into a normal refreshed
+closure or an unproven missing-reuse artifact.

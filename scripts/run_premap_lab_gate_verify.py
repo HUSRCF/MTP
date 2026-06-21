@@ -281,6 +281,7 @@ def _load_status(path: Path) -> dict[str, Any]:
         "payload_bytes": payload.get("payload_bytes"),
         "passed_to_kernel": payload.get("passed_to_kernel"),
         "changes_kernel_launch_args": payload.get("changes_kernel_launch_args"),
+        "arg_slot_runner_reused": payload.get("arg_slot_runner_reused"),
         "tail_window_probe_enabled": payload.get("tail_window_probe_enabled"),
         "tail_window_size": payload.get("tail_window_size"),
         "require_tail_window_probe": payload.get("require_tail_window_probe"),
@@ -684,6 +685,9 @@ def run_verify(args: argparse.Namespace) -> dict[str, Any]:
     wna16_side_variant_stub_json = _resolve(args.wna16_side_variant_stub_json)
     wna16_side_variant_merged_json = _resolve(args.wna16_side_variant_merged_json)
     device_args = _optional_device_args(args)
+    default_closure_args: list[str] = []
+    if args.skip_default_arg_slot_runner:
+        default_closure_args.append("--skip-arg-slot-runner")
 
     steps = {
         "default_closure": _run_step(
@@ -692,6 +696,7 @@ def run_verify(args: argparse.Namespace) -> dict[str, Any]:
                 "scripts/run_premap_lab_gate_closure.py",
                 "--output-json",
                 str(closure_json),
+                *default_closure_args,
                 *device_args,
             ],
             dry_run=bool(args.dry_run),
@@ -840,12 +845,20 @@ def run_verify(args: argparse.Namespace) -> dict[str, Any]:
         "wna16_side_consumer_variant": _load_status(wna16_side_variant_json),
     }
     status_failures = [] if args.dry_run else _status_failures(statuses)
+    if (
+        not args.dry_run
+        and args.skip_default_arg_slot_runner
+        and statuses.get("default_closure", {}).get("arg_slot_runner_reused")
+        is not True
+    ):
+        status_failures.append("default_closure_arg_slot_runner_not_reused")
     failures = step_failures + status_failures
     report = {
         "passed": not failures,
         "failures": failures,
         "source": "premap_lab_gate_verify",
         "dry_run": bool(args.dry_run),
+        "skip_default_arg_slot_runner": bool(args.skip_default_arg_slot_runner),
         "tail_window_size": int(args.tail_window_size),
         "paths": {
             "closure_json": str(closure_json),
@@ -928,6 +941,17 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--output-json", type=Path, default=DEFAULT_VERIFY_JSON)
     parser.add_argument("--device", type=int)
     parser.add_argument("--hip-visible-devices")
+    parser.add_argument(
+        "--skip-default-arg-slot-runner",
+        "--reuse-default-arg-slot-runner-artifact",
+        dest="skip_default_arg_slot_runner",
+        action="store_true",
+        help=(
+            "Pass --skip-arg-slot-runner to the default closure runner so it "
+            "reuses the recorded arg-slot evidence while the closure checker "
+            "still validates the reused artifact."
+        ),
+    )
     parser.add_argument("--dry-run", action="store_true")
     return parser
 
