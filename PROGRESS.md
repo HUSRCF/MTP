@@ -2,10 +2,10 @@
 
 ## Progress Version
 
-- Version: `v1.31-snapshot-backed-live-runtime-disabled-canary`
+- Version: `v1.32-live-runtime-state-shape-check`
 - Updated: 2026-06-22
 
-## Latest Update: Snapshot-Backed Live Runtime Disabled Canary
+## Latest Update: Live Runtime State-Shape Check
 
 The payload/cache lab chain still includes the first concrete manager
 implementation artifact:
@@ -197,15 +197,65 @@ queue_wait_us = 0.0
 queue_max_delay_us = 0.0
 ```
 
+The canary now feeds a still-blocked state-shape checker:
+
+```text
+PayloadCacheLiveRuntimeStateShapeCheck
+```
+
+This is the first lab gate after the canary that names the future runtime
+state boundary.  It only checks that the issue queue, demand state, resident
+index, and queue timing state shapes are represented in the contract.  It does
+not instantiate the live runtime, does not issue payload transfers, and does
+not grant ready credit or kernel argument handoff.
+
+Required state-shape contract:
+
+```text
+stage = payload_cache_live_runtime_state_shape_check
+status = blocked_by_live_runtime_canary:<live_runtime_canary_status>
+consumes_live_runtime_canary = true
+state_shape_schema = ready_time_issue_demand_state_shape_v1
+live_runtime_state_shape_checked = true
+issue_queue_shape_checked = true
+demand_state_shape_checked = true
+resident_index_shape_checked = true
+queue_timing_shape_checked = true
+live_runtime_instantiated = false
+decision = blocked
+block_reason = live_runtime_state_shape_only
+execution_mode = payload_cache_live_runtime_state_shape_check_disabled
+capacity_entries = 4096
+issue_lead_tokens = 32
+queue_deadline_us = 100.0
+lookahead_us = 2400000.0
+queue_batch_size = 1
+resident_count = 0
+issued_fetch_count = 0
+used_fetch_count = 0
+unused_fetch_count = 0
+demand_count = 0
+demand_hit_count = 0
+demand_miss_count = 0
+evicted_before_use_count = 0
+ready_late_miss_count = 0
+late_completion_unused_count = 0
+queue_batch_count = 0
+queue_service_us = 0.0
+queue_total_span_us = 0.0
+queue_wait_us = 0.0
+queue_max_delay_us = 0.0
+```
+
 The summary checker also rejects mixed queue-budget summaries.  Live-stage,
 live-runtime, manager-artifact, runtime-skeleton, and runtime-snapshot
 queue-budget fields, plus the snapshot-backed live-runtime preflight, must
 match the same summary's `first_model_passing_*` and `first_shifted_issue_*`
-envelope fields.  The new snapshot-backed live-runtime canary must also match
-that preflight chain, while the lab-default gate still requires the measured
-4096-entry / 32-token / 100us / 2.4M-us cell.  This prevents stale downstream
-artifacts from passing if the compact summary is manually mixed with a
-different queue-budget envelope.
+envelope fields.  The snapshot-backed live-runtime canary and the new
+state-shape check must also match that chain, while the lab-default gate still
+requires the measured 4096-entry / 32-token / 100us / 2.4M-us cell.  This
+prevents stale downstream artifacts from passing if the compact summary is
+manually mixed with a different queue-budget envelope.
 
 The no-side-effect boundary remains closed:
 
@@ -242,7 +292,7 @@ Validation:
   tests/test_check_premap_payload_cache_ready_time_gate.py \
   tests/test_vllm_router_shadow_sink.py -q
 
-pending full validation for v1.31; v1.30 wide validation was 498 passed
+504 passed
 
 /home/husrcf/anaconda3/envs/TRY/bin/python scripts/check_prefetch_lab_default_gate.py \
   configs/runtime/prefetch_lab_default_gate_gpu1.yaml
@@ -259,10 +309,10 @@ passed = true
 Next gate:
 
 ```text
-continue toward a still-disabled live-runtime shape checker behind this canary.
-It may validate issue/demand state layout and queue accounting shape, but
-payload dereference, ready credit, kernel argument handoff, and TPOT claims must
-remain disabled until a strict live-runtime gate passes.
+continue toward a still-disabled live-runtime object construction preflight
+behind this state-shape check.  It may instantiate typed issue/demand state
+containers, but payload dereference, ready credit, kernel argument handoff, and
+TPOT claims must remain disabled until a strict live-runtime gate passes.
 ```
 
 ## Previous Update: Live Payload Runtime Disabled Canary

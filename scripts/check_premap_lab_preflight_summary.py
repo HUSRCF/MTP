@@ -2421,6 +2421,140 @@ def _check_stream_queue_budget(summary: dict[str, Any], failures: list[str]) -> 
         if summary.get(f"{live_canary_prefix}_{key}") is not False:
             failures.append(f"{live_canary_prefix}_{key}_mismatch")
 
+    state_shape_prefix = f"{prefix}_live_runtime_state_shape"
+    expected_state_shape_status = (
+        f"blocked_by_live_runtime_canary:{expected_live_canary_status}"
+    )
+    if summary.get(f"{state_shape_prefix}_present") is not True:
+        failures.append(f"{state_shape_prefix}_present_mismatch")
+    if (
+        summary.get(f"{state_shape_prefix}_stage")
+        != "payload_cache_live_runtime_state_shape_check"
+    ):
+        failures.append(f"{state_shape_prefix}_stage_mismatch")
+    if summary.get(f"{state_shape_prefix}_status") != expected_state_shape_status:
+        failures.append(f"{state_shape_prefix}_status_mismatch")
+    if summary.get(f"{state_shape_prefix}_consumes_live_runtime_canary") is not True:
+        failures.append(f"{state_shape_prefix}_consumes_live_runtime_canary_mismatch")
+    if summary.get(f"{state_shape_prefix}_live_runtime_canary_status") != expected_live_canary_status:
+        failures.append(f"{state_shape_prefix}_live_runtime_canary_status_mismatch")
+    if summary.get(f"{state_shape_prefix}_manager_backend") != "ReadyTimeExpertCacheManager":
+        failures.append(f"{state_shape_prefix}_manager_backend_mismatch")
+    if (
+        summary.get(f"{state_shape_prefix}_manager_runtime_contract")
+        != "ready_time_issue_demand_skeleton_v1"
+    ):
+        failures.append(f"{state_shape_prefix}_manager_runtime_contract_mismatch")
+    if (
+        summary.get(f"{state_shape_prefix}_manager_runtime_mode")
+        != "ready_time_payload_cache_skeleton"
+    ):
+        failures.append(f"{state_shape_prefix}_manager_runtime_mode_mismatch")
+    if (
+        summary.get(f"{state_shape_prefix}_state_shape_schema")
+        != "ready_time_issue_demand_state_shape_v1"
+    ):
+        failures.append(f"{state_shape_prefix}_state_shape_schema_mismatch")
+    for key in (
+        "live_runtime_state_shape_checked",
+        "issue_queue_shape_checked",
+        "demand_state_shape_checked",
+        "resident_index_shape_checked",
+        "queue_timing_shape_checked",
+    ):
+        if summary.get(f"{state_shape_prefix}_{key}") is not True:
+            failures.append(f"{state_shape_prefix}_{key}_mismatch")
+    if summary.get(f"{state_shape_prefix}_live_runtime_instantiated") is not False:
+        failures.append(f"{state_shape_prefix}_live_runtime_instantiated_mismatch")
+    if _int_metric(summary, f"{state_shape_prefix}_capacity_entries") != first_capacity:
+        failures.append(f"{state_shape_prefix}_capacity_entries_mismatch")
+    if _int_metric(summary, f"{state_shape_prefix}_issue_lead_tokens") != first_lead:
+        failures.append(f"{state_shape_prefix}_issue_lead_tokens_mismatch")
+    if _float_metric(summary, f"{state_shape_prefix}_queue_deadline_us") != first_deadline:
+        failures.append(f"{state_shape_prefix}_queue_deadline_us_mismatch")
+    if _float_metric(summary, f"{state_shape_prefix}_lookahead_us") != first_lookahead:
+        failures.append(f"{state_shape_prefix}_lookahead_us_mismatch")
+    if _int_metric(summary, f"{state_shape_prefix}_queue_batch_size") != 1:
+        failures.append(f"{state_shape_prefix}_queue_batch_size_mismatch")
+    for key in (
+        "resident_count",
+        "issued_fetch_count",
+        "used_fetch_count",
+        "unused_fetch_count",
+        "demand_count",
+        "demand_hit_count",
+        "demand_miss_count",
+        "evicted_before_use_count",
+        "ready_late_miss_count",
+        "late_completion_unused_count",
+        "queue_batch_count",
+        "issued_payload_count",
+        "payload_bytes",
+    ):
+        if _int_metric(summary, f"{state_shape_prefix}_{key}") != 0:
+            failures.append(f"{state_shape_prefix}_{key}_mismatch")
+    for key in (
+        "queue_service_us",
+        "queue_total_span_us",
+        "queue_wait_us",
+        "queue_max_delay_us",
+    ):
+        if _float_metric(summary, f"{state_shape_prefix}_{key}") != 0.0:
+            failures.append(f"{state_shape_prefix}_{key}_mismatch")
+    if (
+        summary.get(f"{state_shape_prefix}_shifted_issue_accounting_enabled")
+        is not first_shifted_enabled
+    ):
+        failures.append(f"{state_shape_prefix}_shifted_issue_accounting_enabled_mismatch")
+    if (
+        _int_metric(
+            summary,
+            f"{state_shape_prefix}_shifted_issue_accounted_packet_count",
+        )
+        != first_shifted_packet_count
+    ):
+        failures.append(
+            f"{state_shape_prefix}_shifted_issue_accounted_packet_count_mismatch",
+        )
+    if (
+        _int_metric(
+            summary,
+            f"{state_shape_prefix}_shifted_issue_unique_issue_key_count",
+        )
+        != first_shifted_unique_count
+    ):
+        failures.append(
+            f"{state_shape_prefix}_shifted_issue_unique_issue_key_count_mismatch",
+        )
+    if summary.get(f"{state_shape_prefix}_decision") != "blocked":
+        failures.append(f"{state_shape_prefix}_decision_mismatch")
+    if summary.get(f"{state_shape_prefix}_block_reason") != "live_runtime_state_shape_only":
+        failures.append(f"{state_shape_prefix}_block_reason_mismatch")
+    if (
+        summary.get(f"{state_shape_prefix}_execution_mode")
+        != "payload_cache_live_runtime_state_shape_check_disabled"
+    ):
+        failures.append(f"{state_shape_prefix}_execution_mode_mismatch")
+    for key in (
+        "live_payload_runtime_enabled",
+        "payload_transfer_runtime_enabled",
+        "payload_deref_allowed",
+        "payload_deref_runtime_allowed",
+        "ready_credit",
+        "ready_before_demand_credit",
+        "real_ready_credit_granted",
+        "kernel_arg_pass_allowed",
+        "passed_to_kernel",
+        "changes_kernel_launch_args",
+        "full_fetch_runtime_allowed",
+        "uses_current_wna16_args",
+        "passes_current_wna16_args",
+        "measures_tpot",
+        "measures_vllm_latency",
+    ):
+        if summary.get(f"{state_shape_prefix}_{key}") is not False:
+            failures.append(f"{state_shape_prefix}_{key}_mismatch")
+
     if first_shifted_enabled is not True:
         failures.append(f"{prefix}_first_shifted_issue_accounting_enabled_mismatch")
     if first_shifted_packet_count != 28:

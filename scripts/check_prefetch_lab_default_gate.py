@@ -39,6 +39,7 @@ from mtp_expert_prefetch.runtime import (  # noqa: E402
     build_payload_cache_manager_implementation_artifact,
     build_payload_cache_manager_runtime_snapshot_artifact,
     build_payload_cache_manager_runtime_skeleton,
+    build_payload_cache_live_runtime_state_shape_check,
     build_payload_cache_snapshot_backed_live_runtime_disabled_canary,
     build_payload_cache_snapshot_backed_live_runtime_preflight,
     build_payload_cache_queue_budget_runtime_envelope,
@@ -1242,6 +1243,7 @@ def _check_optional_stream_queue_budget_sweep(
     manager_runtime_snapshot_payload: dict[str, Any] = {}
     snapshot_backed_live_runtime_preflight_payload: dict[str, Any] = {}
     snapshot_backed_live_runtime_canary_payload: dict[str, Any] = {}
+    live_runtime_state_shape_payload: dict[str, Any] = {}
     if len(failures) == queue_failure_base:
         try:
             envelope = build_payload_cache_queue_budget_runtime_envelope(
@@ -1302,8 +1304,14 @@ def _check_optional_stream_queue_budget_sweep(
             snapshot_backed_live_runtime_canary_payload = (
                 snapshot_backed_live_runtime_canary.as_dict()
             )
+            live_runtime_state_shape = build_payload_cache_live_runtime_state_shape_check(
+                snapshot_backed_live_runtime_canary,
+            )
+            live_runtime_state_shape_payload = live_runtime_state_shape.as_dict()
         except (TypeError, ValueError) as exc:
-            if snapshot_backed_live_runtime_preflight_payload:
+            if snapshot_backed_live_runtime_canary_payload:
+                label = "stream_queue_budget_live_runtime_state_shape_invalid"
+            elif snapshot_backed_live_runtime_preflight_payload:
                 label = "stream_queue_budget_snapshot_backed_live_runtime_canary_invalid"
             elif manager_runtime_snapshot_payload:
                 label = (
@@ -2191,6 +2199,10 @@ def _check_optional_stream_queue_budget_sweep(
         **_prefixed_payload(
             "stream_queue_budget_snapshot_backed_live_runtime_canary",
             snapshot_backed_live_runtime_canary_payload,
+        ),
+        **_prefixed_payload(
+            "stream_queue_budget_live_runtime_state_shape",
+            live_runtime_state_shape_payload,
         ),
         "stream_queue_budget_payload_bytes": _optional_int(report, "payload_bytes"),
         "stream_queue_budget_payload_transfer_enabled": _optional_bool(
