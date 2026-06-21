@@ -40042,3 +40042,85 @@ Next gate:
 ```text
 run_real_online_trace_with_shifted_issue_runtime_shadow_enabled
 ```
+
+## 2026-06-20: Online Shifted Issue Runtime Shadow Smoke Passed
+
+Ran a real vLLM/AWQ online smoke with shifted issue runtime shadow enabled:
+
+```text
+config:
+  configs/trace/router_mtp_trace_external_prompt_gate_dolly_4_awq_vllm_gpu1_decode_gen64_shifted_issue_runtime_shadow_smoke.yaml
+
+trace:
+  data/traces/external_prompt_gate_dolly_4_awq_vllm_gpu1_decode_gen64_shifted_issue_runtime_shadow_smoke/
+
+gate:
+  outputs/reports/premap_kernel_consumer/
+  premap_payload_cache_shifted_issue_runtime_shadow_gate_dolly4_awq_gpu1_smoke_v1.json
+```
+
+Gate command:
+
+```text
+/home/husrcf/anaconda3/envs/TRY/bin/python \
+  scripts/check_premap_payload_cache_shifted_issue_runtime_shadow_gate.py \
+  data/traces/external_prompt_gate_dolly_4_awq_vllm_gpu1_decode_gen64_shifted_issue_runtime_shadow_smoke/performance_summary.json \
+  --required-issue-lead-tokens 1 \
+  --min-packet-count 32 \
+  --min-schedulable-packet-count 28 \
+  --output-json outputs/reports/premap_kernel_consumer/premap_payload_cache_shifted_issue_runtime_shadow_gate_dolly4_awq_gpu1_smoke_v1.json \
+  --require-pass
+# passed = true
+```
+
+Observed online summary:
+
+```text
+packet_count = 32
+schedulable_packet_count = 28
+empty_issue_exempt_count = 4
+safe_packet_count = 32
+unsafe_packet_count = 0
+invalid_packet_count = 0
+scan_error_count = 0
+clamped_issue_count = 0
+duplicate_demand_key_count = 0
+duplicate_issue_key_count = 0
+unique_demand_key_count = 28
+unique_issue_key_count = 28
+issue_hash_count = 28
+issue_hash_unique_count = 27
+total_issue_candidates = 224
+```
+
+Boundary remains closed:
+
+```text
+payload_bytes = 0
+ready_credit = false
+ready_before_demand_credit = false
+real_ready_credit_granted = false
+payload_transfer_enabled = false
+payload_deref_allowed = false
+kernel_arg_pass_allowed = false
+passed_to_kernel = false
+changes_kernel_launch_args = false
+uses_current_wna16_args = false
+passes_current_wna16_args = false
+measures_tpot = false
+measures_vllm_latency = false
+```
+
+Interpretation:
+
+```text
+The shifted issue schedule is now visible in real online vLLM shadow telemetry
+and can be checked directly from performance_summary.json.  This is still not
+payload movement, not full_fetch, and not an endpoint latency claim.
+```
+
+Next gate:
+
+```text
+promote_shifted_issue_runtime_shadow_gate_to_lab_preflight_or_scale_to_32_samples
+```
