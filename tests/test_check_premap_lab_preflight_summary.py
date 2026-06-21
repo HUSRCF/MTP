@@ -2156,6 +2156,132 @@ def _summary() -> dict[str, object]:
         "measures_vllm_latency",
     ):
         summary[f"{state_validation_prefix}_{key}"] = False
+    state_validation_artifact_prefix = (
+        "prefetch_lab_default_stream_queue_budget_"
+        "live_runtime_adapter_state_validation_artifact"
+    )
+    state_validation_status = str(summary[f"{state_validation_prefix}_status"])
+    summary.update(
+        {
+            f"{state_validation_artifact_prefix}_present": True,
+            f"{state_validation_artifact_prefix}_stage": (
+                "payload_cache_live_runtime_adapter_state_validation_artifact"
+            ),
+            f"{state_validation_artifact_prefix}_status": (
+                f"blocked_by_adapter_state_validation_preflight:"
+                f"{state_validation_status}"
+            ),
+            f"{state_validation_artifact_prefix}_consumes_adapter_state_validation_preflight": (
+                True
+            ),
+            f"{state_validation_artifact_prefix}_adapter_state_validation_status": (
+                state_validation_status
+            ),
+            f"{state_validation_artifact_prefix}_manager_backend": (
+                "ReadyTimeExpertCacheManager"
+            ),
+            f"{state_validation_artifact_prefix}_manager_runtime_contract": (
+                "ready_time_issue_demand_skeleton_v1"
+            ),
+            f"{state_validation_artifact_prefix}_manager_runtime_mode": (
+                "ready_time_payload_cache_skeleton"
+            ),
+            f"{state_validation_artifact_prefix}_state_shape_schema": (
+                "ready_time_issue_demand_state_shape_v1"
+            ),
+            f"{state_validation_artifact_prefix}_runtime_adapter_schema": (
+                "ready_time_payload_cache_runtime_adapter_v1"
+            ),
+            f"{state_validation_artifact_prefix}_adapter_state_object_schema": (
+                "ready_time_payload_cache_adapter_state_v1"
+            ),
+            f"{state_validation_artifact_prefix}_adapter_state_validation_schema": (
+                "ready_time_payload_cache_adapter_state_validation_v1"
+            ),
+            f"{state_validation_artifact_prefix}_validated_state_artifact_schema": (
+                "ready_time_payload_cache_validated_adapter_state_artifact_v1"
+            ),
+            f"{state_validation_artifact_prefix}_adapter_state_validation_preflight_instantiated": (
+                True
+            ),
+            f"{state_validation_artifact_prefix}_adapter_state_validation_artifact_instantiated": (
+                True
+            ),
+            f"{state_validation_artifact_prefix}_issue_queue_state_object_ready_for_runtime_adapter": (
+                True
+            ),
+            f"{state_validation_artifact_prefix}_demand_state_object_ready_for_runtime_adapter": (
+                True
+            ),
+            f"{state_validation_artifact_prefix}_resident_index_state_object_ready_for_runtime_adapter": (
+                True
+            ),
+            f"{state_validation_artifact_prefix}_queue_timing_state_object_ready_for_runtime_adapter": (
+                True
+            ),
+            f"{state_validation_artifact_prefix}_live_runtime_instantiated": False,
+            f"{state_validation_artifact_prefix}_capacity_entries": 4096,
+            f"{state_validation_artifact_prefix}_issue_lead_tokens": 32,
+            f"{state_validation_artifact_prefix}_queue_deadline_us": 100.0,
+            f"{state_validation_artifact_prefix}_lookahead_us": 2400000.0,
+            f"{state_validation_artifact_prefix}_queue_batch_size": 1,
+            f"{state_validation_artifact_prefix}_shifted_issue_accounting_enabled": True,
+            f"{state_validation_artifact_prefix}_shifted_issue_accounted_packet_count": (
+                28
+            ),
+            f"{state_validation_artifact_prefix}_shifted_issue_unique_issue_key_count": (
+                16
+            ),
+            f"{state_validation_artifact_prefix}_decision": "blocked",
+            f"{state_validation_artifact_prefix}_block_reason": (
+                "live_runtime_adapter_state_validation_artifact_only"
+            ),
+            f"{state_validation_artifact_prefix}_execution_mode": (
+                "payload_cache_live_runtime_adapter_state_validation_artifact_disabled"
+            ),
+        },
+    )
+    for key in (
+        "resident_count",
+        "issued_fetch_count",
+        "used_fetch_count",
+        "unused_fetch_count",
+        "demand_count",
+        "demand_hit_count",
+        "demand_miss_count",
+        "evicted_before_use_count",
+        "ready_late_miss_count",
+        "late_completion_unused_count",
+        "queue_batch_count",
+        "issued_payload_count",
+        "payload_bytes",
+    ):
+        summary[f"{state_validation_artifact_prefix}_{key}"] = 0
+    for key in (
+        "queue_service_us",
+        "queue_total_span_us",
+        "queue_wait_us",
+        "queue_max_delay_us",
+    ):
+        summary[f"{state_validation_artifact_prefix}_{key}"] = 0.0
+    for key in (
+        "live_payload_runtime_enabled",
+        "payload_transfer_runtime_enabled",
+        "payload_deref_allowed",
+        "payload_deref_runtime_allowed",
+        "ready_credit",
+        "ready_before_demand_credit",
+        "real_ready_credit_granted",
+        "kernel_arg_pass_allowed",
+        "passed_to_kernel",
+        "changes_kernel_launch_args",
+        "full_fetch_runtime_allowed",
+        "uses_current_wna16_args",
+        "passes_current_wna16_args",
+        "measures_tpot",
+        "measures_vllm_latency",
+    ):
+        summary[f"{state_validation_artifact_prefix}_{key}"] = False
     return summary
 
 
@@ -3936,6 +4062,26 @@ def test_check_premap_lab_preflight_summary_rejects_state_validation_escape() ->
     prefix = (
         "prefetch_lab_default_stream_queue_budget_"
         "live_runtime_adapter_state_validation_preflight"
+    )
+    summary[f"{prefix}_status"] = "passed"
+    summary[f"{prefix}_payload_bytes"] = 64
+    summary[f"{prefix}_ready_credit"] = True
+    summary[f"{prefix}_kernel_arg_pass_allowed"] = True
+
+    result = check_premap_lab_preflight_summary(summary)
+
+    assert result["passed"] is False
+    assert f"{prefix}_status_mismatch" in result["failures"]
+    assert f"{prefix}_payload_bytes_mismatch" in result["failures"]
+    assert f"{prefix}_ready_credit_mismatch" in result["failures"]
+    assert f"{prefix}_kernel_arg_pass_allowed_mismatch" in result["failures"]
+
+
+def test_check_premap_lab_preflight_summary_rejects_state_validation_artifact_escape() -> None:
+    summary = _summary()
+    prefix = (
+        "prefetch_lab_default_stream_queue_budget_"
+        "live_runtime_adapter_state_validation_artifact"
     )
     summary[f"{prefix}_status"] = "passed"
     summary[f"{prefix}_payload_bytes"] = 64

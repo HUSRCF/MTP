@@ -2,10 +2,65 @@
 
 ## Progress Version
 
-- Version: `v1.37-live-runtime-adapter-state-validation-preflight`
+- Version: `v1.38-live-runtime-adapter-state-validation-artifact`
 - Updated: 2026-06-22
 
-## Latest Update: Live Runtime Adapter State-Validation Preflight
+## Latest Update: Live Runtime Adapter State-Validation Artifact
+
+The payload/cache lab chain now records a blocked artifact for the validated
+future adapter state contract:
+
+```text
+PayloadCacheLiveRuntimeAdapterStateValidationArtifact
+```
+
+This artifact consumes `PayloadCacheLiveRuntimeAdapterStateValidationPreflight`
+and marks the validated state objects as ready for a future runtime adapter:
+
+```text
+issue_queue_state_object_ready_for_runtime_adapter = true
+demand_state_object_ready_for_runtime_adapter = true
+resident_index_state_object_ready_for_runtime_adapter = true
+queue_timing_state_object_ready_for_runtime_adapter = true
+```
+
+This is still not a live runtime.  The artifact is explicitly blocked and
+keeps all execution side effects disabled:
+
+```text
+stage = payload_cache_live_runtime_adapter_state_validation_artifact
+status = blocked_by_adapter_state_validation_preflight:<state_validation_status>
+decision = blocked
+block_reason = live_runtime_adapter_state_validation_artifact_only
+execution_mode = payload_cache_live_runtime_adapter_state_validation_artifact_disabled
+validated_state_artifact_schema = ready_time_payload_cache_validated_adapter_state_artifact_v1
+live_runtime_instantiated = false
+payload_bytes = 0
+ready_credit = false
+kernel_arg_pass_allowed = false
+changes_kernel_launch_args = false
+uses_current_wna16_args = false
+measures_tpot = false
+```
+
+The builder revalidates the upstream state-validation preflight, including the
+canonical `blocked_by_adapter_materialization_preflight:blocked_by_object_adapter_preflight:*`
+ancestry, before constructing the artifact.  The compact lab preflight summary
+now includes
+`prefetch_lab_default_stream_queue_budget_live_runtime_adapter_state_validation_artifact_*`
+fields, and the final summary checker treats them as required gate evidence.
+
+Validation:
+
+```text
+py_compile runtime/cache_lab_gate.py and summary scripts: pass
+pytest tests/test_cache_lab_gate.py tests/test_check_premap_lab_preflight_summary.py -q: 150 passed
+pytest focused lab/preflight suite: 528 passed
+generated summary/check artifacts: pass
+Hubble static review: no blocker
+```
+
+## Previous Update: Live Runtime Adapter State-Validation Preflight
 
 The payload/cache lab chain now extends the default-disabled live runtime
 adapter line from state-object declaration to state-object validation:

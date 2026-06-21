@@ -41,6 +41,7 @@ from mtp_expert_prefetch.runtime import (  # noqa: E402
     build_payload_cache_manager_runtime_skeleton,
     build_payload_cache_live_runtime_adapter_materialization_preflight,
     build_payload_cache_live_runtime_adapter_state_object_preflight,
+    build_payload_cache_live_runtime_adapter_state_validation_artifact,
     build_payload_cache_live_runtime_adapter_state_validation_preflight,
     build_payload_cache_live_runtime_object_adapter_preflight,
     build_payload_cache_live_runtime_object_construction_preflight,
@@ -1254,6 +1255,7 @@ def _check_optional_stream_queue_budget_sweep(
     live_runtime_adapter_materialization_preflight_payload: dict[str, Any] = {}
     live_runtime_adapter_state_object_preflight_payload: dict[str, Any] = {}
     live_runtime_adapter_state_validation_preflight_payload: dict[str, Any] = {}
+    live_runtime_adapter_state_validation_artifact_payload: dict[str, Any] = {}
     if len(failures) == queue_failure_base:
         try:
             envelope = build_payload_cache_queue_budget_runtime_envelope(
@@ -1358,8 +1360,21 @@ def _check_optional_stream_queue_budget_sweep(
             live_runtime_adapter_state_validation_preflight_payload = (
                 live_runtime_adapter_state_validation_preflight.as_dict()
             )
+            live_runtime_adapter_state_validation_artifact = (
+                build_payload_cache_live_runtime_adapter_state_validation_artifact(
+                    live_runtime_adapter_state_validation_preflight,
+                )
+            )
+            live_runtime_adapter_state_validation_artifact_payload = (
+                live_runtime_adapter_state_validation_artifact.as_dict()
+            )
         except (TypeError, ValueError) as exc:
-            if live_runtime_adapter_state_object_preflight_payload:
+            if live_runtime_adapter_state_validation_preflight_payload:
+                label = (
+                    "stream_queue_budget_live_runtime_adapter_"
+                    "state_validation_artifact_invalid"
+                )
+            elif live_runtime_adapter_state_object_preflight_payload:
                 label = (
                     "stream_queue_budget_live_runtime_adapter_"
                     "state_validation_preflight_invalid"
@@ -2292,6 +2307,10 @@ def _check_optional_stream_queue_budget_sweep(
         **_prefixed_payload(
             "stream_queue_budget_live_runtime_adapter_state_validation_preflight",
             live_runtime_adapter_state_validation_preflight_payload,
+        ),
+        **_prefixed_payload(
+            "stream_queue_budget_live_runtime_adapter_state_validation_artifact",
+            live_runtime_adapter_state_validation_artifact_payload,
         ),
         "stream_queue_budget_payload_bytes": _optional_int(report, "payload_bytes"),
         "stream_queue_budget_payload_transfer_enabled": _optional_bool(
