@@ -23,6 +23,7 @@ from scripts.run_premap_lab_preflight import (
     _source_context_identities_from_merged_output,
     _source_identity_subset,
     _validate_required_evidence_payload,
+    _validate_payload_cache_packet_export_manifest_evidence,
     _validate_payload_cache_shifted_issue_runtime_shadow_gate_evidence,
     _validate_payload_cache_producer_state_native_canary_evidence,
 )
@@ -2443,6 +2444,80 @@ def _payload_cache_shifted_issue_runtime_shadow_gate_payload() -> dict[str, obje
     }
 
 
+def _payload_cache_packet_export_manifest_payload() -> dict[str, object]:
+    first_path = "reports/packet_0001.json"
+    return {
+        "allow_config_token_source": False,
+        "allow_empty_config_packets": True,
+        "artifact_kind": "premap_payload_cache_packet_export_manifest",
+        "changes_kernel_launch_args": False,
+        "checked_nonempty_packet_count": 28,
+        "checked_packet_count": 32,
+        "checked_packet_export_first_nonempty_issue_count": 8,
+        "checked_packet_export_first_nonempty_issue_hash": "f3f1208c1026d557",
+        "checked_packet_export_first_nonempty_issue_index": 1,
+        "checked_packet_export_first_nonempty_issue_path": first_path,
+        "failures": [],
+        "kernel_arg_pass_allowed": False,
+        "manifest_name": "premap_payload_cache_packet_export_manifest_v1",
+        "manifest_source": "runtime_shadow_performance_summary",
+        "measures_tpot": False,
+        "measures_vllm_latency": False,
+        "next_runtime_stage": "payload_cache_issue_stream_executor",
+        "ok": True,
+        "online_configured_export_count": 32,
+        "online_export_source": (
+            "runtime_shadow_premap_payload_cache_producer_state_packet_export"
+        ),
+        "online_nonempty_issue_count": 28,
+        "online_packet_export_count": 32,
+        "online_packet_export_first_nonempty_issue_count": 8,
+        "online_packet_export_first_nonempty_issue_hash": "f3f1208c1026d557",
+        "online_packet_export_first_nonempty_issue_index": 1,
+        "online_packet_export_first_nonempty_issue_path": first_path,
+        "online_packet_export_nonempty_issue_count": 28,
+        "online_packet_export_paths": [
+            f"reports/packet_{index:04d}.json" for index in range(32)
+        ],
+        "online_packet_export_scan_error_count": 0,
+        "online_performance_summary": "reports/shifted_issue/performance_summary.json",
+        "passed": True,
+        "passed_to_kernel": False,
+        "passes_current_wna16_args": False,
+        "payload_bytes": 0,
+        "payload_deref_allowed": False,
+        "payload_transfer_enabled": False,
+        "ready": True,
+        "ready_before_demand_credit": False,
+        "ready_credit": False,
+        "real_ready_credit_granted": False,
+        "shifted_issue_clamped_issue_count": 0,
+        "shifted_issue_duplicate_demand_key_count": 0,
+        "shifted_issue_duplicate_issue_key_count": 0,
+        "shifted_issue_empty_issue_exempt_count": 4,
+        "shifted_issue_enabled": True,
+        "shifted_issue_invalid_packet_count": 0,
+        "shifted_issue_issue_hash_count": 28,
+        "shifted_issue_issue_hash_unique_count": 27,
+        "shifted_issue_lead_tokens": 1,
+        "shifted_issue_packet_count": 32,
+        "shifted_issue_runtime_shadow_enabled": True,
+        "shifted_issue_runtime_shadow_required": True,
+        "shifted_issue_safe_packet_count": 32,
+        "shifted_issue_scan_error_count": 0,
+        "shifted_issue_schedulable_packet_count": 28,
+        "shifted_issue_total_issue_candidates": 224,
+        "shifted_issue_unique_demand_key_count": 28,
+        "shifted_issue_unique_issue_key_count": 28,
+        "shifted_issue_unsafe_packet_count": 0,
+        "summary_packet_export_first_nonempty_issue_count": 8,
+        "summary_packet_export_first_nonempty_issue_hash": "f3f1208c1026d557",
+        "summary_packet_export_first_nonempty_issue_index": 1,
+        "summary_packet_export_first_nonempty_issue_path": first_path,
+        "uses_current_wna16_args": False,
+    }
+
+
 def _kernel_launch_context_metrics(
     *,
     prefix: str,
@@ -4703,6 +4778,9 @@ def _write_gate(
     payload_cache_shifted_issue_runtime_shadow_gate_path = (
         f"reports/{name}_payload_cache_shifted_issue_runtime_shadow_gate.json"
     )
+    payload_cache_packet_export_manifest_path = (
+        f"reports/{name}_payload_cache_packet_export_manifest.json"
+    )
     payload_cache_producer_state_nonempty_issue_stub_path = (
         f"reports/{name}_payload_cache_producer_state_nonempty_issue_stub.json"
     )
@@ -5674,6 +5752,12 @@ def _write_gate(
             + "\n",
         )
         _write(
+            root / payload_cache_packet_export_manifest_path,
+            json.dumps(_payload_cache_packet_export_manifest_payload()) + "\n",
+        )
+        for index in range(32):
+            _write(root / f"reports/packet_{index:04d}.json", "{}\n")
+        _write(
             root / payload_cache_producer_state_nonempty_issue_stub_path,
             json.dumps(_payload_cache_producer_state_nonempty_issue_stub_payload())
             + "\n",
@@ -6061,6 +6145,8 @@ def _write_gate(
             f"{payload_cache_producer_state_native_canary_path}\n"
             "  payload_cache_shifted_issue_runtime_shadow_gate_json: "
             f"{payload_cache_shifted_issue_runtime_shadow_gate_path}\n"
+            "  payload_cache_packet_export_manifest_json: "
+            f"{payload_cache_packet_export_manifest_path}\n"
             "  payload_cache_producer_state_online_nonempty_issue_canary_json: "
             f"{payload_cache_producer_state_native_canary_path}\n"
             "  payload_cache_producer_state_nonempty_issue_stub_json: "
@@ -6160,7 +6246,7 @@ def test_premap_lab_preflight_accepts_default_readonly_wiring(tmp_path: Path):
     assert result["passed"] is True
     assert result["failures"] == []
     assert result["runtime_gate_evidence_scan"]["gate_count"] == 5
-    assert result["runtime_gate_evidence_scan"]["evidence_path_count"] == 128
+    assert result["runtime_gate_evidence_scan"]["evidence_path_count"] == 130
     assert result["default_readonly_gate_required_evidence_check"]["passed"] is True
     summary = result["lab_gate_status_summary"]
     assert summary["passed"] is True
@@ -7598,9 +7684,9 @@ def test_premap_lab_preflight_accepts_default_readonly_wiring(tmp_path: Path):
     assert summary["payload_bytes_required"] == 0
     assert summary["passed_to_kernel_required"] is False
     assert summary["changes_kernel_launch_args_required"] is False
-    assert summary["required_evidence"]["required_count"] == 54
-    assert summary["required_evidence"]["present_count"] == 54
-    assert summary["required_evidence"]["passed_count"] == 54
+    assert summary["required_evidence"]["required_count"] == 55
+    assert summary["required_evidence"]["present_count"] == 55
+    assert summary["required_evidence"]["passed_count"] == 55
     assert summary["optional_evidence"]["required_count"] == 13
     assert summary["optional_evidence"]["present_count"] == 13
     assert summary["optional_evidence"]["passed_count"] == 13
@@ -8660,7 +8746,7 @@ def test_premap_lab_preflight_rejects_missing_optional_future_args_coverage(
         "default_kernel_consumer_future_kernel_args_total_mirror_coverage_incomplete"
         in result["failures"]
     )
-    assert summary["required_evidence"]["passed_count"] == 54
+    assert summary["required_evidence"]["passed_count"] == 55
     assert summary["default_optional_evidence_passed"] is True
     assert (
         summary[
@@ -10756,6 +10842,7 @@ def test_premap_lab_preflight_rejects_default_gate_without_typed_evidence(
         "wna16_side_consumer_variant_execution_128strict_runner_json:missing_evidence_path",
         "payload_cache_producer_state_native_canary_json:missing_evidence_path",
         "payload_cache_shifted_issue_runtime_shadow_gate_json:missing_evidence_path",
+        "payload_cache_packet_export_manifest_json:missing_evidence_path",
         "payload_cache_producer_state_online_nonempty_issue_canary_json:missing_evidence_path",
         "payload_cache_producer_state_nonempty_issue_stub_json:missing_evidence_path",
         "strict_live_connected_readonly_128_gate_json:missing_evidence_path",
@@ -13997,6 +14084,125 @@ def test_premap_lab_preflight_rejects_shifted_issue_runtime_shadow_int_passed():
     ) in failures
 
 
+def test_premap_lab_preflight_accepts_payload_cache_packet_export_manifest():
+    failures = _validate_payload_cache_packet_export_manifest_evidence(
+        _payload_cache_packet_export_manifest_payload()
+    )
+
+    assert failures == []
+
+
+def test_premap_lab_preflight_dispatch_accepts_payload_cache_packet_export_manifest():
+    failures = _validate_required_evidence_payload(
+        "payload_cache_packet_export_manifest_json",
+        _payload_cache_packet_export_manifest_payload(),
+    )
+
+    assert failures == []
+
+
+def test_premap_lab_preflight_rejects_packet_export_manifest_kernel_pass():
+    payload = _payload_cache_packet_export_manifest_payload()
+    payload["passed_to_kernel"] = True
+    payload["changes_kernel_launch_args"] = True
+
+    failures = _validate_required_evidence_payload(
+        "payload_cache_packet_export_manifest_json",
+        payload,
+    )
+
+    assert (
+        "payload_cache_packet_export_manifest_json:"
+        "payload_cache_packet_export_manifest_passed_to_kernel_mismatch"
+    ) in failures
+    assert (
+        "payload_cache_packet_export_manifest_json:"
+        "payload_cache_packet_export_manifest_changes_kernel_launch_args_mismatch"
+    ) in failures
+
+
+def test_premap_lab_preflight_rejects_packet_export_manifest_checked_count_mismatch():
+    payload = _payload_cache_packet_export_manifest_payload()
+    payload["checked_nonempty_packet_count"] = 27
+
+    failures = _validate_payload_cache_packet_export_manifest_evidence(payload)
+
+    assert (
+        "payload_cache_packet_export_manifest_checked_nonempty_packet_count_too_small"
+        in failures
+    )
+    assert (
+        "payload_cache_packet_export_manifest_online_nonempty_count_mismatch"
+        in failures
+    )
+
+
+def test_premap_lab_preflight_rejects_packet_export_manifest_first_nonempty_mismatch():
+    payload = _payload_cache_packet_export_manifest_payload()
+    payload["summary_packet_export_first_nonempty_issue_hash"] = "0000000000000000"
+
+    failures = _validate_payload_cache_packet_export_manifest_evidence(payload)
+
+    assert "payload_cache_packet_export_manifest_first_nonempty_hash_mismatch" in failures
+
+
+def test_premap_lab_preflight_rejects_packet_export_manifest_path_outside_root(
+    tmp_path: Path,
+):
+    external_packet = tmp_path.parent / f"{tmp_path.name}_outside_packet.json"
+    external_packet.write_text("{}\n", encoding="utf-8")
+    payload = _payload_cache_packet_export_manifest_payload()
+    external_path = str(external_packet)
+    payload["online_packet_export_paths"] = [external_path for _ in range(32)]
+    for prefix in (
+        "summary_packet_export_first_nonempty_issue_",
+        "checked_packet_export_first_nonempty_issue_",
+        "online_packet_export_first_nonempty_issue_",
+    ):
+        payload[f"{prefix}path"] = external_path
+
+    failures = _validate_payload_cache_packet_export_manifest_evidence(
+        payload,
+        root=tmp_path,
+    )
+
+    assert "payload_cache_packet_export_manifest_online_packet_export_path_0_outside_root" in failures
+
+
+def test_premap_lab_preflight_rejects_packet_export_manifest_negative_first_index():
+    payload = _payload_cache_packet_export_manifest_payload()
+    for prefix in (
+        "summary_packet_export_first_nonempty_issue_",
+        "checked_packet_export_first_nonempty_issue_",
+        "online_packet_export_first_nonempty_issue_",
+    ):
+        payload[f"{prefix}index"] = -1
+
+    failures = _validate_payload_cache_packet_export_manifest_evidence(payload)
+
+    assert (
+        "payload_cache_packet_export_manifest_checked_first_nonempty_index_invalid"
+        in failures
+    )
+
+
+def test_premap_lab_preflight_rejects_packet_export_manifest_zero_first_count():
+    payload = _payload_cache_packet_export_manifest_payload()
+    for prefix in (
+        "summary_packet_export_first_nonempty_issue_",
+        "checked_packet_export_first_nonempty_issue_",
+        "online_packet_export_first_nonempty_issue_",
+    ):
+        payload[f"{prefix}count"] = 0
+
+    failures = _validate_payload_cache_packet_export_manifest_evidence(payload)
+
+    assert (
+        "payload_cache_packet_export_manifest_checked_first_nonempty_count_invalid"
+        in failures
+    )
+
+
 def test_premap_lab_preflight_rejects_payload_cache_producer_state_empty_issue_stub():
     payload = _payload_cache_producer_state_nonempty_issue_stub_payload()
     payload["previous_count"] = 0
@@ -14696,9 +14902,9 @@ def test_premap_lab_preflight_can_defer_self_referential_runner_evidence(
     assert summary["deferred_online_prelaunch_artifact_evidence"] is False
     assert summary["runtime_gate_evidence_deferred_count"] == 10
     assert summary["strict_default_gate_evidence_deferred_count"] == 5
-    assert summary["required_evidence"]["required_count"] == 54
-    assert summary["required_evidence"]["present_count"] == 52
-    assert summary["required_evidence"]["passed_count"] == 52
+    assert summary["required_evidence"]["required_count"] == 55
+    assert summary["required_evidence"]["present_count"] == 53
+    assert summary["required_evidence"]["passed_count"] == 53
     assert summary["optional_evidence"]["passed_count"] == 13
     for label in (
         "future_kernel_args_compatible_path_16_128export_artifact_check_json",
@@ -15273,7 +15479,7 @@ def test_premap_lab_preflight_cli_writes_summary(tmp_path: Path):
     assert result["runtime_gate_evidence_scan"]["passed"] is True
     assert result["lab_gate_status_summary"]["passed"] is True
     assert (
-        result["lab_gate_status_summary"]["required_evidence"]["passed_count"] == 54
+        result["lab_gate_status_summary"]["required_evidence"]["passed_count"] == 55
     )
 
 
@@ -15309,7 +15515,7 @@ def test_premap_lab_preflight_cli_summary_only_writes_status_block(tmp_path: Pat
     assert exit_code == 0
     assert result["passed"] is True
     assert result["default_readonly_gate_path"] == default_gate
-    assert result["required_evidence"]["passed_count"] == 54
+    assert result["required_evidence"]["passed_count"] == 55
     assert result["optional_evidence"]["passed_count"] == 13
     assert "lab_gate_status_summary" not in result
 

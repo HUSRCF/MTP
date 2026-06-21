@@ -40348,3 +40348,71 @@ keep full_fetch runtime blocked for this packet stream;
 prefer metadata/premap/descriptor preparation actions, or move issue/admission
 substantially earlier before attempting real payload cache-manager runtime.
 ```
+
+### 2026-06-21: packet export manifest is now a required lab preflight evidence
+
+The shifted-issue packet export manifest has been promoted from a generated
+artifact to a required default lab preflight evidence item.
+
+Updated gate:
+
+```text
+configs/runtime/premap_consumer_readonly_gate_dolly128_gen64_awq_w7900_gpu1_live_connected_readonly.yaml
+```
+
+Required evidence label:
+
+```text
+payload_cache_packet_export_manifest_json
+```
+
+Strict preflight artifact:
+
+```text
+outputs/reports/premap_kernel_consumer/premap_lab_preflight_strict_packet_export_manifest_gate.json
+```
+
+Result:
+
+```text
+passed = true
+failures = []
+required_evidence = 55 / 55 passed
+payload_cache_packet_export_manifest_json = passed
+```
+
+The validator now requires the packet export manifest to remain a no-op runtime
+contract:
+
+```text
+payload_bytes = 0
+payload_transfer_enabled = false
+payload_deref_allowed = false
+ready_credit = false
+kernel_arg_pass_allowed = false
+passed_to_kernel = false
+changes_kernel_launch_args = false
+measures_tpot = false
+measures_vllm_latency = false
+```
+
+It also checks online/export/replay consistency:
+
+```text
+online_packet_export_count >= 32
+online_packet_export_scan_error_count = 0
+checked_packet_count == online_packet_export_count
+checked_nonempty_packet_count == online_nonempty_issue_count
+shifted_issue_packet_count == online_packet_export_count
+shifted_issue_schedulable_packet_count == checked_nonempty_packet_count
+shifted_issue unsafe/invalid/scan/clamp/duplicate counts = 0
+first nonempty issue index/path/count/hash agree across summary/online/checker
+packet export paths exist when validated from the lab gate root
+```
+
+This closes the bootstrap gap between online shifted-issue packet export and the
+ready-time issue stream executor.  It does not change the runtime conclusion:
+full payload fetch remains blocked for this stream because the measured-copy
+executor still reports deadline misses.  The usable next runtime direction
+remains metadata/premap/descriptor preparation unless issue/admission is moved
+substantially earlier.

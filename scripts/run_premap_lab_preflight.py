@@ -307,6 +307,7 @@ REQUIRED_DEFAULT_GATE_EVIDENCE_JSON_LABELS = {
     "wna16_side_consumer_variant_execution_128strict_runner_json",
     "payload_cache_producer_state_native_canary_json",
     "payload_cache_shifted_issue_runtime_shadow_gate_json",
+    "payload_cache_packet_export_manifest_json",
     "payload_cache_producer_state_online_nonempty_issue_canary_json",
     "payload_cache_producer_state_nonempty_issue_stub_json",
     "future_kernel_native_dispatch_consumer_online_artifact_check_32_128export_json",
@@ -2871,6 +2872,7 @@ def _validate_required_evidence_payload(
         "wna16_side_consumer_variant_execution_128strict_runner_json",
         "payload_cache_producer_state_native_canary_json",
         "payload_cache_shifted_issue_runtime_shadow_gate_json",
+        "payload_cache_packet_export_manifest_json",
         "payload_cache_producer_state_nonempty_issue_stub_json",
         "payload_cache_producer_state_online_nonempty_issue_canary_json",
         "future_kernel_native_arg_slot_packed_weight_mirror_canary_json",
@@ -4112,6 +4114,14 @@ def _validate_required_evidence_payload(
             f"{evidence_label}:{failure}"
             for failure in _validate_payload_cache_shifted_issue_runtime_shadow_gate_evidence(
                 evidence
+            )
+        ]
+    if evidence_label == "payload_cache_packet_export_manifest_json":
+        return [
+            f"{evidence_label}:{failure}"
+            for failure in _validate_payload_cache_packet_export_manifest_evidence(
+                evidence,
+                root=root,
             )
         ]
     for (
@@ -7988,6 +7998,218 @@ def _validate_payload_cache_shifted_issue_runtime_shadow_gate_evidence(
 
     if not isinstance(evidence.get("performance_summary"), str):
         failures.append(f"{failure_prefix}_performance_summary_missing")
+
+    return failures
+
+
+def _validate_payload_cache_packet_export_manifest_evidence(
+    evidence: dict[str, Any],
+    *,
+    root: Path | None = None,
+) -> list[str]:
+    failures: list[str] = []
+    failure_prefix = "payload_cache_packet_export_manifest"
+    expected_scalar_values = {
+        "artifact_kind": "premap_payload_cache_packet_export_manifest",
+        "manifest_name": "premap_payload_cache_packet_export_manifest_v1",
+        "manifest_source": "runtime_shadow_performance_summary",
+        "online_export_source": (
+            "runtime_shadow_premap_payload_cache_producer_state_packet_export"
+        ),
+        "failures": [],
+        "allow_empty_config_packets": True,
+        "allow_config_token_source": False,
+        "shifted_issue_runtime_shadow_required": True,
+        "shifted_issue_runtime_shadow_enabled": True,
+        "shifted_issue_enabled": True,
+    }
+    for key, expected_value in expected_scalar_values.items():
+        if evidence.get(key) != expected_value:
+            failures.append(f"{failure_prefix}_{key}_mismatch")
+    for key in ("ok", "ready", "passed"):
+        if evidence.get(key) is not True:
+            failures.append(f"{failure_prefix}_{key}_mismatch")
+    if evidence.get("next_runtime_stage") != "payload_cache_issue_stream_executor":
+        failures.append(f"{failure_prefix}_next_runtime_stage_mismatch")
+
+    expected_false_flags = (
+        "payload_transfer_enabled",
+        "payload_deref_allowed",
+        "ready_credit",
+        "ready_before_demand_credit",
+        "real_ready_credit_granted",
+        "kernel_arg_pass_allowed",
+        "passed_to_kernel",
+        "changes_kernel_launch_args",
+        "uses_current_wna16_args",
+        "passes_current_wna16_args",
+        "measures_tpot",
+        "measures_vllm_latency",
+    )
+    for key in expected_false_flags:
+        if evidence.get(key) is not False:
+            failures.append(f"{failure_prefix}_{key}_mismatch")
+    if _int_metric(evidence, "payload_bytes") != 0:
+        failures.append(f"{failure_prefix}_payload_bytes_mismatch")
+
+    count_keys = (
+        "online_packet_export_count",
+        "online_configured_export_count",
+        "online_packet_export_nonempty_issue_count",
+        "online_packet_export_scan_error_count",
+        "online_nonempty_issue_count",
+        "checked_packet_count",
+        "checked_nonempty_packet_count",
+        "shifted_issue_packet_count",
+        "shifted_issue_schedulable_packet_count",
+        "shifted_issue_empty_issue_exempt_count",
+        "shifted_issue_safe_packet_count",
+        "shifted_issue_unsafe_packet_count",
+        "shifted_issue_invalid_packet_count",
+        "shifted_issue_scan_error_count",
+        "shifted_issue_clamped_issue_count",
+        "shifted_issue_duplicate_demand_key_count",
+        "shifted_issue_duplicate_issue_key_count",
+        "shifted_issue_unique_demand_key_count",
+        "shifted_issue_unique_issue_key_count",
+        "shifted_issue_total_issue_candidates",
+        "shifted_issue_issue_hash_count",
+        "shifted_issue_issue_hash_unique_count",
+        "shifted_issue_lead_tokens",
+    )
+    counts: dict[str, int | None] = {}
+    for key in count_keys:
+        value = _int_metric(evidence, key)
+        counts[key] = value
+        if value is None:
+            failures.append(f"{failure_prefix}_{key}_missing_or_not_int")
+
+    online_count = counts.get("online_packet_export_count")
+    online_scan_error_count = counts.get("online_packet_export_scan_error_count")
+    configured_count = counts.get("online_configured_export_count")
+    checked_count = counts.get("checked_packet_count")
+    online_nonempty = counts.get("online_nonempty_issue_count")
+    export_nonempty = counts.get("online_packet_export_nonempty_issue_count")
+    checked_nonempty = counts.get("checked_nonempty_packet_count")
+    shifted_packet_count = counts.get("shifted_issue_packet_count")
+    shifted_schedulable = counts.get("shifted_issue_schedulable_packet_count")
+    shifted_empty = counts.get("shifted_issue_empty_issue_exempt_count")
+    shifted_safe = counts.get("shifted_issue_safe_packet_count")
+    shifted_unique_demand = counts.get("shifted_issue_unique_demand_key_count")
+    shifted_unique_issue = counts.get("shifted_issue_unique_issue_key_count")
+    shifted_hash_count = counts.get("shifted_issue_issue_hash_count")
+    shifted_hash_unique = counts.get("shifted_issue_issue_hash_unique_count")
+    shifted_total_candidates = counts.get("shifted_issue_total_issue_candidates")
+
+    if online_count is not None and online_count < 32:
+        failures.append(f"{failure_prefix}_online_packet_export_count_too_small")
+    if online_scan_error_count != 0:
+        failures.append(f"{failure_prefix}_online_packet_export_scan_error_count_nonzero")
+    if checked_count is not None and checked_count != online_count:
+        failures.append(f"{failure_prefix}_checked_packet_count_mismatch")
+    if configured_count is not None and configured_count != online_count:
+        failures.append(f"{failure_prefix}_configured_packet_count_mismatch")
+    if shifted_packet_count is not None and shifted_packet_count != online_count:
+        failures.append(f"{failure_prefix}_shifted_packet_count_mismatch")
+    if checked_nonempty is not None and checked_nonempty < 28:
+        failures.append(f"{failure_prefix}_checked_nonempty_packet_count_too_small")
+    if online_nonempty is not None and checked_nonempty != online_nonempty:
+        failures.append(f"{failure_prefix}_online_nonempty_count_mismatch")
+    if export_nonempty is not None and checked_nonempty != export_nonempty:
+        failures.append(f"{failure_prefix}_export_nonempty_count_mismatch")
+    if shifted_schedulable is not None and checked_nonempty != shifted_schedulable:
+        failures.append(f"{failure_prefix}_shifted_schedulable_count_mismatch")
+    if (
+        shifted_schedulable is not None
+        and shifted_empty is not None
+        and shifted_packet_count is not None
+        and shifted_schedulable + shifted_empty != shifted_packet_count
+    ):
+        failures.append(f"{failure_prefix}_shifted_accounting_mismatch")
+    if shifted_safe is not None and shifted_packet_count is not None:
+        if shifted_safe != shifted_packet_count:
+            failures.append(f"{failure_prefix}_shifted_safe_packet_count_mismatch")
+    for key in (
+        "shifted_issue_unsafe_packet_count",
+        "shifted_issue_invalid_packet_count",
+        "shifted_issue_scan_error_count",
+        "shifted_issue_clamped_issue_count",
+        "shifted_issue_duplicate_demand_key_count",
+        "shifted_issue_duplicate_issue_key_count",
+    ):
+        if counts.get(key) != 0:
+            failures.append(f"{failure_prefix}_{key}_nonzero")
+    if shifted_unique_demand is not None and shifted_unique_demand != shifted_schedulable:
+        failures.append(f"{failure_prefix}_shifted_unique_demand_key_count_mismatch")
+    if shifted_unique_issue is not None and shifted_unique_issue != shifted_schedulable:
+        failures.append(f"{failure_prefix}_shifted_unique_issue_key_count_mismatch")
+    if shifted_hash_count is not None and shifted_hash_count != shifted_schedulable:
+        failures.append(f"{failure_prefix}_shifted_issue_hash_count_mismatch")
+    if (
+        shifted_hash_unique is not None
+        and shifted_hash_count is not None
+        and not (0 < shifted_hash_unique <= shifted_hash_count)
+    ):
+        failures.append(f"{failure_prefix}_shifted_issue_hash_unique_count_mismatch")
+    if (
+        shifted_total_candidates is not None
+        and shifted_schedulable is not None
+        and shifted_total_candidates < shifted_schedulable
+    ):
+        failures.append(f"{failure_prefix}_shifted_total_issue_candidates_too_small")
+    if counts.get("shifted_issue_lead_tokens") != 1:
+        failures.append(f"{failure_prefix}_shifted_issue_lead_tokens_mismatch")
+
+    paths = evidence.get("online_packet_export_paths")
+    if not isinstance(paths, list):
+        failures.append(f"{failure_prefix}_online_packet_export_paths_missing")
+    elif online_count is not None and len(paths) != online_count:
+        failures.append(f"{failure_prefix}_online_packet_export_paths_count_mismatch")
+    elif any(not isinstance(path, str) or not path for path in paths):
+        failures.append(f"{failure_prefix}_online_packet_export_path_invalid")
+    elif root is not None:
+        resolved_root = root.resolve()
+        for index, raw_path in enumerate(paths):
+            resolved_path = _path_for_label(raw_path, root).resolve(strict=False)
+            if not resolved_path.is_relative_to(resolved_root):
+                failures.append(
+                    f"{failure_prefix}_online_packet_export_path_{index}_outside_root"
+                )
+                continue
+            if not resolved_path.is_file():
+                failures.append(f"{failure_prefix}_online_packet_export_path_{index}_missing")
+
+    summary_first_prefix = "summary_packet_export_first_nonempty_issue_"
+    checked_first_prefix = "checked_packet_export_first_nonempty_issue_"
+    online_first_prefix = "online_packet_export_first_nonempty_issue_"
+    for suffix in ("index", "path", "count", "hash"):
+        summary_value = evidence.get(f"{summary_first_prefix}{suffix}")
+        checked_value = evidence.get(f"{checked_first_prefix}{suffix}")
+        online_value = evidence.get(f"{online_first_prefix}{suffix}")
+        if summary_value != checked_value:
+            failures.append(f"{failure_prefix}_first_nonempty_{suffix}_mismatch")
+        if online_value != checked_value:
+            failures.append(f"{failure_prefix}_online_first_nonempty_{suffix}_mismatch")
+    first_index = _int_metric(evidence, "checked_packet_export_first_nonempty_issue_index")
+    first_count = _int_metric(evidence, "checked_packet_export_first_nonempty_issue_count")
+    if first_index is None or first_index < 0:
+        failures.append(f"{failure_prefix}_checked_first_nonempty_index_invalid")
+    if first_count is None or first_count <= 0:
+        failures.append(f"{failure_prefix}_checked_first_nonempty_count_invalid")
+    first_path = evidence.get("checked_packet_export_first_nonempty_issue_path")
+    if isinstance(paths, list) and first_index is not None and first_index >= 0:
+        if first_index >= len(paths):
+            failures.append(f"{failure_prefix}_checked_first_nonempty_index_out_of_range")
+        elif first_path != paths[first_index]:
+            failures.append(f"{failure_prefix}_checked_first_nonempty_path_index_mismatch")
+    for key in (
+        "checked_packet_export_first_nonempty_issue_path",
+        "checked_packet_export_first_nonempty_issue_hash",
+        "online_performance_summary",
+    ):
+        value = evidence.get(key)
+        if not isinstance(value, str) or not value:
+            failures.append(f"{failure_prefix}_{key}_missing")
 
     return failures
 
