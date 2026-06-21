@@ -244,6 +244,15 @@ def _check_ready_time_direct_snapshot_gate(
     runtime_execution_plan_status = metrics.get(
         "direct_snapshot_runtime_execution_plan_status"
     )
+    runtime_execution_decision = metrics.get(
+        "direct_snapshot_runtime_execution_decision"
+    )
+    runtime_execution_block_reason = metrics.get(
+        "direct_snapshot_runtime_execution_block_reason"
+    )
+    runtime_execution_execution_mode = metrics.get(
+        "direct_snapshot_runtime_execution_execution_mode"
+    )
     runtime_execution_payload_bytes = _optional_int(
         metrics,
         "direct_snapshot_runtime_execution_payload_bytes",
@@ -516,6 +525,21 @@ def _check_ready_time_direct_snapshot_gate(
         "ready_time_direct_snapshot_runtime_execution_plan_status": (
             str(runtime_execution_plan_status)
             if runtime_execution_plan_status is not None
+            else None
+        ),
+        "ready_time_direct_snapshot_runtime_execution_decision": (
+            str(runtime_execution_decision)
+            if runtime_execution_decision is not None
+            else None
+        ),
+        "ready_time_direct_snapshot_runtime_execution_block_reason": (
+            str(runtime_execution_block_reason)
+            if runtime_execution_block_reason is not None
+            else None
+        ),
+        "ready_time_direct_snapshot_runtime_execution_execution_mode": (
+            str(runtime_execution_execution_mode)
+            if runtime_execution_execution_mode is not None
             else None
         ),
         "ready_time_direct_snapshot_runtime_execution_live_payload_runtime_enabled": (

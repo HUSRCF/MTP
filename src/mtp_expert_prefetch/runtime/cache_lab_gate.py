@@ -196,6 +196,9 @@ class PayloadCacheRuntimeExecutionDryRun:
     kernel_arg_pass_allowed: bool = False
     changes_kernel_launch_args: bool = False
     full_fetch_runtime_allowed: bool = False
+    decision: str = "blocked"
+    block_reason: str = ""
+    execution_mode: str = "payloadless_lab_gate_dry_run"
 
     def __post_init__(self) -> None:
         if self.present is not True:
@@ -207,6 +210,16 @@ class PayloadCacheRuntimeExecutionDryRun:
         expected_status = f"blocked_by_runtime_plan:{self.plan_status}"
         if self.status != expected_status:
             raise ValueError("runtime execution status does not match plan status")
+        if self.block_reason == "":
+            object.__setattr__(self, "block_reason", self.plan_status)
+        elif not isinstance(self.block_reason, str):
+            raise TypeError("block_reason must be a string")
+        if self.decision != "blocked":
+            raise ValueError("runtime execution dry-run decision must stay blocked")
+        if self.block_reason != self.plan_status:
+            raise ValueError("runtime execution block reason must match plan status")
+        if self.execution_mode != "payloadless_lab_gate_dry_run":
+            raise ValueError("runtime execution mode mismatch")
         for field_name in ("issued_payload_count", "payload_bytes"):
             value = getattr(self, field_name)
             if not isinstance(value, int) or isinstance(value, bool):
@@ -341,6 +354,9 @@ def build_payload_cache_runtime_execution_dry_run(
         status=f"blocked_by_runtime_plan:{plan_status}",
         consumes_plan=True,
         plan_status=plan_status,
+        decision="blocked",
+        block_reason=plan_status,
+        execution_mode="payloadless_lab_gate_dry_run",
     )
 
 

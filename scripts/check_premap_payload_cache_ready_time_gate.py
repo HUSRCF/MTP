@@ -57,6 +57,9 @@ _DIRECT_RUNTIME_EXECUTION_RAW_FIELDS = (
     "runtime_shadow_premap_payload_cache_direct_runtime_execution_status",
     "runtime_shadow_premap_payload_cache_direct_runtime_execution_consumes_plan",
     "runtime_shadow_premap_payload_cache_direct_runtime_execution_plan_status",
+    "runtime_shadow_premap_payload_cache_direct_runtime_execution_decision",
+    "runtime_shadow_premap_payload_cache_direct_runtime_execution_block_reason",
+    "runtime_shadow_premap_payload_cache_direct_runtime_execution_execution_mode",
     "runtime_shadow_premap_payload_cache_direct_runtime_execution_live_payload_runtime_enabled",
     "runtime_shadow_premap_payload_cache_direct_runtime_execution_payload_transfer_runtime_enabled",
     "runtime_shadow_premap_payload_cache_direct_runtime_execution_issued_payload_count",
@@ -495,6 +498,15 @@ def _with_gate_metric_aliases(metrics: dict[str, Any]) -> dict[str, Any]:
         "direct_snapshot_runtime_execution_plan_status": (
             "runtime_shadow_premap_payload_cache_direct_runtime_execution_plan_status"
         ),
+        "direct_snapshot_runtime_execution_decision": (
+            "runtime_shadow_premap_payload_cache_direct_runtime_execution_decision"
+        ),
+        "direct_snapshot_runtime_execution_block_reason": (
+            "runtime_shadow_premap_payload_cache_direct_runtime_execution_block_reason"
+        ),
+        "direct_snapshot_runtime_execution_execution_mode": (
+            "runtime_shadow_premap_payload_cache_direct_runtime_execution_execution_mode"
+        ),
         "direct_snapshot_runtime_execution_live_payload_runtime_enabled": (
             "runtime_shadow_premap_payload_cache_direct_runtime_execution_live_payload_runtime_enabled"
         ),
@@ -641,6 +653,15 @@ def _direct_snapshot_report_metrics(metrics: dict[str, Any]) -> dict[str, Any]:
         "runtime_execution_plan_status": (
             "runtime_shadow_premap_payload_cache_direct_runtime_execution_plan_status"
         ),
+        "runtime_execution_decision": (
+            "runtime_shadow_premap_payload_cache_direct_runtime_execution_decision"
+        ),
+        "runtime_execution_block_reason": (
+            "runtime_shadow_premap_payload_cache_direct_runtime_execution_block_reason"
+        ),
+        "runtime_execution_execution_mode": (
+            "runtime_shadow_premap_payload_cache_direct_runtime_execution_execution_mode"
+        ),
         "runtime_execution_live_payload_runtime_enabled": (
             "runtime_shadow_premap_payload_cache_direct_runtime_execution_live_payload_runtime_enabled"
         ),
@@ -726,12 +747,9 @@ def _validate_direct_snapshot(metrics: dict[str, Any], failures: list[str]) -> N
             failures.append("direct_snapshot_issue_sources_contains_non_transition_source")
 
     _validate_direct_runtime_participation(metrics, failures, issue_sources)
-    if any(metrics.get(field) is not None for field in _DIRECT_RUNTIME_PLAN_RAW_FIELDS):
+    if any(field in metrics for field in _DIRECT_RUNTIME_PLAN_RAW_FIELDS):
         _validate_direct_runtime_plan(metrics, failures)
-    if any(
-        metrics.get(field) is not None
-        for field in _DIRECT_RUNTIME_EXECUTION_RAW_FIELDS
-    ):
+    if any(field in metrics for field in _DIRECT_RUNTIME_EXECUTION_RAW_FIELDS):
         _validate_direct_runtime_execution(metrics, failures)
 
 
@@ -915,6 +933,27 @@ def _validate_direct_runtime_execution(
         expected_status = f"blocked_by_runtime_plan:{plan_status}"
         if status != expected_status:
             failures.append("direct_runtime_execution_status_mismatch")
+    decision_key = (
+        "runtime_shadow_premap_payload_cache_direct_runtime_execution_decision"
+    )
+    decision = metrics.get(decision_key)
+    if decision_key in metrics and decision != "blocked":
+        failures.append("direct_runtime_execution_decision_mismatch")
+    block_reason_key = (
+        "runtime_shadow_premap_payload_cache_direct_runtime_execution_block_reason"
+    )
+    block_reason = metrics.get(block_reason_key)
+    if block_reason_key in metrics and block_reason != plan_status:
+        failures.append("direct_runtime_execution_block_reason_mismatch")
+    execution_mode_key = (
+        "runtime_shadow_premap_payload_cache_direct_runtime_execution_execution_mode"
+    )
+    execution_mode = metrics.get(execution_mode_key)
+    if (
+        execution_mode_key in metrics
+        and execution_mode != "payloadless_lab_gate_dry_run"
+    ):
+        failures.append("direct_runtime_execution_execution_mode_mismatch")
 
 
 def _direct_snapshot_value_matches(value: Any, expected: Any) -> bool:

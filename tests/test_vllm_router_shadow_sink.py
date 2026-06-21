@@ -1106,6 +1106,14 @@ def test_premap_payload_cache_manager_snapshot_flattens_ready_time_fields():
         f"{plan_prefix}status"
     ]
     assert performance[f"{execution_prefix}consumes_plan"] is True
+    assert performance[f"{execution_prefix}decision"] == "blocked"
+    assert performance[f"{execution_prefix}block_reason"] == performance[
+        f"{plan_prefix}status"
+    ]
+    assert (
+        performance[f"{execution_prefix}execution_mode"]
+        == "payloadless_lab_gate_dry_run"
+    )
     assert performance[f"{execution_prefix}live_payload_runtime_enabled"] is False
     assert performance[f"{execution_prefix}payload_transfer_runtime_enabled"] is False
     assert performance[f"{execution_prefix}issued_payload_count"] == 0

@@ -3,7 +3,11 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from scripts.check_premap_payload_cache_ready_time_gate import check_summary, main
+from scripts.check_premap_payload_cache_ready_time_gate import (
+    _DIRECT_RUNTIME_EXECUTION_RAW_FIELDS,
+    check_summary,
+    main,
+)
 
 
 def _summary(tmp_path: Path, **overrides):
@@ -128,6 +132,15 @@ def _direct_snapshot_boundary(**overrides):
         ),
         "runtime_shadow_premap_payload_cache_direct_runtime_execution_plan_status": (
             "lab_gate_blocked:ready_time_direct_snapshot_disallows_full_fetch"
+        ),
+        "runtime_shadow_premap_payload_cache_direct_runtime_execution_decision": (
+            "blocked"
+        ),
+        "runtime_shadow_premap_payload_cache_direct_runtime_execution_block_reason": (
+            "lab_gate_blocked:ready_time_direct_snapshot_disallows_full_fetch"
+        ),
+        "runtime_shadow_premap_payload_cache_direct_runtime_execution_execution_mode": (
+            "payloadless_lab_gate_dry_run"
         ),
         "runtime_shadow_premap_payload_cache_direct_runtime_execution_live_payload_runtime_enabled": (
             False
@@ -300,6 +313,15 @@ def test_ready_time_payload_cache_gate_accepts_direct_snapshot_input(tmp_path: P
         result["metrics"]["direct_snapshot_runtime_execution_plan_status"]
         == result["metrics"]["direct_snapshot_runtime_plan_status"]
     )
+    assert result["metrics"]["direct_snapshot_runtime_execution_decision"] == "blocked"
+    assert (
+        result["metrics"]["direct_snapshot_runtime_execution_block_reason"]
+        == result["metrics"]["direct_snapshot_runtime_plan_status"]
+    )
+    assert (
+        result["metrics"]["direct_snapshot_runtime_execution_execution_mode"]
+        == "payloadless_lab_gate_dry_run"
+    )
     assert result["metrics"]["direct_snapshot_runtime_execution_payload_bytes"] == 0
     assert (
         result["metrics"][
@@ -407,6 +429,76 @@ def test_ready_time_payload_cache_gate_rejects_direct_runtime_execution_status_m
 
     assert result["passed"] is False
     assert "direct_runtime_execution_status_mismatch" in result["failures"]
+
+
+def test_ready_time_payload_cache_gate_rejects_direct_runtime_execution_envelope_mismatch(
+    tmp_path: Path,
+):
+    result = check_summary(
+        _direct_snapshot_summary(
+            tmp_path,
+            runtime_shadow_premap_payload_cache_direct_runtime_execution_decision=(
+                "execute"
+            ),
+            runtime_shadow_premap_payload_cache_direct_runtime_execution_block_reason=(
+                "other"
+            ),
+            runtime_shadow_premap_payload_cache_direct_runtime_execution_execution_mode=(
+                "live"
+            ),
+        ),
+        root=tmp_path,
+    )
+
+    assert result["passed"] is False
+    assert "direct_runtime_execution_decision_mismatch" in result["failures"]
+    assert "direct_runtime_execution_block_reason_mismatch" in result["failures"]
+    assert "direct_runtime_execution_execution_mode_mismatch" in result["failures"]
+
+
+def test_ready_time_payload_cache_gate_rejects_direct_runtime_execution_envelope_nulls(
+    tmp_path: Path,
+):
+    result = check_summary(
+        _direct_snapshot_summary(
+            tmp_path,
+            runtime_shadow_premap_payload_cache_direct_runtime_execution_decision=None,
+            runtime_shadow_premap_payload_cache_direct_runtime_execution_block_reason=None,
+            runtime_shadow_premap_payload_cache_direct_runtime_execution_execution_mode=None,
+        ),
+        root=tmp_path,
+    )
+
+    assert result["passed"] is False
+    assert "direct_runtime_execution_decision_mismatch" in result["failures"]
+    assert "direct_runtime_execution_block_reason_mismatch" in result["failures"]
+    assert "direct_runtime_execution_execution_mode_mismatch" in result["failures"]
+
+
+def test_ready_time_payload_cache_gate_rejects_null_only_direct_runtime_execution_envelope(
+    tmp_path: Path,
+):
+    values = _direct_snapshot_summary(tmp_path)
+    for field in _DIRECT_RUNTIME_EXECUTION_RAW_FIELDS:
+        values.pop(field, None)
+    values.update(
+        {
+            "runtime_shadow_premap_payload_cache_direct_runtime_execution_decision": None,
+            "runtime_shadow_premap_payload_cache_direct_runtime_execution_block_reason": None,
+            "runtime_shadow_premap_payload_cache_direct_runtime_execution_execution_mode": None,
+        }
+    )
+
+    result = check_summary(values, root=tmp_path)
+
+    assert result["passed"] is False
+    assert "direct_runtime_execution_status_missing_or_invalid" in result["failures"]
+    assert "direct_runtime_execution_plan_status_missing_or_invalid" in result[
+        "failures"
+    ]
+    assert "direct_runtime_execution_decision_mismatch" in result["failures"]
+    assert "direct_runtime_execution_block_reason_mismatch" in result["failures"]
+    assert "direct_runtime_execution_execution_mode_mismatch" in result["failures"]
 
 
 def test_ready_time_payload_cache_gate_rejects_partial_direct_runtime_execution_fields(

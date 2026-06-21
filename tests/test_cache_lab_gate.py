@@ -293,6 +293,9 @@ def test_payload_cache_runtime_execution_dry_run_consumes_plan() -> None:
     assert payload["status"] == f"blocked_by_runtime_plan:{plan.status}"
     assert payload["plan_status"] == plan.status
     assert payload["consumes_plan"] is True
+    assert payload["decision"] == "blocked"
+    assert payload["block_reason"] == plan.status
+    assert payload["execution_mode"] == "payloadless_lab_gate_dry_run"
     assert payload["live_payload_runtime_enabled"] is False
     assert payload["payload_transfer_runtime_enabled"] is False
     assert payload["issued_payload_count"] == 0
@@ -323,4 +326,44 @@ def test_payload_cache_runtime_execution_dry_run_rejects_side_effects() -> None:
             status="not_blocked",
             consumes_plan=True,
             plan_status=plan_status,
+        )
+
+    with pytest.raises(ValueError, match="decision"):
+        PayloadCacheRuntimeExecutionDryRun(
+            present=True,
+            stage="payload_cache_runtime_execution_lab_gate_dry_run",
+            status=f"blocked_by_runtime_plan:{plan_status}",
+            consumes_plan=True,
+            plan_status=plan_status,
+            decision="execute",
+        )
+
+    with pytest.raises(ValueError, match="block reason"):
+        PayloadCacheRuntimeExecutionDryRun(
+            present=True,
+            stage="payload_cache_runtime_execution_lab_gate_dry_run",
+            status=f"blocked_by_runtime_plan:{plan_status}",
+            consumes_plan=True,
+            plan_status=plan_status,
+            block_reason="other",
+        )
+
+    with pytest.raises(TypeError, match="block_reason"):
+        PayloadCacheRuntimeExecutionDryRun(
+            present=True,
+            stage="payload_cache_runtime_execution_lab_gate_dry_run",
+            status=f"blocked_by_runtime_plan:{plan_status}",
+            consumes_plan=True,
+            plan_status=plan_status,
+            block_reason=None,  # type: ignore[arg-type]
+        )
+
+    with pytest.raises(ValueError, match="mode"):
+        PayloadCacheRuntimeExecutionDryRun(
+            present=True,
+            stage="payload_cache_runtime_execution_lab_gate_dry_run",
+            status=f"blocked_by_runtime_plan:{plan_status}",
+            consumes_plan=True,
+            plan_status=plan_status,
+            execution_mode="live",
         )
