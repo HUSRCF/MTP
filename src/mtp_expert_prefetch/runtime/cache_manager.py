@@ -566,6 +566,199 @@ class ReadyTimeExpertCacheManager:
 
 
 @dataclass(frozen=True)
+class PayloadCacheRuntimeAdapterShellSnapshot:
+    """Disabled payloadless adapter object-shell snapshot.
+
+    The shell is the first object-shaped adapter boundary around
+    ``ReadyTimeExpertCacheManager``.  It owns a real manager instance but keeps
+    live payload transfer, ready credit, and kernel argument mutation disabled.
+    It is not live-runtime instantiation evidence.
+    """
+
+    present: bool
+    enabled: bool
+    manager_backend: str
+    manager_contract: str
+    capacity: int
+    queue_batch_size: int
+    queue_deadline_us: float
+    service_us_per_issue: float
+    service_us_per_batch: float
+    resident_count: int
+    issued_fetch_count: int
+    used_fetch_count: int
+    demand_count: int
+    demand_hit_count: int
+    demand_miss_count: int
+    ready_late_miss_count: int
+    payload_bytes: int = 0
+    issued_payload_count: int = 0
+    payload_transfer_runtime_enabled: bool = False
+    payload_deref_allowed: bool = False
+    payload_deref_runtime_allowed: bool = False
+    ready_credit: bool = False
+    ready_before_demand_credit: bool = False
+    real_ready_credit_granted: bool = False
+    kernel_arg_pass_allowed: bool = False
+    passed_to_kernel: bool = False
+    changes_kernel_launch_args: bool = False
+    full_fetch_runtime_allowed: bool = False
+    uses_current_wna16_args: bool = False
+    passes_current_wna16_args: bool = False
+    measures_tpot: bool = False
+    measures_vllm_latency: bool = False
+    adapter_instance_created: bool = False
+    live_runtime_instantiated: bool = False
+
+    def __post_init__(self) -> None:
+        if self.present is not True:
+            raise ValueError("runtime adapter shell snapshot must be present")
+        if self.enabled is not False:
+            raise ValueError("runtime adapter shell must remain disabled")
+        if self.manager_backend != "ReadyTimeExpertCacheManager":
+            raise ValueError("runtime adapter shell backend mismatch")
+        if self.manager_contract != "ready_time_issue_demand_skeleton_v1":
+            raise ValueError("runtime adapter shell contract mismatch")
+        for field_name in (
+            "capacity",
+            "queue_batch_size",
+            "resident_count",
+            "issued_fetch_count",
+            "used_fetch_count",
+            "demand_count",
+            "demand_hit_count",
+            "demand_miss_count",
+            "ready_late_miss_count",
+            "issued_payload_count",
+            "payload_bytes",
+        ):
+            value = getattr(self, field_name)
+            if not isinstance(value, int) or isinstance(value, bool):
+                raise TypeError(f"{field_name} must be an integer")
+        if self.capacity <= 0:
+            raise ValueError("capacity must be positive")
+        if self.queue_batch_size <= 0:
+            raise ValueError("queue_batch_size must be positive")
+        for field_name in (
+            "queue_deadline_us",
+            "service_us_per_issue",
+            "service_us_per_batch",
+        ):
+            value = getattr(self, field_name)
+            if not isinstance(value, (int, float)) or isinstance(value, bool):
+                raise TypeError(f"{field_name} must be numeric")
+            if float(value) < 0.0:
+                raise ValueError(f"{field_name} must be non-negative")
+        for field_name in (
+            "resident_count",
+            "issued_fetch_count",
+            "used_fetch_count",
+            "demand_count",
+            "demand_hit_count",
+            "demand_miss_count",
+            "ready_late_miss_count",
+            "issued_payload_count",
+            "payload_bytes",
+        ):
+            if getattr(self, field_name) != 0:
+                raise ValueError(f"{field_name} must remain zero")
+        for field_name in (
+            "payload_transfer_runtime_enabled",
+            "payload_deref_allowed",
+            "payload_deref_runtime_allowed",
+            "ready_credit",
+            "ready_before_demand_credit",
+            "real_ready_credit_granted",
+            "kernel_arg_pass_allowed",
+            "passed_to_kernel",
+            "changes_kernel_launch_args",
+            "full_fetch_runtime_allowed",
+            "uses_current_wna16_args",
+            "passes_current_wna16_args",
+            "measures_tpot",
+            "measures_vllm_latency",
+            "adapter_instance_created",
+            "live_runtime_instantiated",
+        ):
+            if getattr(self, field_name) is not False:
+                raise ValueError(f"{field_name} must remain disabled")
+
+    def as_dict(self) -> dict[str, bool | float | int | str]:
+        return asdict(self)
+
+
+class PayloadCacheRuntimeAdapterShell:
+    """Disabled payloadless adapter object shell for cache-manager bring-up.
+
+    This is intentionally not a live runtime adapter.  The enclosed manager is
+    private and only exposed through a no-side-effect snapshot so disabled
+    shells cannot be used to mutate runtime accounting.
+    """
+
+    def __init__(
+        self,
+        *,
+        capacity: int,
+        service_us_per_issue: float = 0.0,
+        service_us_per_batch: float = 0.0,
+        queue_batch_size: int = 1,
+        queue_deadline_us: float = 0.0,
+        enabled: bool = False,
+    ) -> None:
+        if bool(enabled):
+            raise ValueError("PayloadCacheRuntimeAdapterShell is disabled by design")
+        self.enabled = False
+        self._manager = ReadyTimeExpertCacheManager(
+            capacity=int(capacity),
+            service_us_per_issue=float(service_us_per_issue),
+            service_us_per_batch=float(service_us_per_batch),
+            queue_batch_size=int(queue_batch_size),
+            queue_deadline_us=float(queue_deadline_us),
+        )
+
+    def issue_prefetch(
+        self,
+        layer_idx: int,
+        expert_idx: int,
+        *,
+        arrival_us: float,
+    ) -> bool:
+        _ = (layer_idx, expert_idx, arrival_us)
+        raise RuntimeError("payload-cache runtime adapter shell is disabled")
+
+    def demand(
+        self,
+        layer_idx: int,
+        expert_idx: int,
+        *,
+        arrival_us: float,
+    ) -> bool:
+        _ = (layer_idx, expert_idx, arrival_us)
+        raise RuntimeError("payload-cache runtime adapter shell is disabled")
+
+    def snapshot(self) -> PayloadCacheRuntimeAdapterShellSnapshot:
+        snapshot = self._manager.snapshot()
+        return PayloadCacheRuntimeAdapterShellSnapshot(
+            present=True,
+            enabled=False,
+            manager_backend="ReadyTimeExpertCacheManager",
+            manager_contract="ready_time_issue_demand_skeleton_v1",
+            capacity=int(snapshot.capacity),
+            queue_batch_size=int(snapshot.queue_batch_size),
+            queue_deadline_us=float(snapshot.queue_deadline_us),
+            service_us_per_issue=float(self._manager.service_us_per_issue),
+            service_us_per_batch=float(self._manager.service_us_per_batch),
+            resident_count=int(snapshot.resident_count),
+            issued_fetch_count=int(snapshot.issued_fetch_count),
+            used_fetch_count=int(snapshot.used_fetch_count),
+            demand_count=int(snapshot.demand_count),
+            demand_hit_count=int(snapshot.demand_hit_count),
+            demand_miss_count=int(snapshot.demand_miss_count),
+            ready_late_miss_count=int(snapshot.ready_late_miss_count),
+        )
+
+
+@dataclass(frozen=True)
 class PremapAddressHandle:
     """Stable descriptor/address object for a prepared expert address key.
 

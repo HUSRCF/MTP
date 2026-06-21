@@ -1,7 +1,11 @@
 from __future__ import annotations
 
+import pytest
+
 from mtp_expert_prefetch.runtime import (
     ControlledExpertCacheManager,
+    PayloadCacheRuntimeAdapterShell,
+    PayloadCacheRuntimeAdapterShellSnapshot,
     ReadyTimeExpertCacheManager,
 )
 
@@ -145,3 +149,110 @@ def test_ready_time_cache_manager_underfilled_batch_flushes_at_deadline() -> Non
     assert snapshot.demand_miss_count == 1
     assert snapshot.ready_late_miss_count == 1
     assert snapshot.late_completion_unused_count == 1
+
+
+def test_payload_cache_runtime_adapter_shell_constructs_disabled_manager() -> None:
+    shell = PayloadCacheRuntimeAdapterShell(
+        capacity=4096,
+        service_us_per_issue=3.0,
+        service_us_per_batch=7.0,
+        queue_batch_size=8,
+        queue_deadline_us=100.0,
+    )
+
+    snapshot = shell.snapshot()
+    payload = snapshot.as_dict()
+
+    assert payload["present"] is True
+    assert payload["enabled"] is False
+    assert payload["manager_backend"] == "ReadyTimeExpertCacheManager"
+    assert payload["manager_contract"] == "ready_time_issue_demand_skeleton_v1"
+    assert payload["capacity"] == 4096
+    assert payload["queue_batch_size"] == 8
+    assert payload["queue_deadline_us"] == 100.0
+    assert payload["service_us_per_issue"] == 3.0
+    assert payload["service_us_per_batch"] == 7.0
+    for key in (
+        "resident_count",
+        "issued_fetch_count",
+        "used_fetch_count",
+        "demand_count",
+        "demand_hit_count",
+        "demand_miss_count",
+        "ready_late_miss_count",
+        "issued_payload_count",
+        "payload_bytes",
+    ):
+        assert payload[key] == 0
+    for key in (
+        "payload_transfer_runtime_enabled",
+        "payload_deref_allowed",
+        "payload_deref_runtime_allowed",
+        "ready_credit",
+        "ready_before_demand_credit",
+        "real_ready_credit_granted",
+        "kernel_arg_pass_allowed",
+        "passed_to_kernel",
+        "changes_kernel_launch_args",
+        "full_fetch_runtime_allowed",
+        "uses_current_wna16_args",
+        "passes_current_wna16_args",
+        "measures_tpot",
+        "measures_vllm_latency",
+        "adapter_instance_created",
+        "live_runtime_instantiated",
+    ):
+        assert payload[key] is False
+    assert not hasattr(shell, "manager")
+
+
+def test_payload_cache_runtime_adapter_shell_rejects_live_side_effects() -> None:
+    with pytest.raises(ValueError, match="disabled"):
+        PayloadCacheRuntimeAdapterShell(capacity=4096, enabled=True)
+
+    shell = PayloadCacheRuntimeAdapterShell(capacity=4096)
+    with pytest.raises(RuntimeError, match="disabled"):
+        shell.issue_prefetch(0, 1, arrival_us=0.0)
+    with pytest.raises(RuntimeError, match="disabled"):
+        shell.demand(0, 1, arrival_us=0.0)
+
+    with pytest.raises(ValueError, match="disabled"):
+        PayloadCacheRuntimeAdapterShellSnapshot(
+            present=True,
+            enabled=True,
+            manager_backend="ReadyTimeExpertCacheManager",
+            manager_contract="ready_time_issue_demand_skeleton_v1",
+            capacity=4096,
+            queue_batch_size=1,
+            queue_deadline_us=0.0,
+            service_us_per_issue=0.0,
+            service_us_per_batch=0.0,
+            resident_count=0,
+            issued_fetch_count=0,
+            used_fetch_count=0,
+            demand_count=0,
+            demand_hit_count=0,
+            demand_miss_count=0,
+            ready_late_miss_count=0,
+        )
+
+    with pytest.raises(ValueError, match="payload_deref_allowed"):
+        PayloadCacheRuntimeAdapterShellSnapshot(
+            present=True,
+            enabled=False,
+            manager_backend="ReadyTimeExpertCacheManager",
+            manager_contract="ready_time_issue_demand_skeleton_v1",
+            capacity=4096,
+            queue_batch_size=1,
+            queue_deadline_us=0.0,
+            service_us_per_issue=0.0,
+            service_us_per_batch=0.0,
+            resident_count=0,
+            issued_fetch_count=0,
+            used_fetch_count=0,
+            demand_count=0,
+            demand_hit_count=0,
+            demand_miss_count=0,
+            ready_late_miss_count=0,
+            payload_deref_allowed=True,
+        )
