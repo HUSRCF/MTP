@@ -4569,6 +4569,10 @@ def _write_prefetch_lab_default_gate(root: Path) -> str:
         "outputs/reports/premap_kernel_consumer/"
         "premap_payload_cache_stream_earlier_issue_lead_tokens_token_index_test.json"
     )
+    stream_shifted_issue_contract = (
+        "outputs/reports/premap_kernel_consumer/"
+        "premap_payload_cache_stream_shifted_issue_replay_contract_token_index_test.json"
+    )
     capacity_gate = (
         "configs/runtime/"
         "premap_address_capacity_gate_dolly128_gen64_awq_w7900_gpu1.yaml"
@@ -4607,6 +4611,9 @@ def _write_prefetch_lab_default_gate(root: Path) -> str:
         "changes_kernel_launch_args": False,
         "uses_current_wna16_args": False,
         "passes_current_wna16_args": False,
+        "current_wna16_arg_compatible": False,
+        "requires_wna16_arg_reinterpretation": False,
+        "wna16_benchmark_ready": False,
         "measures_tpot": False,
         "measures_vllm_latency": False,
     }
@@ -4671,6 +4678,49 @@ def _write_prefetch_lab_default_gate(root: Path) -> str:
         + "\n",
     )
     _write(
+        root / stream_shifted_issue_contract,
+        json.dumps(
+            {
+                "artifact_kind": (
+                    "premap_payload_cache_stream_shifted_issue_replay_contract"
+                ),
+                "passed": True,
+                "failures": [],
+                "issue_lead_tokens": 32,
+                "packet_count": 5,
+                "schedulable_packet_count": 4,
+                "empty_issue_exempt_count": 1,
+                "clamped_issue_count": 2,
+                "duplicate_demand_key_count": 0,
+                "duplicate_issue_key_count": 2,
+                "unique_demand_key_count": 4,
+                "unique_issue_key_count": 2,
+                "total_issue_candidates": 32,
+                "issue_hash_count": 4,
+                "allow_clamped_issue_tokens": True,
+                "allow_duplicate_issue_keys": True,
+                "full_fetch_runtime_allowed": False,
+                "full_fetch_allowed": False,
+                **no_op_fields,
+                "rows": [
+                    {
+                        "packet_index": index,
+                        "sample_idx": 0,
+                        "record_id": "record-0",
+                        "sequence_id": 0,
+                        "layer_id": 0,
+                        "demand_token_index": demand,
+                        "issue_token_index": max(0, demand - 32),
+                        "issue_clamped_to_zero": demand < 32,
+                    }
+                    for index, demand in enumerate([8, 16, 32, 48])
+                ],
+            },
+            sort_keys=True,
+        )
+        + "\n",
+    )
+    _write(
         root / metadata_premap_summary,
         json.dumps(
             {
@@ -4698,6 +4748,9 @@ def _write_prefetch_lab_default_gate(root: Path) -> str:
         f"  stream_decision_gate_report: {stream_decision_gate}\n"
         f"  stream_earlier_issue_feasibility_report: {stream_feasibility}\n"
         f"  stream_earlier_issue_lead_token_sweep_report: {stream_lead_sweep}\n"
+        f"  stream_shifted_issue_replay_contract_report: {stream_shifted_issue_contract}\n"
+        "  stream_shifted_issue_replay_required_lead_tokens: 32\n"
+        "  stream_shifted_issue_replay_min_schedulable_packets: 4\n"
         "metadata:\n"
         "  default_enabled: false\n"
         f"  summary: {metadata_premap_summary}\n"
@@ -6431,6 +6484,54 @@ def test_premap_lab_preflight_accepts_default_readonly_wiring(tmp_path: Path):
         is True
     )
     assert summary["prefetch_lab_default_stream_first_model_passing_lead_tokens"] == 32
+    assert (
+        summary["prefetch_lab_default_stream_shifted_issue_replay_contract_passed"]
+        is True
+    )
+    assert (
+        summary[
+            "prefetch_lab_default_stream_shifted_issue_replay_contract_required_lead_tokens"
+        ]
+        == 32
+    )
+    assert (
+        summary[
+            "prefetch_lab_default_stream_shifted_issue_replay_schedulable_packet_count"
+        ]
+        == 4
+    )
+    assert (
+        summary["prefetch_lab_default_stream_shifted_issue_replay_clamped_issue_count"]
+        == 2
+    )
+    assert (
+        summary[
+            "prefetch_lab_default_stream_shifted_issue_replay_duplicate_issue_key_count"
+        ]
+        == 2
+    )
+    assert (
+        summary[
+            "prefetch_lab_default_stream_shifted_issue_replay_row_shift_mismatch_count"
+        ]
+        == 0
+    )
+    assert (
+        summary[
+            "prefetch_lab_default_stream_shifted_issue_replay_row_clamp_mismatch_count"
+        ]
+        == 0
+    )
+    assert (
+        summary["prefetch_lab_default_stream_shifted_issue_replay_source_payload_bytes"]
+        == 0
+    )
+    assert (
+        summary[
+            "prefetch_lab_default_stream_shifted_issue_replay_source_uses_current_wna16_args"
+        ]
+        is False
+    )
     assert summary["prefetch_lab_default_metadata_decision"] == "shadow_only"
     assert summary["prefetch_lab_default_metadata_passed"] is True
     assert summary["prefetch_lab_default_metadata_failures"] == []
