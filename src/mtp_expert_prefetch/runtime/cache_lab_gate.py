@@ -3557,6 +3557,210 @@ class PayloadCacheLiveRuntimeAdapterObjectShellEvidence:
         return asdict(self)
 
 
+@dataclass(frozen=True)
+class PayloadCacheLiveRuntimeAdapterOperationRejectionCanary:
+    """Evidence that a disabled adapter shell rejects runtime operations.
+
+    This is the first gate that actually calls the object-shell runtime
+    methods.  The shell must reject both issue and demand paths while keeping
+    the enclosed manager empty.  It is still not live runtime instantiation and
+    cannot transfer payloads, grant ready credit, or mutate kernel arguments.
+    """
+
+    present: bool
+    stage: str
+    status: str
+    consumes_object_shell_evidence: bool
+    object_shell_evidence_status: str
+    manager_backend: str
+    manager_runtime_contract: str
+    manager_runtime_mode: str
+    operation_rejection_schema: str
+    adapter_object_shell_created: bool
+    operation_rejection_canary_ran: bool
+    issue_prefetch_rejected: bool
+    demand_rejected: bool
+    shell_enabled: bool
+    adapter_instance_created: bool
+    live_runtime_instantiated: bool
+    capacity_entries: int
+    issue_lead_tokens: int
+    queue_deadline_us: float
+    lookahead_us: float
+    queue_batch_size: int
+    resident_count: int
+    issued_fetch_count: int
+    used_fetch_count: int
+    unused_fetch_count: int
+    demand_count: int
+    demand_hit_count: int
+    demand_miss_count: int
+    evicted_before_use_count: int
+    ready_late_miss_count: int
+    late_completion_unused_count: int
+    queue_batch_count: int
+    queue_service_us: float
+    queue_total_span_us: float
+    queue_wait_us: float
+    queue_max_delay_us: float
+    shifted_issue_accounting_enabled: bool
+    shifted_issue_accounted_packet_count: int
+    shifted_issue_unique_issue_key_count: int
+    decision: str = "blocked"
+    block_reason: str = "live_runtime_adapter_operation_rejection_canary_only"
+    execution_mode: str = (
+        "payload_cache_live_runtime_adapter_operation_rejection_canary_disabled"
+    )
+    live_payload_runtime_enabled: bool = False
+    payload_transfer_runtime_enabled: bool = False
+    payload_deref_allowed: bool = False
+    payload_deref_runtime_allowed: bool = False
+    issued_payload_count: int = 0
+    payload_bytes: int = 0
+    ready_credit: bool = False
+    ready_before_demand_credit: bool = False
+    real_ready_credit_granted: bool = False
+    kernel_arg_pass_allowed: bool = False
+    passed_to_kernel: bool = False
+    changes_kernel_launch_args: bool = False
+    full_fetch_runtime_allowed: bool = False
+    uses_current_wna16_args: bool = False
+    passes_current_wna16_args: bool = False
+    measures_tpot: bool = False
+    measures_vllm_latency: bool = False
+
+    def __post_init__(self) -> None:
+        if self.present is not True:
+            raise ValueError("operation-rejection canary must be present")
+        if self.stage != "payload_cache_live_runtime_adapter_operation_rejection_canary":
+            raise ValueError("operation-rejection canary stage mismatch")
+        if self.consumes_object_shell_evidence is not True:
+            raise ValueError("operation-rejection canary must consume object shell")
+        if (
+            not isinstance(self.object_shell_evidence_status, str)
+            or not self.object_shell_evidence_status
+        ):
+            raise TypeError("object_shell_evidence_status must be nonempty")
+        expected_status = (
+            "blocked_by_object_shell_evidence:"
+            f"{self.object_shell_evidence_status}"
+        )
+        if self.status != expected_status:
+            raise ValueError("operation-rejection canary status mismatch")
+        if self.manager_backend != "ReadyTimeExpertCacheManager":
+            raise ValueError("operation-rejection canary backend mismatch")
+        if self.manager_runtime_contract != "ready_time_issue_demand_skeleton_v1":
+            raise ValueError("operation-rejection canary contract mismatch")
+        if self.manager_runtime_mode != "ready_time_payload_cache_skeleton":
+            raise ValueError("operation-rejection canary mode mismatch")
+        if (
+            self.operation_rejection_schema
+            != "ready_time_payload_cache_runtime_adapter_operation_rejection_canary_v1"
+        ):
+            raise ValueError("operation_rejection_schema mismatch")
+        for field_name in (
+            "adapter_object_shell_created",
+            "operation_rejection_canary_ran",
+            "issue_prefetch_rejected",
+            "demand_rejected",
+        ):
+            if getattr(self, field_name) is not True:
+                raise ValueError(f"{field_name} must be true")
+        if self.shell_enabled is not False:
+            raise ValueError("adapter operation shell must remain disabled")
+        if self.adapter_instance_created is not False:
+            raise ValueError("adapter instance must not be created")
+        if self.live_runtime_instantiated is not False:
+            raise ValueError("live runtime must not be instantiated")
+        if self.decision != "blocked":
+            raise ValueError("operation-rejection canary decision must stay blocked")
+        if self.block_reason != "live_runtime_adapter_operation_rejection_canary_only":
+            raise ValueError("operation-rejection canary block reason mismatch")
+        if (
+            self.execution_mode
+            != "payload_cache_live_runtime_adapter_operation_rejection_canary_disabled"
+        ):
+            raise ValueError("operation-rejection canary execution mode mismatch")
+        for field_name in (
+            "capacity_entries",
+            "issue_lead_tokens",
+            "queue_batch_size",
+            "shifted_issue_accounted_packet_count",
+            "shifted_issue_unique_issue_key_count",
+        ):
+            value = getattr(self, field_name)
+            if not isinstance(value, int) or isinstance(value, bool):
+                raise TypeError(f"{field_name} must be an integer")
+            if value <= 0:
+                raise ValueError(f"{field_name} must be positive")
+        for field_name in (
+            "resident_count",
+            "issued_fetch_count",
+            "used_fetch_count",
+            "unused_fetch_count",
+            "demand_count",
+            "demand_hit_count",
+            "demand_miss_count",
+            "evicted_before_use_count",
+            "ready_late_miss_count",
+            "late_completion_unused_count",
+            "queue_batch_count",
+        ):
+            value = getattr(self, field_name)
+            if not isinstance(value, int) or isinstance(value, bool):
+                raise TypeError(f"{field_name} must be an integer")
+            if value != 0:
+                raise ValueError(f"{field_name} must remain zero")
+        for field_name in (
+            "queue_deadline_us",
+            "lookahead_us",
+            "queue_service_us",
+            "queue_total_span_us",
+            "queue_wait_us",
+            "queue_max_delay_us",
+        ):
+            value = getattr(self, field_name)
+            if not isinstance(value, (int, float)) or isinstance(value, bool):
+                raise TypeError(f"{field_name} must be numeric")
+            numeric = float(value)
+            if not math.isfinite(numeric):
+                raise ValueError(f"{field_name} must be finite")
+            if field_name in ("queue_deadline_us", "lookahead_us") and numeric <= 0.0:
+                raise ValueError(f"{field_name} must be positive")
+            if field_name not in ("queue_deadline_us", "lookahead_us") and numeric != 0.0:
+                raise ValueError(f"{field_name} must remain zero")
+        if self.shifted_issue_accounting_enabled is not True:
+            raise ValueError("shifted issue accounting must be enabled")
+        for field_name in ("issued_payload_count", "payload_bytes"):
+            value = getattr(self, field_name)
+            if not isinstance(value, int) or isinstance(value, bool):
+                raise TypeError(f"{field_name} must be an integer")
+            if value != 0:
+                raise ValueError(f"{field_name} must remain zero")
+        for field_name in (
+            "live_payload_runtime_enabled",
+            "payload_transfer_runtime_enabled",
+            "payload_deref_allowed",
+            "payload_deref_runtime_allowed",
+            "ready_credit",
+            "ready_before_demand_credit",
+            "real_ready_credit_granted",
+            "kernel_arg_pass_allowed",
+            "passed_to_kernel",
+            "changes_kernel_launch_args",
+            "full_fetch_runtime_allowed",
+            "uses_current_wna16_args",
+            "passes_current_wna16_args",
+            "measures_tpot",
+            "measures_vllm_latency",
+        ):
+            if getattr(self, field_name) is not False:
+                raise ValueError(f"{field_name} must remain disabled")
+
+    def as_dict(self) -> dict[str, bool | float | int | str]:
+        return asdict(self)
+
+
 def select_cache_lab_prefetch_gate(
     signals: CacheLabRuntimeSignals,
     *,
@@ -5875,6 +6079,186 @@ def build_payload_cache_live_runtime_adapter_object_shell_evidence(
         ),
         shifted_issue_unique_issue_key_count=int(
             plan.shifted_issue_unique_issue_key_count,
+        ),
+    )
+
+
+def build_payload_cache_live_runtime_adapter_operation_rejection_canary(
+    evidence: PayloadCacheLiveRuntimeAdapterObjectShellEvidence,
+) -> PayloadCacheLiveRuntimeAdapterOperationRejectionCanary:
+    """Call disabled adapter operations and verify they reject without effects."""
+
+    if not isinstance(evidence, PayloadCacheLiveRuntimeAdapterObjectShellEvidence):
+        raise TypeError(
+            "evidence must be a PayloadCacheLiveRuntimeAdapterObjectShellEvidence",
+        )
+    if evidence.present is not True:
+        raise ValueError("adapter object-shell evidence must be present")
+    if evidence.stage != "payload_cache_live_runtime_adapter_object_shell_evidence":
+        raise ValueError("adapter object-shell evidence stage mismatch")
+    if evidence.consumes_instance_construction_plan is not True:
+        raise ValueError("adapter object-shell evidence must consume construction plan")
+    if (
+        not isinstance(evidence.instance_construction_plan_status, str)
+        or not evidence.instance_construction_plan_status
+    ):
+        raise TypeError("adapter object-shell plan status invalid")
+    if not evidence.instance_construction_plan_status.startswith(
+        "blocked_by_constructor_binding_preflight:"
+        "blocked_by_instantiation_canary:"
+        "blocked_by_state_validation_artifact:"
+        "blocked_by_adapter_state_validation_preflight:"
+        "blocked_by_adapter_state_object_preflight:"
+        "blocked_by_adapter_materialization_preflight:"
+        "blocked_by_object_adapter_preflight:",
+    ):
+        raise ValueError("adapter object-shell plan status chain mismatch")
+    expected_evidence_status = (
+        "blocked_by_instance_construction_plan:"
+        f"{evidence.instance_construction_plan_status}"
+    )
+    if evidence.status != expected_evidence_status:
+        raise ValueError("adapter object-shell evidence status mismatch")
+    if evidence.decision != "blocked":
+        raise ValueError("adapter object-shell evidence must stay blocked")
+    if evidence.block_reason != "live_runtime_adapter_object_shell_evidence_only":
+        raise ValueError("adapter object-shell evidence block reason mismatch")
+    if (
+        evidence.execution_mode
+        != "payload_cache_live_runtime_adapter_object_shell_evidence_disabled"
+    ):
+        raise ValueError("adapter object-shell evidence execution mode mismatch")
+    if evidence.adapter_object_shell_created is not True:
+        raise ValueError("adapter object-shell must be created")
+    if evidence.disabled_adapter_shell_snapshot_created is not True:
+        raise ValueError("adapter object-shell snapshot must be created")
+    if evidence.shell_enabled is not False:
+        raise ValueError("adapter object-shell must remain disabled")
+    if evidence.adapter_instance_created is not False:
+        raise ValueError("adapter object-shell must not create adapter instance")
+    if evidence.live_runtime_instantiated is not False:
+        raise ValueError("adapter object-shell must not instantiate live runtime")
+    for field_name in (
+        "resident_count",
+        "issued_fetch_count",
+        "used_fetch_count",
+        "unused_fetch_count",
+        "demand_count",
+        "demand_hit_count",
+        "demand_miss_count",
+        "evicted_before_use_count",
+        "ready_late_miss_count",
+        "late_completion_unused_count",
+        "queue_batch_count",
+    ):
+        if getattr(evidence, field_name) != 0:
+            raise ValueError(f"adapter object-shell evidence {field_name} must be zero")
+    for field_name in (
+        "queue_service_us",
+        "queue_total_span_us",
+        "queue_wait_us",
+        "queue_max_delay_us",
+    ):
+        if float(getattr(evidence, field_name)) != 0.0:
+            raise ValueError(f"adapter object-shell evidence {field_name} must be zero")
+    for field_name in (
+        "live_payload_runtime_enabled",
+        "payload_transfer_runtime_enabled",
+        "payload_deref_allowed",
+        "payload_deref_runtime_allowed",
+        "ready_credit",
+        "ready_before_demand_credit",
+        "real_ready_credit_granted",
+        "kernel_arg_pass_allowed",
+        "passed_to_kernel",
+        "changes_kernel_launch_args",
+        "full_fetch_runtime_allowed",
+        "uses_current_wna16_args",
+        "passes_current_wna16_args",
+        "measures_tpot",
+        "measures_vllm_latency",
+    ):
+        if getattr(evidence, field_name) is not False:
+            raise ValueError(f"adapter object-shell evidence {field_name} enabled")
+    for field_name in ("issued_payload_count", "payload_bytes"):
+        if getattr(evidence, field_name) != 0:
+            raise ValueError(f"adapter object-shell evidence {field_name} must be zero")
+
+    shell = PayloadCacheRuntimeAdapterShell(
+        capacity=int(evidence.capacity_entries),
+        service_us_per_issue=0.0,
+        service_us_per_batch=0.0,
+        queue_batch_size=int(evidence.queue_batch_size),
+        queue_deadline_us=float(evidence.queue_deadline_us),
+        enabled=False,
+    )
+
+    issue_prefetch_rejected = False
+    try:
+        shell.issue_prefetch(0, 0, arrival_us=0.0)
+    except RuntimeError:
+        issue_prefetch_rejected = True
+
+    demand_rejected = False
+    try:
+        shell.demand(0, 0, arrival_us=0.0)
+    except RuntimeError:
+        demand_rejected = True
+
+    if not issue_prefetch_rejected:
+        raise ValueError("disabled adapter shell must reject issue_prefetch")
+    if not demand_rejected:
+        raise ValueError("disabled adapter shell must reject demand")
+
+    snapshot = shell.snapshot()
+
+    return PayloadCacheLiveRuntimeAdapterOperationRejectionCanary(
+        present=True,
+        stage="payload_cache_live_runtime_adapter_operation_rejection_canary",
+        status=f"blocked_by_object_shell_evidence:{evidence.status}",
+        consumes_object_shell_evidence=True,
+        object_shell_evidence_status=str(evidence.status),
+        manager_backend=str(evidence.manager_backend),
+        manager_runtime_contract=str(evidence.manager_runtime_contract),
+        manager_runtime_mode=str(evidence.manager_runtime_mode),
+        operation_rejection_schema=(
+            "ready_time_payload_cache_runtime_adapter_operation_rejection_canary_v1"
+        ),
+        adapter_object_shell_created=True,
+        operation_rejection_canary_ran=True,
+        issue_prefetch_rejected=issue_prefetch_rejected,
+        demand_rejected=demand_rejected,
+        shell_enabled=bool(snapshot.enabled),
+        adapter_instance_created=False,
+        live_runtime_instantiated=False,
+        capacity_entries=int(snapshot.capacity),
+        issue_lead_tokens=int(evidence.issue_lead_tokens),
+        queue_deadline_us=float(snapshot.queue_deadline_us),
+        lookahead_us=float(evidence.lookahead_us),
+        queue_batch_size=int(snapshot.queue_batch_size),
+        resident_count=int(snapshot.resident_count),
+        issued_fetch_count=int(snapshot.issued_fetch_count),
+        used_fetch_count=int(snapshot.used_fetch_count),
+        unused_fetch_count=int(evidence.unused_fetch_count),
+        demand_count=int(snapshot.demand_count),
+        demand_hit_count=int(snapshot.demand_hit_count),
+        demand_miss_count=int(snapshot.demand_miss_count),
+        evicted_before_use_count=int(evidence.evicted_before_use_count),
+        ready_late_miss_count=int(snapshot.ready_late_miss_count),
+        late_completion_unused_count=int(evidence.late_completion_unused_count),
+        queue_batch_count=int(evidence.queue_batch_count),
+        queue_service_us=float(evidence.queue_service_us),
+        queue_total_span_us=float(evidence.queue_total_span_us),
+        queue_wait_us=float(evidence.queue_wait_us),
+        queue_max_delay_us=float(evidence.queue_max_delay_us),
+        shifted_issue_accounting_enabled=bool(
+            evidence.shifted_issue_accounting_enabled,
+        ),
+        shifted_issue_accounted_packet_count=int(
+            evidence.shifted_issue_accounted_packet_count,
+        ),
+        shifted_issue_unique_issue_key_count=int(
+            evidence.shifted_issue_unique_issue_key_count,
         ),
     )
 
