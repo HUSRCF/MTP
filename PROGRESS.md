@@ -40690,3 +40690,69 @@ The next valid runtime work is either:
   1. implement producer-side earlier issue with >=24-48 token lead, or
   2. keep full_fetch blocked and continue metadata/premap/descriptor-prep.
 ```
+
+## Token-index stream full-fetch gate promoted into lab preflight
+
+The GPU1 default lab gate now includes the token-index stream evidence as a
+required preflight boundary for full_fetch:
+
+```text
+configs/runtime/prefetch_lab_default_gate_gpu1.yaml
+  full_fetch.stream_decision_gate_report
+  full_fetch.stream_earlier_issue_feasibility_report
+  full_fetch.stream_earlier_issue_lead_token_sweep_report
+```
+
+Generated evidence:
+
+```text
+outputs/reports/prefetch_action_replay/
+  prefetch_lab_default_gate_gpu1_with_stream_token_index_v1.json
+
+outputs/reports/premap_lab_preflight/
+  premap_lab_preflight_default_gpu1_with_stream_token_index_v1.json
+  premap_lab_preflight_default_gpu1_with_stream_token_index_v1.summary.json
+  premap_lab_preflight_default_gpu1_with_stream_token_index_v1.summary.check.json
+```
+
+Result:
+
+```text
+default lab gate: passed
+strict summary check: passed
+
+stream_decision = block_full_fetch_insufficient_stream_lookahead
+stream_full_fetch_runtime_allowed = false
+stream_required_lookahead_us = 2400000
+stream_first_model_passing_lead_tokens = 32
+stream_lead_token_sweep_event_timing_mode = token_index
+stream_lead_token_sweep_token_timing_enabled = true
+```
+
+The checker now treats stream evidence as a no-op safety gate:
+
+```text
+payload_bytes = 0
+payload_transfer_enabled = false
+payload_deref_allowed = false
+ready_credit = false
+ready_before_demand_credit = false
+real_ready_credit_granted = false
+kernel_arg_pass_allowed = false
+passed_to_kernel = false
+changes_kernel_launch_args = false
+uses_current_wna16_args = false
+passes_current_wna16_args = false
+measures_tpot = false
+measures_vllm_latency = false
+```
+
+The stream artifacts are also type-strict: `passed` must be a JSON boolean, not
+a truthy string or integer. The strict preflight summary requires the stream
+decision, feasibility model, and lead-token sweep to be present, passed, and
+still blocking full_fetch. This makes the current lab default explicit:
+
+```text
+full_fetch remains blocked by measured-copy + stream-lookahead evidence.
+metadata/premap/descriptor-prep remain the safe runtime path.
+```

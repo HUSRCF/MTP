@@ -4557,6 +4557,18 @@ def _write_prefetch_lab_default_gate(root: Path) -> str:
         "outputs/reports/prefetch_action_replay/"
         "metadata_premap_gate_summary.json"
     )
+    stream_decision_gate = (
+        "outputs/reports/premap_kernel_consumer/"
+        "premap_payload_cache_stream_full_fetch_decision_gate_token_index_test.json"
+    )
+    stream_feasibility = (
+        "outputs/reports/premap_kernel_consumer/"
+        "premap_payload_cache_stream_earlier_issue_feasibility_token_index_test.json"
+    )
+    stream_lead_sweep = (
+        "outputs/reports/premap_kernel_consumer/"
+        "premap_payload_cache_stream_earlier_issue_lead_tokens_token_index_test.json"
+    )
     capacity_gate = (
         "configs/runtime/"
         "premap_address_capacity_gate_dolly128_gen64_awq_w7900_gpu1.yaml"
@@ -4578,6 +4590,81 @@ def _write_prefetch_lab_default_gate(root: Path) -> str:
                     "used_fetch_count": 0,
                     "used_per_issued_fetch": 0.0,
                 },
+            },
+            sort_keys=True,
+        )
+        + "\n",
+    )
+    no_op_fields = {
+        "payload_bytes": 0,
+        "payload_transfer_enabled": False,
+        "payload_deref_allowed": False,
+        "ready_credit": False,
+        "ready_before_demand_credit": False,
+        "real_ready_credit_granted": False,
+        "kernel_arg_pass_allowed": False,
+        "passed_to_kernel": False,
+        "changes_kernel_launch_args": False,
+        "uses_current_wna16_args": False,
+        "passes_current_wna16_args": False,
+        "measures_tpot": False,
+        "measures_vllm_latency": False,
+    }
+    _write(
+        root / stream_decision_gate,
+        json.dumps(
+            {
+                "artifact_kind": "premap_payload_cache_stream_full_fetch_decision_gate",
+                "passed": True,
+                "decision": "block_full_fetch_insufficient_stream_lookahead",
+                "full_fetch_runtime_allowed": False,
+                "full_fetch_block_reason": "insufficient_stream_lookahead",
+                "current_lookahead_us": 0.0,
+                "required_stream_lookahead_us": 2400000.0,
+                "lookahead_deficit_us": 2400000.0,
+                "first_model_passing_lookahead_us": 2400000.0,
+                "metadata_premap_runtime_preferred": True,
+                "descriptor_prep_runtime_preferred": True,
+                **no_op_fields,
+            },
+            sort_keys=True,
+        )
+        + "\n",
+    )
+    _write(
+        root / stream_feasibility,
+        json.dumps(
+            {
+                "artifact_kind": "premap_payload_cache_stream_earlier_issue_feasibility",
+                "passed": True,
+                "full_fetch_runtime_allowed": False,
+                "current_runtime_satisfies_model": False,
+                "feasible_within_configured_token_window": True,
+                "min_required_lead_tokens": 24,
+                "max_required_lead_tokens": 48,
+                "min_deficit_lead_tokens": 24,
+                "max_deficit_lead_tokens": 48,
+                "max_candidate_lead_tokens": 64,
+                **no_op_fields,
+            },
+            sort_keys=True,
+        )
+        + "\n",
+    )
+    _write(
+        root / stream_lead_sweep,
+        json.dumps(
+            {
+                "artifact_kind": "premap_payload_cache_stream_earlier_issue_lead_token_sweep",
+                "passed": True,
+                "full_fetch_allowed": False,
+                "full_fetch_runtime_allowed": False,
+                "event_timing_mode": "token_index",
+                "token_timing_enabled": True,
+                "decode_token_us": 75000.0,
+                "first_model_passing_lead_tokens": 32,
+                "first_model_passing_lookahead_us": 2400000.0,
+                **no_op_fields,
             },
             sort_keys=True,
         )
@@ -4608,6 +4695,9 @@ def _write_prefetch_lab_default_gate(root: Path) -> str:
         "full_fetch:\n"
         "  default_enabled: false\n"
         f"  ready_time_gate_report: {ready_time_report}\n"
+        f"  stream_decision_gate_report: {stream_decision_gate}\n"
+        f"  stream_earlier_issue_feasibility_report: {stream_feasibility}\n"
+        f"  stream_earlier_issue_lead_token_sweep_report: {stream_lead_sweep}\n"
         "metadata:\n"
         "  default_enabled: false\n"
         f"  summary: {metadata_premap_summary}\n"
@@ -6314,6 +6404,33 @@ def test_premap_lab_preflight_accepts_default_readonly_wiring(tmp_path: Path):
     assert (
         summary["prefetch_lab_default_ready_time_any_model_route_satisfied"] is None
     )
+    assert summary["prefetch_lab_default_stream_decision_gate_present"] is True
+    assert summary["prefetch_lab_default_stream_decision_gate_passed"] is True
+    assert (
+        summary["prefetch_lab_default_stream_decision"]
+        == "block_full_fetch_insufficient_stream_lookahead"
+    )
+    assert summary["prefetch_lab_default_stream_full_fetch_runtime_allowed"] is False
+    assert (
+        summary["prefetch_lab_default_stream_full_fetch_block_reason"]
+        == "insufficient_stream_lookahead"
+    )
+    assert summary["prefetch_lab_default_stream_current_lookahead_us"] == 0.0
+    assert summary["prefetch_lab_default_stream_required_lookahead_us"] == 2400000.0
+    assert summary["prefetch_lab_default_stream_lookahead_deficit_us"] == 2400000.0
+    assert summary["prefetch_lab_default_stream_feasibility_passed"] is True
+    assert summary["prefetch_lab_default_stream_current_runtime_satisfies_model"] is False
+    assert summary["prefetch_lab_default_stream_max_required_lead_tokens"] == 48
+    assert summary["prefetch_lab_default_stream_lead_token_sweep_passed"] is True
+    assert (
+        summary["prefetch_lab_default_stream_lead_token_sweep_event_timing_mode"]
+        == "token_index"
+    )
+    assert (
+        summary["prefetch_lab_default_stream_lead_token_sweep_token_timing_enabled"]
+        is True
+    )
+    assert summary["prefetch_lab_default_stream_first_model_passing_lead_tokens"] == 32
     assert summary["prefetch_lab_default_metadata_decision"] == "shadow_only"
     assert summary["prefetch_lab_default_metadata_passed"] is True
     assert summary["prefetch_lab_default_metadata_failures"] == []

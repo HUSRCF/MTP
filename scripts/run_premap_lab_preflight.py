@@ -12173,6 +12173,121 @@ def run_premap_lab_preflight(
             prefetch_lab_default_full_fetch,
             "ready_time_any_model_route_satisfied",
         ),
+        "prefetch_lab_default_stream_decision_gate_present": _bool_metric(
+            prefetch_lab_default_full_fetch,
+            "stream_decision_gate_present",
+        ),
+        "prefetch_lab_default_stream_decision_gate_passed": _bool_metric(
+            prefetch_lab_default_full_fetch,
+            "stream_decision_gate_passed",
+        ),
+        "prefetch_lab_default_stream_decision": (
+            prefetch_lab_default_full_fetch.get("stream_decision")
+        ),
+        "prefetch_lab_default_stream_full_fetch_runtime_allowed": _bool_metric(
+            prefetch_lab_default_full_fetch,
+            "stream_full_fetch_runtime_allowed",
+        ),
+        "prefetch_lab_default_stream_full_fetch_block_reason": (
+            prefetch_lab_default_full_fetch.get("stream_full_fetch_block_reason")
+        ),
+        "prefetch_lab_default_stream_current_lookahead_us": _float_metric(
+            prefetch_lab_default_full_fetch,
+            "stream_current_lookahead_us",
+        ),
+        "prefetch_lab_default_stream_required_lookahead_us": _float_metric(
+            prefetch_lab_default_full_fetch,
+            "stream_required_lookahead_us",
+        ),
+        "prefetch_lab_default_stream_lookahead_deficit_us": _float_metric(
+            prefetch_lab_default_full_fetch,
+            "stream_lookahead_deficit_us",
+        ),
+        "prefetch_lab_default_stream_first_model_passing_lookahead_us": (
+            _float_metric(
+                prefetch_lab_default_full_fetch,
+                "stream_first_model_passing_lookahead_us",
+            )
+        ),
+        "prefetch_lab_default_stream_metadata_premap_runtime_preferred": (
+            _bool_metric(
+                prefetch_lab_default_full_fetch,
+                "stream_metadata_premap_runtime_preferred",
+            )
+        ),
+        "prefetch_lab_default_stream_descriptor_prep_runtime_preferred": (
+            _bool_metric(
+                prefetch_lab_default_full_fetch,
+                "stream_descriptor_prep_runtime_preferred",
+            )
+        ),
+        "prefetch_lab_default_stream_feasibility_present": _bool_metric(
+            prefetch_lab_default_full_fetch,
+            "stream_feasibility_present",
+        ),
+        "prefetch_lab_default_stream_feasibility_passed": _bool_metric(
+            prefetch_lab_default_full_fetch,
+            "stream_feasibility_passed",
+        ),
+        "prefetch_lab_default_stream_current_runtime_satisfies_model": (
+            _bool_metric(
+                prefetch_lab_default_full_fetch,
+                "stream_current_runtime_satisfies_model",
+            )
+        ),
+        "prefetch_lab_default_stream_feasible_within_configured_token_window": (
+            _bool_metric(
+                prefetch_lab_default_full_fetch,
+                "stream_feasible_within_configured_token_window",
+            )
+        ),
+        "prefetch_lab_default_stream_min_required_lead_tokens": _int_metric(
+            prefetch_lab_default_full_fetch,
+            "stream_min_required_lead_tokens",
+        ),
+        "prefetch_lab_default_stream_max_required_lead_tokens": _int_metric(
+            prefetch_lab_default_full_fetch,
+            "stream_max_required_lead_tokens",
+        ),
+        "prefetch_lab_default_stream_max_candidate_lead_tokens": _int_metric(
+            prefetch_lab_default_full_fetch,
+            "stream_max_candidate_lead_tokens",
+        ),
+        "prefetch_lab_default_stream_lead_token_sweep_present": _bool_metric(
+            prefetch_lab_default_full_fetch,
+            "stream_lead_token_sweep_present",
+        ),
+        "prefetch_lab_default_stream_lead_token_sweep_passed": _bool_metric(
+            prefetch_lab_default_full_fetch,
+            "stream_lead_token_sweep_passed",
+        ),
+        "prefetch_lab_default_stream_lead_token_sweep_event_timing_mode": (
+            prefetch_lab_default_full_fetch.get(
+                "stream_lead_token_sweep_event_timing_mode"
+            )
+        ),
+        "prefetch_lab_default_stream_lead_token_sweep_token_timing_enabled": (
+            _bool_metric(
+                prefetch_lab_default_full_fetch,
+                "stream_lead_token_sweep_token_timing_enabled",
+            )
+        ),
+        "prefetch_lab_default_stream_lead_token_sweep_decode_token_us": (
+            _float_metric(
+                prefetch_lab_default_full_fetch,
+                "stream_lead_token_sweep_decode_token_us",
+            )
+        ),
+        "prefetch_lab_default_stream_first_model_passing_lead_tokens": _int_metric(
+            prefetch_lab_default_full_fetch,
+            "stream_first_model_passing_lead_tokens",
+        ),
+        "prefetch_lab_default_stream_lead_token_sweep_first_model_passing_lookahead_us": (
+            _float_metric(
+                prefetch_lab_default_full_fetch,
+                "stream_lead_token_sweep_first_model_passing_lookahead_us",
+            )
+        ),
         "prefetch_lab_default_metadata_decision": (
             prefetch_lab_default_decisions.get("metadata")
         ),

@@ -967,6 +967,39 @@ def _summary() -> dict[str, object]:
         "prefetch_lab_default_ready_time_used_per_issued_fetch": 0.0,
         "prefetch_lab_default_ready_time_issued_fetch_count": 12,
         "prefetch_lab_default_ready_time_used_fetch_count": 0,
+        "prefetch_lab_default_stream_decision_gate_present": True,
+        "prefetch_lab_default_stream_decision_gate_passed": True,
+        "prefetch_lab_default_stream_decision": (
+            "block_full_fetch_insufficient_stream_lookahead"
+        ),
+        "prefetch_lab_default_stream_full_fetch_runtime_allowed": False,
+        "prefetch_lab_default_stream_full_fetch_block_reason": (
+            "insufficient_stream_lookahead"
+        ),
+        "prefetch_lab_default_stream_current_lookahead_us": 0.0,
+        "prefetch_lab_default_stream_required_lookahead_us": 2400000.0,
+        "prefetch_lab_default_stream_lookahead_deficit_us": 2400000.0,
+        "prefetch_lab_default_stream_first_model_passing_lookahead_us": 2400000.0,
+        "prefetch_lab_default_stream_metadata_premap_runtime_preferred": True,
+        "prefetch_lab_default_stream_descriptor_prep_runtime_preferred": True,
+        "prefetch_lab_default_stream_feasibility_present": True,
+        "prefetch_lab_default_stream_feasibility_passed": True,
+        "prefetch_lab_default_stream_current_runtime_satisfies_model": False,
+        "prefetch_lab_default_stream_feasible_within_configured_token_window": True,
+        "prefetch_lab_default_stream_min_required_lead_tokens": 24,
+        "prefetch_lab_default_stream_max_required_lead_tokens": 48,
+        "prefetch_lab_default_stream_max_candidate_lead_tokens": 64,
+        "prefetch_lab_default_stream_lead_token_sweep_present": True,
+        "prefetch_lab_default_stream_lead_token_sweep_passed": True,
+        "prefetch_lab_default_stream_lead_token_sweep_event_timing_mode": (
+            "token_index"
+        ),
+        "prefetch_lab_default_stream_lead_token_sweep_token_timing_enabled": True,
+        "prefetch_lab_default_stream_lead_token_sweep_decode_token_us": 75000.0,
+        "prefetch_lab_default_stream_first_model_passing_lead_tokens": 32,
+        "prefetch_lab_default_stream_lead_token_sweep_first_model_passing_lookahead_us": (
+            2400000.0
+        ),
         "prefetch_lab_default_metadata_decision": "shadow_only",
         "prefetch_lab_default_metadata_passed": True,
         "prefetch_lab_default_metadata_failures": [],
@@ -2056,6 +2089,34 @@ def test_check_premap_lab_preflight_summary_rejects_ready_time_deficit_mismatch(
     assert result["passed"] is False
     assert (
         "prefetch_lab_default_ready_time_slack_deficit_mismatch"
+        in result["failures"]
+    )
+
+
+def test_check_premap_lab_preflight_summary_rejects_stream_full_fetch_allow() -> None:
+    summary = _summary()
+    summary["prefetch_lab_default_stream_full_fetch_runtime_allowed"] = True
+
+    result = check_premap_lab_preflight_summary(summary)
+
+    assert result["passed"] is False
+    assert (
+        "prefetch_lab_default_stream_full_fetch_runtime_allowed_mismatch"
+        in result["failures"]
+    )
+
+
+def test_check_premap_lab_preflight_summary_rejects_stream_wrong_timing_mode() -> None:
+    summary = _summary()
+    summary["prefetch_lab_default_stream_lead_token_sweep_event_timing_mode"] = (
+        "packet_index"
+    )
+
+    result = check_premap_lab_preflight_summary(summary)
+
+    assert result["passed"] is False
+    assert (
+        "prefetch_lab_default_stream_lead_token_sweep_event_timing_mode_mismatch"
         in result["failures"]
     )
 

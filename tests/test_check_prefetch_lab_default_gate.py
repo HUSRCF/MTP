@@ -33,6 +33,63 @@ def _write_fixture(tmp_path: Path, *, allow_full_fetch: bool = False) -> Path:
         json.dumps({"passed": True, "allow_full_fetch": allow_full_fetch}),
         encoding="utf-8",
     )
+    stream_decision = tmp_path / "stream_decision.json"
+    stream_decision.write_text(
+        json.dumps(
+            {
+                "artifact_kind": "premap_payload_cache_stream_full_fetch_decision_gate",
+                "passed": True,
+                "decision": "block_full_fetch_insufficient_stream_lookahead",
+                "full_fetch_runtime_allowed": False,
+                "full_fetch_block_reason": "insufficient_stream_lookahead",
+                "current_lookahead_us": 0.0,
+                "required_stream_lookahead_us": 2400000.0,
+                "lookahead_deficit_us": 2400000.0,
+                "first_model_passing_lookahead_us": 2400000.0,
+                "metadata_premap_runtime_preferred": True,
+                "descriptor_prep_runtime_preferred": True,
+                **_FULL_FETCH_DECISION_NOOP_FIELDS,
+            }
+        ),
+        encoding="utf-8",
+    )
+    stream_feasibility = tmp_path / "stream_feasibility.json"
+    stream_feasibility.write_text(
+        json.dumps(
+            {
+                "artifact_kind": "premap_payload_cache_stream_earlier_issue_feasibility",
+                "passed": True,
+                "full_fetch_runtime_allowed": False,
+                "current_runtime_satisfies_model": False,
+                "feasible_within_configured_token_window": True,
+                "min_required_lead_tokens": 24,
+                "max_required_lead_tokens": 48,
+                "min_deficit_lead_tokens": 24,
+                "max_deficit_lead_tokens": 48,
+                "max_candidate_lead_tokens": 64,
+                **_FULL_FETCH_DECISION_NOOP_FIELDS,
+            }
+        ),
+        encoding="utf-8",
+    )
+    stream_lead = tmp_path / "stream_lead.json"
+    stream_lead.write_text(
+        json.dumps(
+            {
+                "artifact_kind": "premap_payload_cache_stream_earlier_issue_lead_token_sweep",
+                "passed": True,
+                "full_fetch_allowed": False,
+                "full_fetch_runtime_allowed": False,
+                "event_timing_mode": "token_index",
+                "token_timing_enabled": True,
+                "decode_token_us": 75000.0,
+                "first_model_passing_lead_tokens": 32,
+                "first_model_passing_lookahead_us": 2400000.0,
+                **_FULL_FETCH_DECISION_NOOP_FIELDS,
+            }
+        ),
+        encoding="utf-8",
+    )
     summary = tmp_path / "metadata_premap.json"
     summary.write_text(
         json.dumps(
@@ -64,6 +121,11 @@ def _write_fixture(tmp_path: Path, *, allow_full_fetch: bool = False) -> Path:
                 "full_fetch": {
                     "default_enabled": False,
                     "ready_time_gate_report": str(ready),
+                    "stream_decision_gate_report": str(stream_decision),
+                    "stream_earlier_issue_feasibility_report": str(
+                        stream_feasibility
+                    ),
+                    "stream_earlier_issue_lead_token_sweep_report": str(stream_lead),
                 },
                 "metadata": {
                     "default_enabled": False,
@@ -104,6 +166,22 @@ def test_prefetch_lab_default_gate_rejects_full_fetch_allow_report(tmp_path: Pat
 
     assert result["passed"] is False
     assert "full_fetch:ready_time_gate_report_allows_full_fetch" in result["failures"]
+
+
+def test_prefetch_lab_default_gate_rejects_missing_stream_reports(tmp_path: Path):
+    config = _write_fixture(tmp_path)
+    payload = yaml.safe_load(config.read_text(encoding="utf-8"))
+    payload["full_fetch"].pop("stream_decision_gate_report")
+    payload["full_fetch"].pop("stream_earlier_issue_feasibility_report")
+    payload["full_fetch"].pop("stream_earlier_issue_lead_token_sweep_report")
+    config.write_text(yaml.safe_dump(payload), encoding="utf-8")
+
+    result = check_prefetch_lab_default_gate(config, root=tmp_path)
+
+    assert result["passed"] is False
+    assert "full_fetch:stream_decision_gate_report_missing" in result["failures"]
+    assert "full_fetch:stream_feasibility_report_missing" in result["failures"]
+    assert "full_fetch:stream_lead_token_sweep_report_missing" in result["failures"]
 
 
 def test_prefetch_lab_default_gate_accepts_full_fetch_decision_gate(tmp_path: Path):
@@ -156,6 +234,180 @@ def test_prefetch_lab_default_gate_accepts_full_fetch_decision_gate(tmp_path: Pa
     assert full_fetch["ready_time_model_slack_satisfied"] is False
     assert full_fetch["ready_time_model_lookahead_satisfied"] is False
     assert full_fetch["ready_time_any_model_route_satisfied"] is False
+
+
+def test_prefetch_lab_default_gate_accepts_stream_full_fetch_block_evidence(
+    tmp_path: Path,
+):
+    config = _write_fixture(tmp_path)
+    payload = yaml.safe_load(config.read_text(encoding="utf-8"))
+
+    stream_decision = tmp_path / "stream_decision.json"
+    stream_decision.write_text(
+        json.dumps(
+            {
+                "artifact_kind": "premap_payload_cache_stream_full_fetch_decision_gate",
+                "passed": True,
+                "decision": "block_full_fetch_insufficient_stream_lookahead",
+                "full_fetch_runtime_allowed": False,
+                "full_fetch_block_reason": "insufficient_stream_lookahead",
+                "current_lookahead_us": 0.0,
+                "required_stream_lookahead_us": 2400000.0,
+                "lookahead_deficit_us": 2400000.0,
+                "first_model_passing_lookahead_us": 2400000.0,
+                "metadata_premap_runtime_preferred": True,
+                "descriptor_prep_runtime_preferred": True,
+                **_FULL_FETCH_DECISION_NOOP_FIELDS,
+            }
+        ),
+        encoding="utf-8",
+    )
+    stream_feasibility = tmp_path / "stream_feasibility.json"
+    stream_feasibility.write_text(
+        json.dumps(
+            {
+                "artifact_kind": "premap_payload_cache_stream_earlier_issue_feasibility",
+                "passed": True,
+                "full_fetch_runtime_allowed": False,
+                "current_runtime_satisfies_model": False,
+                "feasible_within_configured_token_window": True,
+                "min_required_lead_tokens": 24,
+                "max_required_lead_tokens": 48,
+                "min_deficit_lead_tokens": 24,
+                "max_deficit_lead_tokens": 48,
+                "max_candidate_lead_tokens": 64,
+                **_FULL_FETCH_DECISION_NOOP_FIELDS,
+            }
+        ),
+        encoding="utf-8",
+    )
+    stream_lead = tmp_path / "stream_lead.json"
+    stream_lead.write_text(
+        json.dumps(
+            {
+                "artifact_kind": "premap_payload_cache_stream_earlier_issue_lead_token_sweep",
+                "passed": True,
+                "full_fetch_allowed": False,
+                "full_fetch_runtime_allowed": False,
+                "event_timing_mode": "token_index",
+                "token_timing_enabled": True,
+                "decode_token_us": 75000.0,
+                "first_model_passing_lead_tokens": 32,
+                "first_model_passing_lookahead_us": 2400000.0,
+                **_FULL_FETCH_DECISION_NOOP_FIELDS,
+            }
+        ),
+        encoding="utf-8",
+    )
+    payload["full_fetch"].update(
+        {
+            "stream_decision_gate_report": str(stream_decision),
+            "stream_earlier_issue_feasibility_report": str(stream_feasibility),
+            "stream_earlier_issue_lead_token_sweep_report": str(stream_lead),
+        }
+    )
+    config.write_text(yaml.safe_dump(payload), encoding="utf-8")
+
+    result = check_prefetch_lab_default_gate(config, root=tmp_path)
+    full_fetch = result["sections"]["full_fetch"]
+
+    assert result["passed"] is True
+    assert full_fetch["stream_decision_gate_present"] is True
+    assert full_fetch["stream_decision_gate_passed"] is True
+    assert full_fetch["stream_full_fetch_runtime_allowed"] is False
+    assert full_fetch["stream_decision"] == (
+        "block_full_fetch_insufficient_stream_lookahead"
+    )
+    assert full_fetch["stream_required_lookahead_us"] == 2400000.0
+    assert full_fetch["stream_feasibility_passed"] is True
+    assert full_fetch["stream_current_runtime_satisfies_model"] is False
+    assert full_fetch["stream_max_required_lead_tokens"] == 48
+    assert full_fetch["stream_lead_token_sweep_passed"] is True
+    assert full_fetch["stream_lead_token_sweep_event_timing_mode"] == "token_index"
+    assert full_fetch["stream_lead_token_sweep_token_timing_enabled"] is True
+    assert full_fetch["stream_first_model_passing_lead_tokens"] == 32
+
+
+def test_prefetch_lab_default_gate_rejects_unsafe_stream_evidence(tmp_path: Path):
+    config = _write_fixture(tmp_path)
+    payload = yaml.safe_load(config.read_text(encoding="utf-8"))
+    stream_decision = tmp_path / "stream_decision.json"
+    fields = dict(_FULL_FETCH_DECISION_NOOP_FIELDS)
+    fields["payload_transfer_enabled"] = True
+    stream_decision.write_text(
+        json.dumps(
+            {
+                "artifact_kind": "premap_payload_cache_stream_full_fetch_decision_gate",
+                "passed": True,
+                "full_fetch_runtime_allowed": True,
+                **fields,
+            }
+        ),
+        encoding="utf-8",
+    )
+    payload["full_fetch"]["stream_decision_gate_report"] = str(stream_decision)
+    config.write_text(yaml.safe_dump(payload), encoding="utf-8")
+
+    result = check_prefetch_lab_default_gate(config, root=tmp_path)
+
+    assert result["passed"] is False
+    assert "full_fetch:stream_decision_gate_allows_full_fetch" in result["failures"]
+    assert "full_fetch:stream_decision_gate_payload_transfer_enabled_not_false" in (
+        result["failures"]
+    )
+
+
+def test_prefetch_lab_default_gate_rejects_stream_wna16_arg_usage(tmp_path: Path):
+    config = _write_fixture(tmp_path)
+    payload = yaml.safe_load(config.read_text(encoding="utf-8"))
+    stream_decision = tmp_path / "stream_decision.json"
+    fields = dict(_FULL_FETCH_DECISION_NOOP_FIELDS)
+    fields["uses_current_wna16_args"] = True
+    stream_decision.write_text(
+        json.dumps(
+            {
+                "artifact_kind": "premap_payload_cache_stream_full_fetch_decision_gate",
+                "passed": True,
+                "full_fetch_runtime_allowed": False,
+                **fields,
+            }
+        ),
+        encoding="utf-8",
+    )
+    payload["full_fetch"]["stream_decision_gate_report"] = str(stream_decision)
+    config.write_text(yaml.safe_dump(payload), encoding="utf-8")
+
+    result = check_prefetch_lab_default_gate(config, root=tmp_path)
+
+    assert result["passed"] is False
+    assert "full_fetch:stream_decision_gate_uses_current_wna16_args_not_false" in (
+        result["failures"]
+    )
+
+
+def test_prefetch_lab_default_gate_rejects_stream_passed_non_bool(tmp_path: Path):
+    config = _write_fixture(tmp_path)
+    payload = yaml.safe_load(config.read_text(encoding="utf-8"))
+    stream_decision = tmp_path / "stream_decision.json"
+    stream_decision.write_text(
+        json.dumps(
+            {
+                "artifact_kind": "premap_payload_cache_stream_full_fetch_decision_gate",
+                "passed": "true",
+                "full_fetch_runtime_allowed": False,
+                **_FULL_FETCH_DECISION_NOOP_FIELDS,
+            }
+        ),
+        encoding="utf-8",
+    )
+    payload["full_fetch"]["stream_decision_gate_report"] = str(stream_decision)
+    config.write_text(yaml.safe_dump(payload), encoding="utf-8")
+
+    result = check_prefetch_lab_default_gate(config, root=tmp_path)
+
+    assert result["passed"] is False
+    assert "full_fetch:stream_decision_gate_passed_not_bool" in result["failures"]
+    assert "full_fetch:stream_decision_gate_not_passed" in result["failures"]
 
 
 def test_prefetch_lab_default_gate_rejects_malformed_full_fetch_decision_gate(

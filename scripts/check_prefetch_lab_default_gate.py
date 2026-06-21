@@ -66,6 +66,9 @@ def _check_full_fetch(section: dict[str, Any], *, root: Path) -> dict[str, Any]:
     allow = _ready_time_allow_full_fetch(report, failures)
     metrics = report.get("metrics") if isinstance(report, dict) else None
     metrics = metrics if isinstance(metrics, dict) else {}
+    stream_decision = _check_optional_stream_decision_gate(section, root, failures)
+    stream_feasibility = _check_optional_stream_feasibility(section, root, failures)
+    stream_lead_sweep = _check_optional_stream_lead_token_sweep(section, root, failures)
     if not passed:
         failures.append("ready_time_gate_report_not_passed")
     if allow:
@@ -140,6 +143,9 @@ def _check_full_fetch(section: dict[str, Any], *, root: Path) -> dict[str, Any]:
             report,
             "ready_time_any_model_route_satisfied",
         ),
+        **stream_decision,
+        **stream_feasibility,
+        **stream_lead_sweep,
     }
 
 
@@ -185,6 +191,229 @@ def _check_full_fetch_decision_gate_noop_safety(
     ):
         if report.get(field) is not False:
             failures.append(f"ready_time_gate_report_{field}_not_false")
+
+
+def _check_optional_stream_decision_gate(
+    section: dict[str, Any],
+    root: Path,
+    failures: list[str],
+) -> dict[str, Any]:
+    path_value = section.get("stream_decision_gate_report")
+    if path_value in (None, ""):
+        failures.append("stream_decision_gate_report_missing")
+        return {
+            "stream_decision_gate_present": False,
+            "stream_decision_gate_report": None,
+            "stream_decision_gate_passed": None,
+            "stream_full_fetch_runtime_allowed": None,
+        }
+    path = _resolve(path_value, root=root)
+    report = _load_json(path, failures, label="stream_decision_gate_report")
+    if report.get("artifact_kind") != "premap_payload_cache_stream_full_fetch_decision_gate":
+        failures.append("stream_decision_gate_artifact_kind_mismatch")
+    passed = _strict_passed(report, failures, label="stream_decision_gate")
+    if not passed:
+        failures.append("stream_decision_gate_not_passed")
+    if report.get("full_fetch_runtime_allowed") is not False:
+        failures.append("stream_decision_gate_allows_full_fetch")
+    _check_stream_noop_safety(report, failures, label="stream_decision_gate")
+    return {
+        "stream_decision_gate_present": True,
+        "stream_decision_gate_report": str(path),
+        "stream_decision_gate_passed": passed,
+        "stream_decision": (
+            report.get("decision") if isinstance(report.get("decision"), str) else None
+        ),
+        "stream_full_fetch_runtime_allowed": _optional_bool(
+            report,
+            "full_fetch_runtime_allowed",
+        ),
+        "stream_full_fetch_block_reason": (
+            report.get("full_fetch_block_reason")
+            if isinstance(report.get("full_fetch_block_reason"), str)
+            else None
+        ),
+        "stream_current_lookahead_us": _optional_float(
+            report,
+            "current_lookahead_us",
+        ),
+        "stream_required_lookahead_us": _optional_float(
+            report,
+            "required_stream_lookahead_us",
+        ),
+        "stream_lookahead_deficit_us": _optional_float(
+            report,
+            "lookahead_deficit_us",
+        ),
+        "stream_first_model_passing_lookahead_us": _optional_float(
+            report,
+            "first_model_passing_lookahead_us",
+        ),
+        "stream_metadata_premap_runtime_preferred": _optional_bool(
+            report,
+            "metadata_premap_runtime_preferred",
+        ),
+        "stream_descriptor_prep_runtime_preferred": _optional_bool(
+            report,
+            "descriptor_prep_runtime_preferred",
+        ),
+    }
+
+
+def _check_optional_stream_feasibility(
+    section: dict[str, Any],
+    root: Path,
+    failures: list[str],
+) -> dict[str, Any]:
+    path_value = section.get("stream_earlier_issue_feasibility_report")
+    if path_value in (None, ""):
+        failures.append("stream_feasibility_report_missing")
+        return {
+            "stream_feasibility_present": False,
+            "stream_feasibility_report": None,
+            "stream_feasibility_passed": None,
+        }
+    path = _resolve(path_value, root=root)
+    report = _load_json(path, failures, label="stream_feasibility_report")
+    if report.get("artifact_kind") != "premap_payload_cache_stream_earlier_issue_feasibility":
+        failures.append("stream_feasibility_artifact_kind_mismatch")
+    passed = _strict_passed(report, failures, label="stream_feasibility")
+    if not passed:
+        failures.append("stream_feasibility_not_passed")
+    if report.get("full_fetch_runtime_allowed") is not False:
+        failures.append("stream_feasibility_allows_full_fetch")
+    if report.get("current_runtime_satisfies_model") is not False:
+        failures.append("stream_feasibility_current_runtime_satisfies_model")
+    _check_stream_noop_safety(report, failures, label="stream_feasibility")
+    return {
+        "stream_feasibility_present": True,
+        "stream_feasibility_report": str(path),
+        "stream_feasibility_passed": passed,
+        "stream_current_runtime_satisfies_model": _optional_bool(
+            report,
+            "current_runtime_satisfies_model",
+        ),
+        "stream_feasible_within_configured_token_window": _optional_bool(
+            report,
+            "feasible_within_configured_token_window",
+        ),
+        "stream_min_required_lead_tokens": _optional_int(
+            report,
+            "min_required_lead_tokens",
+        ),
+        "stream_max_required_lead_tokens": _optional_int(
+            report,
+            "max_required_lead_tokens",
+        ),
+        "stream_min_deficit_lead_tokens": _optional_int(
+            report,
+            "min_deficit_lead_tokens",
+        ),
+        "stream_max_deficit_lead_tokens": _optional_int(
+            report,
+            "max_deficit_lead_tokens",
+        ),
+        "stream_max_candidate_lead_tokens": _optional_int(
+            report,
+            "max_candidate_lead_tokens",
+        ),
+    }
+
+
+def _check_optional_stream_lead_token_sweep(
+    section: dict[str, Any],
+    root: Path,
+    failures: list[str],
+) -> dict[str, Any]:
+    path_value = section.get("stream_earlier_issue_lead_token_sweep_report")
+    if path_value in (None, ""):
+        failures.append("stream_lead_token_sweep_report_missing")
+        return {
+            "stream_lead_token_sweep_present": False,
+            "stream_lead_token_sweep_report": None,
+            "stream_lead_token_sweep_passed": None,
+        }
+    path = _resolve(path_value, root=root)
+    report = _load_json(path, failures, label="stream_lead_token_sweep_report")
+    if report.get("artifact_kind") != "premap_payload_cache_stream_earlier_issue_lead_token_sweep":
+        failures.append("stream_lead_token_sweep_artifact_kind_mismatch")
+    passed = _strict_passed(report, failures, label="stream_lead_token_sweep")
+    if not passed:
+        failures.append("stream_lead_token_sweep_not_passed")
+    if report.get("full_fetch_runtime_allowed") is not False:
+        failures.append("stream_lead_token_sweep_allows_full_fetch_runtime")
+    if report.get("full_fetch_allowed") is not False:
+        failures.append("stream_lead_token_sweep_allows_full_fetch")
+    if report.get("event_timing_mode") != "token_index":
+        failures.append("stream_lead_token_sweep_event_timing_mode_mismatch")
+    if report.get("token_timing_enabled") is not True:
+        failures.append("stream_lead_token_sweep_token_timing_not_enabled")
+    _check_stream_noop_safety(report, failures, label="stream_lead_token_sweep")
+    return {
+        "stream_lead_token_sweep_present": True,
+        "stream_lead_token_sweep_report": str(path),
+        "stream_lead_token_sweep_passed": passed,
+        "stream_lead_token_sweep_event_timing_mode": (
+            report.get("event_timing_mode")
+            if isinstance(report.get("event_timing_mode"), str)
+            else None
+        ),
+        "stream_lead_token_sweep_token_timing_enabled": _optional_bool(
+            report,
+            "token_timing_enabled",
+        ),
+        "stream_lead_token_sweep_decode_token_us": _optional_float(
+            report,
+            "decode_token_us",
+        ),
+        "stream_first_model_passing_lead_tokens": _optional_int(
+            report,
+            "first_model_passing_lead_tokens",
+        ),
+        "stream_lead_token_sweep_first_model_passing_lookahead_us": _optional_float(
+            report,
+            "first_model_passing_lookahead_us",
+        ),
+    }
+
+
+def _check_stream_noop_safety(
+    report: dict[str, Any],
+    failures: list[str],
+    *,
+    label: str,
+) -> None:
+    if report.get("payload_bytes") != 0:
+        failures.append(f"{label}_payload_bytes_nonzero")
+    for field in (
+        "payload_transfer_enabled",
+        "payload_deref_allowed",
+        "ready_credit",
+        "ready_before_demand_credit",
+        "real_ready_credit_granted",
+        "kernel_arg_pass_allowed",
+        "passed_to_kernel",
+        "changes_kernel_launch_args",
+        "uses_current_wna16_args",
+        "passes_current_wna16_args",
+        "measures_tpot",
+        "measures_vllm_latency",
+    ):
+        if report.get(field) is not False:
+            failures.append(f"{label}_{field}_not_false")
+
+
+def _strict_passed(
+    report: dict[str, Any],
+    failures: list[str],
+    *,
+    label: str,
+) -> bool:
+    value = report.get("passed")
+    if not isinstance(value, bool):
+        failures.append(f"{label}_passed_not_bool")
+        return False
+    return value
 
 
 def _ready_time_decision_reason(report: dict[str, Any]) -> str | None:

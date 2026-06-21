@@ -1254,6 +1254,118 @@ def _check_ready_time_decision_gate_block(
             failures.append(f"{prefix}_{key}_mismatch")
 
 
+def _check_stream_full_fetch_block(
+    summary: dict[str, Any],
+    failures: list[str],
+) -> None:
+    prefix = "prefetch_lab_default_stream"
+    for key, expected in {
+        "decision_gate_present": True,
+        "decision_gate_passed": True,
+        "full_fetch_runtime_allowed": False,
+        "full_fetch_block_reason": "insufficient_stream_lookahead",
+        "metadata_premap_runtime_preferred": True,
+        "descriptor_prep_runtime_preferred": True,
+        "feasibility_present": True,
+        "feasibility_passed": True,
+        "current_runtime_satisfies_model": False,
+        "feasible_within_configured_token_window": True,
+        "lead_token_sweep_present": True,
+        "lead_token_sweep_passed": True,
+        "lead_token_sweep_event_timing_mode": "token_index",
+        "lead_token_sweep_token_timing_enabled": True,
+    }.items():
+        if summary.get(f"{prefix}_{key}") != expected:
+            failures.append(f"{prefix}_{key}_mismatch")
+
+    if summary.get(f"{prefix}_decision") != "block_full_fetch_insufficient_stream_lookahead":
+        failures.append(f"{prefix}_decision_mismatch")
+
+    current_lookahead = _float_metric(summary, f"{prefix}_current_lookahead_us")
+    required_lookahead = _float_metric(summary, f"{prefix}_required_lookahead_us")
+    deficit = _float_metric(summary, f"{prefix}_lookahead_deficit_us")
+    first_passing_lookahead = _float_metric(
+        summary,
+        f"{prefix}_first_model_passing_lookahead_us",
+    )
+    lead_sweep_first_passing_lookahead = _float_metric(
+        summary,
+        f"{prefix}_lead_token_sweep_first_model_passing_lookahead_us",
+    )
+    decode_token_us = _float_metric(summary, f"{prefix}_lead_token_sweep_decode_token_us")
+    min_required_lead = _int_metric(summary, f"{prefix}_min_required_lead_tokens")
+    max_required_lead = _int_metric(summary, f"{prefix}_max_required_lead_tokens")
+    max_candidate_lead = _int_metric(summary, f"{prefix}_max_candidate_lead_tokens")
+    first_passing_lead = _int_metric(
+        summary,
+        f"{prefix}_first_model_passing_lead_tokens",
+    )
+
+    for key, value in (
+        ("current_lookahead_us", current_lookahead),
+        ("required_lookahead_us", required_lookahead),
+        ("lookahead_deficit_us", deficit),
+        ("first_model_passing_lookahead_us", first_passing_lookahead),
+        (
+            "lead_token_sweep_first_model_passing_lookahead_us",
+            lead_sweep_first_passing_lookahead,
+        ),
+        ("lead_token_sweep_decode_token_us", decode_token_us),
+    ):
+        if value is None or value < 0.0:
+            failures.append(f"{prefix}_{key}_invalid")
+
+    if (
+        current_lookahead is not None
+        and required_lookahead is not None
+        and deficit is not None
+    ):
+        expected_deficit = max(0.0, required_lookahead - current_lookahead)
+        if abs(deficit - expected_deficit) > 1e-6:
+            failures.append(f"{prefix}_lookahead_deficit_mismatch")
+        if deficit <= 0.0:
+            failures.append(f"{prefix}_lookahead_deficit_not_positive")
+    if (
+        required_lookahead is not None
+        and first_passing_lookahead is not None
+        and abs(required_lookahead - first_passing_lookahead) > 1e-6
+    ):
+        failures.append(f"{prefix}_required_first_passing_lookahead_mismatch")
+    if (
+        required_lookahead is not None
+        and lead_sweep_first_passing_lookahead is not None
+        and abs(required_lookahead - lead_sweep_first_passing_lookahead) > 1e-6
+    ):
+        failures.append(f"{prefix}_lead_sweep_lookahead_mismatch")
+
+    for key, value in (
+        ("min_required_lead_tokens", min_required_lead),
+        ("max_required_lead_tokens", max_required_lead),
+        ("max_candidate_lead_tokens", max_candidate_lead),
+        ("first_model_passing_lead_tokens", first_passing_lead),
+    ):
+        if value is None or value <= 0:
+            failures.append(f"{prefix}_{key}_invalid")
+    if (
+        min_required_lead is not None
+        and max_required_lead is not None
+        and min_required_lead > max_required_lead
+    ):
+        failures.append(f"{prefix}_required_lead_range_invalid")
+    if (
+        max_required_lead is not None
+        and max_candidate_lead is not None
+        and max_required_lead > max_candidate_lead
+    ):
+        failures.append(f"{prefix}_max_required_lead_above_candidate")
+    if (
+        first_passing_lead is not None
+        and max_candidate_lead is not None
+        and first_passing_lead > max_candidate_lead
+    ):
+        failures.append(f"{prefix}_first_passing_lead_above_candidate")
+
+
 def check_premap_lab_preflight_summary(
     summary: dict[str, Any],
     *,
@@ -1466,6 +1578,7 @@ def check_premap_lab_preflight_summary(
         _check_ready_time_decision_gate_block(summary, failures)
     else:
         failures.append("prefetch_lab_default_ready_time_decision_reason_mismatch")
+    _check_stream_full_fetch_block(summary, failures)
 
     for key in (
         "runtime_gate_evidence_deferred_count",
