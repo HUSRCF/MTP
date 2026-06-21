@@ -2,10 +2,99 @@
 
 ## Progress Version
 
-- Version: `v1.22-payload-cache-runtime-execution-envelope`
+- Version: `v1.23-queue-budget-stream-executor-gate`
 - Updated: 2026-06-22
 
-## Latest Update: Payload Cache Runtime Execution Envelope Gate
+## Latest Update: Queue-Budget Stream Executor Lab Gate
+
+The lab default preflight now requires the Dolly128 token-index queue-budget
+stream executor evidence in addition to the payload-cache execution envelope.
+The default GPU1 gate points at:
+
+```text
+outputs/reports/premap_kernel_consumer/premap_payload_cache_issue_stream_executor_dolly128_gen64_token_provenance_queue_budget_v1.json
+```
+
+This gate is deliberately still replay/model evidence, not endpoint TPOT and
+not a real vLLM payload/cache-manager runtime claim.  It checks the first
+model-passing queue budget cell:
+
+```text
+capacity = 4096
+issue_lead_tokens = 32
+queue_deadline_us = 100.0
+lookahead_us = 2400000.0
+event_timing_mode = token_index
+```
+
+The checker now binds the top-level `first_model_passing_cell` back to
+`cells[cell_index]` and requires exact consistency for the duplicated fields
+and shifted-issue accounting.  The first-cell integer schema is strict: string
+or float values do not pass as `cell_index`, `capacity`, or
+`issue_lead_tokens`.
+
+The no-side-effect boundary remains closed in both the full artifact checker
+and the compact preflight summary:
+
+```text
+payload_bytes = 0
+payload_transfer_enabled = false
+payload_deref_allowed = false
+full_fetch_allowed = false
+ready_credit = false
+ready_before_demand_credit = false
+real_ready_credit_granted = false
+kernel_arg_pass_allowed = false
+passed_to_kernel = false
+changes_kernel_launch_args = false
+uses_current_wna16_args = false
+passes_current_wna16_args = false
+measures_tpot = false
+measures_vllm_latency = false
+```
+
+Artifacts:
+
+```text
+outputs/reports/premap_lab_preflight_status_queue_budget_gate_summary_20260622.json
+outputs/reports/premap_lab_preflight_status_queue_budget_gate_summary_20260622.check.json
+```
+
+Validation:
+
+```text
+/home/husrcf/anaconda3/envs/TRY/bin/python -m pytest \
+  tests/test_check_prefetch_lab_default_gate.py \
+  tests/test_run_premap_lab_preflight.py \
+  tests/test_check_premap_lab_preflight_summary.py \
+  tests/test_check_premap_payload_cache_ready_time_gate.py \
+  tests/test_cache_lab_gate.py \
+  tests/test_vllm_router_shadow_sink.py -q
+
+482 passed
+
+/home/husrcf/anaconda3/envs/TRY/bin/python scripts/check_prefetch_lab_default_gate.py \
+  configs/runtime/prefetch_lab_default_gate_gpu1.yaml
+
+passed = true
+
+/home/husrcf/anaconda3/envs/TRY/bin/python scripts/check_premap_lab_preflight_summary.py \
+  outputs/reports/premap_lab_preflight_status_queue_budget_gate_summary_20260622.json \
+  --output-json outputs/reports/premap_lab_preflight_status_queue_budget_gate_summary_20260622.check.json
+
+passed = true
+```
+
+Next gate:
+
+```text
+continue payload/cache-manager runtime work under the queue-budget gate.  The
+next live path must still keep payload/kernel/ready side effects closed until a
+useful native consumer or payload-cache manager stage has separate strict
+evidence.
+```
+
+## Previous Update: Payload Cache Runtime Execution Envelope Gate
 
 The lab default preflight now requires a payload-cache runtime execution
 envelope, not only the older dry-run execution object.  The default GPU1 gate
