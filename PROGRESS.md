@@ -40517,25 +40517,37 @@ These fields are diagnostic only.  They do not participate in the pass/fail
 decision; `passed` remains controlled by the step return codes and strict
 status failures.
 
-Current local static reuse result:
+The stale static-reuse result now fails loudly when the referenced native
+artifacts do not satisfy the current gate.  After refreshing the same evidence
+set on GPU1 without `--reuse-native-artifacts`, the canonical verify artifact
+passes:
 
 ```text
 outputs/reports/premap_lab_gate_verify_reuse_native_artifacts.json
 
-passed = false
-reuse_native_artifacts = true
-reuse_artifact_refresh_required = true
+passed = true
+failures = []
+reuse_native_artifacts = false
+reuse_artifact_refresh_required = false
+reuse_artifact_refresh_reasons = []
+reuse_artifact_refresh_command = []
 ```
 
-The report also records a direct refresh command that reruns the same lab verify
-entrypoint without `--reuse-native-artifacts`.  This is the command to run once
-GPU/HIP is available again; the static reuse mode itself does not relax the
+The strict checker accepts the refreshed verify artifact:
+
+```text
+outputs/reports/premap_lab_gate_verify_reuse_native_artifacts.check.json
+
+passed = true
+failures = []
+```
+
+When reused evidence is stale or insufficient, the report records a direct
+refresh command that reruns the same lab verify entrypoint without
+`--reuse-native-artifacts`.  The static reuse mode itself does not relax the
 gate.  The generated command preserves the artifact path overrides,
 `tail_window_size`, and device selection flags from the reuse run so it refreshes
-the same evidence set that failed the static check.
-
-The failure is now attributed to stale or insufficient reused evidence.  The
-main reasons include:
+the same evidence set that failed the static check.  Example stale reasons are:
 
 ```text
 tail_window_closure_artifact_not_passed
@@ -40554,11 +40566,10 @@ stale_gate_requirement:window_sweep_check_not_passed
 stale_gate_requirement:window_sweep_check_failures_not_empty
 ```
 
-This is the expected behavior on the current host because ROCm device probing
-reports no usable CUDA/HIP runtime through PyTorch, so the native artifacts
-cannot be refreshed locally.  The final lab gate remains strict: a static reuse
-run is acceptable only when the reused artifacts already satisfy the current
-no-payload / no-kernel-arg / typed ABI preflight requirements.
+The final lab gate remains strict: a static reuse run is acceptable only when
+the reused artifacts already satisfy the current no-payload / no-kernel-arg /
+typed ABI preflight requirements.  A refresh-required artifact is rejected by
+`scripts/check_premap_lab_gate_verify.py`.
 
 Verification:
 
@@ -40567,5 +40578,10 @@ Verification:
 30 passed
 
 /home/husrcf/anaconda3/envs/TRY/bin/python -m pytest tests -q
-2047 passed, 2 warnings
+2049 passed, 2 warnings
+
+/home/husrcf/anaconda3/envs/TRY/bin/python scripts/check_premap_lab_gate_verify.py \
+  outputs/reports/premap_lab_gate_verify_reuse_native_artifacts.json \
+  --output-json outputs/reports/premap_lab_gate_verify_reuse_native_artifacts.check.json
+passed = true
 ```
