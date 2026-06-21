@@ -2,10 +2,63 @@
 
 ## Progress Version
 
-- Version: `v1.38-live-runtime-adapter-state-validation-artifact`
+- Version: `v1.39-live-runtime-adapter-instantiation-canary`
 - Updated: 2026-06-22
 
-## Latest Update: Live Runtime Adapter State-Validation Artifact
+## Latest Update: Live Runtime Adapter Instantiation Canary
+
+The payload/cache lab chain now reaches a blocked live-runtime adapter
+instantiation canary:
+
+```text
+PayloadCacheLiveRuntimeAdapterInstantiationCanary
+```
+
+This canary consumes `PayloadCacheLiveRuntimeAdapterStateValidationArtifact`.
+It declares that a future adapter factory exists and that the constructor entry
+can be resolved:
+
+```text
+adapter_factory_declared = true
+adapter_constructor_resolved = true
+```
+
+It still does not create an adapter instance or instantiate a live runtime:
+
+```text
+adapter_instance_created = false
+live_runtime_instantiated = false
+decision = blocked
+block_reason = live_runtime_adapter_instantiation_canary_only
+execution_mode = payload_cache_live_runtime_adapter_instantiation_canary_disabled
+runtime_adapter_instantiation_schema = ready_time_payload_cache_runtime_adapter_instantiation_v1
+payload_bytes = 0
+ready_credit = false
+kernel_arg_pass_allowed = false
+changes_kernel_launch_args = false
+uses_current_wna16_args = false
+measures_tpot = false
+```
+
+The builder revalidates the upstream state-validation artifact and requires the
+canonical
+`blocked_by_adapter_state_object_preflight:blocked_by_adapter_materialization_preflight:blocked_by_object_adapter_preflight:*`
+ancestry before emitting the canary.  The compact lab preflight summary now
+includes
+`prefetch_lab_default_stream_queue_budget_live_runtime_adapter_instantiation_canary_*`
+fields, and the final checker treats them as required gate evidence.
+
+Validation:
+
+```text
+py_compile runtime/cache_lab_gate.py and summary scripts: pass
+pytest tests/test_cache_lab_gate.py tests/test_check_premap_lab_preflight_summary.py -q: 154 passed
+pytest focused lab/preflight suite: 532 passed
+generated summary/check artifacts: pass
+Hubble static review: no blocker
+```
+
+## Previous Update: Live Runtime Adapter State-Validation Artifact
 
 The payload/cache lab chain now records a blocked artifact for the validated
 future adapter state contract:

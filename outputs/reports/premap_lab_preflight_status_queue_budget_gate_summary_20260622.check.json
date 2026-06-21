@@ -1,7 +1,7 @@
 {
   "checked_preflight_json": "/home/husrcf/Code/ProtBind/MTP/outputs/reports/premap_lab_preflight_status_queue_budget_gate_summary_20260622.json",
   "checked_preflight_json_raw": "outputs/reports/premap_lab_preflight_status_queue_budget_gate_summary_20260622.json",
-  "checked_preflight_sha256": "72edff5f0c05bba2deda36ed2ecf31206284154320ca887e19a82d32922cacf1",
+  "checked_preflight_sha256": "6157fa619f13618118f96c1a869553b6e8d51636a864a8e0d545c97e2f94cd1c",
   "expected_online_merged_device": 1,
   "failures": [],
   "min_source_count": 32,
