@@ -444,6 +444,94 @@ class PayloadCacheLivePayloadStagePreflight:
         return asdict(self)
 
 
+@dataclass(frozen=True)
+class PayloadCacheLivePayloadRuntimeDisabledCanary:
+    """Blocked canary for the future live payload runtime implementation.
+
+    This contract sits after ``PayloadCacheLivePayloadStagePreflight``.  It is
+    the last payloadless object before a real cache-manager runtime can be
+    implemented.  It proves that the runtime entry point sees the live-stage
+    preflight, but it still forbids payload dereference, ready credit, kernel
+    argument handoff, WNA16 argument compatibility claims, and TPOT claims.
+    """
+
+    present: bool
+    stage: str
+    status: str
+    consumes_live_payload_stage_preflight: bool
+    live_payload_stage_status: str
+    decision: str = "blocked"
+    block_reason: str = "live_payload_runtime_disabled"
+    execution_mode: str = "payloadless_live_payload_runtime_disabled_canary"
+    live_payload_runtime_enabled: bool = False
+    payload_transfer_runtime_enabled: bool = False
+    payload_deref_allowed: bool = False
+    payload_deref_runtime_allowed: bool = False
+    issued_payload_count: int = 0
+    payload_bytes: int = 0
+    ready_credit: bool = False
+    ready_before_demand_credit: bool = False
+    real_ready_credit_granted: bool = False
+    kernel_arg_pass_allowed: bool = False
+    passed_to_kernel: bool = False
+    changes_kernel_launch_args: bool = False
+    full_fetch_runtime_allowed: bool = False
+    uses_current_wna16_args: bool = False
+    passes_current_wna16_args: bool = False
+    measures_tpot: bool = False
+    measures_vllm_latency: bool = False
+
+    def __post_init__(self) -> None:
+        if self.present is not True:
+            raise ValueError("live payload runtime canary must be present")
+        if self.stage != "payload_cache_live_payload_runtime_disabled_canary":
+            raise ValueError("live payload runtime canary stage mismatch")
+        if self.consumes_live_payload_stage_preflight is not True:
+            raise ValueError("live payload runtime canary must consume live-stage preflight")
+        if (
+            not isinstance(self.live_payload_stage_status, str)
+            or not self.live_payload_stage_status
+        ):
+            raise TypeError("live_payload_stage_status must be a nonempty string")
+        expected_status = f"blocked_by_live_payload_stage:{self.live_payload_stage_status}"
+        if self.status != expected_status:
+            raise ValueError("live payload runtime canary status mismatch")
+        if self.decision != "blocked":
+            raise ValueError("live payload runtime canary decision must stay blocked")
+        if self.block_reason != "live_payload_runtime_disabled":
+            raise ValueError("live payload runtime canary block reason mismatch")
+        if self.execution_mode != "payloadless_live_payload_runtime_disabled_canary":
+            raise ValueError("live payload runtime canary execution mode mismatch")
+        for field_name in ("issued_payload_count", "payload_bytes"):
+            value = getattr(self, field_name)
+            if not isinstance(value, int) or isinstance(value, bool):
+                raise TypeError(f"{field_name} must be an integer")
+            if value != 0:
+                raise ValueError(f"{field_name} must remain zero")
+        for field_name in (
+            "live_payload_runtime_enabled",
+            "payload_transfer_runtime_enabled",
+            "payload_deref_allowed",
+            "payload_deref_runtime_allowed",
+            "ready_credit",
+            "ready_before_demand_credit",
+            "real_ready_credit_granted",
+            "kernel_arg_pass_allowed",
+            "passed_to_kernel",
+            "changes_kernel_launch_args",
+            "full_fetch_runtime_allowed",
+            "uses_current_wna16_args",
+            "passes_current_wna16_args",
+            "measures_tpot",
+            "measures_vllm_latency",
+        ):
+            if getattr(self, field_name) is not False:
+                raise ValueError(f"{field_name} must remain disabled")
+
+    def as_dict(self) -> dict[str, bool | int | str]:
+        return asdict(self)
+
+
 def select_cache_lab_prefetch_gate(
     signals: CacheLabRuntimeSignals,
     *,
@@ -646,6 +734,23 @@ def build_payload_cache_live_payload_stage_preflight(
         status=f"blocked_by_queue_budget_runtime_envelope:{status}",
         consumes_queue_budget_runtime_envelope=True,
         queue_budget_envelope_status=status,
+    )
+
+
+def build_payload_cache_live_payload_runtime_disabled_canary(
+    preflight: PayloadCacheLivePayloadStagePreflight,
+) -> PayloadCacheLivePayloadRuntimeDisabledCanary:
+    """Build the blocked canary for the future live payload runtime."""
+
+    if not isinstance(preflight, PayloadCacheLivePayloadStagePreflight):
+        raise TypeError("preflight must be a PayloadCacheLivePayloadStagePreflight")
+    status = str(preflight.status)
+    return PayloadCacheLivePayloadRuntimeDisabledCanary(
+        present=True,
+        stage="payload_cache_live_payload_runtime_disabled_canary",
+        status=f"blocked_by_live_payload_stage:{status}",
+        consumes_live_payload_stage_preflight=True,
+        live_payload_stage_status=status,
     )
 
 

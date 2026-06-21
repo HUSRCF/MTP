@@ -1697,6 +1697,59 @@ def _check_stream_queue_budget(summary: dict[str, Any], failures: list[str]) -> 
         if summary.get(f"{live_prefix}_{key}") is not False:
             failures.append(f"{live_prefix}_{key}_mismatch")
 
+    runtime_prefix = f"{prefix}_live_payload_runtime"
+    expected_live_status = (
+        f"blocked_by_queue_budget_runtime_envelope:{expected_envelope_status}"
+    )
+    if summary.get(f"{runtime_prefix}_present") is not True:
+        failures.append(f"{runtime_prefix}_present_mismatch")
+    if (
+        summary.get(f"{runtime_prefix}_stage")
+        != "payload_cache_live_payload_runtime_disabled_canary"
+    ):
+        failures.append(f"{runtime_prefix}_stage_mismatch")
+    if (
+        summary.get(f"{runtime_prefix}_status")
+        != f"blocked_by_live_payload_stage:{expected_live_status}"
+    ):
+        failures.append(f"{runtime_prefix}_status_mismatch")
+    if summary.get(f"{runtime_prefix}_consumes_live_payload_stage_preflight") is not True:
+        failures.append(f"{runtime_prefix}_consumes_live_payload_stage_preflight_mismatch")
+    if summary.get(f"{runtime_prefix}_live_payload_stage_status") != expected_live_status:
+        failures.append(f"{runtime_prefix}_live_payload_stage_status_mismatch")
+    if summary.get(f"{runtime_prefix}_decision") != "blocked":
+        failures.append(f"{runtime_prefix}_decision_mismatch")
+    if summary.get(f"{runtime_prefix}_block_reason") != "live_payload_runtime_disabled":
+        failures.append(f"{runtime_prefix}_block_reason_mismatch")
+    if (
+        summary.get(f"{runtime_prefix}_execution_mode")
+        != "payloadless_live_payload_runtime_disabled_canary"
+    ):
+        failures.append(f"{runtime_prefix}_execution_mode_mismatch")
+    if _int_metric(summary, f"{runtime_prefix}_issued_payload_count") != 0:
+        failures.append(f"{runtime_prefix}_issued_payload_count_mismatch")
+    if _int_metric(summary, f"{runtime_prefix}_payload_bytes") != 0:
+        failures.append(f"{runtime_prefix}_payload_bytes_mismatch")
+    for key in (
+        "live_payload_runtime_enabled",
+        "payload_transfer_runtime_enabled",
+        "payload_deref_allowed",
+        "payload_deref_runtime_allowed",
+        "ready_credit",
+        "ready_before_demand_credit",
+        "real_ready_credit_granted",
+        "kernel_arg_pass_allowed",
+        "passed_to_kernel",
+        "changes_kernel_launch_args",
+        "full_fetch_runtime_allowed",
+        "uses_current_wna16_args",
+        "passes_current_wna16_args",
+        "measures_tpot",
+        "measures_vllm_latency",
+    ):
+        if summary.get(f"{runtime_prefix}_{key}") is not False:
+            failures.append(f"{runtime_prefix}_{key}_mismatch")
+
     if (
         summary.get(f"{prefix}_first_shifted_issue_accounting_enabled")
         is not True

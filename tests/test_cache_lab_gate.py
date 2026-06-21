@@ -6,11 +6,13 @@ from mtp_expert_prefetch.runtime import (
     CacheLabGateConfig,
     CacheLabGateDecision,
     CacheLabRuntimeSignals,
+    PayloadCacheLivePayloadRuntimeDisabledCanary,
     PayloadCacheLivePayloadStagePreflight,
     PayloadCacheRuntimeExecutionDryRun,
     PayloadCacheQueueBudgetRuntimeEnvelope,
     PayloadCacheRuntimeParticipation,
     PayloadCacheRuntimePlan,
+    build_payload_cache_live_payload_runtime_disabled_canary,
     build_payload_cache_live_payload_stage_preflight,
     build_payload_cache_queue_budget_runtime_envelope,
     build_payload_cache_runtime_execution_dry_run,
@@ -535,6 +537,107 @@ def test_payload_cache_live_payload_stage_preflight_rejects_side_effects() -> No
 
     with pytest.raises(TypeError, match="envelope"):
         build_payload_cache_live_payload_stage_preflight(object())  # type: ignore[arg-type]
+
+
+def test_payload_cache_live_payload_runtime_disabled_canary_consumes_preflight() -> None:
+    envelope = build_payload_cache_queue_budget_runtime_envelope(
+        cell_count=16,
+        event_timing_mode="token_index",
+        first_model_passing_capacity=4096,
+        first_model_passing_issue_lead_tokens=32,
+        first_model_passing_queue_deadline_us=100.0,
+        first_model_passing_lookahead_us=2_400_000.0,
+        shifted_issue_accounting_enabled=True,
+        shifted_issue_accounted_packet_count=28,
+        shifted_issue_unique_issue_key_count=16,
+    )
+    preflight = build_payload_cache_live_payload_stage_preflight(envelope)
+
+    canary = build_payload_cache_live_payload_runtime_disabled_canary(preflight)
+    payload = canary.as_dict()
+
+    assert payload["present"] is True
+    assert payload["stage"] == "payload_cache_live_payload_runtime_disabled_canary"
+    assert payload["status"] == f"blocked_by_live_payload_stage:{preflight.status}"
+    assert payload["consumes_live_payload_stage_preflight"] is True
+    assert payload["live_payload_stage_status"] == preflight.status
+    assert payload["decision"] == "blocked"
+    assert payload["block_reason"] == "live_payload_runtime_disabled"
+    assert payload["execution_mode"] == "payloadless_live_payload_runtime_disabled_canary"
+    assert payload["live_payload_runtime_enabled"] is False
+    assert payload["payload_transfer_runtime_enabled"] is False
+    assert payload["payload_deref_allowed"] is False
+    assert payload["payload_deref_runtime_allowed"] is False
+    assert payload["issued_payload_count"] == 0
+    assert payload["payload_bytes"] == 0
+    assert payload["ready_credit"] is False
+    assert payload["ready_before_demand_credit"] is False
+    assert payload["real_ready_credit_granted"] is False
+    assert payload["kernel_arg_pass_allowed"] is False
+    assert payload["passed_to_kernel"] is False
+    assert payload["changes_kernel_launch_args"] is False
+    assert payload["full_fetch_runtime_allowed"] is False
+    assert payload["uses_current_wna16_args"] is False
+    assert payload["passes_current_wna16_args"] is False
+    assert payload["measures_tpot"] is False
+    assert payload["measures_vllm_latency"] is False
+
+
+def test_payload_cache_live_payload_runtime_disabled_canary_rejects_side_effects() -> None:
+    live_status = (
+        "blocked_by_queue_budget_runtime_envelope:"
+        "model_queue_budget_satisfied_runtime_disabled"
+    )
+    with pytest.raises(ValueError, match="payload_bytes"):
+        PayloadCacheLivePayloadRuntimeDisabledCanary(
+            present=True,
+            stage="payload_cache_live_payload_runtime_disabled_canary",
+            status=f"blocked_by_live_payload_stage:{live_status}",
+            consumes_live_payload_stage_preflight=True,
+            live_payload_stage_status=live_status,
+            payload_bytes=1,
+        )
+
+    with pytest.raises(ValueError, match="payload_deref_allowed"):
+        PayloadCacheLivePayloadRuntimeDisabledCanary(
+            present=True,
+            stage="payload_cache_live_payload_runtime_disabled_canary",
+            status=f"blocked_by_live_payload_stage:{live_status}",
+            consumes_live_payload_stage_preflight=True,
+            live_payload_stage_status=live_status,
+            payload_deref_allowed=True,
+        )
+
+    with pytest.raises(ValueError, match="kernel_arg_pass_allowed"):
+        PayloadCacheLivePayloadRuntimeDisabledCanary(
+            present=True,
+            stage="payload_cache_live_payload_runtime_disabled_canary",
+            status=f"blocked_by_live_payload_stage:{live_status}",
+            consumes_live_payload_stage_preflight=True,
+            live_payload_stage_status=live_status,
+            kernel_arg_pass_allowed=True,
+        )
+
+    with pytest.raises(ValueError, match="consume"):
+        PayloadCacheLivePayloadRuntimeDisabledCanary(
+            present=True,
+            stage="payload_cache_live_payload_runtime_disabled_canary",
+            status=f"blocked_by_live_payload_stage:{live_status}",
+            consumes_live_payload_stage_preflight=False,
+            live_payload_stage_status=live_status,
+        )
+
+    with pytest.raises(ValueError, match="status"):
+        PayloadCacheLivePayloadRuntimeDisabledCanary(
+            present=True,
+            stage="payload_cache_live_payload_runtime_disabled_canary",
+            status="blocked_by_live_payload_stage:stale_status",
+            consumes_live_payload_stage_preflight=True,
+            live_payload_stage_status=live_status,
+        )
+
+    with pytest.raises(TypeError, match="preflight"):
+        build_payload_cache_live_payload_runtime_disabled_canary(object())  # type: ignore[arg-type]
 
 
 def test_payload_cache_runtime_execution_dry_run_consumes_plan() -> None:

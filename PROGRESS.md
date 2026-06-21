@@ -2,10 +2,107 @@
 
 ## Progress Version
 
-- Version: `v1.25-live-payload-stage-preflight-gate`
+- Version: `v1.26-live-payload-runtime-disabled-canary`
 - Updated: 2026-06-22
 
-## Latest Update: Live Payload Stage Preflight Gate
+## Latest Update: Live Payload Runtime Disabled Canary
+
+The live payload stage preflight now feeds one more blocked object:
+
+```text
+PayloadCacheLivePayloadRuntimeDisabledCanary
+```
+
+This is the last payloadless lab contract before a real payload/cache-manager
+runtime implementation.  It proves that the future runtime entry point consumes
+the live-stage preflight, while still keeping every side effect disabled.
+
+Required canary contract:
+
+```text
+stage = payload_cache_live_payload_runtime_disabled_canary
+status = blocked_by_live_payload_stage:blocked_by_queue_budget_runtime_envelope:model_queue_budget_satisfied_runtime_disabled
+decision = blocked
+block_reason = live_payload_runtime_disabled
+execution_mode = payloadless_live_payload_runtime_disabled_canary
+consumes_live_payload_stage_preflight = true
+live_payload_stage_status = blocked_by_queue_budget_runtime_envelope:model_queue_budget_satisfied_runtime_disabled
+```
+
+The canary is now emitted by the default lab gate and flattened into the compact
+preflight summary under:
+
+```text
+stream_queue_budget_live_payload_runtime_*
+prefetch_lab_default_stream_queue_budget_live_payload_runtime_*
+```
+
+The required no-side-effect boundary remains closed:
+
+```text
+live_payload_runtime_enabled = false
+payload_transfer_runtime_enabled = false
+payload_deref_allowed = false
+payload_deref_runtime_allowed = false
+issued_payload_count = 0
+payload_bytes = 0
+ready_credit = false
+ready_before_demand_credit = false
+real_ready_credit_granted = false
+kernel_arg_pass_allowed = false
+passed_to_kernel = false
+changes_kernel_launch_args = false
+full_fetch_runtime_allowed = false
+uses_current_wna16_args = false
+passes_current_wna16_args = false
+measures_tpot = false
+measures_vllm_latency = false
+```
+
+Validation:
+
+```text
+/home/husrcf/anaconda3/envs/TRY/bin/python -m pytest \
+  tests/test_cache_lab_gate.py \
+  tests/test_check_prefetch_lab_default_gate.py \
+  tests/test_run_premap_lab_preflight.py \
+  tests/test_check_premap_lab_preflight_summary.py \
+  tests/test_check_premap_payload_cache_ready_time_gate.py \
+  tests/test_vllm_router_shadow_sink.py -q
+
+489 passed
+
+/home/husrcf/anaconda3/envs/TRY/bin/python scripts/check_prefetch_lab_default_gate.py \
+  configs/runtime/prefetch_lab_default_gate_gpu1.yaml
+
+passed = true
+
+/home/husrcf/anaconda3/envs/TRY/bin/python scripts/check_premap_lab_preflight_summary.py \
+  outputs/reports/premap_lab_preflight_status_queue_budget_gate_summary_20260622.json \
+  --output-json outputs/reports/premap_lab_preflight_status_queue_budget_gate_summary_20260622.check.json
+
+passed = true
+```
+
+Reviewer status:
+
+```text
+GPT-5.5 static review found no blockers.
+Status binding and missing-field behavior were checked.
+Additional status/consume negative tests were added after review.
+```
+
+Next gate:
+
+```text
+the next step is no longer another payloadless label.  It should introduce the
+first real payload/cache-manager implementation artifact behind this canary,
+still default-disabled and still forbidden from payload dereference, ready
+credit, kernel argument handoff, or TPOT claims until a separate strict gate
+passes.
+```
+
+## Previous Update: Live Payload Stage Preflight Gate
 
 The queue-budget runtime envelope now feeds the next explicit blocked stage:
 

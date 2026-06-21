@@ -7093,6 +7093,52 @@ def test_premap_lab_preflight_accepts_default_readonly_wiring(tmp_path: Path):
         is False
     )
     assert (
+        summary[
+            "prefetch_lab_default_stream_queue_budget_live_payload_runtime_present"
+        ]
+        is True
+    )
+    assert (
+        summary[
+            "prefetch_lab_default_stream_queue_budget_live_payload_runtime_status"
+        ]
+        == (
+            "blocked_by_live_payload_stage:"
+            "blocked_by_queue_budget_runtime_envelope:"
+            "model_queue_budget_satisfied_runtime_disabled"
+        )
+    )
+    assert (
+        summary[
+            "prefetch_lab_default_stream_queue_budget_live_payload_runtime_execution_mode"
+        ]
+        == "payloadless_live_payload_runtime_disabled_canary"
+    )
+    assert (
+        summary[
+            "prefetch_lab_default_stream_queue_budget_live_payload_runtime_payload_bytes"
+        ]
+        == 0
+    )
+    assert (
+        summary[
+            "prefetch_lab_default_stream_queue_budget_live_payload_runtime_payload_deref_allowed"
+        ]
+        is False
+    )
+    assert (
+        summary[
+            "prefetch_lab_default_stream_queue_budget_live_payload_runtime_payload_deref_runtime_allowed"
+        ]
+        is False
+    )
+    assert (
+        summary[
+            "prefetch_lab_default_stream_queue_budget_live_payload_runtime_kernel_arg_pass_allowed"
+        ]
+        is False
+    )
+    assert (
         summary["prefetch_lab_default_stream_queue_budget_payload_transfer_enabled"]
         is False
     )
