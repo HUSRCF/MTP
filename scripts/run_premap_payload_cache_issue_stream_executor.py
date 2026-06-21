@@ -363,6 +363,14 @@ def run_issue_stream_executor(args: argparse.Namespace) -> dict[str, Any]:
     max_demand_arrival_us: float | None = None
     first_packet_path: str | None = None
     last_packet_path: str | None = None
+    shifted_issue_clamped_count = 0
+    shifted_issue_row_shift_mismatch_count = 0
+    shifted_issue_row_clamp_mismatch_count = 0
+    shifted_issue_duplicate_issue_key_count = 0
+    shifted_issue_unique_issue_key_count = 0
+    shifted_issue_invalid_export_count = 0
+    shifted_issue_accounted_packet_count = 0
+    shifted_issue_keys_seen: set[tuple[int, str, int, int, int]] = set()
 
     for idx, raw_path in enumerate(raw_paths):
         if not isinstance(raw_path, str) or not raw_path:
@@ -469,6 +477,89 @@ def run_issue_stream_executor(args: argparse.Namespace) -> dict[str, Any]:
                 and int(export_context.get("token_index")) >= 0
                 else 0
             )
+            unclamped_issue_token = token_index - issue_lead_tokens
+            expected_issue_token_index = max(0, unclamped_issue_token)
+            expected_issue_clamped = unclamped_issue_token < 0
+            raw_issue_token_index = (
+                export_context.get("issue_token_index")
+                if isinstance(export_context, dict)
+                else None
+            )
+            raw_issue_clamped = (
+                export_context.get("issue_clamped_to_zero")
+                if isinstance(export_context, dict)
+                else None
+            )
+            issue_token_index_export_invalid = (
+                raw_issue_token_index is not None
+                and not (
+                    _is_int(raw_issue_token_index)
+                    and int(raw_issue_token_index) >= 0
+                )
+            )
+            issue_clamped_export_invalid = (
+                raw_issue_clamped is not None
+                and not isinstance(raw_issue_clamped, bool)
+            )
+            if issue_token_index_export_invalid:
+                shifted_issue_invalid_export_count += 1
+                failures.append(f"packet_{idx}_issue_token_index_invalid")
+            if issue_clamped_export_invalid:
+                shifted_issue_invalid_export_count += 1
+                failures.append(f"packet_{idx}_issue_clamped_to_zero_invalid")
+            issue_token_index = (
+                int(raw_issue_token_index)
+                if _is_int(raw_issue_token_index) and int(raw_issue_token_index) >= 0
+                else expected_issue_token_index
+            )
+            issue_clamped = (
+                bool(raw_issue_clamped)
+                if isinstance(raw_issue_clamped, bool)
+                else expected_issue_clamped
+            )
+            if expected_issue_clamped:
+                shifted_issue_clamped_count += 1
+            if issue_token_index != expected_issue_token_index:
+                shifted_issue_row_shift_mismatch_count += 1
+            if issue_clamped != expected_issue_clamped:
+                shifted_issue_row_clamp_mismatch_count += 1
+            sample_idx = (
+                int(export_context["sample_idx"])
+                if isinstance(export_context, dict)
+                and _is_int(export_context.get("sample_idx"))
+                else None
+            )
+            record_id = (
+                str(export_context["record_id"])
+                if isinstance(export_context, dict)
+                and isinstance(export_context.get("record_id"), str)
+                and export_context.get("record_id")
+                else None
+            )
+            sequence_id = (
+                int(export_context["sequence_id"])
+                if isinstance(export_context, dict)
+                and _is_int(export_context.get("sequence_id"))
+                else 0
+            )
+            if sample_idx is None:
+                failures.append(f"packet_{idx}_sample_idx_invalid")
+            if record_id is None:
+                failures.append(f"packet_{idx}_record_id_invalid")
+            if sample_idx is not None and record_id is not None:
+                issue_key = (
+                    sample_idx,
+                    record_id,
+                    sequence_id,
+                    layer_id,
+                    issue_token_index,
+                )
+                shifted_issue_accounted_packet_count += 1
+                if issue_key in shifted_issue_keys_seen:
+                    shifted_issue_duplicate_issue_key_count += 1
+                else:
+                    shifted_issue_keys_seen.add(issue_key)
+                    shifted_issue_unique_issue_key_count += 1
             demand_arrival = (
                 float(args.issue_arrival_us)
                 + (float(token_index) * decode_token_us)
@@ -552,6 +643,12 @@ def run_issue_stream_executor(args: argparse.Namespace) -> dict[str, Any]:
         failures.append("ready_late_miss_rate_above_threshold")
     if used_per_issued_fetch < float(args.min_used_per_issued_fetch):
         failures.append("used_per_issued_fetch_below_threshold")
+    if shifted_issue_invalid_export_count:
+        failures.append("shifted_issue_invalid_export_count_nonzero")
+    if shifted_issue_row_shift_mismatch_count:
+        failures.append("shifted_issue_row_shift_mismatch_count_nonzero")
+    if shifted_issue_row_clamp_mismatch_count:
+        failures.append("shifted_issue_row_clamp_mismatch_count_nonzero")
 
     threshold_failure_set = {
         "demand_hit_rate_below_threshold",
@@ -611,6 +708,15 @@ def run_issue_stream_executor(args: argparse.Namespace) -> dict[str, Any]:
         "required_token_source_missing_count": required_token_source_missing_count,
         "allow_config_token_source": bool(args.allow_config_token_source),
         "allow_empty_config_packets": bool(args.allow_empty_config_packets),
+        "shifted_issue_accounting_enabled": bool(token_timing_enabled),
+        "shifted_issue_lead_tokens": issue_lead_tokens,
+        "shifted_issue_clamped_issue_count": shifted_issue_clamped_count,
+        "shifted_issue_duplicate_issue_key_count": shifted_issue_duplicate_issue_key_count,
+        "shifted_issue_unique_issue_key_count": shifted_issue_unique_issue_key_count,
+        "shifted_issue_invalid_export_count": shifted_issue_invalid_export_count,
+        "shifted_issue_accounted_packet_count": shifted_issue_accounted_packet_count,
+        "shifted_issue_row_shift_mismatch_count": shifted_issue_row_shift_mismatch_count,
+        "shifted_issue_row_clamp_mismatch_count": shifted_issue_row_clamp_mismatch_count,
         "issue_arrival_min_us": min_issue_arrival_us,
         "issue_arrival_max_us": max_issue_arrival_us,
         "demand_arrival_min_us": min_demand_arrival_us,

@@ -98,6 +98,7 @@ def _packet_payload(
             "token_index_source": token_source,
             "sample_idx": 0,
             "record_id": "rec-0",
+            "sequence_id": 0,
             "issue_candidate_count": len(issue_candidates),
             "issue_candidate_first_expert": (
                 issue_candidates[0] if issue_candidates else -1
@@ -259,6 +260,139 @@ def test_issue_stream_executor_token_index_mode_uses_lead_tokens(tmp_path: Path)
     assert result["demand_arrival_min_us"] == 300.0
     assert result["demand_arrival_max_us"] == 401.0
     assert result["demand_hit_rate"] == 1.0
+    assert result["shifted_issue_accounting_enabled"] is True
+    assert result["shifted_issue_lead_tokens"] == 1
+    assert result["shifted_issue_clamped_issue_count"] == 0
+    assert result["shifted_issue_duplicate_issue_key_count"] == 0
+    assert result["shifted_issue_unique_issue_key_count"] == 2
+    assert result["shifted_issue_row_shift_mismatch_count"] == 0
+    assert result["shifted_issue_row_clamp_mismatch_count"] == 0
+
+
+def test_issue_stream_executor_token_index_mode_reports_bootstrap_coalescing(
+    tmp_path: Path,
+):
+    module = _load_module()
+    packet0 = tmp_path / "packet0.json"
+    packet1 = tmp_path / "packet1.json"
+    online = tmp_path / "online.json"
+    _write_json(
+        packet0,
+        _packet_payload(layer_id=0, previous=(3,), topk=1, token_index=1),
+    )
+    second_payload = _packet_payload(layer_id=0, previous=(5,), topk=1, token_index=2)
+    second_payload["_export_context"].pop("sequence_id")
+    _write_json(packet1, second_payload)
+    _write_json(online, _online_payload([packet0, packet1]))
+
+    result = _run(
+        module,
+        online,
+        tmp_path / "out.json",
+        [
+            "--event-timing-mode",
+            "token_index",
+            "--decode-token-us",
+            "100",
+            "--issue-lead-tokens",
+            "4",
+            "--service-us-per-issue",
+            "0",
+            "--queue-batch-size",
+            "1",
+            "--min-packet-count",
+            "2",
+            "--min-nonempty-packet-count",
+            "2",
+        ],
+    )
+
+    assert result["passed"] is True
+    assert result["shifted_issue_accounting_enabled"] is True
+    assert result["shifted_issue_lead_tokens"] == 4
+    assert result["shifted_issue_clamped_issue_count"] == 2
+    assert result["shifted_issue_duplicate_issue_key_count"] == 1
+    assert result["shifted_issue_unique_issue_key_count"] == 1
+    assert result["shifted_issue_accounted_packet_count"] == 2
+    assert result["shifted_issue_row_shift_mismatch_count"] == 0
+    assert result["shifted_issue_row_clamp_mismatch_count"] == 0
+
+
+def test_issue_stream_executor_token_index_mode_reports_exported_shift_mismatch(
+    tmp_path: Path,
+):
+    module = _load_module()
+    packet0 = tmp_path / "packet0.json"
+    online = tmp_path / "online.json"
+    payload = _packet_payload(layer_id=0, previous=(3,), topk=1, token_index=2)
+    payload["_export_context"]["issue_token_index"] = 2
+    payload["_export_context"]["issue_clamped_to_zero"] = False
+    _write_json(packet0, payload)
+    _write_json(online, _online_payload([packet0]))
+
+    result = _run(
+        module,
+        online,
+        tmp_path / "out.json",
+        [
+            "--event-timing-mode",
+            "token_index",
+            "--decode-token-us",
+            "100",
+            "--issue-lead-tokens",
+            "4",
+            "--service-us-per-issue",
+            "0",
+            "--min-packet-count",
+            "1",
+            "--min-nonempty-packet-count",
+            "1",
+        ],
+    )
+
+    assert result["passed"] is False
+    assert result["shifted_issue_clamped_issue_count"] == 1
+    assert result["shifted_issue_row_shift_mismatch_count"] == 1
+    assert result["shifted_issue_row_clamp_mismatch_count"] == 1
+    assert "shifted_issue_row_shift_mismatch_count_nonzero" in result["failures"]
+    assert "shifted_issue_row_clamp_mismatch_count_nonzero" in result["failures"]
+
+
+def test_issue_stream_executor_token_index_mode_rejects_malformed_exported_shift(
+    tmp_path: Path,
+):
+    module = _load_module()
+    packet0 = tmp_path / "packet0.json"
+    online = tmp_path / "online.json"
+    payload = _packet_payload(layer_id=0, previous=(3,), topk=1, token_index=2)
+    payload["_export_context"]["issue_token_index"] = True
+    payload["_export_context"]["issue_clamped_to_zero"] = 0
+    _write_json(packet0, payload)
+    _write_json(online, _online_payload([packet0]))
+
+    result = _run(
+        module,
+        online,
+        tmp_path / "out.json",
+        [
+            "--event-timing-mode",
+            "token_index",
+            "--issue-lead-tokens",
+            "4",
+            "--service-us-per-issue",
+            "0",
+            "--min-packet-count",
+            "1",
+            "--min-nonempty-packet-count",
+            "1",
+        ],
+    )
+
+    assert result["passed"] is False
+    assert result["shifted_issue_invalid_export_count"] == 2
+    assert "packet_0_issue_token_index_invalid" in result["failures"]
+    assert "packet_0_issue_clamped_to_zero_invalid" in result["failures"]
+    assert "shifted_issue_invalid_export_count_nonzero" in result["failures"]
 
 
 def test_issue_stream_executor_token_index_mode_rejects_invalid_layer_id(
