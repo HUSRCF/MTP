@@ -2,10 +2,69 @@
 
 ## Progress Version
 
-- Version: `v1.40-live-runtime-adapter-constructor-binding-preflight`
+- Version: `v1.41-live-runtime-adapter-instance-construction-plan`
 - Updated: 2026-06-22
 
-## Latest Update: Live Runtime Adapter Constructor-Binding Preflight
+## Latest Update: Live Runtime Adapter Instance-Construction Plan
+
+The payload/cache lab chain now reaches a blocked adapter instance-construction
+plan:
+
+```text
+PayloadCacheLiveRuntimeAdapterInstanceConstructionPlan
+```
+
+This plan consumes
+`PayloadCacheLiveRuntimeAdapterConstructorBindingPreflight` and records that the
+future constructor inputs are sealed and that a constructor call can be planned:
+
+```text
+constructor_inputs_bound = true
+construction_plan_sealed = true
+adapter_constructor_call_prepared = true
+adapter_instance_construction_planned = true
+```
+
+This is still not adapter construction.  It does not create an adapter instance,
+does not instantiate a live runtime, and does not participate in payload or
+kernel execution:
+
+```text
+adapter_instance_created = false
+live_runtime_instantiated = false
+decision = blocked
+block_reason = live_runtime_adapter_instance_construction_plan_only
+execution_mode = payload_cache_live_runtime_adapter_instance_construction_plan_disabled
+instance_construction_plan_schema = ready_time_payload_cache_runtime_adapter_instance_construction_plan_v1
+payload_bytes = 0
+ready_credit = false
+kernel_arg_pass_allowed = false
+changes_kernel_launch_args = false
+uses_current_wna16_args = false
+passes_current_wna16_args = false
+measures_tpot = false
+measures_vllm_latency = false
+```
+
+The builder revalidates the upstream constructor-binding preflight and requires
+the canonical
+`blocked_by_state_validation_artifact:blocked_by_adapter_state_validation_preflight:blocked_by_adapter_state_object_preflight:blocked_by_adapter_materialization_preflight:blocked_by_object_adapter_preflight:*`
+ancestry before emitting the plan.  The compact lab preflight summary now
+includes
+`prefetch_lab_default_stream_queue_budget_live_runtime_adapter_instance_construction_plan_*`
+fields, and the final checker treats them as required gate evidence.
+
+Validation:
+
+```text
+py_compile runtime/cache_lab_gate.py and summary scripts: pass
+pytest tests/test_cache_lab_gate.py tests/test_check_premap_lab_preflight_summary.py -q: 162 passed
+pytest focused lab/preflight suite: 540 passed
+generated summary/check artifacts: pass
+Hubble static review: pending
+```
+
+## Previous Update: Live Runtime Adapter Constructor-Binding Preflight
 
 The payload/cache lab chain now reaches a blocked constructor-binding preflight:
 

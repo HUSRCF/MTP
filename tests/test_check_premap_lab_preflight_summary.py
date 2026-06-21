@@ -2477,6 +2477,104 @@ def _summary() -> dict[str, object]:
         "measures_vllm_latency",
     ):
         summary[f"{constructor_binding_prefix}_{key}"] = False
+    instance_plan_prefix = (
+        "prefetch_lab_default_stream_queue_budget_"
+        "live_runtime_adapter_instance_construction_plan"
+    )
+    constructor_binding_status = str(summary[f"{constructor_binding_prefix}_status"])
+    summary.update(
+        {
+            f"{instance_plan_prefix}_present": True,
+            f"{instance_plan_prefix}_stage": (
+                "payload_cache_live_runtime_adapter_instance_construction_plan"
+            ),
+            f"{instance_plan_prefix}_status": (
+                "blocked_by_constructor_binding_preflight:"
+                f"{constructor_binding_status}"
+            ),
+            f"{instance_plan_prefix}_consumes_constructor_binding_preflight": True,
+            f"{instance_plan_prefix}_constructor_binding_status": (
+                constructor_binding_status
+            ),
+            f"{instance_plan_prefix}_manager_backend": (
+                "ReadyTimeExpertCacheManager"
+            ),
+            f"{instance_plan_prefix}_manager_runtime_contract": (
+                "ready_time_issue_demand_skeleton_v1"
+            ),
+            f"{instance_plan_prefix}_manager_runtime_mode": (
+                "ready_time_payload_cache_skeleton"
+            ),
+            f"{instance_plan_prefix}_constructor_binding_schema": (
+                "ready_time_payload_cache_runtime_adapter_constructor_binding_v1"
+            ),
+            f"{instance_plan_prefix}_instance_construction_plan_schema": (
+                "ready_time_payload_cache_runtime_adapter_instance_construction_plan_v1"
+            ),
+            f"{instance_plan_prefix}_constructor_inputs_bound": True,
+            f"{instance_plan_prefix}_construction_plan_sealed": True,
+            f"{instance_plan_prefix}_adapter_constructor_call_prepared": True,
+            f"{instance_plan_prefix}_adapter_instance_construction_planned": True,
+            f"{instance_plan_prefix}_adapter_instance_created": False,
+            f"{instance_plan_prefix}_live_runtime_instantiated": False,
+            f"{instance_plan_prefix}_capacity_entries": 4096,
+            f"{instance_plan_prefix}_issue_lead_tokens": 32,
+            f"{instance_plan_prefix}_queue_deadline_us": 100.0,
+            f"{instance_plan_prefix}_lookahead_us": 2400000.0,
+            f"{instance_plan_prefix}_queue_batch_size": 1,
+            f"{instance_plan_prefix}_shifted_issue_accounting_enabled": True,
+            f"{instance_plan_prefix}_shifted_issue_accounted_packet_count": 28,
+            f"{instance_plan_prefix}_shifted_issue_unique_issue_key_count": 16,
+            f"{instance_plan_prefix}_decision": "blocked",
+            f"{instance_plan_prefix}_block_reason": (
+                "live_runtime_adapter_instance_construction_plan_only"
+            ),
+            f"{instance_plan_prefix}_execution_mode": (
+                "payload_cache_live_runtime_adapter_instance_construction_plan_disabled"
+            ),
+        },
+    )
+    for key in (
+        "resident_count",
+        "issued_fetch_count",
+        "used_fetch_count",
+        "unused_fetch_count",
+        "demand_count",
+        "demand_hit_count",
+        "demand_miss_count",
+        "evicted_before_use_count",
+        "ready_late_miss_count",
+        "late_completion_unused_count",
+        "queue_batch_count",
+        "issued_payload_count",
+        "payload_bytes",
+    ):
+        summary[f"{instance_plan_prefix}_{key}"] = 0
+    for key in (
+        "queue_service_us",
+        "queue_total_span_us",
+        "queue_wait_us",
+        "queue_max_delay_us",
+    ):
+        summary[f"{instance_plan_prefix}_{key}"] = 0.0
+    for key in (
+        "live_payload_runtime_enabled",
+        "payload_transfer_runtime_enabled",
+        "payload_deref_allowed",
+        "payload_deref_runtime_allowed",
+        "ready_credit",
+        "ready_before_demand_credit",
+        "real_ready_credit_granted",
+        "kernel_arg_pass_allowed",
+        "passed_to_kernel",
+        "changes_kernel_launch_args",
+        "full_fetch_runtime_allowed",
+        "uses_current_wna16_args",
+        "passes_current_wna16_args",
+        "measures_tpot",
+        "measures_vllm_latency",
+    ):
+        summary[f"{instance_plan_prefix}_{key}"] = False
     return summary
 
 
@@ -4332,6 +4430,30 @@ def test_check_premap_lab_preflight_summary_rejects_constructor_binding_escape()
     assert result["passed"] is False
     assert f"{prefix}_status_mismatch" in result["failures"]
     assert f"{prefix}_constructor_inputs_bound_mismatch" in result["failures"]
+    assert f"{prefix}_adapter_instance_created_mismatch" in result["failures"]
+    assert f"{prefix}_payload_bytes_mismatch" in result["failures"]
+    assert f"{prefix}_ready_credit_mismatch" in result["failures"]
+    assert f"{prefix}_kernel_arg_pass_allowed_mismatch" in result["failures"]
+
+
+def test_check_premap_lab_preflight_summary_rejects_instance_construction_plan_escape() -> None:
+    summary = _summary()
+    prefix = (
+        "prefetch_lab_default_stream_queue_budget_"
+        "live_runtime_adapter_instance_construction_plan"
+    )
+    summary[f"{prefix}_status"] = "passed"
+    summary[f"{prefix}_construction_plan_sealed"] = False
+    summary[f"{prefix}_adapter_instance_created"] = True
+    summary[f"{prefix}_payload_bytes"] = 64
+    summary[f"{prefix}_ready_credit"] = True
+    summary[f"{prefix}_kernel_arg_pass_allowed"] = True
+
+    result = check_premap_lab_preflight_summary(summary)
+
+    assert result["passed"] is False
+    assert f"{prefix}_status_mismatch" in result["failures"]
+    assert f"{prefix}_construction_plan_sealed_mismatch" in result["failures"]
     assert f"{prefix}_adapter_instance_created_mismatch" in result["failures"]
     assert f"{prefix}_payload_bytes_mismatch" in result["failures"]
     assert f"{prefix}_ready_credit_mismatch" in result["failures"]

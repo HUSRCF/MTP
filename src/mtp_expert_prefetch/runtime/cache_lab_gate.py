@@ -3149,6 +3149,213 @@ class PayloadCacheLiveRuntimeAdapterConstructorBindingPreflight:
         return asdict(self)
 
 
+@dataclass(frozen=True)
+class PayloadCacheLiveRuntimeAdapterInstanceConstructionPlan:
+    """Blocked plan for future adapter instance construction.
+
+    This is deliberately not an adapter construction side effect.  It records
+    that the constructor inputs are sealed and a future construction call can
+    be planned, while still preventing an adapter instance, live runtime,
+    payload movement, ready credit, and kernel argument handoff.
+    """
+
+    present: bool
+    stage: str
+    status: str
+    consumes_constructor_binding_preflight: bool
+    constructor_binding_status: str
+    manager_backend: str
+    manager_runtime_contract: str
+    manager_runtime_mode: str
+    constructor_binding_schema: str
+    instance_construction_plan_schema: str
+    constructor_inputs_bound: bool
+    construction_plan_sealed: bool
+    adapter_constructor_call_prepared: bool
+    adapter_instance_construction_planned: bool
+    adapter_instance_created: bool
+    live_runtime_instantiated: bool
+    capacity_entries: int
+    issue_lead_tokens: int
+    queue_deadline_us: float
+    lookahead_us: float
+    queue_batch_size: int
+    resident_count: int
+    issued_fetch_count: int
+    used_fetch_count: int
+    unused_fetch_count: int
+    demand_count: int
+    demand_hit_count: int
+    demand_miss_count: int
+    evicted_before_use_count: int
+    ready_late_miss_count: int
+    late_completion_unused_count: int
+    queue_batch_count: int
+    queue_service_us: float
+    queue_total_span_us: float
+    queue_wait_us: float
+    queue_max_delay_us: float
+    shifted_issue_accounting_enabled: bool
+    shifted_issue_accounted_packet_count: int
+    shifted_issue_unique_issue_key_count: int
+    decision: str = "blocked"
+    block_reason: str = "live_runtime_adapter_instance_construction_plan_only"
+    execution_mode: str = (
+        "payload_cache_live_runtime_adapter_instance_construction_plan_disabled"
+    )
+    live_payload_runtime_enabled: bool = False
+    payload_transfer_runtime_enabled: bool = False
+    payload_deref_allowed: bool = False
+    payload_deref_runtime_allowed: bool = False
+    issued_payload_count: int = 0
+    payload_bytes: int = 0
+    ready_credit: bool = False
+    ready_before_demand_credit: bool = False
+    real_ready_credit_granted: bool = False
+    kernel_arg_pass_allowed: bool = False
+    passed_to_kernel: bool = False
+    changes_kernel_launch_args: bool = False
+    full_fetch_runtime_allowed: bool = False
+    uses_current_wna16_args: bool = False
+    passes_current_wna16_args: bool = False
+    measures_tpot: bool = False
+    measures_vllm_latency: bool = False
+
+    def __post_init__(self) -> None:
+        if self.present is not True:
+            raise ValueError("adapter instance-construction plan must be present")
+        if self.stage != "payload_cache_live_runtime_adapter_instance_construction_plan":
+            raise ValueError("adapter instance-construction plan stage mismatch")
+        if self.consumes_constructor_binding_preflight is not True:
+            raise ValueError("instance-construction plan must consume binding")
+        if (
+            not isinstance(self.constructor_binding_status, str)
+            or not self.constructor_binding_status
+        ):
+            raise TypeError("constructor_binding_status must be nonempty")
+        expected_status = (
+            "blocked_by_constructor_binding_preflight:"
+            f"{self.constructor_binding_status}"
+        )
+        if self.status != expected_status:
+            raise ValueError("adapter instance-construction plan status mismatch")
+        if self.manager_backend != "ReadyTimeExpertCacheManager":
+            raise ValueError("adapter instance-construction backend mismatch")
+        if self.manager_runtime_contract != "ready_time_issue_demand_skeleton_v1":
+            raise ValueError("adapter instance-construction contract mismatch")
+        if self.manager_runtime_mode != "ready_time_payload_cache_skeleton":
+            raise ValueError("adapter instance-construction mode mismatch")
+        if (
+            self.constructor_binding_schema
+            != "ready_time_payload_cache_runtime_adapter_constructor_binding_v1"
+        ):
+            raise ValueError("constructor_binding_schema mismatch")
+        if (
+            self.instance_construction_plan_schema
+            != "ready_time_payload_cache_runtime_adapter_instance_construction_plan_v1"
+        ):
+            raise ValueError("instance_construction_plan_schema mismatch")
+        for field_name in (
+            "constructor_inputs_bound",
+            "construction_plan_sealed",
+            "adapter_constructor_call_prepared",
+            "adapter_instance_construction_planned",
+        ):
+            if getattr(self, field_name) is not True:
+                raise ValueError(f"{field_name} must be true")
+        if self.adapter_instance_created is not False:
+            raise ValueError("adapter instance must not be created")
+        if self.live_runtime_instantiated is not False:
+            raise ValueError("live runtime must not be instantiated")
+        if self.decision != "blocked":
+            raise ValueError("adapter instance-construction decision must stay blocked")
+        if self.block_reason != "live_runtime_adapter_instance_construction_plan_only":
+            raise ValueError("adapter instance-construction block reason mismatch")
+        if (
+            self.execution_mode
+            != "payload_cache_live_runtime_adapter_instance_construction_plan_disabled"
+        ):
+            raise ValueError("adapter instance-construction execution mode mismatch")
+        for field_name in (
+            "capacity_entries",
+            "issue_lead_tokens",
+            "queue_batch_size",
+            "shifted_issue_accounted_packet_count",
+            "shifted_issue_unique_issue_key_count",
+        ):
+            value = getattr(self, field_name)
+            if not isinstance(value, int) or isinstance(value, bool):
+                raise TypeError(f"{field_name} must be an integer")
+            if value <= 0:
+                raise ValueError(f"{field_name} must be positive")
+        for field_name in (
+            "resident_count",
+            "issued_fetch_count",
+            "used_fetch_count",
+            "unused_fetch_count",
+            "demand_count",
+            "demand_hit_count",
+            "demand_miss_count",
+            "evicted_before_use_count",
+            "ready_late_miss_count",
+            "late_completion_unused_count",
+            "queue_batch_count",
+        ):
+            value = getattr(self, field_name)
+            if not isinstance(value, int) or isinstance(value, bool):
+                raise TypeError(f"{field_name} must be an integer")
+            if value != 0:
+                raise ValueError(f"{field_name} must remain zero")
+        for field_name in (
+            "queue_deadline_us",
+            "lookahead_us",
+            "queue_service_us",
+            "queue_total_span_us",
+            "queue_wait_us",
+            "queue_max_delay_us",
+        ):
+            value = getattr(self, field_name)
+            if not isinstance(value, (int, float)) or isinstance(value, bool):
+                raise TypeError(f"{field_name} must be numeric")
+            numeric = float(value)
+            if not math.isfinite(numeric):
+                raise ValueError(f"{field_name} must be finite")
+            if field_name in ("queue_deadline_us", "lookahead_us") and numeric <= 0.0:
+                raise ValueError(f"{field_name} must be positive")
+            if field_name not in ("queue_deadline_us", "lookahead_us") and numeric != 0.0:
+                raise ValueError(f"{field_name} must remain zero")
+        if self.shifted_issue_accounting_enabled is not True:
+            raise ValueError("shifted issue accounting must be enabled")
+        for field_name in ("issued_payload_count", "payload_bytes"):
+            value = getattr(self, field_name)
+            if not isinstance(value, int) or isinstance(value, bool):
+                raise TypeError(f"{field_name} must be an integer")
+            if value != 0:
+                raise ValueError(f"{field_name} must remain zero")
+        for field_name in (
+            "live_payload_runtime_enabled",
+            "payload_transfer_runtime_enabled",
+            "payload_deref_allowed",
+            "payload_deref_runtime_allowed",
+            "ready_credit",
+            "ready_before_demand_credit",
+            "real_ready_credit_granted",
+            "kernel_arg_pass_allowed",
+            "passed_to_kernel",
+            "changes_kernel_launch_args",
+            "full_fetch_runtime_allowed",
+            "uses_current_wna16_args",
+            "passes_current_wna16_args",
+            "measures_tpot",
+            "measures_vllm_latency",
+        ):
+            if getattr(self, field_name) is not False:
+                raise ValueError(f"{field_name} must remain disabled")
+
+    def as_dict(self) -> dict[str, bool | float | int | str]:
+        return asdict(self)
+
+
 def select_cache_lab_prefetch_gate(
     signals: CacheLabRuntimeSignals,
     *,
@@ -5153,6 +5360,161 @@ def build_payload_cache_live_runtime_adapter_constructor_binding_preflight(
         ),
         shifted_issue_unique_issue_key_count=int(
             canary.shifted_issue_unique_issue_key_count,
+        ),
+    )
+
+
+def build_payload_cache_live_runtime_adapter_instance_construction_plan(
+    binding: PayloadCacheLiveRuntimeAdapterConstructorBindingPreflight,
+) -> PayloadCacheLiveRuntimeAdapterInstanceConstructionPlan:
+    """Plan future adapter instance construction without creating an instance."""
+
+    if not isinstance(binding, PayloadCacheLiveRuntimeAdapterConstructorBindingPreflight):
+        raise TypeError(
+            "binding must be a "
+            "PayloadCacheLiveRuntimeAdapterConstructorBindingPreflight",
+        )
+    if binding.present is not True:
+        raise ValueError("adapter constructor-binding preflight must be present")
+    if binding.stage != "payload_cache_live_runtime_adapter_constructor_binding_preflight":
+        raise ValueError("adapter constructor-binding preflight stage mismatch")
+    if binding.consumes_instantiation_canary is not True:
+        raise ValueError("adapter constructor-binding preflight must consume canary")
+    if (
+        not isinstance(binding.instantiation_canary_status, str)
+        or not binding.instantiation_canary_status
+    ):
+        raise TypeError("adapter constructor-binding canary status invalid")
+    if not binding.instantiation_canary_status.startswith(
+        "blocked_by_state_validation_artifact:"
+        "blocked_by_adapter_state_validation_preflight:"
+        "blocked_by_adapter_state_object_preflight:"
+        "blocked_by_adapter_materialization_preflight:"
+        "blocked_by_object_adapter_preflight:",
+    ):
+        raise ValueError("adapter constructor-binding canary status chain mismatch")
+    expected_binding_status = (
+        "blocked_by_instantiation_canary:"
+        f"{binding.instantiation_canary_status}"
+    )
+    if binding.status != expected_binding_status:
+        raise ValueError("adapter constructor-binding preflight status mismatch")
+    if binding.decision != "blocked":
+        raise ValueError("adapter constructor-binding preflight must stay blocked")
+    if binding.block_reason != "live_runtime_adapter_constructor_binding_preflight_only":
+        raise ValueError("adapter constructor-binding preflight block reason mismatch")
+    if (
+        binding.execution_mode
+        != "payload_cache_live_runtime_adapter_constructor_binding_preflight_disabled"
+    ):
+        raise ValueError("adapter constructor-binding preflight execution mode mismatch")
+    for field_name in (
+        "adapter_factory_declared",
+        "adapter_constructor_resolved",
+        "constructor_inputs_bound",
+        "binds_validated_state_artifact",
+        "binds_queue_budget_parameters",
+        "binds_shifted_issue_accounting",
+    ):
+        if getattr(binding, field_name) is not True:
+            raise ValueError(f"adapter constructor-binding {field_name} invalid")
+    if binding.adapter_instance_created is not False:
+        raise ValueError("adapter constructor-binding must not create instance")
+    if binding.live_runtime_instantiated is not False:
+        raise ValueError("adapter constructor-binding must not instantiate runtime")
+    for field_name in (
+        "resident_count",
+        "issued_fetch_count",
+        "used_fetch_count",
+        "unused_fetch_count",
+        "demand_count",
+        "demand_hit_count",
+        "demand_miss_count",
+        "evicted_before_use_count",
+        "ready_late_miss_count",
+        "late_completion_unused_count",
+        "queue_batch_count",
+    ):
+        if getattr(binding, field_name) != 0:
+            raise ValueError(f"adapter constructor-binding {field_name} must be zero")
+    for field_name in (
+        "queue_service_us",
+        "queue_total_span_us",
+        "queue_wait_us",
+        "queue_max_delay_us",
+    ):
+        if float(getattr(binding, field_name)) != 0.0:
+            raise ValueError(f"adapter constructor-binding {field_name} must be zero")
+    for field_name in (
+        "live_payload_runtime_enabled",
+        "payload_transfer_runtime_enabled",
+        "payload_deref_allowed",
+        "payload_deref_runtime_allowed",
+        "ready_credit",
+        "ready_before_demand_credit",
+        "real_ready_credit_granted",
+        "kernel_arg_pass_allowed",
+        "passed_to_kernel",
+        "changes_kernel_launch_args",
+        "full_fetch_runtime_allowed",
+        "uses_current_wna16_args",
+        "passes_current_wna16_args",
+        "measures_tpot",
+        "measures_vllm_latency",
+    ):
+        if getattr(binding, field_name) is not False:
+            raise ValueError(f"adapter constructor-binding {field_name} enabled")
+    for field_name in ("issued_payload_count", "payload_bytes"):
+        if getattr(binding, field_name) != 0:
+            raise ValueError(f"adapter constructor-binding {field_name} must be zero")
+
+    return PayloadCacheLiveRuntimeAdapterInstanceConstructionPlan(
+        present=True,
+        stage="payload_cache_live_runtime_adapter_instance_construction_plan",
+        status=f"blocked_by_constructor_binding_preflight:{binding.status}",
+        consumes_constructor_binding_preflight=True,
+        constructor_binding_status=str(binding.status),
+        manager_backend=str(binding.manager_backend),
+        manager_runtime_contract=str(binding.manager_runtime_contract),
+        manager_runtime_mode=str(binding.manager_runtime_mode),
+        constructor_binding_schema=str(binding.constructor_binding_schema),
+        instance_construction_plan_schema=(
+            "ready_time_payload_cache_runtime_adapter_instance_construction_plan_v1"
+        ),
+        constructor_inputs_bound=bool(binding.constructor_inputs_bound),
+        construction_plan_sealed=True,
+        adapter_constructor_call_prepared=True,
+        adapter_instance_construction_planned=True,
+        adapter_instance_created=False,
+        live_runtime_instantiated=False,
+        capacity_entries=int(binding.capacity_entries),
+        issue_lead_tokens=int(binding.issue_lead_tokens),
+        queue_deadline_us=float(binding.queue_deadline_us),
+        lookahead_us=float(binding.lookahead_us),
+        queue_batch_size=int(binding.queue_batch_size),
+        resident_count=int(binding.resident_count),
+        issued_fetch_count=int(binding.issued_fetch_count),
+        used_fetch_count=int(binding.used_fetch_count),
+        unused_fetch_count=int(binding.unused_fetch_count),
+        demand_count=int(binding.demand_count),
+        demand_hit_count=int(binding.demand_hit_count),
+        demand_miss_count=int(binding.demand_miss_count),
+        evicted_before_use_count=int(binding.evicted_before_use_count),
+        ready_late_miss_count=int(binding.ready_late_miss_count),
+        late_completion_unused_count=int(binding.late_completion_unused_count),
+        queue_batch_count=int(binding.queue_batch_count),
+        queue_service_us=float(binding.queue_service_us),
+        queue_total_span_us=float(binding.queue_total_span_us),
+        queue_wait_us=float(binding.queue_wait_us),
+        queue_max_delay_us=float(binding.queue_max_delay_us),
+        shifted_issue_accounting_enabled=bool(
+            binding.shifted_issue_accounting_enabled,
+        ),
+        shifted_issue_accounted_packet_count=int(
+            binding.shifted_issue_accounted_packet_count,
+        ),
+        shifted_issue_unique_issue_key_count=int(
+            binding.shifted_issue_unique_issue_key_count,
         ),
     )
 
