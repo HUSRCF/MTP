@@ -1288,6 +1288,67 @@ STREAM_QUEUE_BUDGET_LIVE_RUNTIME_ADAPTER_OBJECT_SHELL_EVIDENCE_FIELDS = (
     "measures_tpot",
     "measures_vllm_latency",
 )
+STREAM_QUEUE_BUDGET_LIVE_RUNTIME_ADAPTER_OPERATION_REJECTION_CANARY_FIELDS = (
+    "present",
+    "stage",
+    "status",
+    "consumes_object_shell_evidence",
+    "object_shell_evidence_status",
+    "manager_backend",
+    "manager_runtime_contract",
+    "manager_runtime_mode",
+    "operation_rejection_schema",
+    "adapter_object_shell_created",
+    "operation_rejection_canary_ran",
+    "issue_prefetch_rejected",
+    "demand_rejected",
+    "shell_enabled",
+    "adapter_instance_created",
+    "live_runtime_instantiated",
+    "capacity_entries",
+    "issue_lead_tokens",
+    "queue_deadline_us",
+    "lookahead_us",
+    "queue_batch_size",
+    "resident_count",
+    "issued_fetch_count",
+    "used_fetch_count",
+    "unused_fetch_count",
+    "demand_count",
+    "demand_hit_count",
+    "demand_miss_count",
+    "evicted_before_use_count",
+    "ready_late_miss_count",
+    "late_completion_unused_count",
+    "queue_batch_count",
+    "queue_service_us",
+    "queue_total_span_us",
+    "queue_wait_us",
+    "queue_max_delay_us",
+    "shifted_issue_accounting_enabled",
+    "shifted_issue_accounted_packet_count",
+    "shifted_issue_unique_issue_key_count",
+    "decision",
+    "block_reason",
+    "execution_mode",
+    "live_payload_runtime_enabled",
+    "payload_transfer_runtime_enabled",
+    "payload_deref_allowed",
+    "payload_deref_runtime_allowed",
+    "issued_payload_count",
+    "payload_bytes",
+    "ready_credit",
+    "ready_before_demand_credit",
+    "real_ready_credit_granted",
+    "kernel_arg_pass_allowed",
+    "passed_to_kernel",
+    "changes_kernel_launch_args",
+    "full_fetch_runtime_allowed",
+    "uses_current_wna16_args",
+    "passes_current_wna16_args",
+    "measures_tpot",
+    "measures_vllm_latency",
+)
 
 
 def _copy_metric_block(
@@ -15092,6 +15153,19 @@ def run_premap_lab_preflight(
             ),
             fields=(
                 STREAM_QUEUE_BUDGET_LIVE_RUNTIME_ADAPTER_OBJECT_SHELL_EVIDENCE_FIELDS
+            ),
+        ),
+        **_copy_metric_block(
+            prefetch_lab_default_full_fetch,
+            input_prefix=(
+                "stream_queue_budget_live_runtime_adapter_operation_rejection_canary"
+            ),
+            output_prefix=(
+                "prefetch_lab_default_stream_queue_budget_"
+                "live_runtime_adapter_operation_rejection_canary"
+            ),
+            fields=(
+                STREAM_QUEUE_BUDGET_LIVE_RUNTIME_ADAPTER_OPERATION_REJECTION_CANARY_FIELDS
             ),
         ),
         "prefetch_lab_default_stream_queue_budget_payload_bytes": _int_metric(

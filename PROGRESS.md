@@ -2,10 +2,81 @@
 
 ## Progress Version
 
-- Version: `v1.42-disabled-live-runtime-adapter-object-shell-evidence`
+- Version: `v1.43-disabled-live-runtime-adapter-operation-rejection-canary`
 - Updated: 2026-06-22
 
-## Latest Update: Disabled Live Runtime Adapter Object-Shell Evidence
+## Latest Update: Disabled Live Runtime Adapter Operation-Rejection Canary
+
+The payload/cache lab chain now reaches a required disabled operation-rejection
+canary layer:
+
+```text
+PayloadCacheLiveRuntimeAdapterOperationRejectionCanary
+```
+
+This canary consumes `PayloadCacheLiveRuntimeAdapterObjectShellEvidence`,
+constructs a disabled `PayloadCacheRuntimeAdapterShell(enabled=false)`, and
+explicitly calls the disabled runtime operations:
+
+```text
+issue_prefetch(...)
+demand(...)
+```
+
+Both calls must be rejected before reaching the manager:
+
+```text
+operation_rejection_canary_ran = true
+issue_prefetch_rejected = true
+demand_rejected = true
+```
+
+The shell still remains disabled and does not become a live adapter/runtime:
+
+```text
+shell_enabled = false
+adapter_instance_created = false
+live_runtime_instantiated = false
+decision = blocked
+block_reason = live_runtime_adapter_operation_rejection_canary_only
+execution_mode = payload_cache_live_runtime_adapter_operation_rejection_canary_disabled
+resident_count = 0
+issued_fetch_count = 0
+demand_count = 0
+payload_bytes = 0
+ready_credit = false
+kernel_arg_pass_allowed = false
+changes_kernel_launch_args = false
+uses_current_wna16_args = false
+passes_current_wna16_args = false
+measures_tpot = false
+measures_vllm_latency = false
+```
+
+This is the first payload/cache adapter gate that actually exercises the
+object-shell operation methods.  The success condition is rejection plus
+zero-side-effect accounting: no resident entries, no issued fetches, no demand
+hits or misses, no payload bytes, no ready credit, and no kernel argument
+handoff.
+
+The compact lab preflight summary now includes
+`prefetch_lab_default_stream_queue_budget_live_runtime_adapter_operation_rejection_canary_*`
+fields, and the final checker treats them as required gate evidence.  The
+checker explicitly rejects missing operation rejection, `shell_enabled=true`,
+`adapter_instance_created=true`, nonzero payload, ready credit, kernel arg
+handoff, WNA16 pass-through, TPOT, and vLLM latency claims.
+
+Validation:
+
+```text
+py_compile runtime/cache_lab_gate.py, cache_manager.py, __init__.py, and summary scripts: pass
+pytest tests/test_cache_lab_gate.py tests/test_cache_manager.py -q: 82 passed
+pytest tests/test_cache_lab_gate.py tests/test_cache_manager.py tests/test_check_premap_lab_preflight_summary.py -q: 180 passed
+generated summary/check artifacts: pass
+Hubble static review for runtime/test layer: no blockers
+```
+
+## Previous Update: Disabled Live Runtime Adapter Object-Shell Evidence
 
 The payload/cache lab chain now reaches a required disabled object-shell
 evidence layer:
@@ -23,47 +94,9 @@ adapter_object_shell_created = true
 disabled_adapter_shell_snapshot_created = true
 ```
 
-The shell remains disabled and does not become a live adapter/runtime:
-
-```text
-shell_enabled = false
-adapter_instance_created = false
-live_runtime_instantiated = false
-decision = blocked
-block_reason = live_runtime_adapter_object_shell_evidence_only
-execution_mode = payload_cache_live_runtime_adapter_object_shell_evidence_disabled
-payload_bytes = 0
-ready_credit = false
-kernel_arg_pass_allowed = false
-changes_kernel_launch_args = false
-uses_current_wna16_args = false
-passes_current_wna16_args = false
-measures_tpot = false
-measures_vllm_latency = false
-```
-
-The builder revalidates the upstream instance-construction plan, constructs a
-disabled `PayloadCacheRuntimeAdapterShell(enabled=false)`, reads its no-op
-snapshot, and returns only evidence fields.  It does not expose the shell for
-issue/demand operations, does not move payload, does not grant ready credit,
-and does not pass current WNA16 kernel arguments.
-
-The compact lab preflight summary now includes
-`prefetch_lab_default_stream_queue_budget_live_runtime_adapter_object_shell_evidence_*`
-fields, and the final checker treats them as required gate evidence.  The
-checker explicitly rejects `shell_enabled=true`, `adapter_instance_created=true`,
-`live_runtime_instantiated=true`, nonzero payload, ready credit, kernel arg
-handoff, WNA16 pass-through, TPOT, and vLLM latency claims.
-
-Validation:
-
-```text
-py_compile runtime/cache_lab_gate.py, cache_manager.py, and summary scripts: pass
-pytest tests/test_cache_lab_gate.py tests/test_check_premap_lab_preflight_summary.py tests/test_cache_manager.py -q: 176 passed
-pytest focused lab/preflight suite including cache_manager: 554 passed
-generated summary/check artifacts: pass
-Hubble static review: pending
-```
+The shell remains disabled and does not become a live adapter/runtime. It does
+not expose issue/demand operations to the lab gate, does not move payload, does
+not grant ready credit, and does not pass current WNA16 kernel arguments.
 
 ## Previous Update: Live Runtime Adapter Instance-Construction Plan
 
