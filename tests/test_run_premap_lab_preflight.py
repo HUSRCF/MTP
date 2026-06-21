@@ -4553,6 +4553,10 @@ def _write_prefetch_lab_default_gate(root: Path) -> str:
         "outputs/reports/prefetch_cache_manager/"
         "measured_ready_time_gate_gpu1_dolly8_gen4.json"
     )
+    ready_time_direct_snapshot_report = (
+        "outputs/reports/premap_kernel_consumer/"
+        "premap_payload_cache_ready_time_direct_snapshot_boundary_test.json"
+    )
     metadata_premap_summary = (
         "outputs/reports/prefetch_action_replay/"
         "metadata_premap_gate_summary.json"
@@ -4593,6 +4597,59 @@ def _write_prefetch_lab_default_gate(root: Path) -> str:
                     "issued_fetch_count": 12,
                     "used_fetch_count": 0,
                     "used_per_issued_fetch": 0.0,
+                },
+            },
+            sort_keys=True,
+        )
+        + "\n",
+    )
+    measured_copy_path = "configs/runtime/premap_payload_cache_gpu1_h2d_smoke_measured_copy.json"
+    _write(root / measured_copy_path, '{"rows": []}\n')
+    _write(
+        root / ready_time_direct_snapshot_report,
+        json.dumps(
+            {
+                "passed": True,
+                "allow_full_fetch": False,
+                "decision_reason": "full_fetch_threshold_not_met",
+                "threshold_failures": ["used_per_issued_fetch_below_threshold"],
+                "metrics": {
+                    "mode": "ready_time",
+                    "manager_count": 1,
+                    "demand_count": 10594,
+                    "demand_hit_count": 3261,
+                    "demand_hit_rate": 0.30781574476118556,
+                    "ready_late_miss_count": 0,
+                    "ready_late_miss_rate": 0.0,
+                    "issued_fetch_count": 0,
+                    "used_fetch_count": 0,
+                    "used_per_issued_fetch": 0.0,
+                    "queue_batch_size": 8,
+                    "queue_deadline_us": 1000.0,
+                    "measured_copy_path": measured_copy_path,
+                    "measured_copy_us_per_issue": 1832.6639936503852,
+                    "direct_snapshot_present": True,
+                    "direct_manager_mode": "ready_time",
+                    "direct_demand_count": 10594,
+                    "direct_demand_hit_count": 3261,
+                    "direct_ready_late_miss_count": 0,
+                    "direct_issued_fetch_count": 0,
+                    "direct_used_fetch_count": 0,
+                    "direct_queue_batch_size": 8,
+                    "direct_queue_deadline_us": 1000.0,
+                    "direct_snapshot_runtime_stage": (
+                        "online_ready_time_payload_cache_accounting_only"
+                    ),
+                    "direct_snapshot_payload_bytes": 0,
+                    "direct_snapshot_ready_credit": False,
+                    "direct_snapshot_real_ready_credit_granted": False,
+                    "direct_snapshot_full_fetch_runtime_allowed": False,
+                    "direct_snapshot_payload_transfer_runtime_enabled": False,
+                    "direct_snapshot_changes_kernel_launch_args": False,
+                    "direct_snapshot_demand_on_consumer": True,
+                    "direct_snapshot_issue_sources": [
+                        "prelaunch_observed_transition_premap_shadow"
+                    ],
                 },
             },
             sort_keys=True,
@@ -4756,6 +4813,7 @@ def _write_prefetch_lab_default_gate(root: Path) -> str:
         "full_fetch:\n"
         "  default_enabled: false\n"
         f"  ready_time_gate_report: {ready_time_report}\n"
+        f"  ready_time_direct_snapshot_report: {ready_time_direct_snapshot_report}\n"
         f"  stream_decision_gate_report: {stream_decision_gate}\n"
         f"  stream_earlier_issue_feasibility_report: {stream_feasibility}\n"
         f"  stream_earlier_issue_lead_token_sweep_report: {stream_lead_sweep}\n"
@@ -6468,6 +6526,51 @@ def test_premap_lab_preflight_accepts_default_readonly_wiring(tmp_path: Path):
     assert (
         summary["prefetch_lab_default_ready_time_any_model_route_satisfied"] is None
     )
+    assert (
+        summary[
+            "prefetch_lab_default_ready_time_direct_snapshot_report_present"
+        ]
+        is True
+    )
+    assert (
+        summary[
+            "prefetch_lab_default_ready_time_direct_snapshot_report_passed"
+        ]
+        is True
+    )
+    assert (
+        summary[
+            "prefetch_lab_default_ready_time_direct_snapshot_report_recheck_passed"
+        ]
+        is True
+    )
+    assert (
+        summary["prefetch_lab_default_ready_time_direct_snapshot_present"] is True
+    )
+    assert (
+        summary["prefetch_lab_default_ready_time_direct_snapshot_runtime_stage"]
+        == "online_ready_time_payload_cache_accounting_only"
+    )
+    assert (
+        summary["prefetch_lab_default_ready_time_direct_snapshot_payload_bytes"] == 0
+    )
+    assert (
+        summary[
+            "prefetch_lab_default_ready_time_direct_snapshot_full_fetch_runtime_allowed"
+        ]
+        is False
+    )
+    assert (
+        summary[
+            "prefetch_lab_default_ready_time_direct_snapshot_changes_kernel_launch_args"
+        ]
+        is False
+    )
+    assert summary[
+        "prefetch_lab_default_ready_time_direct_snapshot_issue_sources"
+    ] == [
+        "prelaunch_observed_transition_premap_shadow",
+    ]
     assert summary["prefetch_lab_default_stream_decision_gate_present"] is True
     assert summary["prefetch_lab_default_stream_decision_gate_passed"] is True
     assert (

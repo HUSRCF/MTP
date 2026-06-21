@@ -28,6 +28,9 @@ if str(REPO_ROOT) not in sys.path:
 from scripts.check_premap_payload_cache_stream_shifted_issue_replay_contract import (  # noqa: E402
     check_shifted_issue_replay_contract,
 )
+from scripts.check_premap_payload_cache_ready_time_gate import (  # noqa: E402
+    check_summary as check_ready_time_summary,
+)
 
 
 def check_prefetch_lab_default_gate(path: Path, *, root: Path) -> dict[str, Any]:
@@ -79,6 +82,11 @@ def _check_full_fetch(section: dict[str, Any], *, root: Path) -> dict[str, Any]:
     stream_feasibility = _check_optional_stream_feasibility(section, root, failures)
     stream_lead_sweep = _check_optional_stream_lead_token_sweep(section, root, failures)
     stream_shifted_issue = _check_stream_shifted_issue_replay_contract(
+        section,
+        root,
+        failures,
+    )
+    direct_snapshot = _check_ready_time_direct_snapshot_gate(
         section,
         root,
         failures,
@@ -161,6 +169,85 @@ def _check_full_fetch(section: dict[str, Any], *, root: Path) -> dict[str, Any]:
         **stream_decision,
         **stream_lead_sweep,
         **stream_shifted_issue,
+        **direct_snapshot,
+    }
+
+
+def _check_ready_time_direct_snapshot_gate(
+    section: dict[str, Any],
+    root: Path,
+    failures: list[str],
+) -> dict[str, Any]:
+    path_value = section.get("ready_time_direct_snapshot_report")
+    if path_value in (None, ""):
+        failures.append("ready_time_direct_snapshot_report_missing")
+        return {
+            "ready_time_direct_snapshot_report_present": False,
+            "ready_time_direct_snapshot_report": None,
+            "ready_time_direct_snapshot_report_passed": None,
+        }
+    report_path = _resolve(path_value, root=root)
+    report = _load_json(
+        report_path,
+        failures,
+        label="ready_time_direct_snapshot_report",
+    )
+    recheck = (
+        check_ready_time_summary(report, root=root)
+        if isinstance(report, dict)
+        else {"passed": False, "failures": ["ready_time_direct_snapshot_report_invalid"]}
+    )
+    metrics = report.get("metrics") if isinstance(report, dict) else None
+    metrics = metrics if isinstance(metrics, dict) else {}
+    passed = bool(report.get("passed", False)) if isinstance(report, dict) else False
+    allow = bool(report.get("allow_full_fetch", False)) if isinstance(report, dict) else False
+    recheck_passed = bool(recheck.get("passed", False))
+    recheck_failures = _string_list(recheck.get("failures"))
+    direct_present = _optional_bool(metrics, "direct_snapshot_present")
+    runtime_stage = metrics.get("direct_snapshot_runtime_stage")
+    payload_bytes = _optional_int(metrics, "direct_snapshot_payload_bytes")
+    issue_sources = metrics.get("direct_snapshot_issue_sources")
+    if not passed:
+        failures.append("ready_time_direct_snapshot_report_not_passed")
+    if not recheck_passed:
+        failures.append("ready_time_direct_snapshot_report_recheck_failed")
+    if allow:
+        failures.append("ready_time_direct_snapshot_report_allows_full_fetch")
+    if direct_present is not True:
+        failures.append("ready_time_direct_snapshot_not_present")
+    if runtime_stage != "online_ready_time_payload_cache_accounting_only":
+        failures.append("ready_time_direct_snapshot_runtime_stage_mismatch")
+    if payload_bytes != 0:
+        failures.append("ready_time_direct_snapshot_payload_bytes_mismatch")
+    if metrics.get("direct_snapshot_full_fetch_runtime_allowed") is not False:
+        failures.append("ready_time_direct_snapshot_full_fetch_runtime_allowed")
+    if metrics.get("direct_snapshot_changes_kernel_launch_args") is not False:
+        failures.append("ready_time_direct_snapshot_changes_kernel_launch_args")
+    return {
+        "ready_time_direct_snapshot_report_present": True,
+        "ready_time_direct_snapshot_report": str(report_path),
+        "ready_time_direct_snapshot_report_passed": passed,
+        "ready_time_direct_snapshot_report_recheck_passed": recheck_passed,
+        "ready_time_direct_snapshot_report_recheck_failures": recheck_failures,
+        "ready_time_direct_snapshot_allow_full_fetch": allow,
+        "ready_time_direct_snapshot_decision_reason": report.get("decision_reason"),
+        "ready_time_direct_snapshot_threshold_failures": _string_list(
+            report.get("threshold_failures")
+        ),
+        "ready_time_direct_snapshot_present": direct_present,
+        "ready_time_direct_snapshot_runtime_stage": (
+            str(runtime_stage) if runtime_stage is not None else None
+        ),
+        "ready_time_direct_snapshot_payload_bytes": payload_bytes,
+        "ready_time_direct_snapshot_full_fetch_runtime_allowed": _optional_bool(
+            metrics,
+            "direct_snapshot_full_fetch_runtime_allowed",
+        ),
+        "ready_time_direct_snapshot_changes_kernel_launch_args": _optional_bool(
+            metrics,
+            "direct_snapshot_changes_kernel_launch_args",
+        ),
+        "ready_time_direct_snapshot_issue_sources": _string_list(issue_sources),
     }
 
 

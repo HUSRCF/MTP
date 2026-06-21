@@ -36,6 +36,58 @@ def _write_fixture(tmp_path: Path, *, allow_full_fetch: bool = False) -> Path:
         json.dumps({"passed": True, "allow_full_fetch": allow_full_fetch}),
         encoding="utf-8",
     )
+    measured_copy = tmp_path / "copy.json"
+    measured_copy.write_text('{"rows": []}\n', encoding="utf-8")
+    direct_snapshot = tmp_path / "ready_time_direct_snapshot.json"
+    direct_snapshot.write_text(
+        json.dumps(
+            {
+                "passed": True,
+                "allow_full_fetch": False,
+                "decision_reason": "full_fetch_threshold_not_met",
+                "threshold_failures": ["used_per_issued_fetch_below_threshold"],
+                "metrics": {
+                    "mode": "ready_time",
+                    "manager_count": 1,
+                    "demand_count": 100,
+                    "demand_hit_count": 25,
+                    "demand_hit_rate": 0.25,
+                    "ready_late_miss_count": 30,
+                    "ready_late_miss_rate": 0.30,
+                    "issued_fetch_count": 8,
+                    "used_fetch_count": 0,
+                    "used_per_issued_fetch": 0.0,
+                    "queue_batch_size": 8,
+                    "queue_deadline_us": 1000.0,
+                    "measured_copy_path": str(measured_copy),
+                    "measured_copy_us_per_issue": 100.0,
+                    "direct_snapshot_present": True,
+                    "direct_manager_mode": "ready_time",
+                    "direct_demand_count": 100,
+                    "direct_demand_hit_count": 25,
+                    "direct_ready_late_miss_count": 30,
+                    "direct_issued_fetch_count": 8,
+                    "direct_used_fetch_count": 0,
+                    "direct_queue_batch_size": 8,
+                    "direct_queue_deadline_us": 1000.0,
+                    "direct_snapshot_runtime_stage": (
+                        "online_ready_time_payload_cache_accounting_only"
+                    ),
+                    "direct_snapshot_payload_bytes": 0,
+                    "direct_snapshot_ready_credit": False,
+                    "direct_snapshot_real_ready_credit_granted": False,
+                    "direct_snapshot_full_fetch_runtime_allowed": False,
+                    "direct_snapshot_payload_transfer_runtime_enabled": False,
+                    "direct_snapshot_changes_kernel_launch_args": False,
+                    "direct_snapshot_demand_on_consumer": True,
+                    "direct_snapshot_issue_sources": [
+                        "prelaunch_observed_transition_premap_shadow"
+                    ],
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
     stream_decision = tmp_path / "stream_decision.json"
     stream_decision.write_text(
         json.dumps(
@@ -180,6 +232,7 @@ def _write_fixture(tmp_path: Path, *, allow_full_fetch: bool = False) -> Path:
                 "full_fetch": {
                     "default_enabled": False,
                     "ready_time_gate_report": str(ready),
+                    "ready_time_direct_snapshot_report": str(direct_snapshot),
                     "stream_decision_gate_report": str(stream_decision),
                     "stream_earlier_issue_feasibility_report": str(
                         stream_feasibility
@@ -221,6 +274,21 @@ def test_prefetch_lab_default_gate_passes_low_risk_premap_path(tmp_path: Path):
     }
     assert result["sections"]["premap"]["recommended_capacity_entries"] == 12288
     full_fetch = result["sections"]["full_fetch"]
+    assert full_fetch["ready_time_direct_snapshot_report_present"] is True
+    assert full_fetch["ready_time_direct_snapshot_report_passed"] is True
+    assert full_fetch["ready_time_direct_snapshot_report_recheck_passed"] is True
+    assert full_fetch["ready_time_direct_snapshot_report_recheck_failures"] == []
+    assert full_fetch["ready_time_direct_snapshot_present"] is True
+    assert (
+        full_fetch["ready_time_direct_snapshot_runtime_stage"]
+        == "online_ready_time_payload_cache_accounting_only"
+    )
+    assert full_fetch["ready_time_direct_snapshot_payload_bytes"] == 0
+    assert full_fetch["ready_time_direct_snapshot_full_fetch_runtime_allowed"] is False
+    assert full_fetch["ready_time_direct_snapshot_changes_kernel_launch_args"] is False
+    assert full_fetch["ready_time_direct_snapshot_issue_sources"] == [
+        "prelaunch_observed_transition_premap_shadow"
+    ]
     assert full_fetch["stream_shifted_issue_replay_contract_present"] is True
     assert full_fetch["stream_shifted_issue_replay_contract_passed"] is True
     assert full_fetch["stream_shifted_issue_replay_issue_lead_tokens"] == 32
@@ -228,6 +296,31 @@ def test_prefetch_lab_default_gate_passes_low_risk_premap_path(tmp_path: Path):
     assert full_fetch["stream_shifted_issue_replay_row_shift_mismatch_count"] == 0
     assert full_fetch["stream_shifted_issue_replay_source_payload_bytes"] == 0
     assert full_fetch["stream_shifted_issue_replay_full_fetch_runtime_allowed"] is False
+
+
+def test_prefetch_lab_default_gate_rechecks_direct_snapshot_report(
+    tmp_path: Path,
+):
+    config = _write_fixture(tmp_path)
+    payload = yaml.safe_load(config.read_text(encoding="utf-8"))
+    direct_path = Path(payload["full_fetch"]["ready_time_direct_snapshot_report"])
+    direct = json.loads(direct_path.read_text(encoding="utf-8"))
+    direct["metrics"]["direct_snapshot_payload_bytes"] = False
+    direct_path.write_text(json.dumps(direct), encoding="utf-8")
+
+    result = check_prefetch_lab_default_gate(config, root=tmp_path)
+
+    assert result["passed"] is False
+    assert (
+        "full_fetch:ready_time_direct_snapshot_report_recheck_failed"
+        in result["failures"]
+    )
+    full_fetch = result["sections"]["full_fetch"]
+    assert full_fetch["ready_time_direct_snapshot_report_recheck_passed"] is False
+    assert (
+        "direct_snapshot_runtime_shadow_premap_payload_cache_direct_payload_bytes_mismatch"
+        in full_fetch["ready_time_direct_snapshot_report_recheck_failures"]
+    )
     assert full_fetch["stream_shifted_issue_replay_source_full_fetch_runtime_allowed"] is False
     assert full_fetch["stream_shifted_issue_replay_kernel_arg_pass_allowed"] is False
     assert full_fetch["stream_shifted_issue_replay_source_kernel_arg_pass_allowed"] is False

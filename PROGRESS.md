@@ -41179,3 +41179,73 @@ changes_kernel_launch_args = false
 measures_tpot = false
 measures_vllm_latency = false
 ```
+
+## Ready-time direct snapshot safety boundary tightened
+
+The online direct payload-cache manager snapshot now carries an explicit
+accounting-only participation envelope:
+
+```text
+runtime_stage = online_ready_time_payload_cache_accounting_only
+payload_bytes = 0
+ready_credit = false
+real_ready_credit_granted = false
+changes_kernel_launch_args = false
+full_fetch_runtime_allowed = false
+payload_transfer_runtime_enabled = false
+demand_on_consumer = true
+issue_sources is a non-empty subset of the allowed transition sources:
+  - previous_token_transition_premap_shadow
+  - prelaunch_observed_transition_premap_shadow
+```
+
+`check_premap_payload_cache_ready_time_gate.py` validates these fields whenever
+a direct snapshot is present.  The checker uses strict bool/int matching, so
+`False` cannot be accepted as integer `0` for payload bytes.  Checker reports
+also preserve the direct snapshot fields and can be rechecked without bypassing
+the direct snapshot validation path.
+
+Validation:
+
+```bash
+/home/husrcf/anaconda3/envs/TRY/bin/python -m pytest \
+  tests/test_check_premap_payload_cache_ready_time_gate.py \
+  tests/test_vllm_router_shadow_sink.py -q
+# 131 passed
+
+/home/husrcf/anaconda3/envs/TRY/bin/python -m py_compile \
+  scripts/check_premap_payload_cache_ready_time_gate.py \
+  src/mtp_expert_prefetch/tracing/vllm_router_trace.py
+```
+
+Reviewer status:
+
+```text
+GPT-5.5 high review: no blockers.
+Earlier findings on bool/int matching, issue_sources coverage, and
+checker-report idempotency were fixed and re-reviewed.
+```
+
+Follow-up GPU1 smoke:
+
+```text
+performance_summary:
+outputs/reports/awq_telemetry_ladder/gpu1_ready_time_direct_snapshot_boundary_smoke_20260621/production_batch_premap_payload_cache_ready_time_producer_counter_off_reuse_llm/repeat_00/performance_summary.json
+
+checker_report:
+outputs/reports/premap_kernel_consumer/premap_payload_cache_ready_time_direct_snapshot_boundary_smoke_gpu1_20260621.json
+
+passed = true
+allow_full_fetch = false
+decision_reason = full_fetch_threshold_not_met
+threshold_failures = [used_per_issued_fetch_below_threshold]
+direct_snapshot_runtime_stage = online_ready_time_payload_cache_accounting_only
+direct_snapshot_issue_sources = [prelaunch_observed_transition_premap_shadow]
+direct_snapshot_payload_bytes = 0
+direct_snapshot_full_fetch_runtime_allowed = false
+direct_snapshot_changes_kernel_launch_args = false
+```
+
+The direct snapshot gate now accepts transition issue sources from both the
+offline previous-token replay path and the online prelaunch-observed producer
+path.  Mixed source lists containing non-transition sources are rejected.

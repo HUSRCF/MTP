@@ -967,6 +967,19 @@ def _summary() -> dict[str, object]:
         "prefetch_lab_default_ready_time_used_per_issued_fetch": 0.0,
         "prefetch_lab_default_ready_time_issued_fetch_count": 12,
         "prefetch_lab_default_ready_time_used_fetch_count": 0,
+        "prefetch_lab_default_ready_time_direct_snapshot_report_present": True,
+        "prefetch_lab_default_ready_time_direct_snapshot_report_passed": True,
+        "prefetch_lab_default_ready_time_direct_snapshot_report_recheck_passed": True,
+        "prefetch_lab_default_ready_time_direct_snapshot_present": True,
+        "prefetch_lab_default_ready_time_direct_snapshot_runtime_stage": (
+            "online_ready_time_payload_cache_accounting_only"
+        ),
+        "prefetch_lab_default_ready_time_direct_snapshot_payload_bytes": 0,
+        "prefetch_lab_default_ready_time_direct_snapshot_full_fetch_runtime_allowed": False,
+        "prefetch_lab_default_ready_time_direct_snapshot_changes_kernel_launch_args": False,
+        "prefetch_lab_default_ready_time_direct_snapshot_issue_sources": [
+            "prelaunch_observed_transition_premap_shadow"
+        ],
         "prefetch_lab_default_stream_decision_gate_present": True,
         "prefetch_lab_default_stream_decision_gate_passed": True,
         "prefetch_lab_default_stream_decision": (
@@ -2096,6 +2109,50 @@ def test_check_premap_lab_preflight_summary_rejects_missing_ready_time_detail() 
     assert result["passed"] is False
     assert (
         "prefetch_lab_default_ready_time_used_per_issued_fetch_mismatch"
+        in result["failures"]
+    )
+
+
+def test_check_premap_lab_preflight_summary_rejects_direct_snapshot_source_mismatch() -> None:
+    summary = _summary()
+    summary[
+        "prefetch_lab_default_ready_time_direct_snapshot_issue_sources"
+    ] = [
+        "prelaunch_observed_transition_premap_shadow",
+        "current_router_topk_premap_shadow",
+    ]
+
+    result = check_premap_lab_preflight_summary(summary)
+
+    assert result["passed"] is False
+    assert (
+        "prefetch_lab_default_ready_time_direct_snapshot_issue_sources_mismatch"
+        in result["failures"]
+    )
+
+
+def test_check_premap_lab_preflight_summary_rejects_direct_snapshot_bool_as_int() -> None:
+    summary = _summary()
+    summary["prefetch_lab_default_ready_time_direct_snapshot_report_present"] = 1
+
+    result = check_premap_lab_preflight_summary(summary)
+
+    assert result["passed"] is False
+    assert (
+        "prefetch_lab_default_ready_time_direct_snapshot_report_present_type_mismatch"
+        in result["failures"]
+    )
+
+
+def test_check_premap_lab_preflight_summary_rejects_direct_snapshot_int_as_bool() -> None:
+    summary = _summary()
+    summary["prefetch_lab_default_ready_time_direct_snapshot_payload_bytes"] = False
+
+    result = check_premap_lab_preflight_summary(summary)
+
+    assert result["passed"] is False
+    assert (
+        "prefetch_lab_default_ready_time_direct_snapshot_payload_bytes_type_mismatch"
         in result["failures"]
     )
 

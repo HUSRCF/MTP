@@ -1556,6 +1556,20 @@ def check_premap_lab_preflight_summary(
         "prefetch_lab_default_full_fetch_passed": True,
         "prefetch_lab_default_ready_time_report_passed": True,
         "prefetch_lab_default_ready_time_allow_full_fetch": False,
+        "prefetch_lab_default_ready_time_direct_snapshot_report_present": True,
+        "prefetch_lab_default_ready_time_direct_snapshot_report_passed": True,
+        "prefetch_lab_default_ready_time_direct_snapshot_report_recheck_passed": True,
+        "prefetch_lab_default_ready_time_direct_snapshot_present": True,
+        "prefetch_lab_default_ready_time_direct_snapshot_runtime_stage": (
+            "online_ready_time_payload_cache_accounting_only"
+        ),
+        "prefetch_lab_default_ready_time_direct_snapshot_payload_bytes": 0,
+        "prefetch_lab_default_ready_time_direct_snapshot_full_fetch_runtime_allowed": (
+            False
+        ),
+        "prefetch_lab_default_ready_time_direct_snapshot_changes_kernel_launch_args": (
+            False
+        ),
         "prefetch_lab_default_metadata_decision": "shadow_only",
         "prefetch_lab_default_metadata_passed": True,
         "prefetch_lab_default_premap_decision": (
@@ -1659,6 +1673,44 @@ def check_premap_lab_preflight_summary(
             failures.append(f"{key}_mismatch")
 
     for key in (
+        "prefetch_lab_default_ready_time_direct_snapshot_report_present",
+        "prefetch_lab_default_ready_time_direct_snapshot_report_passed",
+        "prefetch_lab_default_ready_time_direct_snapshot_report_recheck_passed",
+        "prefetch_lab_default_ready_time_direct_snapshot_present",
+    ):
+        if summary.get(key) is not True:
+            failures.append(f"{key}_type_mismatch")
+
+    for key in (
+        "prefetch_lab_default_ready_time_direct_snapshot_full_fetch_runtime_allowed",
+        "prefetch_lab_default_ready_time_direct_snapshot_changes_kernel_launch_args",
+    ):
+        if summary.get(key) is not False:
+            failures.append(f"{key}_type_mismatch")
+
+    direct_snapshot_runtime_stage = summary.get(
+        "prefetch_lab_default_ready_time_direct_snapshot_runtime_stage"
+    )
+    if (
+        not isinstance(direct_snapshot_runtime_stage, str)
+        or direct_snapshot_runtime_stage
+        != "online_ready_time_payload_cache_accounting_only"
+    ):
+        failures.append(
+            "prefetch_lab_default_ready_time_direct_snapshot_runtime_stage_type_mismatch"
+        )
+    if (
+        _int_metric(
+            summary,
+            "prefetch_lab_default_ready_time_direct_snapshot_payload_bytes",
+        )
+        != 0
+    ):
+        failures.append(
+            "prefetch_lab_default_ready_time_direct_snapshot_payload_bytes_type_mismatch"
+        )
+
+    for key in (
         "prefetch_lab_default_gate_failures",
         "prefetch_lab_default_full_fetch_failures",
         "prefetch_lab_default_metadata_failures",
@@ -1749,6 +1801,26 @@ def check_premap_lab_preflight_summary(
         _check_ready_time_decision_gate_block(summary, failures)
     else:
         failures.append("prefetch_lab_default_ready_time_decision_reason_mismatch")
+    direct_issue_sources = summary.get(
+        "prefetch_lab_default_ready_time_direct_snapshot_issue_sources"
+    )
+    allowed_direct_issue_sources = {
+        "previous_token_transition_premap_shadow",
+        "prelaunch_observed_transition_premap_shadow",
+    }
+    if not isinstance(direct_issue_sources, list):
+        failures.append(
+            "prefetch_lab_default_ready_time_direct_snapshot_issue_sources_invalid"
+        )
+    else:
+        observed_sources = {str(value) for value in direct_issue_sources}
+        if (
+            not observed_sources
+            or not observed_sources.issubset(allowed_direct_issue_sources)
+        ):
+            failures.append(
+                "prefetch_lab_default_ready_time_direct_snapshot_issue_sources_mismatch"
+            )
     _check_stream_full_fetch_block(summary, failures)
     _check_stream_shifted_issue_replay_contract(summary, failures)
 

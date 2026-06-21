@@ -722,6 +722,45 @@ def test_premap_payload_cache_manager_snapshot_flattens_without_jsonl_rows():
         "unit_test"
     )
     assert performance["runtime_shadow_premap_payload_cache_direct_capacity"] == 4
+    assert (
+        performance["runtime_shadow_premap_payload_cache_direct_runtime_stage"]
+        == "online_payload_cache_accounting_only"
+    )
+    assert performance["runtime_shadow_premap_payload_cache_direct_payload_bytes"] == 0
+    assert (
+        performance["runtime_shadow_premap_payload_cache_direct_ready_credit"] is False
+    )
+    assert (
+        performance[
+            "runtime_shadow_premap_payload_cache_direct_real_ready_credit_granted"
+        ]
+        is False
+    )
+    assert (
+        performance[
+            "runtime_shadow_premap_payload_cache_direct_changes_kernel_launch_args"
+        ]
+        is False
+    )
+    assert (
+        performance[
+            "runtime_shadow_premap_payload_cache_direct_full_fetch_runtime_allowed"
+        ]
+        is False
+    )
+    assert (
+        performance[
+            "runtime_shadow_premap_payload_cache_direct_payload_transfer_runtime_enabled"
+        ]
+        is False
+    )
+    assert performance["runtime_shadow_premap_payload_cache_direct_issue_sources"] == [
+        "previous_token_transition_premap_shadow"
+    ]
+    assert (
+        performance["runtime_shadow_premap_payload_cache_direct_demand_on_consumer"]
+        is True
+    )
     assert performance["runtime_shadow_premap_payload_cache_direct_issued_fetch_count"] == 1
     assert performance["runtime_shadow_premap_payload_cache_direct_used_fetch_count"] == 1
     assert performance["runtime_shadow_premap_payload_cache_direct_demand_count"] == 2
@@ -955,6 +994,10 @@ def test_premap_payload_cache_manager_snapshot_flattens_ready_time_fields():
 
     assert performance["runtime_shadow_premap_payload_cache_direct_manager_mode"] == (
         "ready_time"
+    )
+    assert (
+        performance["runtime_shadow_premap_payload_cache_direct_runtime_stage"]
+        == "online_ready_time_payload_cache_accounting_only"
     )
     assert performance["runtime_shadow_premap_payload_cache_direct_queue_batch_size"] == 2
     assert performance["runtime_shadow_premap_payload_cache_direct_queue_deadline_us"] == (

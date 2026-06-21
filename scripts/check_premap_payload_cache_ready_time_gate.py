@@ -15,6 +15,14 @@ from pathlib import Path
 from typing import Any
 
 
+_DIRECT_SNAPSHOT_TRANSITION_ISSUE_SOURCES = frozenset(
+    {
+        "previous_token_transition_premap_shadow",
+        "prelaunch_observed_transition_premap_shadow",
+    }
+)
+
+
 def check_summary(
     summary: dict[str, Any],
     *,
@@ -217,6 +225,28 @@ def check_summary(
             "direct_manager_mode": metrics.get(
                 "runtime_shadow_premap_payload_cache_direct_manager_mode"
             ),
+            "direct_demand_count": metrics.get(
+                "runtime_shadow_premap_payload_cache_direct_demand_count"
+            ),
+            "direct_demand_hit_count": metrics.get(
+                "runtime_shadow_premap_payload_cache_direct_demand_hit_count"
+            ),
+            "direct_ready_late_miss_count": metrics.get(
+                "runtime_shadow_premap_payload_cache_direct_ready_late_miss_count"
+            ),
+            "direct_issued_fetch_count": metrics.get(
+                "runtime_shadow_premap_payload_cache_direct_issued_fetch_count"
+            ),
+            "direct_used_fetch_count": metrics.get(
+                "runtime_shadow_premap_payload_cache_direct_used_fetch_count"
+            ),
+            "direct_queue_batch_size": metrics.get(
+                "runtime_shadow_premap_payload_cache_direct_queue_batch_size"
+            ),
+            "direct_queue_deadline_us": metrics.get(
+                "runtime_shadow_premap_payload_cache_direct_queue_deadline_us"
+            ),
+            **_direct_snapshot_report_metrics(metrics),
         },
     }
 
@@ -269,12 +299,95 @@ def _with_gate_metric_aliases(metrics: dict[str, Any]) -> dict[str, Any]:
         "measured_copy_us_per_issue": (
             "runtime_shadow_premap_payload_cache_manager_measured_copy_us_per_issue"
         ),
+        "direct_snapshot_present": (
+            "runtime_shadow_premap_payload_cache_direct_snapshot_present"
+        ),
+        "direct_manager_mode": (
+            "runtime_shadow_premap_payload_cache_direct_manager_mode"
+        ),
+        "direct_demand_count": (
+            "runtime_shadow_premap_payload_cache_direct_demand_count"
+        ),
+        "direct_demand_hit_count": (
+            "runtime_shadow_premap_payload_cache_direct_demand_hit_count"
+        ),
+        "direct_ready_late_miss_count": (
+            "runtime_shadow_premap_payload_cache_direct_ready_late_miss_count"
+        ),
+        "direct_issued_fetch_count": (
+            "runtime_shadow_premap_payload_cache_direct_issued_fetch_count"
+        ),
+        "direct_used_fetch_count": (
+            "runtime_shadow_premap_payload_cache_direct_used_fetch_count"
+        ),
+        "direct_queue_batch_size": (
+            "runtime_shadow_premap_payload_cache_direct_queue_batch_size"
+        ),
+        "direct_queue_deadline_us": (
+            "runtime_shadow_premap_payload_cache_direct_queue_deadline_us"
+        ),
+        "direct_snapshot_runtime_stage": (
+            "runtime_shadow_premap_payload_cache_direct_runtime_stage"
+        ),
+        "direct_snapshot_payload_bytes": (
+            "runtime_shadow_premap_payload_cache_direct_payload_bytes"
+        ),
+        "direct_snapshot_ready_credit": (
+            "runtime_shadow_premap_payload_cache_direct_ready_credit"
+        ),
+        "direct_snapshot_real_ready_credit_granted": (
+            "runtime_shadow_premap_payload_cache_direct_real_ready_credit_granted"
+        ),
+        "direct_snapshot_changes_kernel_launch_args": (
+            "runtime_shadow_premap_payload_cache_direct_changes_kernel_launch_args"
+        ),
+        "direct_snapshot_full_fetch_runtime_allowed": (
+            "runtime_shadow_premap_payload_cache_direct_full_fetch_runtime_allowed"
+        ),
+        "direct_snapshot_payload_transfer_runtime_enabled": (
+            "runtime_shadow_premap_payload_cache_direct_payload_transfer_runtime_enabled"
+        ),
+        "direct_snapshot_demand_on_consumer": (
+            "runtime_shadow_premap_payload_cache_direct_demand_on_consumer"
+        ),
+        "direct_snapshot_issue_sources": (
+            "runtime_shadow_premap_payload_cache_direct_issue_sources"
+        ),
     }
     normalized = dict(metrics)
     for short_key, raw_key in aliases.items():
         if raw_key not in normalized and short_key in metrics:
             normalized[raw_key] = metrics[short_key]
     return normalized
+
+
+def _direct_snapshot_report_metrics(metrics: dict[str, Any]) -> dict[str, Any]:
+    names = {
+        "runtime_stage": "runtime_shadow_premap_payload_cache_direct_runtime_stage",
+        "payload_bytes": "runtime_shadow_premap_payload_cache_direct_payload_bytes",
+        "ready_credit": "runtime_shadow_premap_payload_cache_direct_ready_credit",
+        "real_ready_credit_granted": (
+            "runtime_shadow_premap_payload_cache_direct_real_ready_credit_granted"
+        ),
+        "changes_kernel_launch_args": (
+            "runtime_shadow_premap_payload_cache_direct_changes_kernel_launch_args"
+        ),
+        "full_fetch_runtime_allowed": (
+            "runtime_shadow_premap_payload_cache_direct_full_fetch_runtime_allowed"
+        ),
+        "payload_transfer_runtime_enabled": (
+            "runtime_shadow_premap_payload_cache_direct_payload_transfer_runtime_enabled"
+        ),
+        "demand_on_consumer": (
+            "runtime_shadow_premap_payload_cache_direct_demand_on_consumer"
+        ),
+        "issue_sources": "runtime_shadow_premap_payload_cache_direct_issue_sources",
+    }
+    return {
+        f"direct_snapshot_{name}": metrics.get(raw_key)
+        for name, raw_key in names.items()
+        if raw_key in metrics
+    }
 
 
 def _validate_direct_snapshot(metrics: dict[str, Any], failures: list[str]) -> None:
@@ -297,6 +410,44 @@ def _validate_direct_snapshot(metrics: dict[str, Any], failures: list[str]) -> N
     for field in required_fields:
         if metrics.get(field) is None:
             failures.append(f"direct_snapshot_field_missing:{field}")
+    expected_values = {
+        "runtime_shadow_premap_payload_cache_direct_runtime_stage": (
+            "online_ready_time_payload_cache_accounting_only"
+        ),
+        "runtime_shadow_premap_payload_cache_direct_payload_bytes": 0,
+        "runtime_shadow_premap_payload_cache_direct_ready_credit": False,
+        "runtime_shadow_premap_payload_cache_direct_real_ready_credit_granted": False,
+        "runtime_shadow_premap_payload_cache_direct_changes_kernel_launch_args": False,
+        "runtime_shadow_premap_payload_cache_direct_full_fetch_runtime_allowed": False,
+        "runtime_shadow_premap_payload_cache_direct_payload_transfer_runtime_enabled": (
+            False
+        ),
+        "runtime_shadow_premap_payload_cache_direct_demand_on_consumer": True,
+    }
+    for field, expected in expected_values.items():
+        if not _direct_snapshot_value_matches(metrics.get(field), expected):
+            failures.append(f"direct_snapshot_{field}_mismatch")
+    issue_sources = metrics.get(
+        "runtime_shadow_premap_payload_cache_direct_issue_sources"
+    )
+    if not isinstance(issue_sources, list):
+        failures.append("direct_snapshot_issue_sources_missing_or_invalid")
+    else:
+        observed_sources = {str(value) for value in issue_sources}
+        if not observed_sources:
+            failures.append("direct_snapshot_issue_sources_missing_transition_source")
+        elif not observed_sources.issubset(_DIRECT_SNAPSHOT_TRANSITION_ISSUE_SOURCES):
+            failures.append("direct_snapshot_issue_sources_contains_non_transition_source")
+
+
+def _direct_snapshot_value_matches(value: Any, expected: Any) -> bool:
+    if isinstance(expected, bool):
+        return type(value) is bool and value is expected
+    if isinstance(expected, int):
+        return type(value) is int and value == expected
+    if isinstance(expected, str):
+        return type(value) is str and value == expected
+    return value == expected
 
 
 def _as_int(value: Any, default: int = 0) -> int:

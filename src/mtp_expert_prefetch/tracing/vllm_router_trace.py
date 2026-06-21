@@ -2522,6 +2522,23 @@ def _add_premap_payload_cache_manager_snapshot_to_performance(
     snapshot = manager.snapshot()
     performance[f"{prefix}snapshot_present"] = True
     performance[f"{prefix}snapshot_source"] = str(source)
+    performance[f"{prefix}runtime_stage"] = (
+        "online_ready_time_payload_cache_accounting_only"
+        if str(recorder.shadow_premap_payload_cache_manager_mode) == "ready_time"
+        else "online_payload_cache_accounting_only"
+    )
+    performance[f"{prefix}payload_bytes"] = 0
+    performance[f"{prefix}ready_credit"] = False
+    performance[f"{prefix}real_ready_credit_granted"] = False
+    performance[f"{prefix}changes_kernel_launch_args"] = False
+    performance[f"{prefix}full_fetch_runtime_allowed"] = False
+    performance[f"{prefix}payload_transfer_runtime_enabled"] = False
+    performance[f"{prefix}issue_sources"] = list(
+        recorder.shadow_premap_payload_cache_manager_issue_sources or ()
+    )
+    performance[f"{prefix}demand_on_consumer"] = bool(
+        recorder.shadow_premap_payload_cache_manager_demand_on_consumer
+    )
     performance[f"{prefix}manager_mode"] = str(
         recorder.shadow_premap_payload_cache_manager_mode
     )

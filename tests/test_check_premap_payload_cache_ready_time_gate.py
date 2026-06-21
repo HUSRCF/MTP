@@ -27,6 +27,52 @@ def _summary(tmp_path: Path, **overrides):
     return values
 
 
+def _direct_snapshot_boundary(**overrides):
+    values = {
+        "runtime_shadow_premap_payload_cache_direct_runtime_stage": (
+            "online_ready_time_payload_cache_accounting_only"
+        ),
+        "runtime_shadow_premap_payload_cache_direct_payload_bytes": 0,
+        "runtime_shadow_premap_payload_cache_direct_ready_credit": False,
+        "runtime_shadow_premap_payload_cache_direct_real_ready_credit_granted": False,
+        "runtime_shadow_premap_payload_cache_direct_changes_kernel_launch_args": False,
+        "runtime_shadow_premap_payload_cache_direct_full_fetch_runtime_allowed": False,
+        "runtime_shadow_premap_payload_cache_direct_payload_transfer_runtime_enabled": (
+            False
+        ),
+        "runtime_shadow_premap_payload_cache_direct_demand_on_consumer": True,
+        "runtime_shadow_premap_payload_cache_direct_issue_sources": [
+            "previous_token_transition_premap_shadow"
+        ],
+    }
+    values.update(overrides)
+    return values
+
+
+def _direct_snapshot_summary(tmp_path: Path, **overrides):
+    values = _summary(
+        tmp_path,
+        runtime_shadow_aggregate_premap_payload_cache_manager_count=None,
+        runtime_shadow_aggregate_premap_payload_cache_issued_fetch_count=None,
+        runtime_shadow_aggregate_premap_payload_cache_used_fetch_count=None,
+        runtime_shadow_aggregate_premap_payload_cache_demand_count=None,
+        runtime_shadow_aggregate_premap_payload_cache_demand_hit_count=None,
+        runtime_shadow_aggregate_premap_payload_cache_ready_late_miss_count=None,
+        runtime_shadow_premap_payload_cache_direct_snapshot_present=True,
+        runtime_shadow_premap_payload_cache_direct_manager_mode="ready_time",
+        runtime_shadow_premap_payload_cache_direct_demand_count=100,
+        runtime_shadow_premap_payload_cache_direct_demand_hit_count=25,
+        runtime_shadow_premap_payload_cache_direct_ready_late_miss_count=30,
+        runtime_shadow_premap_payload_cache_direct_issued_fetch_count=8,
+        runtime_shadow_premap_payload_cache_direct_used_fetch_count=2,
+        runtime_shadow_premap_payload_cache_direct_queue_batch_size=8,
+        runtime_shadow_premap_payload_cache_direct_queue_deadline_us=1000.0,
+        **_direct_snapshot_boundary(),
+    )
+    values.update(overrides)
+    return values
+
+
 def test_ready_time_payload_cache_gate_blocks_valid_negative_evidence(tmp_path: Path):
     result = check_summary(_summary(tmp_path), root=tmp_path)
 
@@ -87,27 +133,8 @@ def test_ready_time_payload_cache_gate_accepts_metrics_report_input(tmp_path: Pa
 
 
 def test_ready_time_payload_cache_gate_accepts_direct_snapshot_input(tmp_path: Path):
-    result = check_summary(
-        _summary(
-            tmp_path,
-            runtime_shadow_aggregate_premap_payload_cache_manager_count=None,
-            runtime_shadow_aggregate_premap_payload_cache_issued_fetch_count=None,
-            runtime_shadow_aggregate_premap_payload_cache_used_fetch_count=None,
-            runtime_shadow_aggregate_premap_payload_cache_demand_count=None,
-            runtime_shadow_aggregate_premap_payload_cache_demand_hit_count=None,
-            runtime_shadow_aggregate_premap_payload_cache_ready_late_miss_count=None,
-            runtime_shadow_premap_payload_cache_direct_snapshot_present=True,
-            runtime_shadow_premap_payload_cache_direct_manager_mode="ready_time",
-            runtime_shadow_premap_payload_cache_direct_demand_count=100,
-            runtime_shadow_premap_payload_cache_direct_demand_hit_count=25,
-            runtime_shadow_premap_payload_cache_direct_ready_late_miss_count=30,
-            runtime_shadow_premap_payload_cache_direct_issued_fetch_count=8,
-            runtime_shadow_premap_payload_cache_direct_used_fetch_count=2,
-            runtime_shadow_premap_payload_cache_direct_queue_batch_size=8,
-            runtime_shadow_premap_payload_cache_direct_queue_deadline_us=1000.0,
-        ),
-        root=tmp_path,
-    )
+    summary = _direct_snapshot_summary(tmp_path)
+    result = check_summary(summary, root=tmp_path)
 
     assert result["passed"] is True
     assert result["allow_full_fetch"] is False
@@ -117,6 +144,62 @@ def test_ready_time_payload_cache_gate_accepts_direct_snapshot_input(tmp_path: P
     assert result["metrics"]["demand_hit_count"] == 25
     assert result["metrics"]["ready_late_miss_count"] == 30
     assert result["metrics"]["used_per_issued_fetch"] == 0.25
+    assert result["metrics"]["direct_snapshot_issue_sources"] == [
+        "previous_token_transition_premap_shadow"
+    ]
+
+
+def test_ready_time_payload_cache_gate_accepts_own_direct_snapshot_report(
+    tmp_path: Path,
+):
+    first = check_summary(_direct_snapshot_summary(tmp_path), root=tmp_path)
+    second = check_summary(
+        first,
+        root=tmp_path,
+    )
+
+    assert first["passed"] is True
+    assert second["passed"] is True
+    assert second["metrics"]["direct_snapshot_payload_bytes"] == 0
+    assert second["metrics"]["direct_snapshot_issue_sources"] == [
+        "previous_token_transition_premap_shadow"
+    ]
+
+
+def test_ready_time_payload_cache_gate_accepts_prelaunch_observed_issue_source(
+    tmp_path: Path,
+):
+    result = check_summary(
+        _direct_snapshot_summary(
+            tmp_path,
+            **_direct_snapshot_boundary(
+                runtime_shadow_premap_payload_cache_direct_issue_sources=[
+                    "prelaunch_observed_transition_premap_shadow"
+                ],
+            ),
+        ),
+        root=tmp_path,
+    )
+
+    assert result["passed"] is True
+    assert result["metrics"]["direct_snapshot_issue_sources"] == [
+        "prelaunch_observed_transition_premap_shadow"
+    ]
+
+
+def test_ready_time_payload_cache_gate_revalidates_direct_snapshot_report(
+    tmp_path: Path,
+):
+    first = check_summary(_direct_snapshot_summary(tmp_path), root=tmp_path)
+    first["metrics"]["direct_snapshot_payload_bytes"] = False
+
+    second = check_summary(first, root=tmp_path)
+
+    assert second["passed"] is False
+    assert (
+        "direct_snapshot_runtime_shadow_premap_payload_cache_direct_payload_bytes_mismatch"
+        in second["failures"]
+    )
 
 
 def test_ready_time_payload_cache_gate_rejects_incomplete_direct_snapshot(
@@ -139,6 +222,7 @@ def test_ready_time_payload_cache_gate_rejects_incomplete_direct_snapshot(
             runtime_shadow_premap_payload_cache_direct_used_fetch_count=2,
             runtime_shadow_premap_payload_cache_direct_queue_batch_size=8,
             runtime_shadow_premap_payload_cache_direct_queue_deadline_us=1000.0,
+            **_direct_snapshot_boundary(),
         ),
         root=tmp_path,
     )
@@ -172,6 +256,7 @@ def test_ready_time_payload_cache_gate_preserves_explicit_zero_priority(
             runtime_shadow_premap_payload_cache_direct_used_fetch_count=8,
             runtime_shadow_premap_payload_cache_direct_queue_batch_size=8,
             runtime_shadow_premap_payload_cache_direct_queue_deadline_us=1000.0,
+            **_direct_snapshot_boundary(),
         ),
         root=tmp_path,
     )
@@ -183,6 +268,141 @@ def test_ready_time_payload_cache_gate_preserves_explicit_zero_priority(
     assert result["threshold_failures"] == [
         "used_per_issued_fetch_below_threshold"
     ]
+
+
+def test_ready_time_payload_cache_gate_rejects_direct_snapshot_payload_runtime(
+    tmp_path: Path,
+):
+    result = check_summary(
+        _summary(
+            tmp_path,
+            runtime_shadow_aggregate_premap_payload_cache_manager_count=None,
+            runtime_shadow_aggregate_premap_payload_cache_issued_fetch_count=None,
+            runtime_shadow_aggregate_premap_payload_cache_used_fetch_count=None,
+            runtime_shadow_aggregate_premap_payload_cache_demand_count=None,
+            runtime_shadow_aggregate_premap_payload_cache_demand_hit_count=None,
+            runtime_shadow_aggregate_premap_payload_cache_ready_late_miss_count=None,
+            runtime_shadow_premap_payload_cache_direct_snapshot_present=True,
+            runtime_shadow_premap_payload_cache_direct_manager_mode="ready_time",
+            runtime_shadow_premap_payload_cache_direct_demand_count=100,
+            runtime_shadow_premap_payload_cache_direct_demand_hit_count=25,
+            runtime_shadow_premap_payload_cache_direct_ready_late_miss_count=30,
+            runtime_shadow_premap_payload_cache_direct_issued_fetch_count=8,
+            runtime_shadow_premap_payload_cache_direct_used_fetch_count=2,
+            runtime_shadow_premap_payload_cache_direct_queue_batch_size=8,
+            runtime_shadow_premap_payload_cache_direct_queue_deadline_us=1000.0,
+            **_direct_snapshot_boundary(
+                runtime_shadow_premap_payload_cache_direct_payload_bytes=1,
+                runtime_shadow_premap_payload_cache_direct_full_fetch_runtime_allowed=True,
+            ),
+        ),
+        root=tmp_path,
+    )
+
+    assert result["passed"] is False
+    assert (
+        "direct_snapshot_runtime_shadow_premap_payload_cache_direct_payload_bytes_mismatch"
+        in result["failures"]
+    )
+    assert (
+        "direct_snapshot_runtime_shadow_premap_payload_cache_direct_full_fetch_runtime_allowed_mismatch"
+        in result["failures"]
+    )
+
+
+def test_ready_time_payload_cache_gate_rejects_bool_payload_bytes(
+    tmp_path: Path,
+):
+    result = check_summary(
+        _summary(
+            tmp_path,
+            runtime_shadow_aggregate_premap_payload_cache_manager_count=None,
+            runtime_shadow_aggregate_premap_payload_cache_issued_fetch_count=None,
+            runtime_shadow_aggregate_premap_payload_cache_used_fetch_count=None,
+            runtime_shadow_aggregate_premap_payload_cache_demand_count=None,
+            runtime_shadow_aggregate_premap_payload_cache_demand_hit_count=None,
+            runtime_shadow_aggregate_premap_payload_cache_ready_late_miss_count=None,
+            runtime_shadow_premap_payload_cache_direct_snapshot_present=True,
+            runtime_shadow_premap_payload_cache_direct_manager_mode="ready_time",
+            runtime_shadow_premap_payload_cache_direct_demand_count=100,
+            runtime_shadow_premap_payload_cache_direct_demand_hit_count=25,
+            runtime_shadow_premap_payload_cache_direct_ready_late_miss_count=30,
+            runtime_shadow_premap_payload_cache_direct_issued_fetch_count=8,
+            runtime_shadow_premap_payload_cache_direct_used_fetch_count=2,
+            runtime_shadow_premap_payload_cache_direct_queue_batch_size=8,
+            runtime_shadow_premap_payload_cache_direct_queue_deadline_us=1000.0,
+            **_direct_snapshot_boundary(
+                runtime_shadow_premap_payload_cache_direct_payload_bytes=False,
+            ),
+        ),
+        root=tmp_path,
+    )
+
+    assert result["passed"] is False
+    assert (
+        "direct_snapshot_runtime_shadow_premap_payload_cache_direct_payload_bytes_mismatch"
+        in result["failures"]
+    )
+
+
+def test_ready_time_payload_cache_gate_rejects_missing_transition_issue_source(
+    tmp_path: Path,
+):
+    result = check_summary(
+        _summary(
+            tmp_path,
+            runtime_shadow_aggregate_premap_payload_cache_manager_count=None,
+            runtime_shadow_aggregate_premap_payload_cache_issued_fetch_count=None,
+            runtime_shadow_aggregate_premap_payload_cache_used_fetch_count=None,
+            runtime_shadow_aggregate_premap_payload_cache_demand_count=None,
+            runtime_shadow_aggregate_premap_payload_cache_demand_hit_count=None,
+            runtime_shadow_aggregate_premap_payload_cache_ready_late_miss_count=None,
+            runtime_shadow_premap_payload_cache_direct_snapshot_present=True,
+            runtime_shadow_premap_payload_cache_direct_manager_mode="ready_time",
+            runtime_shadow_premap_payload_cache_direct_demand_count=100,
+            runtime_shadow_premap_payload_cache_direct_demand_hit_count=25,
+            runtime_shadow_premap_payload_cache_direct_ready_late_miss_count=30,
+            runtime_shadow_premap_payload_cache_direct_issued_fetch_count=8,
+            runtime_shadow_premap_payload_cache_direct_used_fetch_count=2,
+            runtime_shadow_premap_payload_cache_direct_queue_batch_size=8,
+            runtime_shadow_premap_payload_cache_direct_queue_deadline_us=1000.0,
+            **_direct_snapshot_boundary(
+                runtime_shadow_premap_payload_cache_direct_issue_sources=[
+                    "current_router_topk_premap_shadow"
+                ],
+            ),
+        ),
+        root=tmp_path,
+    )
+
+    assert result["passed"] is False
+    assert (
+        "direct_snapshot_issue_sources_contains_non_transition_source"
+        in result["failures"]
+    )
+
+
+def test_ready_time_payload_cache_gate_rejects_mixed_non_transition_issue_source(
+    tmp_path: Path,
+):
+    result = check_summary(
+        _direct_snapshot_summary(
+            tmp_path,
+            **_direct_snapshot_boundary(
+                runtime_shadow_premap_payload_cache_direct_issue_sources=[
+                    "prelaunch_observed_transition_premap_shadow",
+                    "current_router_topk_premap_shadow",
+                ],
+            ),
+        ),
+        root=tmp_path,
+    )
+
+    assert result["passed"] is False
+    assert (
+        "direct_snapshot_issue_sources_contains_non_transition_source"
+        in result["failures"]
+    )
 
 
 def test_ready_time_payload_cache_gate_blocks_unused_prefetches(tmp_path: Path):
