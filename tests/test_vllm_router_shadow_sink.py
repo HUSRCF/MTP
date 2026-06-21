@@ -1094,6 +1094,27 @@ def test_premap_payload_cache_manager_snapshot_flattens_ready_time_fields():
     assert performance[f"{plan_prefix}kernel_arg_pass_allowed"] is False
     assert performance[f"{plan_prefix}changes_kernel_launch_args"] is False
     assert performance[f"{plan_prefix}full_fetch_runtime_allowed"] is False
+    execution_prefix = "runtime_shadow_premap_payload_cache_direct_runtime_execution_"
+    assert (
+        performance[f"{execution_prefix}stage"]
+        == "payload_cache_runtime_execution_lab_gate_dry_run"
+    )
+    assert performance[f"{execution_prefix}status"] == (
+        f"blocked_by_runtime_plan:{performance[f'{plan_prefix}status']}"
+    )
+    assert performance[f"{execution_prefix}plan_status"] == performance[
+        f"{plan_prefix}status"
+    ]
+    assert performance[f"{execution_prefix}consumes_plan"] is True
+    assert performance[f"{execution_prefix}live_payload_runtime_enabled"] is False
+    assert performance[f"{execution_prefix}payload_transfer_runtime_enabled"] is False
+    assert performance[f"{execution_prefix}issued_payload_count"] == 0
+    assert performance[f"{execution_prefix}payload_bytes"] == 0
+    assert performance[f"{execution_prefix}ready_credit"] is False
+    assert performance[f"{execution_prefix}real_ready_credit_granted"] is False
+    assert performance[f"{execution_prefix}kernel_arg_pass_allowed"] is False
+    assert performance[f"{execution_prefix}changes_kernel_launch_args"] is False
+    assert performance[f"{execution_prefix}full_fetch_runtime_allowed"] is False
     assert (
         performance[
             "runtime_shadow_premap_payload_cache_direct_full_fetch_ready_time_gate_candidate_reason"

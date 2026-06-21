@@ -172,6 +172,65 @@ class PayloadCacheRuntimePlan:
         return asdict(self)
 
 
+@dataclass(frozen=True)
+class PayloadCacheRuntimeExecutionDryRun:
+    """Payload-cache execution dry-run before any live payload side effect.
+
+    This is the next contract after ``PayloadCacheRuntimePlan``. It records
+    that a runtime consumer has inspected the plan and reached an execution
+    decision, while still forbidding all side effects: no payload movement, no
+    ready credit, no kernel argument handoff, and no full-fetch runtime enable.
+    """
+
+    present: bool
+    stage: str
+    status: str
+    consumes_plan: bool
+    plan_status: str
+    live_payload_runtime_enabled: bool = False
+    payload_transfer_runtime_enabled: bool = False
+    issued_payload_count: int = 0
+    payload_bytes: int = 0
+    ready_credit: bool = False
+    real_ready_credit_granted: bool = False
+    kernel_arg_pass_allowed: bool = False
+    changes_kernel_launch_args: bool = False
+    full_fetch_runtime_allowed: bool = False
+
+    def __post_init__(self) -> None:
+        if self.present is not True:
+            raise ValueError("runtime execution dry-run must be present")
+        if self.stage != "payload_cache_runtime_execution_lab_gate_dry_run":
+            raise ValueError("runtime execution dry-run stage mismatch")
+        if not isinstance(self.plan_status, str) or not self.plan_status:
+            raise TypeError("plan_status must be a nonempty string")
+        expected_status = f"blocked_by_runtime_plan:{self.plan_status}"
+        if self.status != expected_status:
+            raise ValueError("runtime execution status does not match plan status")
+        for field_name in ("issued_payload_count", "payload_bytes"):
+            value = getattr(self, field_name)
+            if not isinstance(value, int) or isinstance(value, bool):
+                raise TypeError(f"{field_name} must be an integer")
+            if value != 0:
+                raise ValueError(f"{field_name} must remain zero in dry-run")
+        for field_name in (
+            "live_payload_runtime_enabled",
+            "payload_transfer_runtime_enabled",
+            "ready_credit",
+            "real_ready_credit_granted",
+            "kernel_arg_pass_allowed",
+            "changes_kernel_launch_args",
+            "full_fetch_runtime_allowed",
+        ):
+            if getattr(self, field_name) is not False:
+                raise ValueError(f"{field_name} must remain disabled")
+        if self.consumes_plan is not True:
+            raise ValueError("runtime execution dry-run must consume runtime plan")
+
+    def as_dict(self) -> dict[str, bool | int | str]:
+        return asdict(self)
+
+
 def select_cache_lab_prefetch_gate(
     signals: CacheLabRuntimeSignals,
     *,
@@ -267,6 +326,21 @@ def build_payload_cache_runtime_plan(
         status=status,
         consumes_participation=True,
         participation_status=str(participation.status),
+    )
+
+
+def build_payload_cache_runtime_execution_dry_run(
+    plan: PayloadCacheRuntimePlan,
+) -> PayloadCacheRuntimeExecutionDryRun:
+    """Build the payloadless execution dry-run object from a runtime plan."""
+
+    plan_status = str(plan.status)
+    return PayloadCacheRuntimeExecutionDryRun(
+        present=True,
+        stage="payload_cache_runtime_execution_lab_gate_dry_run",
+        status=f"blocked_by_runtime_plan:{plan_status}",
+        consumes_plan=True,
+        plan_status=plan_status,
     )
 
 

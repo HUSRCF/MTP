@@ -6,8 +6,10 @@ from mtp_expert_prefetch.runtime import (
     CacheLabGateConfig,
     CacheLabGateDecision,
     CacheLabRuntimeSignals,
+    PayloadCacheRuntimeExecutionDryRun,
     PayloadCacheRuntimeParticipation,
     PayloadCacheRuntimePlan,
+    build_payload_cache_runtime_execution_dry_run,
     build_payload_cache_runtime_participation,
     build_payload_cache_runtime_plan,
     runtime_plan_status_from_participation,
@@ -266,4 +268,59 @@ def test_payload_cache_runtime_plan_rejects_side_effectful_construction() -> Non
             status="participation_not_full_fetch_candidate:accounting_only_no_used_fetch",
             consumes_participation=True,
             participation_status="accounting_only_no_used_fetch",
+        )
+
+
+def test_payload_cache_runtime_execution_dry_run_consumes_plan() -> None:
+    participation = build_payload_cache_runtime_participation(
+        manager_mode="ready_time",
+        issue_sources=["prelaunch_observed_transition_premap_shadow"],
+        demand_on_consumer=True,
+        issued_fetch_count=12,
+        used_fetch_count=5,
+        demand_count=9,
+        demand_hit_count=5,
+        ready_late_miss_count=0,
+        candidate_reason="candidate_requires_ready_time_gate",
+    )
+    plan = build_payload_cache_runtime_plan(participation)
+
+    execution = build_payload_cache_runtime_execution_dry_run(plan)
+    payload = execution.as_dict()
+
+    assert payload["present"] is True
+    assert payload["stage"] == "payload_cache_runtime_execution_lab_gate_dry_run"
+    assert payload["status"] == f"blocked_by_runtime_plan:{plan.status}"
+    assert payload["plan_status"] == plan.status
+    assert payload["consumes_plan"] is True
+    assert payload["live_payload_runtime_enabled"] is False
+    assert payload["payload_transfer_runtime_enabled"] is False
+    assert payload["issued_payload_count"] == 0
+    assert payload["payload_bytes"] == 0
+    assert payload["ready_credit"] is False
+    assert payload["real_ready_credit_granted"] is False
+    assert payload["kernel_arg_pass_allowed"] is False
+    assert payload["changes_kernel_launch_args"] is False
+    assert payload["full_fetch_runtime_allowed"] is False
+
+
+def test_payload_cache_runtime_execution_dry_run_rejects_side_effects() -> None:
+    plan_status = "participation_not_full_fetch_candidate:accounting_only_no_used_fetch"
+    with pytest.raises(ValueError, match="payload_bytes"):
+        PayloadCacheRuntimeExecutionDryRun(
+            present=True,
+            stage="payload_cache_runtime_execution_lab_gate_dry_run",
+            status=f"blocked_by_runtime_plan:{plan_status}",
+            consumes_plan=True,
+            plan_status=plan_status,
+            payload_bytes=1,
+        )
+
+    with pytest.raises(ValueError, match="status"):
+        PayloadCacheRuntimeExecutionDryRun(
+            present=True,
+            stage="payload_cache_runtime_execution_lab_gate_dry_run",
+            status="not_blocked",
+            consumes_plan=True,
+            plan_status=plan_status,
         )

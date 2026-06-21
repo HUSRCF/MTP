@@ -115,6 +115,45 @@ def _direct_snapshot_boundary(**overrides):
         "runtime_shadow_premap_payload_cache_direct_runtime_plan_full_fetch_runtime_allowed": (
             False
         ),
+        "runtime_shadow_premap_payload_cache_direct_runtime_execution_present": True,
+        "runtime_shadow_premap_payload_cache_direct_runtime_execution_stage": (
+            "payload_cache_runtime_execution_lab_gate_dry_run"
+        ),
+        "runtime_shadow_premap_payload_cache_direct_runtime_execution_status": (
+            "blocked_by_runtime_plan:"
+            "lab_gate_blocked:ready_time_direct_snapshot_disallows_full_fetch"
+        ),
+        "runtime_shadow_premap_payload_cache_direct_runtime_execution_consumes_plan": (
+            True
+        ),
+        "runtime_shadow_premap_payload_cache_direct_runtime_execution_plan_status": (
+            "lab_gate_blocked:ready_time_direct_snapshot_disallows_full_fetch"
+        ),
+        "runtime_shadow_premap_payload_cache_direct_runtime_execution_live_payload_runtime_enabled": (
+            False
+        ),
+        "runtime_shadow_premap_payload_cache_direct_runtime_execution_payload_transfer_runtime_enabled": (
+            False
+        ),
+        "runtime_shadow_premap_payload_cache_direct_runtime_execution_issued_payload_count": (
+            0
+        ),
+        "runtime_shadow_premap_payload_cache_direct_runtime_execution_payload_bytes": 0,
+        "runtime_shadow_premap_payload_cache_direct_runtime_execution_ready_credit": (
+            False
+        ),
+        "runtime_shadow_premap_payload_cache_direct_runtime_execution_real_ready_credit_granted": (
+            False
+        ),
+        "runtime_shadow_premap_payload_cache_direct_runtime_execution_kernel_arg_pass_allowed": (
+            False
+        ),
+        "runtime_shadow_premap_payload_cache_direct_runtime_execution_changes_kernel_launch_args": (
+            False
+        ),
+        "runtime_shadow_premap_payload_cache_direct_runtime_execution_full_fetch_runtime_allowed": (
+            False
+        ),
     }
     values.update(overrides)
     return values
@@ -251,6 +290,27 @@ def test_ready_time_payload_cache_gate_accepts_direct_snapshot_input(tmp_path: P
         result["metrics"]["direct_snapshot_runtime_plan_kernel_arg_pass_allowed"]
         is False
     )
+    assert result["metrics"]["direct_snapshot_runtime_execution_present"] is True
+    assert (
+        result["metrics"]["direct_snapshot_runtime_execution_status"]
+        == "blocked_by_runtime_plan:"
+        "lab_gate_blocked:ready_time_direct_snapshot_disallows_full_fetch"
+    )
+    assert (
+        result["metrics"]["direct_snapshot_runtime_execution_plan_status"]
+        == result["metrics"]["direct_snapshot_runtime_plan_status"]
+    )
+    assert result["metrics"]["direct_snapshot_runtime_execution_payload_bytes"] == 0
+    assert (
+        result["metrics"][
+            "direct_snapshot_runtime_execution_real_ready_credit_granted"
+        ]
+        is False
+    )
+    assert (
+        result["metrics"]["direct_snapshot_runtime_execution_kernel_arg_pass_allowed"]
+        is False
+    )
 
 
 def test_ready_time_payload_cache_gate_accepts_own_direct_snapshot_report(
@@ -279,6 +339,11 @@ def test_ready_time_payload_cache_gate_accepts_own_direct_snapshot_report(
     assert (
         second["metrics"]["direct_snapshot_runtime_plan_status"]
         == "lab_gate_blocked:ready_time_direct_snapshot_disallows_full_fetch"
+    )
+    assert (
+        second["metrics"]["direct_snapshot_runtime_execution_status"]
+        == "blocked_by_runtime_plan:"
+        "lab_gate_blocked:ready_time_direct_snapshot_disallows_full_fetch"
     )
 
 
@@ -323,6 +388,56 @@ def test_ready_time_payload_cache_gate_rejects_partial_direct_runtime_plan_field
     )
     assert (
         "direct_runtime_plan_runtime_shadow_premap_payload_cache_direct_runtime_plan_ready_credit_mismatch"
+        in result["failures"]
+    )
+
+
+def test_ready_time_payload_cache_gate_rejects_direct_runtime_execution_status_mismatch(
+    tmp_path: Path,
+):
+    result = check_summary(
+        _direct_snapshot_summary(
+            tmp_path,
+            runtime_shadow_premap_payload_cache_direct_runtime_execution_status=(
+                "not_blocked"
+            ),
+        ),
+        root=tmp_path,
+    )
+
+    assert result["passed"] is False
+    assert "direct_runtime_execution_status_mismatch" in result["failures"]
+
+
+def test_ready_time_payload_cache_gate_rejects_partial_direct_runtime_execution_fields(
+    tmp_path: Path,
+):
+    result = check_summary(
+        _direct_snapshot_summary(
+            tmp_path,
+            runtime_shadow_premap_payload_cache_direct_runtime_execution_present=None,
+            runtime_shadow_premap_payload_cache_direct_runtime_execution_payload_bytes=1,
+            runtime_shadow_premap_payload_cache_direct_runtime_execution_ready_credit=True,
+            runtime_shadow_premap_payload_cache_direct_runtime_execution_real_ready_credit_granted=True,
+        ),
+        root=tmp_path,
+    )
+
+    assert result["passed"] is False
+    assert (
+        "direct_runtime_execution_runtime_shadow_premap_payload_cache_direct_runtime_execution_present_mismatch"
+        in result["failures"]
+    )
+    assert (
+        "direct_runtime_execution_runtime_shadow_premap_payload_cache_direct_runtime_execution_payload_bytes_mismatch"
+        in result["failures"]
+    )
+    assert (
+        "direct_runtime_execution_runtime_shadow_premap_payload_cache_direct_runtime_execution_ready_credit_mismatch"
+        in result["failures"]
+    )
+    assert (
+        "direct_runtime_execution_runtime_shadow_premap_payload_cache_direct_runtime_execution_real_ready_credit_granted_mismatch"
         in result["failures"]
     )
 

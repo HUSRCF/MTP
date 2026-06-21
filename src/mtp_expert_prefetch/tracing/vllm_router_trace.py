@@ -50,6 +50,7 @@ from mtp_expert_prefetch.runtime.cache_manager import (
     PremapRealDescriptorHandle,
 )
 from mtp_expert_prefetch.runtime.cache_lab_gate import (
+    build_payload_cache_runtime_execution_dry_run,
     build_payload_cache_runtime_participation,
     build_payload_cache_runtime_plan,
 )
@@ -2616,6 +2617,10 @@ def _add_premap_payload_cache_manager_snapshot_to_performance(
     runtime_plan_prefix = f"{prefix}runtime_plan_"
     for field_name, value in runtime_plan.as_dict().items():
         performance[f"{runtime_plan_prefix}{field_name}"] = value
+    runtime_execution = build_payload_cache_runtime_execution_dry_run(runtime_plan)
+    runtime_execution_prefix = f"{prefix}runtime_execution_"
+    for field_name, value in runtime_execution.as_dict().items():
+        performance[f"{runtime_execution_prefix}{field_name}"] = value
     performance[f"{prefix}transition_issue_attempt_count"] = int(
         recorder._premap_payload_cache_transition_issue_attempt_count
     )
