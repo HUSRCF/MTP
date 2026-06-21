@@ -2,10 +2,85 @@
 
 ## Progress Version
 
-- Version: `v1.21-payload-cache-issue-stream-executor`
-- Updated: 2026-06-20
+- Version: `v1.22-payload-cache-runtime-execution-envelope`
+- Updated: 2026-06-22
 
-## Latest Update: Shifted Issue Runtime Shadow Lab Gate
+## Latest Update: Payload Cache Runtime Execution Envelope Gate
+
+The lab default preflight now requires a payload-cache runtime execution
+envelope, not only the older dry-run execution object.  The default GPU1 gate
+points at:
+
+```text
+outputs/reports/premap_kernel_consumer/premap_payload_cache_ready_time_runtime_execution_envelope_smoke_gpu1_20260622.json
+```
+
+The compact preflight summary flattens and strictly checks:
+
+```text
+prefetch_lab_default_payload_cache_runtime_execution_decision = blocked
+prefetch_lab_default_payload_cache_runtime_execution_block_reason
+  == prefetch_lab_default_payload_cache_runtime_execution_plan_status
+prefetch_lab_default_payload_cache_runtime_execution_execution_mode
+  = payloadless_lab_gate_dry_run
+prefetch_lab_default_payload_cache_runtime_execution_status
+  = blocked_by_runtime_plan:<plan_status>
+```
+
+The no-side-effect boundary remains closed:
+
+```text
+payload_bytes = 0
+ready_credit = false
+real_ready_credit_granted = false
+payload_transfer_runtime_enabled = false
+kernel_arg_pass_allowed = false
+changes_kernel_launch_args = false
+full_fetch_runtime_allowed = false
+```
+
+Artifacts:
+
+```text
+outputs/reports/premap_kernel_consumer/premap_payload_cache_ready_time_runtime_execution_envelope_smoke_gpu1_20260622.json
+outputs/reports/premap_lab_preflight_status_runtime_execution_envelope_gate_summary_20260622.json
+outputs/reports/premap_lab_preflight_status_runtime_execution_envelope_gate_summary_20260622.check.json
+```
+
+Validation:
+
+```text
+/home/husrcf/anaconda3/envs/TRY/bin/python -m pytest \
+  tests/test_check_prefetch_lab_default_gate.py \
+  tests/test_run_premap_lab_preflight.py \
+  tests/test_check_premap_lab_preflight_summary.py \
+  tests/test_check_premap_payload_cache_ready_time_gate.py \
+  tests/test_cache_lab_gate.py \
+  tests/test_vllm_router_shadow_sink.py -q
+
+479 passed
+
+/home/husrcf/anaconda3/envs/TRY/bin/python scripts/check_prefetch_lab_default_gate.py \
+  configs/runtime/prefetch_lab_default_gate_gpu1.yaml
+
+passed = true
+
+/home/husrcf/anaconda3/envs/TRY/bin/python scripts/check_premap_lab_preflight_summary.py \
+  outputs/reports/premap_lab_preflight_status_runtime_execution_envelope_gate_summary_20260622.json \
+  --output-json outputs/reports/premap_lab_preflight_status_runtime_execution_envelope_gate_summary_20260622.check.json
+
+passed = true
+```
+
+Next gate:
+
+```text
+continue payload/cache-manager runtime work under the envelope gate.  The next
+live path must keep payload/kernel/ready side effects closed until a useful
+native consumer or payload-cache manager stage has separate strict evidence.
+```
+
+## Previous Update: Shifted Issue Runtime Shadow Lab Gate
 
 The online shifted-issue runtime shadow smoke is now promoted into the lab
 default preflight as required evidence:
