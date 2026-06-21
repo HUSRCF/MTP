@@ -11,6 +11,7 @@ from mtp_expert_prefetch.runtime import (
     PayloadCacheManagerImplementationArtifact,
     PayloadCacheManagerRuntimeSnapshotArtifact,
     PayloadCacheManagerRuntimeSkeleton,
+    PayloadCacheSnapshotBackedLiveRuntimePreflight,
     PayloadCacheRuntimeExecutionDryRun,
     PayloadCacheQueueBudgetRuntimeEnvelope,
     PayloadCacheRuntimeParticipation,
@@ -18,6 +19,7 @@ from mtp_expert_prefetch.runtime import (
     build_payload_cache_manager_implementation_artifact,
     build_payload_cache_manager_runtime_snapshot_artifact,
     build_payload_cache_manager_runtime_skeleton,
+    build_payload_cache_snapshot_backed_live_runtime_preflight,
     build_payload_cache_live_payload_runtime_disabled_canary,
     build_payload_cache_live_payload_stage_preflight,
     build_payload_cache_queue_budget_runtime_envelope,
@@ -1215,6 +1217,181 @@ def test_payload_cache_manager_runtime_snapshot_artifact_rejects_side_effects() 
 
     with pytest.raises(TypeError, match="skeleton"):
         build_payload_cache_manager_runtime_snapshot_artifact(object())  # type: ignore[arg-type]
+
+
+def test_snapshot_backed_live_runtime_preflight_consumes_snapshot() -> None:
+    envelope = build_payload_cache_queue_budget_runtime_envelope(
+        cell_count=16,
+        event_timing_mode="token_index",
+        first_model_passing_capacity=4096,
+        first_model_passing_issue_lead_tokens=32,
+        first_model_passing_queue_deadline_us=100.0,
+        first_model_passing_lookahead_us=2_400_000.0,
+        shifted_issue_accounting_enabled=True,
+        shifted_issue_accounted_packet_count=28,
+        shifted_issue_unique_issue_key_count=16,
+    )
+    preflight = build_payload_cache_live_payload_stage_preflight(envelope)
+    canary = build_payload_cache_live_payload_runtime_disabled_canary(
+        preflight,
+        envelope,
+    )
+    artifact = build_payload_cache_manager_implementation_artifact(canary, envelope)
+    skeleton = build_payload_cache_manager_runtime_skeleton(artifact)
+    snapshot = build_payload_cache_manager_runtime_snapshot_artifact(skeleton)
+
+    live_preflight = build_payload_cache_snapshot_backed_live_runtime_preflight(
+        snapshot,
+    )
+    payload = live_preflight.as_dict()
+
+    assert payload["present"] is True
+    assert payload["stage"] == "payload_cache_snapshot_backed_live_runtime_preflight"
+    assert payload["status"] == f"blocked_by_runtime_snapshot:{snapshot.status}"
+    assert payload["consumes_runtime_snapshot"] is True
+    assert payload["runtime_snapshot_status"] == snapshot.status
+    assert payload["manager_backend"] == "ReadyTimeExpertCacheManager"
+    assert payload["manager_runtime_contract"] == "ready_time_issue_demand_skeleton_v1"
+    assert payload["manager_runtime_mode"] == "ready_time_payload_cache_skeleton"
+    assert payload["snapshot_source"] == "PayloadCacheManagerRuntimeSnapshotArtifact"
+    assert payload["live_runtime_preflight_instantiated"] is True
+    assert payload["accounting_snapshot_instantiated"] is True
+    assert payload["live_runtime_instantiated"] is False
+    assert payload["capacity_entries"] == 4096
+    assert payload["issue_lead_tokens"] == 32
+    assert payload["queue_deadline_us"] == 100.0
+    assert payload["lookahead_us"] == 2_400_000.0
+    assert payload["queue_batch_size"] == 1
+    for key in (
+        "resident_count",
+        "issued_fetch_count",
+        "used_fetch_count",
+        "unused_fetch_count",
+        "demand_count",
+        "demand_hit_count",
+        "demand_miss_count",
+        "evicted_before_use_count",
+        "ready_late_miss_count",
+        "late_completion_unused_count",
+        "queue_batch_count",
+    ):
+        assert payload[key] == 0
+    for key in (
+        "queue_service_us",
+        "queue_total_span_us",
+        "queue_wait_us",
+        "queue_max_delay_us",
+    ):
+        assert payload[key] == 0.0
+    assert payload["shifted_issue_accounting_enabled"] is True
+    assert payload["shifted_issue_accounted_packet_count"] == 28
+    assert payload["shifted_issue_unique_issue_key_count"] == 16
+    assert payload["decision"] == "blocked"
+    assert payload["block_reason"] == "snapshot_backed_live_runtime_preflight_disabled"
+    assert (
+        payload["execution_mode"]
+        == "payload_cache_snapshot_backed_live_runtime_preflight_disabled"
+    )
+    assert payload["live_payload_runtime_enabled"] is False
+    assert payload["payload_transfer_runtime_enabled"] is False
+    assert payload["payload_deref_allowed"] is False
+    assert payload["payload_deref_runtime_allowed"] is False
+    assert payload["issued_payload_count"] == 0
+    assert payload["payload_bytes"] == 0
+    assert payload["ready_credit"] is False
+    assert payload["ready_before_demand_credit"] is False
+    assert payload["real_ready_credit_granted"] is False
+    assert payload["kernel_arg_pass_allowed"] is False
+    assert payload["passed_to_kernel"] is False
+    assert payload["changes_kernel_launch_args"] is False
+    assert payload["full_fetch_runtime_allowed"] is False
+    assert payload["uses_current_wna16_args"] is False
+    assert payload["passes_current_wna16_args"] is False
+    assert payload["measures_tpot"] is False
+    assert payload["measures_vllm_latency"] is False
+
+
+def test_snapshot_backed_live_runtime_preflight_rejects_side_effects() -> None:
+    snapshot_status = (
+        "blocked_by_runtime_skeleton:"
+        "blocked_by_manager_artifact:"
+        "blocked_by_live_payload_runtime:"
+        "blocked_by_live_payload_stage:"
+        "blocked_by_queue_budget_runtime_envelope:"
+        "model_queue_budget_satisfied_runtime_disabled"
+    )
+    base_kwargs = {
+        "present": True,
+        "stage": "payload_cache_snapshot_backed_live_runtime_preflight",
+        "status": f"blocked_by_runtime_snapshot:{snapshot_status}",
+        "consumes_runtime_snapshot": True,
+        "runtime_snapshot_status": snapshot_status,
+        "manager_backend": "ReadyTimeExpertCacheManager",
+        "manager_runtime_contract": "ready_time_issue_demand_skeleton_v1",
+        "manager_runtime_mode": "ready_time_payload_cache_skeleton",
+        "snapshot_source": "PayloadCacheManagerRuntimeSnapshotArtifact",
+        "live_runtime_preflight_instantiated": True,
+        "accounting_snapshot_instantiated": True,
+        "live_runtime_instantiated": False,
+        "capacity_entries": 4096,
+        "issue_lead_tokens": 32,
+        "queue_deadline_us": 100.0,
+        "lookahead_us": 2_400_000.0,
+        "queue_batch_size": 1,
+        "resident_count": 0,
+        "issued_fetch_count": 0,
+        "used_fetch_count": 0,
+        "unused_fetch_count": 0,
+        "demand_count": 0,
+        "demand_hit_count": 0,
+        "demand_miss_count": 0,
+        "evicted_before_use_count": 0,
+        "ready_late_miss_count": 0,
+        "late_completion_unused_count": 0,
+        "queue_batch_count": 0,
+        "queue_service_us": 0.0,
+        "queue_total_span_us": 0.0,
+        "queue_wait_us": 0.0,
+        "queue_max_delay_us": 0.0,
+        "shifted_issue_accounting_enabled": True,
+        "shifted_issue_accounted_packet_count": 28,
+        "shifted_issue_unique_issue_key_count": 16,
+    }
+
+    with pytest.raises(ValueError, match="live runtime"):
+        PayloadCacheSnapshotBackedLiveRuntimePreflight(
+            **{
+                **base_kwargs,
+                "live_runtime_instantiated": True,
+            },
+        )
+
+    with pytest.raises(ValueError, match="used_fetch_count"):
+        PayloadCacheSnapshotBackedLiveRuntimePreflight(
+            **{
+                **base_kwargs,
+                "used_fetch_count": 1,
+            },
+        )
+
+    with pytest.raises(ValueError, match="ready_credit"):
+        PayloadCacheSnapshotBackedLiveRuntimePreflight(
+            **{
+                **base_kwargs,
+                "ready_credit": True,
+            },
+        )
+
+    with pytest.raises(ValueError, match="kernel_arg_pass_allowed"):
+        PayloadCacheSnapshotBackedLiveRuntimePreflight(
+            **{
+                **base_kwargs,
+                "kernel_arg_pass_allowed": True,
+            },
+        )
+
+    with pytest.raises(TypeError, match="snapshot"):
+        build_payload_cache_snapshot_backed_live_runtime_preflight(object())  # type: ignore[arg-type]
 
 
 def test_payload_cache_runtime_execution_dry_run_consumes_plan() -> None:

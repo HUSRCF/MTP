@@ -39,6 +39,7 @@ from mtp_expert_prefetch.runtime import (  # noqa: E402
     build_payload_cache_manager_implementation_artifact,
     build_payload_cache_manager_runtime_snapshot_artifact,
     build_payload_cache_manager_runtime_skeleton,
+    build_payload_cache_snapshot_backed_live_runtime_preflight,
     build_payload_cache_queue_budget_runtime_envelope,
 )
 
@@ -1234,6 +1235,7 @@ def _check_optional_stream_queue_budget_sweep(
     manager_artifact_payload: dict[str, Any] = {}
     manager_runtime_skeleton_payload: dict[str, Any] = {}
     manager_runtime_snapshot_payload: dict[str, Any] = {}
+    snapshot_backed_live_runtime_preflight_payload: dict[str, Any] = {}
     if len(failures) == queue_failure_base:
         try:
             envelope = build_payload_cache_queue_budget_runtime_envelope(
@@ -1278,8 +1280,20 @@ def _check_optional_stream_queue_budget_sweep(
                 )
             )
             manager_runtime_snapshot_payload = manager_runtime_snapshot.as_dict()
+            snapshot_backed_live_runtime_preflight = (
+                build_payload_cache_snapshot_backed_live_runtime_preflight(
+                    manager_runtime_snapshot,
+                )
+            )
+            snapshot_backed_live_runtime_preflight_payload = (
+                snapshot_backed_live_runtime_preflight.as_dict()
+            )
         except (TypeError, ValueError) as exc:
-            if manager_runtime_skeleton_payload:
+            if manager_runtime_snapshot_payload:
+                label = (
+                    "stream_queue_budget_snapshot_backed_live_runtime_preflight_invalid"
+                )
+            elif manager_runtime_skeleton_payload:
                 label = "stream_queue_budget_manager_runtime_snapshot_invalid"
             elif manager_artifact_payload:
                 label = "stream_queue_budget_manager_runtime_skeleton_invalid"
@@ -1950,6 +1964,213 @@ def _check_optional_stream_queue_budget_sweep(
         ),
         "stream_queue_budget_manager_runtime_snapshot_measures_vllm_latency": (
             manager_runtime_snapshot_payload.get("measures_vllm_latency")
+        ),
+        "stream_queue_budget_snapshot_backed_live_runtime_preflight_present": (
+            snapshot_backed_live_runtime_preflight_payload.get("present")
+        ),
+        "stream_queue_budget_snapshot_backed_live_runtime_preflight_stage": (
+            snapshot_backed_live_runtime_preflight_payload.get("stage")
+        ),
+        "stream_queue_budget_snapshot_backed_live_runtime_preflight_status": (
+            snapshot_backed_live_runtime_preflight_payload.get("status")
+        ),
+        "stream_queue_budget_snapshot_backed_live_runtime_preflight_consumes_runtime_snapshot": (
+            snapshot_backed_live_runtime_preflight_payload.get("consumes_runtime_snapshot")
+        ),
+        "stream_queue_budget_snapshot_backed_live_runtime_preflight_runtime_snapshot_status": (
+            snapshot_backed_live_runtime_preflight_payload.get("runtime_snapshot_status")
+        ),
+        "stream_queue_budget_snapshot_backed_live_runtime_preflight_manager_backend": (
+            snapshot_backed_live_runtime_preflight_payload.get("manager_backend")
+        ),
+        "stream_queue_budget_snapshot_backed_live_runtime_preflight_manager_runtime_contract": (
+            snapshot_backed_live_runtime_preflight_payload.get(
+                "manager_runtime_contract",
+            )
+        ),
+        "stream_queue_budget_snapshot_backed_live_runtime_preflight_manager_runtime_mode": (
+            snapshot_backed_live_runtime_preflight_payload.get("manager_runtime_mode")
+        ),
+        "stream_queue_budget_snapshot_backed_live_runtime_preflight_snapshot_source": (
+            snapshot_backed_live_runtime_preflight_payload.get("snapshot_source")
+        ),
+        "stream_queue_budget_snapshot_backed_live_runtime_preflight_live_runtime_preflight_instantiated": (
+            snapshot_backed_live_runtime_preflight_payload.get(
+                "live_runtime_preflight_instantiated",
+            )
+        ),
+        "stream_queue_budget_snapshot_backed_live_runtime_preflight_accounting_snapshot_instantiated": (
+            snapshot_backed_live_runtime_preflight_payload.get(
+                "accounting_snapshot_instantiated",
+            )
+        ),
+        "stream_queue_budget_snapshot_backed_live_runtime_preflight_live_runtime_instantiated": (
+            snapshot_backed_live_runtime_preflight_payload.get(
+                "live_runtime_instantiated",
+            )
+        ),
+        "stream_queue_budget_snapshot_backed_live_runtime_preflight_capacity_entries": (
+            snapshot_backed_live_runtime_preflight_payload.get("capacity_entries")
+        ),
+        "stream_queue_budget_snapshot_backed_live_runtime_preflight_issue_lead_tokens": (
+            snapshot_backed_live_runtime_preflight_payload.get("issue_lead_tokens")
+        ),
+        "stream_queue_budget_snapshot_backed_live_runtime_preflight_queue_deadline_us": (
+            snapshot_backed_live_runtime_preflight_payload.get("queue_deadline_us")
+        ),
+        "stream_queue_budget_snapshot_backed_live_runtime_preflight_lookahead_us": (
+            snapshot_backed_live_runtime_preflight_payload.get("lookahead_us")
+        ),
+        "stream_queue_budget_snapshot_backed_live_runtime_preflight_queue_batch_size": (
+            snapshot_backed_live_runtime_preflight_payload.get("queue_batch_size")
+        ),
+        "stream_queue_budget_snapshot_backed_live_runtime_preflight_resident_count": (
+            snapshot_backed_live_runtime_preflight_payload.get("resident_count")
+        ),
+        "stream_queue_budget_snapshot_backed_live_runtime_preflight_issued_fetch_count": (
+            snapshot_backed_live_runtime_preflight_payload.get("issued_fetch_count")
+        ),
+        "stream_queue_budget_snapshot_backed_live_runtime_preflight_used_fetch_count": (
+            snapshot_backed_live_runtime_preflight_payload.get("used_fetch_count")
+        ),
+        "stream_queue_budget_snapshot_backed_live_runtime_preflight_unused_fetch_count": (
+            snapshot_backed_live_runtime_preflight_payload.get("unused_fetch_count")
+        ),
+        "stream_queue_budget_snapshot_backed_live_runtime_preflight_demand_count": (
+            snapshot_backed_live_runtime_preflight_payload.get("demand_count")
+        ),
+        "stream_queue_budget_snapshot_backed_live_runtime_preflight_demand_hit_count": (
+            snapshot_backed_live_runtime_preflight_payload.get("demand_hit_count")
+        ),
+        "stream_queue_budget_snapshot_backed_live_runtime_preflight_demand_miss_count": (
+            snapshot_backed_live_runtime_preflight_payload.get("demand_miss_count")
+        ),
+        "stream_queue_budget_snapshot_backed_live_runtime_preflight_evicted_before_use_count": (
+            snapshot_backed_live_runtime_preflight_payload.get(
+                "evicted_before_use_count",
+            )
+        ),
+        "stream_queue_budget_snapshot_backed_live_runtime_preflight_ready_late_miss_count": (
+            snapshot_backed_live_runtime_preflight_payload.get(
+                "ready_late_miss_count",
+            )
+        ),
+        "stream_queue_budget_snapshot_backed_live_runtime_preflight_late_completion_unused_count": (
+            snapshot_backed_live_runtime_preflight_payload.get(
+                "late_completion_unused_count",
+            )
+        ),
+        "stream_queue_budget_snapshot_backed_live_runtime_preflight_queue_batch_count": (
+            snapshot_backed_live_runtime_preflight_payload.get("queue_batch_count")
+        ),
+        "stream_queue_budget_snapshot_backed_live_runtime_preflight_queue_service_us": (
+            snapshot_backed_live_runtime_preflight_payload.get("queue_service_us")
+        ),
+        "stream_queue_budget_snapshot_backed_live_runtime_preflight_queue_total_span_us": (
+            snapshot_backed_live_runtime_preflight_payload.get("queue_total_span_us")
+        ),
+        "stream_queue_budget_snapshot_backed_live_runtime_preflight_queue_wait_us": (
+            snapshot_backed_live_runtime_preflight_payload.get("queue_wait_us")
+        ),
+        "stream_queue_budget_snapshot_backed_live_runtime_preflight_queue_max_delay_us": (
+            snapshot_backed_live_runtime_preflight_payload.get("queue_max_delay_us")
+        ),
+        "stream_queue_budget_snapshot_backed_live_runtime_preflight_shifted_issue_accounting_enabled": (
+            snapshot_backed_live_runtime_preflight_payload.get(
+                "shifted_issue_accounting_enabled",
+            )
+        ),
+        "stream_queue_budget_snapshot_backed_live_runtime_preflight_shifted_issue_accounted_packet_count": (
+            snapshot_backed_live_runtime_preflight_payload.get(
+                "shifted_issue_accounted_packet_count",
+            )
+        ),
+        "stream_queue_budget_snapshot_backed_live_runtime_preflight_shifted_issue_unique_issue_key_count": (
+            snapshot_backed_live_runtime_preflight_payload.get(
+                "shifted_issue_unique_issue_key_count",
+            )
+        ),
+        "stream_queue_budget_snapshot_backed_live_runtime_preflight_decision": (
+            snapshot_backed_live_runtime_preflight_payload.get("decision")
+        ),
+        "stream_queue_budget_snapshot_backed_live_runtime_preflight_block_reason": (
+            snapshot_backed_live_runtime_preflight_payload.get("block_reason")
+        ),
+        "stream_queue_budget_snapshot_backed_live_runtime_preflight_execution_mode": (
+            snapshot_backed_live_runtime_preflight_payload.get("execution_mode")
+        ),
+        "stream_queue_budget_snapshot_backed_live_runtime_preflight_live_payload_runtime_enabled": (
+            snapshot_backed_live_runtime_preflight_payload.get(
+                "live_payload_runtime_enabled",
+            )
+        ),
+        "stream_queue_budget_snapshot_backed_live_runtime_preflight_payload_transfer_runtime_enabled": (
+            snapshot_backed_live_runtime_preflight_payload.get(
+                "payload_transfer_runtime_enabled",
+            )
+        ),
+        "stream_queue_budget_snapshot_backed_live_runtime_preflight_payload_deref_allowed": (
+            snapshot_backed_live_runtime_preflight_payload.get("payload_deref_allowed")
+        ),
+        "stream_queue_budget_snapshot_backed_live_runtime_preflight_payload_deref_runtime_allowed": (
+            snapshot_backed_live_runtime_preflight_payload.get(
+                "payload_deref_runtime_allowed",
+            )
+        ),
+        "stream_queue_budget_snapshot_backed_live_runtime_preflight_issued_payload_count": (
+            snapshot_backed_live_runtime_preflight_payload.get("issued_payload_count")
+        ),
+        "stream_queue_budget_snapshot_backed_live_runtime_preflight_payload_bytes": (
+            snapshot_backed_live_runtime_preflight_payload.get("payload_bytes")
+        ),
+        "stream_queue_budget_snapshot_backed_live_runtime_preflight_ready_credit": (
+            snapshot_backed_live_runtime_preflight_payload.get("ready_credit")
+        ),
+        "stream_queue_budget_snapshot_backed_live_runtime_preflight_ready_before_demand_credit": (
+            snapshot_backed_live_runtime_preflight_payload.get(
+                "ready_before_demand_credit",
+            )
+        ),
+        "stream_queue_budget_snapshot_backed_live_runtime_preflight_real_ready_credit_granted": (
+            snapshot_backed_live_runtime_preflight_payload.get(
+                "real_ready_credit_granted",
+            )
+        ),
+        "stream_queue_budget_snapshot_backed_live_runtime_preflight_kernel_arg_pass_allowed": (
+            snapshot_backed_live_runtime_preflight_payload.get(
+                "kernel_arg_pass_allowed",
+            )
+        ),
+        "stream_queue_budget_snapshot_backed_live_runtime_preflight_passed_to_kernel": (
+            snapshot_backed_live_runtime_preflight_payload.get("passed_to_kernel")
+        ),
+        "stream_queue_budget_snapshot_backed_live_runtime_preflight_changes_kernel_launch_args": (
+            snapshot_backed_live_runtime_preflight_payload.get(
+                "changes_kernel_launch_args",
+            )
+        ),
+        "stream_queue_budget_snapshot_backed_live_runtime_preflight_full_fetch_runtime_allowed": (
+            snapshot_backed_live_runtime_preflight_payload.get(
+                "full_fetch_runtime_allowed",
+            )
+        ),
+        "stream_queue_budget_snapshot_backed_live_runtime_preflight_uses_current_wna16_args": (
+            snapshot_backed_live_runtime_preflight_payload.get(
+                "uses_current_wna16_args",
+            )
+        ),
+        "stream_queue_budget_snapshot_backed_live_runtime_preflight_passes_current_wna16_args": (
+            snapshot_backed_live_runtime_preflight_payload.get(
+                "passes_current_wna16_args",
+            )
+        ),
+        "stream_queue_budget_snapshot_backed_live_runtime_preflight_measures_tpot": (
+            snapshot_backed_live_runtime_preflight_payload.get("measures_tpot")
+        ),
+        "stream_queue_budget_snapshot_backed_live_runtime_preflight_measures_vllm_latency": (
+            snapshot_backed_live_runtime_preflight_payload.get(
+                "measures_vllm_latency",
+            )
         ),
         "stream_queue_budget_payload_bytes": _optional_int(report, "payload_bytes"),
         "stream_queue_budget_payload_transfer_enabled": _optional_bool(

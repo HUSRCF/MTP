@@ -2,10 +2,10 @@
 
 ## Progress Version
 
-- Version: `v1.29-payload-cache-manager-runtime-snapshot`
+- Version: `v1.30-snapshot-backed-live-runtime-preflight`
 - Updated: 2026-06-22
 
-## Latest Update: Payload Cache Manager Runtime Snapshot
+## Latest Update: Snapshot-Backed Live Runtime Preflight
 
 The live-runtime disabled canary now feeds the first concrete payload/cache
 manager implementation artifact:
@@ -113,9 +113,48 @@ queue_wait_us = 0.0
 queue_max_delay_us = 0.0
 ```
 
+The runtime snapshot now feeds a still-disabled live-runtime preflight object:
+
+```text
+PayloadCacheSnapshotBackedLiveRuntimePreflight
+```
+
+This object proves that the future live-runtime preflight can consume the
+snapshot-backed queue/cache state while the actual live runtime remains
+uninstantiated.  It is a lab gate object, not a payload/cache-manager runtime.
+
+Required preflight contract:
+
+```text
+stage = payload_cache_snapshot_backed_live_runtime_preflight
+status = blocked_by_runtime_snapshot:<runtime_snapshot_status>
+consumes_runtime_snapshot = true
+snapshot_source = PayloadCacheManagerRuntimeSnapshotArtifact
+live_runtime_preflight_instantiated = true
+accounting_snapshot_instantiated = true
+live_runtime_instantiated = false
+capacity_entries = 4096
+issue_lead_tokens = 32
+queue_deadline_us = 100.0
+lookahead_us = 2400000.0
+queue_batch_size = 1
+resident_count = 0
+issued_fetch_count = 0
+used_fetch_count = 0
+unused_fetch_count = 0
+demand_count = 0
+demand_hit_count = 0
+demand_miss_count = 0
+queue_batch_count = 0
+queue_service_us = 0.0
+queue_total_span_us = 0.0
+queue_wait_us = 0.0
+queue_max_delay_us = 0.0
+```
+
 The summary checker also rejects mixed queue-budget summaries.  Live-stage,
 live-runtime, manager-artifact, runtime-skeleton, and runtime-snapshot
-queue-budget fields must
+queue-budget fields, plus the snapshot-backed live-runtime preflight, must
 match the same summary's `first_model_passing_*` and `first_shifted_issue_*`
 envelope fields, while the lab-default gate still requires the measured
 4096-entry / 32-token / 100us / 2.4M-us cell.  This prevents stale downstream
@@ -174,10 +213,10 @@ passed = true
 Next gate:
 
 ```text
-promote the snapshot-backed queue/cache state into a still-disabled live-runtime
-preflight object. It may consume the empty ReadyTimeExpertCacheManager snapshot,
-but payload dereference, ready credit, kernel argument handoff, and TPOT claims
-must remain disabled until a strict live-runtime gate passes.
+add the next blocked live-runtime canary behind the snapshot-backed preflight.
+It may verify the issue/demand state shape, but payload dereference, ready
+credit, kernel argument handoff, and TPOT claims must remain disabled until a
+strict live-runtime gate passes.
 ```
 
 ## Previous Update: Live Payload Runtime Disabled Canary

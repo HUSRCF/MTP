@@ -13881,6 +13881,326 @@ def run_premap_lab_preflight(
                 "stream_queue_budget_manager_runtime_snapshot_measures_vllm_latency",
             )
         ),
+        "prefetch_lab_default_stream_queue_budget_snapshot_backed_live_runtime_preflight_present": (
+            _bool_metric(
+                prefetch_lab_default_full_fetch,
+                "stream_queue_budget_snapshot_backed_live_runtime_preflight_present",
+            )
+        ),
+        "prefetch_lab_default_stream_queue_budget_snapshot_backed_live_runtime_preflight_stage": (
+            prefetch_lab_default_full_fetch.get(
+                "stream_queue_budget_snapshot_backed_live_runtime_preflight_stage",
+            )
+        ),
+        "prefetch_lab_default_stream_queue_budget_snapshot_backed_live_runtime_preflight_status": (
+            prefetch_lab_default_full_fetch.get(
+                "stream_queue_budget_snapshot_backed_live_runtime_preflight_status",
+            )
+        ),
+        "prefetch_lab_default_stream_queue_budget_snapshot_backed_live_runtime_preflight_consumes_runtime_snapshot": (
+            _bool_metric(
+                prefetch_lab_default_full_fetch,
+                "stream_queue_budget_snapshot_backed_live_runtime_preflight_consumes_runtime_snapshot",
+            )
+        ),
+        "prefetch_lab_default_stream_queue_budget_snapshot_backed_live_runtime_preflight_runtime_snapshot_status": (
+            prefetch_lab_default_full_fetch.get(
+                "stream_queue_budget_snapshot_backed_live_runtime_preflight_runtime_snapshot_status",
+            )
+        ),
+        "prefetch_lab_default_stream_queue_budget_snapshot_backed_live_runtime_preflight_manager_backend": (
+            prefetch_lab_default_full_fetch.get(
+                "stream_queue_budget_snapshot_backed_live_runtime_preflight_manager_backend",
+            )
+        ),
+        "prefetch_lab_default_stream_queue_budget_snapshot_backed_live_runtime_preflight_manager_runtime_contract": (
+            prefetch_lab_default_full_fetch.get(
+                "stream_queue_budget_snapshot_backed_live_runtime_preflight_manager_runtime_contract",
+            )
+        ),
+        "prefetch_lab_default_stream_queue_budget_snapshot_backed_live_runtime_preflight_manager_runtime_mode": (
+            prefetch_lab_default_full_fetch.get(
+                "stream_queue_budget_snapshot_backed_live_runtime_preflight_manager_runtime_mode",
+            )
+        ),
+        "prefetch_lab_default_stream_queue_budget_snapshot_backed_live_runtime_preflight_snapshot_source": (
+            prefetch_lab_default_full_fetch.get(
+                "stream_queue_budget_snapshot_backed_live_runtime_preflight_snapshot_source",
+            )
+        ),
+        "prefetch_lab_default_stream_queue_budget_snapshot_backed_live_runtime_preflight_live_runtime_preflight_instantiated": (
+            _bool_metric(
+                prefetch_lab_default_full_fetch,
+                "stream_queue_budget_snapshot_backed_live_runtime_preflight_live_runtime_preflight_instantiated",
+            )
+        ),
+        "prefetch_lab_default_stream_queue_budget_snapshot_backed_live_runtime_preflight_accounting_snapshot_instantiated": (
+            _bool_metric(
+                prefetch_lab_default_full_fetch,
+                "stream_queue_budget_snapshot_backed_live_runtime_preflight_accounting_snapshot_instantiated",
+            )
+        ),
+        "prefetch_lab_default_stream_queue_budget_snapshot_backed_live_runtime_preflight_live_runtime_instantiated": (
+            _bool_metric(
+                prefetch_lab_default_full_fetch,
+                "stream_queue_budget_snapshot_backed_live_runtime_preflight_live_runtime_instantiated",
+            )
+        ),
+        "prefetch_lab_default_stream_queue_budget_snapshot_backed_live_runtime_preflight_capacity_entries": (
+            _int_metric(
+                prefetch_lab_default_full_fetch,
+                "stream_queue_budget_snapshot_backed_live_runtime_preflight_capacity_entries",
+            )
+        ),
+        "prefetch_lab_default_stream_queue_budget_snapshot_backed_live_runtime_preflight_issue_lead_tokens": (
+            _int_metric(
+                prefetch_lab_default_full_fetch,
+                "stream_queue_budget_snapshot_backed_live_runtime_preflight_issue_lead_tokens",
+            )
+        ),
+        "prefetch_lab_default_stream_queue_budget_snapshot_backed_live_runtime_preflight_queue_deadline_us": (
+            _float_metric(
+                prefetch_lab_default_full_fetch,
+                "stream_queue_budget_snapshot_backed_live_runtime_preflight_queue_deadline_us",
+            )
+        ),
+        "prefetch_lab_default_stream_queue_budget_snapshot_backed_live_runtime_preflight_lookahead_us": (
+            _float_metric(
+                prefetch_lab_default_full_fetch,
+                "stream_queue_budget_snapshot_backed_live_runtime_preflight_lookahead_us",
+            )
+        ),
+        "prefetch_lab_default_stream_queue_budget_snapshot_backed_live_runtime_preflight_queue_batch_size": (
+            _int_metric(
+                prefetch_lab_default_full_fetch,
+                "stream_queue_budget_snapshot_backed_live_runtime_preflight_queue_batch_size",
+            )
+        ),
+        "prefetch_lab_default_stream_queue_budget_snapshot_backed_live_runtime_preflight_resident_count": (
+            _int_metric(
+                prefetch_lab_default_full_fetch,
+                "stream_queue_budget_snapshot_backed_live_runtime_preflight_resident_count",
+            )
+        ),
+        "prefetch_lab_default_stream_queue_budget_snapshot_backed_live_runtime_preflight_issued_fetch_count": (
+            _int_metric(
+                prefetch_lab_default_full_fetch,
+                "stream_queue_budget_snapshot_backed_live_runtime_preflight_issued_fetch_count",
+            )
+        ),
+        "prefetch_lab_default_stream_queue_budget_snapshot_backed_live_runtime_preflight_used_fetch_count": (
+            _int_metric(
+                prefetch_lab_default_full_fetch,
+                "stream_queue_budget_snapshot_backed_live_runtime_preflight_used_fetch_count",
+            )
+        ),
+        "prefetch_lab_default_stream_queue_budget_snapshot_backed_live_runtime_preflight_unused_fetch_count": (
+            _int_metric(
+                prefetch_lab_default_full_fetch,
+                "stream_queue_budget_snapshot_backed_live_runtime_preflight_unused_fetch_count",
+            )
+        ),
+        "prefetch_lab_default_stream_queue_budget_snapshot_backed_live_runtime_preflight_demand_count": (
+            _int_metric(
+                prefetch_lab_default_full_fetch,
+                "stream_queue_budget_snapshot_backed_live_runtime_preflight_demand_count",
+            )
+        ),
+        "prefetch_lab_default_stream_queue_budget_snapshot_backed_live_runtime_preflight_demand_hit_count": (
+            _int_metric(
+                prefetch_lab_default_full_fetch,
+                "stream_queue_budget_snapshot_backed_live_runtime_preflight_demand_hit_count",
+            )
+        ),
+        "prefetch_lab_default_stream_queue_budget_snapshot_backed_live_runtime_preflight_demand_miss_count": (
+            _int_metric(
+                prefetch_lab_default_full_fetch,
+                "stream_queue_budget_snapshot_backed_live_runtime_preflight_demand_miss_count",
+            )
+        ),
+        "prefetch_lab_default_stream_queue_budget_snapshot_backed_live_runtime_preflight_evicted_before_use_count": (
+            _int_metric(
+                prefetch_lab_default_full_fetch,
+                "stream_queue_budget_snapshot_backed_live_runtime_preflight_evicted_before_use_count",
+            )
+        ),
+        "prefetch_lab_default_stream_queue_budget_snapshot_backed_live_runtime_preflight_ready_late_miss_count": (
+            _int_metric(
+                prefetch_lab_default_full_fetch,
+                "stream_queue_budget_snapshot_backed_live_runtime_preflight_ready_late_miss_count",
+            )
+        ),
+        "prefetch_lab_default_stream_queue_budget_snapshot_backed_live_runtime_preflight_late_completion_unused_count": (
+            _int_metric(
+                prefetch_lab_default_full_fetch,
+                "stream_queue_budget_snapshot_backed_live_runtime_preflight_late_completion_unused_count",
+            )
+        ),
+        "prefetch_lab_default_stream_queue_budget_snapshot_backed_live_runtime_preflight_queue_batch_count": (
+            _int_metric(
+                prefetch_lab_default_full_fetch,
+                "stream_queue_budget_snapshot_backed_live_runtime_preflight_queue_batch_count",
+            )
+        ),
+        "prefetch_lab_default_stream_queue_budget_snapshot_backed_live_runtime_preflight_queue_service_us": (
+            _float_metric(
+                prefetch_lab_default_full_fetch,
+                "stream_queue_budget_snapshot_backed_live_runtime_preflight_queue_service_us",
+            )
+        ),
+        "prefetch_lab_default_stream_queue_budget_snapshot_backed_live_runtime_preflight_queue_total_span_us": (
+            _float_metric(
+                prefetch_lab_default_full_fetch,
+                "stream_queue_budget_snapshot_backed_live_runtime_preflight_queue_total_span_us",
+            )
+        ),
+        "prefetch_lab_default_stream_queue_budget_snapshot_backed_live_runtime_preflight_queue_wait_us": (
+            _float_metric(
+                prefetch_lab_default_full_fetch,
+                "stream_queue_budget_snapshot_backed_live_runtime_preflight_queue_wait_us",
+            )
+        ),
+        "prefetch_lab_default_stream_queue_budget_snapshot_backed_live_runtime_preflight_queue_max_delay_us": (
+            _float_metric(
+                prefetch_lab_default_full_fetch,
+                "stream_queue_budget_snapshot_backed_live_runtime_preflight_queue_max_delay_us",
+            )
+        ),
+        "prefetch_lab_default_stream_queue_budget_snapshot_backed_live_runtime_preflight_shifted_issue_accounting_enabled": (
+            _bool_metric(
+                prefetch_lab_default_full_fetch,
+                "stream_queue_budget_snapshot_backed_live_runtime_preflight_shifted_issue_accounting_enabled",
+            )
+        ),
+        "prefetch_lab_default_stream_queue_budget_snapshot_backed_live_runtime_preflight_shifted_issue_accounted_packet_count": (
+            _int_metric(
+                prefetch_lab_default_full_fetch,
+                "stream_queue_budget_snapshot_backed_live_runtime_preflight_shifted_issue_accounted_packet_count",
+            )
+        ),
+        "prefetch_lab_default_stream_queue_budget_snapshot_backed_live_runtime_preflight_shifted_issue_unique_issue_key_count": (
+            _int_metric(
+                prefetch_lab_default_full_fetch,
+                "stream_queue_budget_snapshot_backed_live_runtime_preflight_shifted_issue_unique_issue_key_count",
+            )
+        ),
+        "prefetch_lab_default_stream_queue_budget_snapshot_backed_live_runtime_preflight_decision": (
+            prefetch_lab_default_full_fetch.get(
+                "stream_queue_budget_snapshot_backed_live_runtime_preflight_decision",
+            )
+        ),
+        "prefetch_lab_default_stream_queue_budget_snapshot_backed_live_runtime_preflight_block_reason": (
+            prefetch_lab_default_full_fetch.get(
+                "stream_queue_budget_snapshot_backed_live_runtime_preflight_block_reason",
+            )
+        ),
+        "prefetch_lab_default_stream_queue_budget_snapshot_backed_live_runtime_preflight_execution_mode": (
+            prefetch_lab_default_full_fetch.get(
+                "stream_queue_budget_snapshot_backed_live_runtime_preflight_execution_mode",
+            )
+        ),
+        "prefetch_lab_default_stream_queue_budget_snapshot_backed_live_runtime_preflight_live_payload_runtime_enabled": (
+            _bool_metric(
+                prefetch_lab_default_full_fetch,
+                "stream_queue_budget_snapshot_backed_live_runtime_preflight_live_payload_runtime_enabled",
+            )
+        ),
+        "prefetch_lab_default_stream_queue_budget_snapshot_backed_live_runtime_preflight_payload_transfer_runtime_enabled": (
+            _bool_metric(
+                prefetch_lab_default_full_fetch,
+                "stream_queue_budget_snapshot_backed_live_runtime_preflight_payload_transfer_runtime_enabled",
+            )
+        ),
+        "prefetch_lab_default_stream_queue_budget_snapshot_backed_live_runtime_preflight_payload_deref_allowed": (
+            _bool_metric(
+                prefetch_lab_default_full_fetch,
+                "stream_queue_budget_snapshot_backed_live_runtime_preflight_payload_deref_allowed",
+            )
+        ),
+        "prefetch_lab_default_stream_queue_budget_snapshot_backed_live_runtime_preflight_payload_deref_runtime_allowed": (
+            _bool_metric(
+                prefetch_lab_default_full_fetch,
+                "stream_queue_budget_snapshot_backed_live_runtime_preflight_payload_deref_runtime_allowed",
+            )
+        ),
+        "prefetch_lab_default_stream_queue_budget_snapshot_backed_live_runtime_preflight_issued_payload_count": (
+            _int_metric(
+                prefetch_lab_default_full_fetch,
+                "stream_queue_budget_snapshot_backed_live_runtime_preflight_issued_payload_count",
+            )
+        ),
+        "prefetch_lab_default_stream_queue_budget_snapshot_backed_live_runtime_preflight_payload_bytes": (
+            _int_metric(
+                prefetch_lab_default_full_fetch,
+                "stream_queue_budget_snapshot_backed_live_runtime_preflight_payload_bytes",
+            )
+        ),
+        "prefetch_lab_default_stream_queue_budget_snapshot_backed_live_runtime_preflight_ready_credit": (
+            _bool_metric(
+                prefetch_lab_default_full_fetch,
+                "stream_queue_budget_snapshot_backed_live_runtime_preflight_ready_credit",
+            )
+        ),
+        "prefetch_lab_default_stream_queue_budget_snapshot_backed_live_runtime_preflight_ready_before_demand_credit": (
+            _bool_metric(
+                prefetch_lab_default_full_fetch,
+                "stream_queue_budget_snapshot_backed_live_runtime_preflight_ready_before_demand_credit",
+            )
+        ),
+        "prefetch_lab_default_stream_queue_budget_snapshot_backed_live_runtime_preflight_real_ready_credit_granted": (
+            _bool_metric(
+                prefetch_lab_default_full_fetch,
+                "stream_queue_budget_snapshot_backed_live_runtime_preflight_real_ready_credit_granted",
+            )
+        ),
+        "prefetch_lab_default_stream_queue_budget_snapshot_backed_live_runtime_preflight_kernel_arg_pass_allowed": (
+            _bool_metric(
+                prefetch_lab_default_full_fetch,
+                "stream_queue_budget_snapshot_backed_live_runtime_preflight_kernel_arg_pass_allowed",
+            )
+        ),
+        "prefetch_lab_default_stream_queue_budget_snapshot_backed_live_runtime_preflight_passed_to_kernel": (
+            _bool_metric(
+                prefetch_lab_default_full_fetch,
+                "stream_queue_budget_snapshot_backed_live_runtime_preflight_passed_to_kernel",
+            )
+        ),
+        "prefetch_lab_default_stream_queue_budget_snapshot_backed_live_runtime_preflight_changes_kernel_launch_args": (
+            _bool_metric(
+                prefetch_lab_default_full_fetch,
+                "stream_queue_budget_snapshot_backed_live_runtime_preflight_changes_kernel_launch_args",
+            )
+        ),
+        "prefetch_lab_default_stream_queue_budget_snapshot_backed_live_runtime_preflight_full_fetch_runtime_allowed": (
+            _bool_metric(
+                prefetch_lab_default_full_fetch,
+                "stream_queue_budget_snapshot_backed_live_runtime_preflight_full_fetch_runtime_allowed",
+            )
+        ),
+        "prefetch_lab_default_stream_queue_budget_snapshot_backed_live_runtime_preflight_uses_current_wna16_args": (
+            _bool_metric(
+                prefetch_lab_default_full_fetch,
+                "stream_queue_budget_snapshot_backed_live_runtime_preflight_uses_current_wna16_args",
+            )
+        ),
+        "prefetch_lab_default_stream_queue_budget_snapshot_backed_live_runtime_preflight_passes_current_wna16_args": (
+            _bool_metric(
+                prefetch_lab_default_full_fetch,
+                "stream_queue_budget_snapshot_backed_live_runtime_preflight_passes_current_wna16_args",
+            )
+        ),
+        "prefetch_lab_default_stream_queue_budget_snapshot_backed_live_runtime_preflight_measures_tpot": (
+            _bool_metric(
+                prefetch_lab_default_full_fetch,
+                "stream_queue_budget_snapshot_backed_live_runtime_preflight_measures_tpot",
+            )
+        ),
+        "prefetch_lab_default_stream_queue_budget_snapshot_backed_live_runtime_preflight_measures_vllm_latency": (
+            _bool_metric(
+                prefetch_lab_default_full_fetch,
+                "stream_queue_budget_snapshot_backed_live_runtime_preflight_measures_vllm_latency",
+            )
+        ),
         "prefetch_lab_default_stream_queue_budget_payload_bytes": _int_metric(
             prefetch_lab_default_full_fetch,
             "stream_queue_budget_payload_bytes",
