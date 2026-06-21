@@ -83,6 +83,39 @@ def _write_fixture(tmp_path: Path, *, allow_full_fetch: bool = False) -> Path:
                     "direct_snapshot_issue_sources": [
                         "prelaunch_observed_transition_premap_shadow"
                     ],
+                    "direct_snapshot_runtime_participation_present": True,
+                    "direct_snapshot_runtime_participation_stage": (
+                        "online_ready_time_payload_cache_runtime_participation_dry_run"
+                    ),
+                    "direct_snapshot_runtime_participation_status": (
+                        "accounting_only_no_used_fetch"
+                    ),
+                    "direct_snapshot_runtime_participation_consumes_manager_snapshot": (
+                        True
+                    ),
+                    "direct_snapshot_runtime_participation_payload_bytes": 0,
+                    "direct_snapshot_runtime_participation_ready_credit": False,
+                    "direct_snapshot_runtime_participation_real_ready_credit_granted": (
+                        False
+                    ),
+                    "direct_snapshot_runtime_participation_kernel_arg_pass_allowed": (
+                        False
+                    ),
+                    "direct_snapshot_runtime_participation_changes_kernel_launch_args": (
+                        False
+                    ),
+                    "direct_snapshot_runtime_participation_full_fetch_runtime_allowed": (
+                        False
+                    ),
+                    "direct_snapshot_runtime_participation_payload_transfer_runtime_enabled": (
+                        False
+                    ),
+                    "direct_snapshot_runtime_participation_issue_sources": [
+                        "prelaunch_observed_transition_premap_shadow"
+                    ],
+                    "direct_snapshot_runtime_participation_candidate_reason": (
+                        "no_used_fetch"
+                    ),
                 },
             }
         ),
@@ -289,6 +322,38 @@ def test_prefetch_lab_default_gate_passes_low_risk_premap_path(tmp_path: Path):
     assert full_fetch["ready_time_direct_snapshot_issue_sources"] == [
         "prelaunch_observed_transition_premap_shadow"
     ]
+    assert (
+        full_fetch["ready_time_direct_snapshot_runtime_participation_present"] is True
+    )
+    assert (
+        full_fetch["ready_time_direct_snapshot_runtime_participation_stage"]
+        == "online_ready_time_payload_cache_runtime_participation_dry_run"
+    )
+    assert (
+        full_fetch["ready_time_direct_snapshot_runtime_participation_status"]
+        == "accounting_only_no_used_fetch"
+    )
+    assert (
+        full_fetch[
+            "ready_time_direct_snapshot_runtime_participation_consumes_manager_snapshot"
+        ]
+        is True
+    )
+    assert full_fetch[
+        "ready_time_direct_snapshot_runtime_participation_payload_bytes"
+    ] == 0
+    assert (
+        full_fetch[
+            "ready_time_direct_snapshot_runtime_participation_kernel_arg_pass_allowed"
+        ]
+        is False
+    )
+    assert (
+        full_fetch[
+            "ready_time_direct_snapshot_runtime_participation_issue_sources"
+        ]
+        == ["prelaunch_observed_transition_premap_shadow"]
+    )
     assert full_fetch["stream_shifted_issue_replay_contract_present"] is True
     assert full_fetch["stream_shifted_issue_replay_contract_passed"] is True
     assert full_fetch["stream_shifted_issue_replay_issue_lead_tokens"] == 32

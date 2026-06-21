@@ -45,6 +45,14 @@ REQUIRED_LAYOUT_CHECKS = {
     "default_kernel_consumer_kernel_entry_args_struct_size": 40,
     "default_kernel_consumer_kernel_entry_args_offset_summary": 8,
 }
+PAYLOAD_CACHE_RUNTIME_PARTICIPATION_ALLOWED_STATUSES = frozenset(
+    {
+        "ready_time_candidate_requires_lab_gate",
+        "accounting_only_no_issued_fetch",
+        "accounting_only_no_used_fetch",
+        "accounting_only_all_demands_ready_late",
+    }
+)
 
 
 def _load_json(path: Path) -> dict[str, Any]:
@@ -1570,6 +1578,30 @@ def check_premap_lab_preflight_summary(
         "prefetch_lab_default_ready_time_direct_snapshot_changes_kernel_launch_args": (
             False
         ),
+        "prefetch_lab_default_payload_cache_runtime_participation_present": True,
+        "prefetch_lab_default_payload_cache_runtime_participation_stage": (
+            "online_ready_time_payload_cache_runtime_participation_dry_run"
+        ),
+        "prefetch_lab_default_payload_cache_runtime_participation_consumes_direct_snapshot": (
+            True
+        ),
+        "prefetch_lab_default_payload_cache_runtime_participation_payload_bytes": 0,
+        "prefetch_lab_default_payload_cache_runtime_participation_ready_credit": False,
+        "prefetch_lab_default_payload_cache_runtime_participation_real_ready_credit_granted": (
+            False
+        ),
+        "prefetch_lab_default_payload_cache_runtime_participation_kernel_arg_pass_allowed": (
+            False
+        ),
+        "prefetch_lab_default_payload_cache_runtime_participation_changes_kernel_launch_args": (
+            False
+        ),
+        "prefetch_lab_default_payload_cache_runtime_participation_full_fetch_runtime_allowed": (
+            False
+        ),
+        "prefetch_lab_default_payload_cache_runtime_participation_payload_transfer_runtime_enabled": (
+            False
+        ),
         "prefetch_lab_default_metadata_decision": "shadow_only",
         "prefetch_lab_default_metadata_passed": True,
         "prefetch_lab_default_premap_decision": (
@@ -1711,6 +1743,55 @@ def check_premap_lab_preflight_summary(
         )
 
     for key in (
+        "prefetch_lab_default_payload_cache_runtime_participation_present",
+        "prefetch_lab_default_payload_cache_runtime_participation_consumes_direct_snapshot",
+    ):
+        if summary.get(key) is not True:
+            failures.append(f"{key}_type_mismatch")
+    for key in (
+        "prefetch_lab_default_payload_cache_runtime_participation_ready_credit",
+        "prefetch_lab_default_payload_cache_runtime_participation_real_ready_credit_granted",
+        "prefetch_lab_default_payload_cache_runtime_participation_kernel_arg_pass_allowed",
+        "prefetch_lab_default_payload_cache_runtime_participation_changes_kernel_launch_args",
+        "prefetch_lab_default_payload_cache_runtime_participation_full_fetch_runtime_allowed",
+        "prefetch_lab_default_payload_cache_runtime_participation_payload_transfer_runtime_enabled",
+    ):
+        if summary.get(key) is not False:
+            failures.append(f"{key}_type_mismatch")
+    runtime_participation_stage = summary.get(
+        "prefetch_lab_default_payload_cache_runtime_participation_stage"
+    )
+    if (
+        not isinstance(runtime_participation_stage, str)
+        or runtime_participation_stage
+        != "online_ready_time_payload_cache_runtime_participation_dry_run"
+    ):
+        failures.append(
+            "prefetch_lab_default_payload_cache_runtime_participation_stage_type_mismatch"
+        )
+    runtime_participation_status = summary.get(
+        "prefetch_lab_default_payload_cache_runtime_participation_status"
+    )
+    if (
+        not isinstance(runtime_participation_status, str)
+        or runtime_participation_status
+        not in PAYLOAD_CACHE_RUNTIME_PARTICIPATION_ALLOWED_STATUSES
+    ):
+        failures.append(
+            "prefetch_lab_default_payload_cache_runtime_participation_status_type_mismatch"
+        )
+    if (
+        _int_metric(
+            summary,
+            "prefetch_lab_default_payload_cache_runtime_participation_payload_bytes",
+        )
+        != 0
+    ):
+        failures.append(
+            "prefetch_lab_default_payload_cache_runtime_participation_payload_bytes_type_mismatch"
+        )
+
+    for key in (
         "prefetch_lab_default_gate_failures",
         "prefetch_lab_default_full_fetch_failures",
         "prefetch_lab_default_metadata_failures",
@@ -1820,6 +1901,28 @@ def check_premap_lab_preflight_summary(
         ):
             failures.append(
                 "prefetch_lab_default_ready_time_direct_snapshot_issue_sources_mismatch"
+            )
+    runtime_participation_issue_sources = summary.get(
+        "prefetch_lab_default_payload_cache_runtime_participation_issue_sources"
+    )
+    if not isinstance(runtime_participation_issue_sources, list):
+        failures.append(
+            "prefetch_lab_default_payload_cache_runtime_participation_issue_sources_invalid"
+        )
+    else:
+        observed_sources = {str(value) for value in runtime_participation_issue_sources}
+        if (
+            not observed_sources
+            or not observed_sources.issubset(allowed_direct_issue_sources)
+        ):
+            failures.append(
+                "prefetch_lab_default_payload_cache_runtime_participation_issue_sources_mismatch"
+            )
+        if isinstance(direct_issue_sources, list) and (
+            observed_sources != {str(value) for value in direct_issue_sources}
+        ):
+            failures.append(
+                "prefetch_lab_default_payload_cache_runtime_participation_issue_sources_do_not_match_direct_snapshot"
             )
     _check_stream_full_fetch_block(summary, failures)
     _check_stream_shifted_issue_replay_contract(summary, failures)

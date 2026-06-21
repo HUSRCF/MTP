@@ -980,6 +980,26 @@ def _summary() -> dict[str, object]:
         "prefetch_lab_default_ready_time_direct_snapshot_issue_sources": [
             "prelaunch_observed_transition_premap_shadow"
         ],
+        "prefetch_lab_default_payload_cache_runtime_participation_present": True,
+        "prefetch_lab_default_payload_cache_runtime_participation_stage": (
+            "online_ready_time_payload_cache_runtime_participation_dry_run"
+        ),
+        "prefetch_lab_default_payload_cache_runtime_participation_status": (
+            "accounting_only_no_used_fetch"
+        ),
+        "prefetch_lab_default_payload_cache_runtime_participation_consumes_direct_snapshot": (
+            True
+        ),
+        "prefetch_lab_default_payload_cache_runtime_participation_payload_bytes": 0,
+        "prefetch_lab_default_payload_cache_runtime_participation_ready_credit": False,
+        "prefetch_lab_default_payload_cache_runtime_participation_real_ready_credit_granted": False,
+        "prefetch_lab_default_payload_cache_runtime_participation_kernel_arg_pass_allowed": False,
+        "prefetch_lab_default_payload_cache_runtime_participation_changes_kernel_launch_args": False,
+        "prefetch_lab_default_payload_cache_runtime_participation_full_fetch_runtime_allowed": False,
+        "prefetch_lab_default_payload_cache_runtime_participation_payload_transfer_runtime_enabled": False,
+        "prefetch_lab_default_payload_cache_runtime_participation_issue_sources": [
+            "prelaunch_observed_transition_premap_shadow"
+        ],
         "prefetch_lab_default_stream_decision_gate_present": True,
         "prefetch_lab_default_stream_decision_gate_passed": True,
         "prefetch_lab_default_stream_decision": (
@@ -2153,6 +2173,53 @@ def test_check_premap_lab_preflight_summary_rejects_direct_snapshot_int_as_bool(
     assert result["passed"] is False
     assert (
         "prefetch_lab_default_ready_time_direct_snapshot_payload_bytes_type_mismatch"
+        in result["failures"]
+    )
+
+
+def test_check_premap_lab_preflight_summary_rejects_participation_source_mismatch() -> None:
+    summary = _summary()
+    summary[
+        "prefetch_lab_default_payload_cache_runtime_participation_issue_sources"
+    ] = [
+        "previous_token_transition_premap_shadow",
+    ]
+
+    result = check_premap_lab_preflight_summary(summary)
+
+    assert result["passed"] is False
+    assert (
+        "prefetch_lab_default_payload_cache_runtime_participation_issue_sources_do_not_match_direct_snapshot"
+        in result["failures"]
+    )
+
+
+def test_check_premap_lab_preflight_summary_rejects_participation_int_as_bool() -> None:
+    summary = _summary()
+    summary[
+        "prefetch_lab_default_payload_cache_runtime_participation_payload_bytes"
+    ] = False
+
+    result = check_premap_lab_preflight_summary(summary)
+
+    assert result["passed"] is False
+    assert (
+        "prefetch_lab_default_payload_cache_runtime_participation_payload_bytes_type_mismatch"
+        in result["failures"]
+    )
+
+
+def test_check_premap_lab_preflight_summary_rejects_non_ready_time_participation_status() -> None:
+    summary = _summary()
+    summary["prefetch_lab_default_payload_cache_runtime_participation_status"] = (
+        "accounting_only_not_ready_time_manager:resident"
+    )
+
+    result = check_premap_lab_preflight_summary(summary)
+
+    assert result["passed"] is False
+    assert (
+        "prefetch_lab_default_payload_cache_runtime_participation_status_type_mismatch"
         in result["failures"]
     )
 

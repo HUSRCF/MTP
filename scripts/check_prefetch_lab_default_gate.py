@@ -207,6 +207,23 @@ def _check_ready_time_direct_snapshot_gate(
     runtime_stage = metrics.get("direct_snapshot_runtime_stage")
     payload_bytes = _optional_int(metrics, "direct_snapshot_payload_bytes")
     issue_sources = metrics.get("direct_snapshot_issue_sources")
+    runtime_participation_present = _optional_bool(
+        metrics,
+        "direct_snapshot_runtime_participation_present",
+    )
+    runtime_participation_stage = metrics.get(
+        "direct_snapshot_runtime_participation_stage"
+    )
+    runtime_participation_status = metrics.get(
+        "direct_snapshot_runtime_participation_status"
+    )
+    runtime_participation_payload_bytes = _optional_int(
+        metrics,
+        "direct_snapshot_runtime_participation_payload_bytes",
+    )
+    runtime_participation_issue_sources = metrics.get(
+        "direct_snapshot_runtime_participation_issue_sources"
+    )
     if not passed:
         failures.append("ready_time_direct_snapshot_report_not_passed")
     if not recheck_passed:
@@ -223,6 +240,58 @@ def _check_ready_time_direct_snapshot_gate(
         failures.append("ready_time_direct_snapshot_full_fetch_runtime_allowed")
     if metrics.get("direct_snapshot_changes_kernel_launch_args") is not False:
         failures.append("ready_time_direct_snapshot_changes_kernel_launch_args")
+    if runtime_participation_present is not True:
+        failures.append("ready_time_direct_snapshot_runtime_participation_not_present")
+    if (
+        runtime_participation_stage
+        != "online_ready_time_payload_cache_runtime_participation_dry_run"
+    ):
+        failures.append("ready_time_direct_snapshot_runtime_participation_stage_mismatch")
+    if not isinstance(runtime_participation_status, str) or not runtime_participation_status:
+        failures.append("ready_time_direct_snapshot_runtime_participation_status_invalid")
+    if runtime_participation_payload_bytes != 0:
+        failures.append(
+            "ready_time_direct_snapshot_runtime_participation_payload_bytes_mismatch"
+        )
+    if metrics.get("direct_snapshot_runtime_participation_ready_credit") is not False:
+        failures.append("ready_time_direct_snapshot_runtime_participation_ready_credit")
+    if (
+        metrics.get("direct_snapshot_runtime_participation_real_ready_credit_granted")
+        is not False
+    ):
+        failures.append(
+            "ready_time_direct_snapshot_runtime_participation_real_ready_credit_granted"
+        )
+    if (
+        metrics.get("direct_snapshot_runtime_participation_kernel_arg_pass_allowed")
+        is not False
+    ):
+        failures.append(
+            "ready_time_direct_snapshot_runtime_participation_kernel_arg_pass_allowed"
+        )
+    if (
+        metrics.get("direct_snapshot_runtime_participation_changes_kernel_launch_args")
+        is not False
+    ):
+        failures.append(
+            "ready_time_direct_snapshot_runtime_participation_changes_kernel_launch_args"
+        )
+    if (
+        metrics.get("direct_snapshot_runtime_participation_full_fetch_runtime_allowed")
+        is not False
+    ):
+        failures.append(
+            "ready_time_direct_snapshot_runtime_participation_full_fetch_runtime_allowed"
+        )
+    if (
+        metrics.get(
+            "direct_snapshot_runtime_participation_payload_transfer_runtime_enabled"
+        )
+        is not False
+    ):
+        failures.append(
+            "ready_time_direct_snapshot_runtime_participation_payload_transfer_runtime_enabled"
+        )
     return {
         "ready_time_direct_snapshot_report_present": True,
         "ready_time_direct_snapshot_report": str(report_path),
@@ -248,6 +317,67 @@ def _check_ready_time_direct_snapshot_gate(
             "direct_snapshot_changes_kernel_launch_args",
         ),
         "ready_time_direct_snapshot_issue_sources": _string_list(issue_sources),
+        "ready_time_direct_snapshot_runtime_participation_present": (
+            runtime_participation_present
+        ),
+        "ready_time_direct_snapshot_runtime_participation_stage": (
+            str(runtime_participation_stage)
+            if runtime_participation_stage is not None
+            else None
+        ),
+        "ready_time_direct_snapshot_runtime_participation_status": (
+            str(runtime_participation_status)
+            if runtime_participation_status is not None
+            else None
+        ),
+        "ready_time_direct_snapshot_runtime_participation_consumes_manager_snapshot": (
+            _optional_bool(
+                metrics,
+                "direct_snapshot_runtime_participation_consumes_manager_snapshot",
+            )
+        ),
+        "ready_time_direct_snapshot_runtime_participation_payload_bytes": (
+            runtime_participation_payload_bytes
+        ),
+        "ready_time_direct_snapshot_runtime_participation_ready_credit": (
+            _optional_bool(
+                metrics,
+                "direct_snapshot_runtime_participation_ready_credit",
+            )
+        ),
+        "ready_time_direct_snapshot_runtime_participation_real_ready_credit_granted": (
+            _optional_bool(
+                metrics,
+                "direct_snapshot_runtime_participation_real_ready_credit_granted",
+            )
+        ),
+        "ready_time_direct_snapshot_runtime_participation_kernel_arg_pass_allowed": (
+            _optional_bool(
+                metrics,
+                "direct_snapshot_runtime_participation_kernel_arg_pass_allowed",
+            )
+        ),
+        "ready_time_direct_snapshot_runtime_participation_changes_kernel_launch_args": (
+            _optional_bool(
+                metrics,
+                "direct_snapshot_runtime_participation_changes_kernel_launch_args",
+            )
+        ),
+        "ready_time_direct_snapshot_runtime_participation_full_fetch_runtime_allowed": (
+            _optional_bool(
+                metrics,
+                "direct_snapshot_runtime_participation_full_fetch_runtime_allowed",
+            )
+        ),
+        "ready_time_direct_snapshot_runtime_participation_payload_transfer_runtime_enabled": (
+            _optional_bool(
+                metrics,
+                "direct_snapshot_runtime_participation_payload_transfer_runtime_enabled",
+            )
+        ),
+        "ready_time_direct_snapshot_runtime_participation_issue_sources": (
+            _string_list(runtime_participation_issue_sources)
+        ),
     }
 
 

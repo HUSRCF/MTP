@@ -4650,6 +4650,39 @@ def _write_prefetch_lab_default_gate(root: Path) -> str:
                     "direct_snapshot_issue_sources": [
                         "prelaunch_observed_transition_premap_shadow"
                     ],
+                    "direct_snapshot_runtime_participation_present": True,
+                    "direct_snapshot_runtime_participation_stage": (
+                        "online_ready_time_payload_cache_runtime_participation_dry_run"
+                    ),
+                    "direct_snapshot_runtime_participation_status": (
+                        "accounting_only_no_used_fetch"
+                    ),
+                    "direct_snapshot_runtime_participation_consumes_manager_snapshot": (
+                        True
+                    ),
+                    "direct_snapshot_runtime_participation_payload_bytes": 0,
+                    "direct_snapshot_runtime_participation_ready_credit": False,
+                    "direct_snapshot_runtime_participation_real_ready_credit_granted": (
+                        False
+                    ),
+                    "direct_snapshot_runtime_participation_kernel_arg_pass_allowed": (
+                        False
+                    ),
+                    "direct_snapshot_runtime_participation_changes_kernel_launch_args": (
+                        False
+                    ),
+                    "direct_snapshot_runtime_participation_full_fetch_runtime_allowed": (
+                        False
+                    ),
+                    "direct_snapshot_runtime_participation_payload_transfer_runtime_enabled": (
+                        False
+                    ),
+                    "direct_snapshot_runtime_participation_issue_sources": [
+                        "prelaunch_observed_transition_premap_shadow"
+                    ],
+                    "direct_snapshot_runtime_participation_candidate_reason": (
+                        "no_used_fetch"
+                    ),
                 },
             },
             sort_keys=True,
@@ -6568,6 +6601,66 @@ def test_premap_lab_preflight_accepts_default_readonly_wiring(tmp_path: Path):
     )
     assert summary[
         "prefetch_lab_default_ready_time_direct_snapshot_issue_sources"
+    ] == [
+        "prelaunch_observed_transition_premap_shadow",
+    ]
+    assert summary[
+        "prefetch_lab_default_payload_cache_runtime_participation_present"
+    ] is True
+    assert (
+        summary["prefetch_lab_default_payload_cache_runtime_participation_stage"]
+        == "online_ready_time_payload_cache_runtime_participation_dry_run"
+    )
+    assert (
+        summary["prefetch_lab_default_payload_cache_runtime_participation_status"]
+        == "accounting_only_no_used_fetch"
+    )
+    assert (
+        summary[
+            "prefetch_lab_default_payload_cache_runtime_participation_consumes_direct_snapshot"
+        ]
+        is True
+    )
+    assert (
+        summary["prefetch_lab_default_payload_cache_runtime_participation_payload_bytes"]
+        == 0
+    )
+    assert (
+        summary["prefetch_lab_default_payload_cache_runtime_participation_ready_credit"]
+        is False
+    )
+    assert (
+        summary[
+            "prefetch_lab_default_payload_cache_runtime_participation_real_ready_credit_granted"
+        ]
+        is False
+    )
+    assert (
+        summary[
+            "prefetch_lab_default_payload_cache_runtime_participation_kernel_arg_pass_allowed"
+        ]
+        is False
+    )
+    assert (
+        summary[
+            "prefetch_lab_default_payload_cache_runtime_participation_changes_kernel_launch_args"
+        ]
+        is False
+    )
+    assert (
+        summary[
+            "prefetch_lab_default_payload_cache_runtime_participation_full_fetch_runtime_allowed"
+        ]
+        is False
+    )
+    assert (
+        summary[
+            "prefetch_lab_default_payload_cache_runtime_participation_payload_transfer_runtime_enabled"
+        ]
+        is False
+    )
+    assert summary[
+        "prefetch_lab_default_payload_cache_runtime_participation_issue_sources"
     ] == [
         "prelaunch_observed_transition_premap_shadow",
     ]

@@ -28,6 +28,14 @@ def _summary(tmp_path: Path, **overrides):
 
 
 def _direct_snapshot_boundary(**overrides):
+    direct_issue_sources = overrides.get(
+        "runtime_shadow_premap_payload_cache_direct_issue_sources",
+        ["previous_token_transition_premap_shadow"],
+    )
+    participation_issue_sources = overrides.get(
+        "runtime_shadow_premap_payload_cache_direct_runtime_participation_issue_sources",
+        direct_issue_sources,
+    )
     values = {
         "runtime_shadow_premap_payload_cache_direct_runtime_stage": (
             "online_ready_time_payload_cache_accounting_only"
@@ -41,9 +49,42 @@ def _direct_snapshot_boundary(**overrides):
             False
         ),
         "runtime_shadow_premap_payload_cache_direct_demand_on_consumer": True,
-        "runtime_shadow_premap_payload_cache_direct_issue_sources": [
-            "previous_token_transition_premap_shadow"
-        ],
+        "runtime_shadow_premap_payload_cache_direct_issue_sources": direct_issue_sources,
+        "runtime_shadow_premap_payload_cache_direct_runtime_participation_present": True,
+        "runtime_shadow_premap_payload_cache_direct_runtime_participation_stage": (
+            "online_ready_time_payload_cache_runtime_participation_dry_run"
+        ),
+        "runtime_shadow_premap_payload_cache_direct_runtime_participation_status": (
+            "ready_time_candidate_requires_lab_gate"
+        ),
+        "runtime_shadow_premap_payload_cache_direct_runtime_participation_consumes_manager_snapshot": (
+            True
+        ),
+        "runtime_shadow_premap_payload_cache_direct_runtime_participation_payload_bytes": 0,
+        "runtime_shadow_premap_payload_cache_direct_runtime_participation_ready_credit": (
+            False
+        ),
+        "runtime_shadow_premap_payload_cache_direct_runtime_participation_real_ready_credit_granted": (
+            False
+        ),
+        "runtime_shadow_premap_payload_cache_direct_runtime_participation_kernel_arg_pass_allowed": (
+            False
+        ),
+        "runtime_shadow_premap_payload_cache_direct_runtime_participation_changes_kernel_launch_args": (
+            False
+        ),
+        "runtime_shadow_premap_payload_cache_direct_runtime_participation_full_fetch_runtime_allowed": (
+            False
+        ),
+        "runtime_shadow_premap_payload_cache_direct_runtime_participation_payload_transfer_runtime_enabled": (
+            False
+        ),
+        "runtime_shadow_premap_payload_cache_direct_runtime_participation_issue_sources": (
+            participation_issue_sources
+        ),
+        "runtime_shadow_premap_payload_cache_direct_runtime_participation_candidate_reason": (
+            "candidate_requires_ready_time_gate"
+        ),
     }
     values.update(overrides)
     return values
@@ -147,6 +188,25 @@ def test_ready_time_payload_cache_gate_accepts_direct_snapshot_input(tmp_path: P
     assert result["metrics"]["direct_snapshot_issue_sources"] == [
         "previous_token_transition_premap_shadow"
     ]
+    assert result["metrics"]["direct_snapshot_runtime_participation_present"] is True
+    assert (
+        result["metrics"]["direct_snapshot_runtime_participation_stage"]
+        == "online_ready_time_payload_cache_runtime_participation_dry_run"
+    )
+    assert (
+        result["metrics"]["direct_snapshot_runtime_participation_status"]
+        == "ready_time_candidate_requires_lab_gate"
+    )
+    assert result["metrics"]["direct_snapshot_runtime_participation_payload_bytes"] == 0
+    assert (
+        result["metrics"][
+            "direct_snapshot_runtime_participation_kernel_arg_pass_allowed"
+        ]
+        is False
+    )
+    assert result["metrics"]["direct_snapshot_runtime_participation_issue_sources"] == [
+        "previous_token_transition_premap_shadow"
+    ]
 
 
 def test_ready_time_payload_cache_gate_accepts_own_direct_snapshot_report(
@@ -164,6 +224,14 @@ def test_ready_time_payload_cache_gate_accepts_own_direct_snapshot_report(
     assert second["metrics"]["direct_snapshot_issue_sources"] == [
         "previous_token_transition_premap_shadow"
     ]
+    assert (
+        second["metrics"]["direct_snapshot_runtime_participation_status"]
+        == "ready_time_candidate_requires_lab_gate"
+    )
+    assert (
+        second["metrics"]["direct_snapshot_runtime_participation_issue_sources"]
+        == ["previous_token_transition_premap_shadow"]
+    )
 
 
 def test_ready_time_payload_cache_gate_accepts_prelaunch_observed_issue_source(
@@ -343,6 +411,25 @@ def test_ready_time_payload_cache_gate_rejects_bool_payload_bytes(
         "direct_snapshot_runtime_shadow_premap_payload_cache_direct_payload_bytes_mismatch"
         in result["failures"]
     )
+
+
+def test_ready_time_payload_cache_gate_rejects_non_ready_time_participation_status(
+    tmp_path: Path,
+):
+    result = check_summary(
+        _direct_snapshot_summary(
+            tmp_path,
+            **_direct_snapshot_boundary(
+                runtime_shadow_premap_payload_cache_direct_runtime_participation_status=(
+                    "accounting_only_not_ready_time_manager:resident"
+                ),
+            ),
+        ),
+        root=tmp_path,
+    )
+
+    assert result["passed"] is False
+    assert "direct_runtime_participation_status_unsupported" in result["failures"]
 
 
 def test_ready_time_payload_cache_gate_rejects_missing_transition_issue_source(
