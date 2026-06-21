@@ -38,6 +38,7 @@ from mtp_expert_prefetch.runtime import (  # noqa: E402
     build_payload_cache_live_payload_stage_preflight,
     build_payload_cache_live_runtime_adapter_constructor_binding_preflight,
     build_payload_cache_live_runtime_adapter_instance_construction_plan,
+    build_payload_cache_live_runtime_adapter_object_shell_evidence,
     build_payload_cache_live_runtime_adapter_instantiation_canary,
     build_payload_cache_manager_implementation_artifact,
     build_payload_cache_manager_runtime_snapshot_artifact,
@@ -1262,6 +1263,7 @@ def _check_optional_stream_queue_budget_sweep(
     live_runtime_adapter_instantiation_canary_payload: dict[str, Any] = {}
     live_runtime_adapter_constructor_binding_preflight_payload: dict[str, Any] = {}
     live_runtime_adapter_instance_construction_plan_payload: dict[str, Any] = {}
+    live_runtime_adapter_object_shell_evidence_payload: dict[str, Any] = {}
     if len(failures) == queue_failure_base:
         try:
             envelope = build_payload_cache_queue_budget_runtime_envelope(
@@ -1398,8 +1400,21 @@ def _check_optional_stream_queue_budget_sweep(
             live_runtime_adapter_instance_construction_plan_payload = (
                 live_runtime_adapter_instance_construction_plan.as_dict()
             )
+            live_runtime_adapter_object_shell_evidence = (
+                build_payload_cache_live_runtime_adapter_object_shell_evidence(
+                    live_runtime_adapter_instance_construction_plan,
+                )
+            )
+            live_runtime_adapter_object_shell_evidence_payload = (
+                live_runtime_adapter_object_shell_evidence.as_dict()
+            )
         except (TypeError, ValueError) as exc:
-            if live_runtime_adapter_constructor_binding_preflight_payload:
+            if live_runtime_adapter_instance_construction_plan_payload:
+                label = (
+                    "stream_queue_budget_live_runtime_adapter_"
+                    "object_shell_evidence_invalid"
+                )
+            elif live_runtime_adapter_constructor_binding_preflight_payload:
                 label = (
                     "stream_queue_budget_live_runtime_adapter_"
                     "instance_construction_plan_invalid"
@@ -2368,6 +2383,10 @@ def _check_optional_stream_queue_budget_sweep(
         **_prefixed_payload(
             "stream_queue_budget_live_runtime_adapter_instance_construction_plan",
             live_runtime_adapter_instance_construction_plan_payload,
+        ),
+        **_prefixed_payload(
+            "stream_queue_budget_live_runtime_adapter_object_shell_evidence",
+            live_runtime_adapter_object_shell_evidence_payload,
         ),
         "stream_queue_budget_payload_bytes": _optional_int(report, "payload_bytes"),
         "stream_queue_budget_payload_transfer_enabled": _optional_bool(

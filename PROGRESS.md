@@ -2,10 +2,70 @@
 
 ## Progress Version
 
-- Version: `v1.41-live-runtime-adapter-instance-construction-plan`
+- Version: `v1.42-disabled-live-runtime-adapter-object-shell-evidence`
 - Updated: 2026-06-22
 
-## Latest Update: Live Runtime Adapter Instance-Construction Plan
+## Latest Update: Disabled Live Runtime Adapter Object-Shell Evidence
+
+The payload/cache lab chain now reaches a required disabled object-shell
+evidence layer:
+
+```text
+PayloadCacheLiveRuntimeAdapterObjectShellEvidence
+```
+
+This evidence consumes `PayloadCacheLiveRuntimeAdapterInstanceConstructionPlan`
+and proves that a payloadless adapter object shell can be constructed and
+snapshotted:
+
+```text
+adapter_object_shell_created = true
+disabled_adapter_shell_snapshot_created = true
+```
+
+The shell remains disabled and does not become a live adapter/runtime:
+
+```text
+shell_enabled = false
+adapter_instance_created = false
+live_runtime_instantiated = false
+decision = blocked
+block_reason = live_runtime_adapter_object_shell_evidence_only
+execution_mode = payload_cache_live_runtime_adapter_object_shell_evidence_disabled
+payload_bytes = 0
+ready_credit = false
+kernel_arg_pass_allowed = false
+changes_kernel_launch_args = false
+uses_current_wna16_args = false
+passes_current_wna16_args = false
+measures_tpot = false
+measures_vllm_latency = false
+```
+
+The builder revalidates the upstream instance-construction plan, constructs a
+disabled `PayloadCacheRuntimeAdapterShell(enabled=false)`, reads its no-op
+snapshot, and returns only evidence fields.  It does not expose the shell for
+issue/demand operations, does not move payload, does not grant ready credit,
+and does not pass current WNA16 kernel arguments.
+
+The compact lab preflight summary now includes
+`prefetch_lab_default_stream_queue_budget_live_runtime_adapter_object_shell_evidence_*`
+fields, and the final checker treats them as required gate evidence.  The
+checker explicitly rejects `shell_enabled=true`, `adapter_instance_created=true`,
+`live_runtime_instantiated=true`, nonzero payload, ready credit, kernel arg
+handoff, WNA16 pass-through, TPOT, and vLLM latency claims.
+
+Validation:
+
+```text
+py_compile runtime/cache_lab_gate.py, cache_manager.py, and summary scripts: pass
+pytest tests/test_cache_lab_gate.py tests/test_check_premap_lab_preflight_summary.py tests/test_cache_manager.py -q: 176 passed
+pytest focused lab/preflight suite including cache_manager: 554 passed
+generated summary/check artifacts: pass
+Hubble static review: pending
+```
+
+## Previous Update: Live Runtime Adapter Instance-Construction Plan
 
 The payload/cache lab chain now reaches a blocked adapter instance-construction
 plan:

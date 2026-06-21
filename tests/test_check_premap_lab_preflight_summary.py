@@ -2575,6 +2575,99 @@ def _summary() -> dict[str, object]:
         "measures_vllm_latency",
     ):
         summary[f"{instance_plan_prefix}_{key}"] = False
+    object_shell_prefix = (
+        "prefetch_lab_default_stream_queue_budget_"
+        "live_runtime_adapter_object_shell_evidence"
+    )
+    instance_plan_status = str(summary[f"{instance_plan_prefix}_status"])
+    summary.update(
+        {
+            f"{object_shell_prefix}_present": True,
+            f"{object_shell_prefix}_stage": (
+                "payload_cache_live_runtime_adapter_object_shell_evidence"
+            ),
+            f"{object_shell_prefix}_status": (
+                f"blocked_by_instance_construction_plan:{instance_plan_status}"
+            ),
+            f"{object_shell_prefix}_consumes_instance_construction_plan": True,
+            f"{object_shell_prefix}_instance_construction_plan_status": (
+                instance_plan_status
+            ),
+            f"{object_shell_prefix}_manager_backend": (
+                "ReadyTimeExpertCacheManager"
+            ),
+            f"{object_shell_prefix}_manager_runtime_contract": (
+                "ready_time_issue_demand_skeleton_v1"
+            ),
+            f"{object_shell_prefix}_manager_runtime_mode": (
+                "ready_time_payload_cache_skeleton"
+            ),
+            f"{object_shell_prefix}_instance_construction_plan_schema": (
+                "ready_time_payload_cache_runtime_adapter_instance_construction_plan_v1"
+            ),
+            f"{object_shell_prefix}_adapter_object_shell_created": True,
+            f"{object_shell_prefix}_disabled_adapter_shell_snapshot_created": True,
+            f"{object_shell_prefix}_shell_enabled": False,
+            f"{object_shell_prefix}_adapter_instance_created": False,
+            f"{object_shell_prefix}_live_runtime_instantiated": False,
+            f"{object_shell_prefix}_capacity_entries": 4096,
+            f"{object_shell_prefix}_issue_lead_tokens": 32,
+            f"{object_shell_prefix}_queue_deadline_us": 100.0,
+            f"{object_shell_prefix}_lookahead_us": 2400000.0,
+            f"{object_shell_prefix}_queue_batch_size": 1,
+            f"{object_shell_prefix}_shifted_issue_accounting_enabled": True,
+            f"{object_shell_prefix}_shifted_issue_accounted_packet_count": 28,
+            f"{object_shell_prefix}_shifted_issue_unique_issue_key_count": 16,
+            f"{object_shell_prefix}_decision": "blocked",
+            f"{object_shell_prefix}_block_reason": (
+                "live_runtime_adapter_object_shell_evidence_only"
+            ),
+            f"{object_shell_prefix}_execution_mode": (
+                "payload_cache_live_runtime_adapter_object_shell_evidence_disabled"
+            ),
+        },
+    )
+    for key in (
+        "resident_count",
+        "issued_fetch_count",
+        "used_fetch_count",
+        "unused_fetch_count",
+        "demand_count",
+        "demand_hit_count",
+        "demand_miss_count",
+        "evicted_before_use_count",
+        "ready_late_miss_count",
+        "late_completion_unused_count",
+        "queue_batch_count",
+        "issued_payload_count",
+        "payload_bytes",
+    ):
+        summary[f"{object_shell_prefix}_{key}"] = 0
+    for key in (
+        "queue_service_us",
+        "queue_total_span_us",
+        "queue_wait_us",
+        "queue_max_delay_us",
+    ):
+        summary[f"{object_shell_prefix}_{key}"] = 0.0
+    for key in (
+        "live_payload_runtime_enabled",
+        "payload_transfer_runtime_enabled",
+        "payload_deref_allowed",
+        "payload_deref_runtime_allowed",
+        "ready_credit",
+        "ready_before_demand_credit",
+        "real_ready_credit_granted",
+        "kernel_arg_pass_allowed",
+        "passed_to_kernel",
+        "changes_kernel_launch_args",
+        "full_fetch_runtime_allowed",
+        "uses_current_wna16_args",
+        "passes_current_wna16_args",
+        "measures_tpot",
+        "measures_vllm_latency",
+    ):
+        summary[f"{object_shell_prefix}_{key}"] = False
     return summary
 
 
@@ -4455,6 +4548,32 @@ def test_check_premap_lab_preflight_summary_rejects_instance_construction_plan_e
     assert f"{prefix}_status_mismatch" in result["failures"]
     assert f"{prefix}_construction_plan_sealed_mismatch" in result["failures"]
     assert f"{prefix}_adapter_instance_created_mismatch" in result["failures"]
+    assert f"{prefix}_payload_bytes_mismatch" in result["failures"]
+    assert f"{prefix}_ready_credit_mismatch" in result["failures"]
+    assert f"{prefix}_kernel_arg_pass_allowed_mismatch" in result["failures"]
+
+
+def test_check_premap_lab_preflight_summary_rejects_object_shell_escape() -> None:
+    summary = _summary()
+    prefix = (
+        "prefetch_lab_default_stream_queue_budget_"
+        "live_runtime_adapter_object_shell_evidence"
+    )
+    summary[f"{prefix}_status"] = "passed"
+    summary[f"{prefix}_shell_enabled"] = True
+    summary[f"{prefix}_adapter_instance_created"] = True
+    summary[f"{prefix}_live_runtime_instantiated"] = True
+    summary[f"{prefix}_payload_bytes"] = 64
+    summary[f"{prefix}_ready_credit"] = True
+    summary[f"{prefix}_kernel_arg_pass_allowed"] = True
+
+    result = check_premap_lab_preflight_summary(summary)
+
+    assert result["passed"] is False
+    assert f"{prefix}_status_mismatch" in result["failures"]
+    assert f"{prefix}_shell_enabled_mismatch" in result["failures"]
+    assert f"{prefix}_adapter_instance_created_mismatch" in result["failures"]
+    assert f"{prefix}_live_runtime_instantiated_mismatch" in result["failures"]
     assert f"{prefix}_payload_bytes_mismatch" in result["failures"]
     assert f"{prefix}_ready_credit_mismatch" in result["failures"]
     assert f"{prefix}_kernel_arg_pass_allowed_mismatch" in result["failures"]
