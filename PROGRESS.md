@@ -40756,3 +40756,77 @@ still blocking full_fetch. This makes the current lab default explicit:
 full_fetch remains blocked by measured-copy + stream-lookahead evidence.
 metadata/premap/descriptor-prep remain the safe runtime path.
 ```
+
+## Producer-side 32-token shifted issue contract exposes bootstrap/coalescing boundary
+
+Using the same Dolly4 token-provenance packet export, a 32-token shifted issue
+schedule was materialized in two modes:
+
+```text
+strict:
+  outputs/reports/premap_kernel_consumer/
+    premap_payload_cache_stream_shifted_issue_replay_contract_token_index_dolly4_lead32_strict_v1.json
+
+bootstrap/coalesce:
+  outputs/reports/premap_kernel_consumer/
+    premap_payload_cache_stream_shifted_issue_replay_contract_token_index_dolly4_lead32_bootstrap_coalesce_v1.json
+```
+
+The strict contract fails as expected:
+
+```text
+issue_lead_tokens = 32
+schedulable_packet_count = 28
+clamped_issue_count = 12
+duplicate_issue_key_count = 12
+failures = [
+  duplicate_issue_keys_present,
+  clamped_issue_tokens_present,
+]
+```
+
+This is not evidence of a payload/runtime correctness failure; it is a strict
+one-to-one replay-contract failure. It shows that a 32-token producer-side lead
+cannot be represented as a naive one-to-one shifted schedule for the first
+decode tokens: early demands clamp to token 0, and several packets map to the
+same issue key.
+
+With explicit bootstrap clamp and duplicate issue-key coalescing allowed, the
+contract passes:
+
+```text
+passed = true
+issue_lead_tokens = 32
+schedulable_packet_count = 28
+unique_demand_key_count = 28
+unique_issue_key_count = 16
+total_issue_candidates = 224
+clamped_issue_count = 12
+duplicate_issue_key_count = 12
+```
+
+The safety boundary remains unchanged:
+
+```text
+full_fetch_runtime_allowed = false
+payload_bytes = 0
+payload_transfer_enabled = false
+ready_credit = false
+ready_before_demand_credit = false
+real_ready_credit_granted = false
+kernel_arg_pass_allowed = false
+passed_to_kernel = false
+changes_kernel_launch_args = false
+uses_current_wna16_args = false
+passes_current_wna16_args = false
+measures_tpot = false
+measures_vllm_latency = false
+```
+
+Interpretation:
+
+```text
+The next producer-side runtime contract must include bootstrap issue handling
+and issue-key coalescing before full_fetch can be reconsidered.
+Current lab default remains metadata/premap/descriptor-prep; full_fetch stays blocked.
+```
