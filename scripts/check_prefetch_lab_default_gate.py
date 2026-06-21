@@ -99,6 +99,47 @@ def _check_full_fetch(section: dict[str, Any], *, root: Path) -> dict[str, Any]:
             "issued_fetch_count",
         ),
         "ready_time_used_fetch_count": _optional_int(metrics, "used_fetch_count"),
+        "ready_time_current_deadline_us": _optional_float(
+            report,
+            "current_deadline_us",
+        ),
+        "ready_time_current_lookahead_us": _optional_float(
+            report,
+            "current_lookahead_us",
+        ),
+        "ready_time_first_model_passing_deadline_us": _optional_float(
+            report,
+            "first_model_passing_deadline_us",
+        ),
+        "ready_time_first_model_passing_lookahead_us": _optional_float(
+            report,
+            "first_model_passing_lookahead_us",
+        ),
+        "ready_time_required_lookahead_slack_us": _optional_float(
+            report,
+            "required_lookahead_slack_us",
+        ),
+        "ready_time_required_issue_to_demand_lookahead_us": _optional_float(
+            report,
+            "required_issue_to_demand_lookahead_us",
+        ),
+        "ready_time_slack_deficit_us": _optional_float(report, "slack_deficit_us"),
+        "ready_time_lookahead_deficit_us": _optional_float(
+            report,
+            "lookahead_deficit_us",
+        ),
+        "ready_time_model_slack_satisfied": _optional_bool(
+            report,
+            "ready_time_model_slack_satisfied",
+        ),
+        "ready_time_model_lookahead_satisfied": _optional_bool(
+            report,
+            "ready_time_model_lookahead_satisfied",
+        ),
+        "ready_time_any_model_route_satisfied": _optional_bool(
+            report,
+            "ready_time_any_model_route_satisfied",
+        ),
     }
 
 
@@ -288,6 +329,11 @@ def _optional_int(payload: dict[str, Any], key: str) -> int | None:
         return int(value)
     except (TypeError, ValueError):
         return None
+
+
+def _optional_bool(payload: dict[str, Any], key: str) -> bool | None:
+    value = payload.get(key)
+    return value if isinstance(value, bool) else None
 
 
 def _string_list(value: Any) -> list[str]:

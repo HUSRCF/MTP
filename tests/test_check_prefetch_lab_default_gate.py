@@ -117,6 +117,17 @@ def test_prefetch_lab_default_gate_accepts_full_fetch_decision_gate(tmp_path: Pa
                 "passed": True,
                 "full_fetch_runtime_allowed": False,
                 "full_fetch_block_reason": "insufficient_ready_time_and_lookahead",
+                "current_deadline_us": 200.0,
+                "current_lookahead_us": 0.0,
+                "first_model_passing_deadline_us": 4000.0,
+                "first_model_passing_lookahead_us": 3800.0,
+                "required_lookahead_slack_us": 4000.0,
+                "required_issue_to_demand_lookahead_us": 3800.0,
+                "slack_deficit_us": 3800.0,
+                "lookahead_deficit_us": 3800.0,
+                "ready_time_model_slack_satisfied": False,
+                "ready_time_model_lookahead_satisfied": False,
+                "ready_time_any_model_route_satisfied": False,
                 **_FULL_FETCH_DECISION_NOOP_FIELDS,
             }
         ),
@@ -132,6 +143,19 @@ def test_prefetch_lab_default_gate_accepts_full_fetch_decision_gate(tmp_path: Pa
         full_fetch["ready_time_decision_reason"]
         == "insufficient_ready_time_and_lookahead"
     )
+    assert full_fetch["ready_time_current_deadline_us"] == 200.0
+    assert full_fetch["ready_time_current_lookahead_us"] == 0.0
+    assert full_fetch["ready_time_first_model_passing_deadline_us"] == 4000.0
+    assert full_fetch["ready_time_first_model_passing_lookahead_us"] == 3800.0
+    assert full_fetch["ready_time_required_lookahead_slack_us"] == 4000.0
+    assert (
+        full_fetch["ready_time_required_issue_to_demand_lookahead_us"] == 3800.0
+    )
+    assert full_fetch["ready_time_slack_deficit_us"] == 3800.0
+    assert full_fetch["ready_time_lookahead_deficit_us"] == 3800.0
+    assert full_fetch["ready_time_model_slack_satisfied"] is False
+    assert full_fetch["ready_time_model_lookahead_satisfied"] is False
+    assert full_fetch["ready_time_any_model_route_satisfied"] is False
 
 
 def test_prefetch_lab_default_gate_rejects_malformed_full_fetch_decision_gate(

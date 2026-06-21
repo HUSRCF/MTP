@@ -6285,6 +6285,35 @@ def test_premap_lab_preflight_accepts_default_readonly_wiring(tmp_path: Path):
     assert summary["prefetch_lab_default_ready_time_issued_fetch_count"] == 12
     assert summary["prefetch_lab_default_ready_time_used_fetch_count"] == 0
     assert summary["prefetch_lab_default_ready_time_used_per_issued_fetch"] == 0.0
+    assert summary["prefetch_lab_default_ready_time_current_deadline_us"] is None
+    assert summary["prefetch_lab_default_ready_time_current_lookahead_us"] is None
+    assert (
+        summary["prefetch_lab_default_ready_time_first_model_passing_deadline_us"]
+        is None
+    )
+    assert (
+        summary["prefetch_lab_default_ready_time_first_model_passing_lookahead_us"]
+        is None
+    )
+    assert (
+        summary["prefetch_lab_default_ready_time_required_lookahead_slack_us"]
+        is None
+    )
+    assert (
+        summary[
+            "prefetch_lab_default_ready_time_required_issue_to_demand_lookahead_us"
+        ]
+        is None
+    )
+    assert summary["prefetch_lab_default_ready_time_slack_deficit_us"] is None
+    assert summary["prefetch_lab_default_ready_time_lookahead_deficit_us"] is None
+    assert summary["prefetch_lab_default_ready_time_model_slack_satisfied"] is None
+    assert (
+        summary["prefetch_lab_default_ready_time_model_lookahead_satisfied"] is None
+    )
+    assert (
+        summary["prefetch_lab_default_ready_time_any_model_route_satisfied"] is None
+    )
     assert summary["prefetch_lab_default_metadata_decision"] == "shadow_only"
     assert summary["prefetch_lab_default_metadata_passed"] is True
     assert summary["prefetch_lab_default_metadata_failures"] == []

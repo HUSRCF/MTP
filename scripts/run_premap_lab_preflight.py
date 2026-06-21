@@ -12121,6 +12121,58 @@ def run_premap_lab_preflight(
             prefetch_lab_default_full_fetch,
             "ready_time_used_fetch_count",
         ),
+        "prefetch_lab_default_ready_time_current_deadline_us": _float_metric(
+            prefetch_lab_default_full_fetch,
+            "ready_time_current_deadline_us",
+        ),
+        "prefetch_lab_default_ready_time_current_lookahead_us": _float_metric(
+            prefetch_lab_default_full_fetch,
+            "ready_time_current_lookahead_us",
+        ),
+        "prefetch_lab_default_ready_time_first_model_passing_deadline_us": (
+            _float_metric(
+                prefetch_lab_default_full_fetch,
+                "ready_time_first_model_passing_deadline_us",
+            )
+        ),
+        "prefetch_lab_default_ready_time_first_model_passing_lookahead_us": (
+            _float_metric(
+                prefetch_lab_default_full_fetch,
+                "ready_time_first_model_passing_lookahead_us",
+            )
+        ),
+        "prefetch_lab_default_ready_time_required_lookahead_slack_us": (
+            _float_metric(
+                prefetch_lab_default_full_fetch,
+                "ready_time_required_lookahead_slack_us",
+            )
+        ),
+        "prefetch_lab_default_ready_time_required_issue_to_demand_lookahead_us": (
+            _float_metric(
+                prefetch_lab_default_full_fetch,
+                "ready_time_required_issue_to_demand_lookahead_us",
+            )
+        ),
+        "prefetch_lab_default_ready_time_slack_deficit_us": _float_metric(
+            prefetch_lab_default_full_fetch,
+            "ready_time_slack_deficit_us",
+        ),
+        "prefetch_lab_default_ready_time_lookahead_deficit_us": _float_metric(
+            prefetch_lab_default_full_fetch,
+            "ready_time_lookahead_deficit_us",
+        ),
+        "prefetch_lab_default_ready_time_model_slack_satisfied": _bool_metric(
+            prefetch_lab_default_full_fetch,
+            "ready_time_model_slack_satisfied",
+        ),
+        "prefetch_lab_default_ready_time_model_lookahead_satisfied": _bool_metric(
+            prefetch_lab_default_full_fetch,
+            "ready_time_model_lookahead_satisfied",
+        ),
+        "prefetch_lab_default_ready_time_any_model_route_satisfied": _bool_metric(
+            prefetch_lab_default_full_fetch,
+            "ready_time_any_model_route_satisfied",
+        ),
         "prefetch_lab_default_metadata_decision": (
             prefetch_lab_default_decisions.get("metadata")
         ),
