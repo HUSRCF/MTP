@@ -40192,3 +40192,159 @@ Next gate:
 ```text
 promote_shifted_issue_runtime_shadow_gate_to_lab_preflight_or_scale_to_32_samples
 ```
+
+## 2026-06-21 - Shifted issue packet export bridge + ready-time executor result
+
+Added a strict payload-cache packet export materializer:
+
+```text
+scripts/materialize_premap_payload_cache_packet_export_manifest.py
+tests/test_materialize_premap_payload_cache_packet_export_manifest.py
+```
+
+Purpose:
+
+```text
+performance_summary.json
+  runtime_shadow_premap_payload_cache_producer_state_packet_export_*
+  runtime_shadow_premap_payload_cache_shifted_issue_*
+
+-> executor/contract-compatible online manifest
+```
+
+The bridge is still payloadless and no-op:
+
+```text
+payload_bytes = 0
+ready_credit = false
+ready_before_demand_credit = false
+real_ready_credit_granted = false
+payload_transfer_enabled = false
+payload_deref_allowed = false
+kernel_arg_pass_allowed = false
+passed_to_kernel = false
+changes_kernel_launch_args = false
+uses_current_wna16_args = false
+passes_current_wna16_args = false
+measures_tpot = false
+measures_vllm_latency = false
+```
+
+The materializer now requires shifted issue runtime-shadow safety by default:
+
+```text
+safe_packet_count == packet_count
+unsafe_packet_count == 0
+invalid_packet_count == 0
+scan_error_count == 0
+clamped_issue_count == 0
+duplicate_demand_key_count == 0
+duplicate_issue_key_count == 0
+unique demand/issue/hash counters match schedulable packets
+schedulable_packet_count + empty_issue_exempt_count == packet_count
+packet paths resolve from the performance_summary directory and must exist
+bool/int fields are type-strict
+```
+
+It also treats packet files as the source of truth for replay-visible fields:
+
+```text
+each exported packet JSON is loaded and checked
+packet/export_context safety flags must remain no-op
+ready must be true but payload_bytes must be 0
+issue_candidate count/first/last/hash are recomputed from packet experts
+schedulable/empty/clamped/duplicate demand+issue keys are recomputed from packets
+first_nonempty issue index/path/count/hash must match packet contents
+summary_* and checked_* first_nonempty fields are emitted separately
+empty-only first_nonempty sentinel matches producer semantics: index=-1, count=0
+allow_empty_config_packets = true
+allow_config_token_source = false
+checked_packet_count = 32
+checked_nonempty_packet_count = 28
+```
+
+Artifacts:
+
+```text
+outputs/reports/premap_kernel_consumer/
+  premap_payload_cache_packet_export_manifest_shifted_issue_runtime_shadow_dolly4_gen64_v1.json
+  premap_payload_cache_stream_shifted_issue_replay_contract_shifted_issue_runtime_shadow_dolly4_gen64_v2.json
+  premap_payload_cache_issue_stream_executor_shifted_issue_runtime_shadow_dolly4_gen64_ready_time_v1.json
+  premap_payload_cache_issue_stream_executor_queue_budget_sweep_shifted_issue_runtime_shadow_dolly4_gen64_v1.json
+  premap_payload_cache_issue_stream_executor_queue_budget_sweep_shifted_issue_runtime_shadow_dolly4_gen64_aggressive_lead_v1.json
+  premap_payload_cache_issue_stream_executor_queue_budget_sweep_shifted_issue_runtime_shadow_dolly4_gen64_lead8_deadline_v1.json
+```
+
+Results:
+
+```text
+packet export manifest:
+  passed = true
+  online_packet_export_count = 32
+  online_nonempty_issue_count = 28
+
+shifted issue replay contract:
+  passed = true
+  packet_count = 32
+  schedulable_packet_count = 28
+
+ready-time issue stream executor:
+  passed = false
+  demand_hit_rate = 0.6652
+  ready_late_miss_rate = 0.3348
+  used_per_issued_fetch = 0.4361
+  failure = measured_copy_stream_deadline_miss
+```
+
+Queue budget sweeps:
+
+```text
+normal sweep:
+  capacity = 4096/8192/12288/16384
+  queue_deadline_us = 200/1000/5000/20000/75000
+  issue_lead_tokens = 1/2/4/8
+  first_model_passing_cell = null
+  best non-clamped lead8 row:
+    demand_hit_rate = 0.6875
+    ready_late_miss_rate = 0.3125
+    used_per_issued_fetch = 0.4737
+
+aggressive sweep:
+  issue_lead_tokens = 8/16/32/56
+  first_model_passing_cell:
+    capacity = 12288
+    queue_deadline_us = 75000
+    issue_lead_tokens = 56
+  caveat:
+    issue_arrival_clamp_at_zero_possible = true
+    This is effectively whole-generation early issue, not a natural decode-local
+    runtime prefetch window.
+
+lead8 deadline sweep:
+  issue_lead_tokens = 8 only
+  queue_deadline_us up to 4200000
+  first_model_passing_cell = null
+  best row:
+    demand_hit_rate = 0.7991
+    ready_late_miss_rate = 0.2009
+    used_per_issued_fetch = 0.6617
+```
+
+Interpretation:
+
+```text
+The online shifted issue stream can now be exported, validated, and consumed by
+the replay/manager executor without touching payload, ready credit, or kernel args.
+
+However, measured-copy ready-time replay does not support enabling full payload
+fetch from this decode-local issue stream.  Passing cells require very large
+lead/clamping and should not be treated as a realistic runtime full_fetch win.
+```
+
+Next gate:
+
+```text
+keep full_fetch runtime blocked for this packet stream;
+prefer metadata/premap/descriptor preparation actions, or move issue/admission
+substantially earlier before attempting real payload cache-manager runtime.
+```
