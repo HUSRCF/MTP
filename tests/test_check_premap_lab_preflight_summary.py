@@ -1027,6 +1027,13 @@ def _summary() -> dict[str, object]:
         "prefetch_lab_default_payload_cache_runtime_execution_plan_status": (
             "participation_not_full_fetch_candidate:accounting_only_no_used_fetch"
         ),
+        "prefetch_lab_default_payload_cache_runtime_execution_decision": "blocked",
+        "prefetch_lab_default_payload_cache_runtime_execution_block_reason": (
+            "participation_not_full_fetch_candidate:accounting_only_no_used_fetch"
+        ),
+        "prefetch_lab_default_payload_cache_runtime_execution_execution_mode": (
+            "payloadless_lab_gate_dry_run"
+        ),
         "prefetch_lab_default_payload_cache_runtime_execution_live_payload_runtime_enabled": (
             False
         ),
@@ -2340,6 +2347,9 @@ def test_check_premap_lab_preflight_summary_rejects_runtime_plan_status_mismatch
     summary["prefetch_lab_default_payload_cache_runtime_execution_plan_status"] = (
         "lab_gate_blocked:ready_time_direct_snapshot_disallows_full_fetch"
     )
+    summary["prefetch_lab_default_payload_cache_runtime_execution_block_reason"] = (
+        "lab_gate_blocked:ready_time_direct_snapshot_disallows_full_fetch"
+    )
     summary["prefetch_lab_default_payload_cache_runtime_execution_status"] = (
         "blocked_by_runtime_plan:"
         "lab_gate_blocked:ready_time_direct_snapshot_disallows_full_fetch"
@@ -2363,6 +2373,9 @@ def test_check_premap_lab_preflight_summary_accepts_runtime_plan_lab_gate_block_
         "lab_gate_blocked:ready_time_direct_snapshot_disallows_full_fetch"
     )
     summary["prefetch_lab_default_payload_cache_runtime_execution_plan_status"] = (
+        "lab_gate_blocked:ready_time_direct_snapshot_disallows_full_fetch"
+    )
+    summary["prefetch_lab_default_payload_cache_runtime_execution_block_reason"] = (
         "lab_gate_blocked:ready_time_direct_snapshot_disallows_full_fetch"
     )
     summary["prefetch_lab_default_payload_cache_runtime_execution_status"] = (
@@ -2402,6 +2415,49 @@ def test_check_premap_lab_preflight_summary_rejects_runtime_execution_plan_statu
     assert result["passed"] is False
     assert (
         "prefetch_lab_default_payload_cache_runtime_execution_plan_status_mismatch"
+        in result["failures"]
+    )
+
+
+def test_check_premap_lab_preflight_summary_rejects_runtime_execution_decision_mismatch() -> None:
+    summary = _summary()
+    summary["prefetch_lab_default_payload_cache_runtime_execution_decision"] = None
+
+    result = check_premap_lab_preflight_summary(summary)
+
+    assert result["passed"] is False
+    assert (
+        "prefetch_lab_default_payload_cache_runtime_execution_decision_mismatch"
+        in result["failures"]
+    )
+
+
+def test_check_premap_lab_preflight_summary_rejects_runtime_execution_block_reason_mismatch() -> None:
+    summary = _summary()
+    summary["prefetch_lab_default_payload_cache_runtime_execution_block_reason"] = (
+        "stale_reason"
+    )
+
+    result = check_premap_lab_preflight_summary(summary)
+
+    assert result["passed"] is False
+    assert (
+        "prefetch_lab_default_payload_cache_runtime_execution_block_reason_mismatch"
+        in result["failures"]
+    )
+
+
+def test_check_premap_lab_preflight_summary_rejects_runtime_execution_execution_mode_mismatch() -> None:
+    summary = _summary()
+    summary["prefetch_lab_default_payload_cache_runtime_execution_execution_mode"] = (
+        "payloadful_runtime"
+    )
+
+    result = check_premap_lab_preflight_summary(summary)
+
+    assert result["passed"] is False
+    assert (
+        "prefetch_lab_default_payload_cache_runtime_execution_execution_mode_mismatch"
         in result["failures"]
     )
 

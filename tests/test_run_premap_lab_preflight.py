@@ -4718,6 +4718,14 @@ def _write_prefetch_lab_default_gate(root: Path) -> str:
                         "participation_not_full_fetch_candidate:"
                         "accounting_only_no_used_fetch"
                     ),
+                    "direct_snapshot_runtime_execution_decision": "blocked",
+                    "direct_snapshot_runtime_execution_block_reason": (
+                        "participation_not_full_fetch_candidate:"
+                        "accounting_only_no_used_fetch"
+                    ),
+                    "direct_snapshot_runtime_execution_execution_mode": (
+                        "payloadless_lab_gate_dry_run"
+                    ),
                     "direct_snapshot_runtime_execution_live_payload_runtime_enabled": (
                         False
                     ),
@@ -6784,6 +6792,18 @@ def test_premap_lab_preflight_accepts_default_readonly_wiring(tmp_path: Path):
     assert (
         summary["prefetch_lab_default_payload_cache_runtime_execution_plan_status"]
         == summary["prefetch_lab_default_payload_cache_runtime_plan_status"]
+    )
+    assert (
+        summary["prefetch_lab_default_payload_cache_runtime_execution_decision"]
+        == "blocked"
+    )
+    assert (
+        summary["prefetch_lab_default_payload_cache_runtime_execution_block_reason"]
+        == summary["prefetch_lab_default_payload_cache_runtime_plan_status"]
+    )
+    assert (
+        summary["prefetch_lab_default_payload_cache_runtime_execution_execution_mode"]
+        == "payloadless_lab_gate_dry_run"
     )
     assert (
         summary["prefetch_lab_default_payload_cache_runtime_execution_consumes_plan"]

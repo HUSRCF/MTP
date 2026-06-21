@@ -151,6 +151,14 @@ def _write_fixture(tmp_path: Path, *, allow_full_fetch: bool = False) -> Path:
                         "participation_not_full_fetch_candidate:"
                         "accounting_only_no_used_fetch"
                     ),
+                    "direct_snapshot_runtime_execution_decision": "blocked",
+                    "direct_snapshot_runtime_execution_block_reason": (
+                        "participation_not_full_fetch_candidate:"
+                        "accounting_only_no_used_fetch"
+                    ),
+                    "direct_snapshot_runtime_execution_execution_mode": (
+                        "payloadless_lab_gate_dry_run"
+                    ),
                     "direct_snapshot_runtime_execution_live_payload_runtime_enabled": (
                         False
                     ),
@@ -465,6 +473,15 @@ def test_prefetch_lab_default_gate_passes_low_risk_premap_path(tmp_path: Path):
     assert (
         full_fetch["ready_time_direct_snapshot_runtime_execution_plan_status"]
         == full_fetch["ready_time_direct_snapshot_runtime_plan_status"]
+    )
+    assert full_fetch["ready_time_direct_snapshot_runtime_execution_decision"] == "blocked"
+    assert (
+        full_fetch["ready_time_direct_snapshot_runtime_execution_block_reason"]
+        == full_fetch["ready_time_direct_snapshot_runtime_plan_status"]
+    )
+    assert (
+        full_fetch["ready_time_direct_snapshot_runtime_execution_execution_mode"]
+        == "payloadless_lab_gate_dry_run"
     )
     assert (
         full_fetch["ready_time_direct_snapshot_runtime_execution_consumes_plan"]

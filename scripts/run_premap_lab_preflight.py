@@ -12379,6 +12379,21 @@ def run_premap_lab_preflight(
                 "ready_time_direct_snapshot_runtime_execution_plan_status"
             )
         ),
+        "prefetch_lab_default_payload_cache_runtime_execution_decision": (
+            prefetch_lab_default_full_fetch.get(
+                "ready_time_direct_snapshot_runtime_execution_decision"
+            )
+        ),
+        "prefetch_lab_default_payload_cache_runtime_execution_block_reason": (
+            prefetch_lab_default_full_fetch.get(
+                "ready_time_direct_snapshot_runtime_execution_block_reason"
+            )
+        ),
+        "prefetch_lab_default_payload_cache_runtime_execution_execution_mode": (
+            prefetch_lab_default_full_fetch.get(
+                "ready_time_direct_snapshot_runtime_execution_execution_mode"
+            )
+        ),
         "prefetch_lab_default_payload_cache_runtime_execution_live_payload_runtime_enabled": (
             _bool_metric(
                 prefetch_lab_default_full_fetch,

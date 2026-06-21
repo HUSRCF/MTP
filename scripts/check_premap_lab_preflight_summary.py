@@ -1630,6 +1630,10 @@ def check_premap_lab_preflight_summary(
         "prefetch_lab_default_payload_cache_runtime_execution_stage": (
             "payload_cache_runtime_execution_lab_gate_dry_run"
         ),
+        "prefetch_lab_default_payload_cache_runtime_execution_decision": "blocked",
+        "prefetch_lab_default_payload_cache_runtime_execution_execution_mode": (
+            "payloadless_lab_gate_dry_run"
+        ),
         "prefetch_lab_default_payload_cache_runtime_execution_consumes_plan": True,
         "prefetch_lab_default_payload_cache_runtime_execution_live_payload_runtime_enabled": False,
         "prefetch_lab_default_payload_cache_runtime_execution_payload_transfer_runtime_enabled": False,
@@ -1937,6 +1941,27 @@ def check_premap_lab_preflight_summary(
     if runtime_execution_plan_status != runtime_plan_status:
         failures.append(
             "prefetch_lab_default_payload_cache_runtime_execution_plan_status_mismatch"
+        )
+    runtime_execution_decision = summary.get(
+        "prefetch_lab_default_payload_cache_runtime_execution_decision"
+    )
+    if runtime_execution_decision != "blocked":
+        failures.append(
+            "prefetch_lab_default_payload_cache_runtime_execution_decision_mismatch"
+        )
+    runtime_execution_block_reason = summary.get(
+        "prefetch_lab_default_payload_cache_runtime_execution_block_reason"
+    )
+    if runtime_execution_block_reason != runtime_plan_status:
+        failures.append(
+            "prefetch_lab_default_payload_cache_runtime_execution_block_reason_mismatch"
+        )
+    runtime_execution_execution_mode = summary.get(
+        "prefetch_lab_default_payload_cache_runtime_execution_execution_mode"
+    )
+    if runtime_execution_execution_mode != "payloadless_lab_gate_dry_run":
+        failures.append(
+            "prefetch_lab_default_payload_cache_runtime_execution_execution_mode_mismatch"
         )
     for key in (
         "prefetch_lab_default_payload_cache_runtime_execution_issued_payload_count",
