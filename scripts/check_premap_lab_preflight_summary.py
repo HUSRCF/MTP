@@ -1182,6 +1182,78 @@ def _check_request_launch_geometry(
         failures.append("request_launch_geometry_overprovisioned_grid")
 
 
+def _check_ready_time_decision_gate_block(
+    summary: dict[str, Any],
+    failures: list[str],
+) -> None:
+    prefix = "prefetch_lab_default_ready_time"
+    current_deadline = _float_metric(summary, f"{prefix}_current_deadline_us")
+    current_lookahead = _float_metric(summary, f"{prefix}_current_lookahead_us")
+    first_deadline = _float_metric(
+        summary,
+        f"{prefix}_first_model_passing_deadline_us",
+    )
+    first_lookahead = _float_metric(
+        summary,
+        f"{prefix}_first_model_passing_lookahead_us",
+    )
+    required_slack = _float_metric(summary, f"{prefix}_required_lookahead_slack_us")
+    required_lookahead = _float_metric(
+        summary,
+        f"{prefix}_required_issue_to_demand_lookahead_us",
+    )
+    slack_deficit = _float_metric(summary, f"{prefix}_slack_deficit_us")
+    lookahead_deficit = _float_metric(summary, f"{prefix}_lookahead_deficit_us")
+
+    for key, value in (
+        ("current_deadline_us", current_deadline),
+        ("current_lookahead_us", current_lookahead),
+        ("first_model_passing_deadline_us", first_deadline),
+        ("first_model_passing_lookahead_us", first_lookahead),
+        ("required_lookahead_slack_us", required_slack),
+        ("required_issue_to_demand_lookahead_us", required_lookahead),
+        ("slack_deficit_us", slack_deficit),
+        ("lookahead_deficit_us", lookahead_deficit),
+    ):
+        if value is None or value < 0.0:
+            failures.append(f"{prefix}_{key}_invalid")
+
+    if first_deadline is not None and required_slack is not None:
+        if abs(first_deadline - required_slack) > 1e-6:
+            failures.append(f"{prefix}_first_deadline_required_slack_mismatch")
+    if first_lookahead is not None and required_lookahead is not None:
+        if abs(first_lookahead - required_lookahead) > 1e-6:
+            failures.append(f"{prefix}_first_lookahead_required_lookahead_mismatch")
+    if (
+        current_deadline is not None
+        and required_slack is not None
+        and slack_deficit is not None
+    ):
+        expected_slack_deficit = max(0.0, required_slack - current_deadline)
+        if abs(slack_deficit - expected_slack_deficit) > 1e-6:
+            failures.append(f"{prefix}_slack_deficit_mismatch")
+    if (
+        current_lookahead is not None
+        and required_lookahead is not None
+        and lookahead_deficit is not None
+    ):
+        expected_lookahead_deficit = max(0.0, required_lookahead - current_lookahead)
+        if abs(lookahead_deficit - expected_lookahead_deficit) > 1e-6:
+            failures.append(f"{prefix}_lookahead_deficit_mismatch")
+    if slack_deficit is not None and slack_deficit <= 0.0:
+        failures.append(f"{prefix}_slack_deficit_not_positive")
+    if lookahead_deficit is not None and lookahead_deficit <= 0.0:
+        failures.append(f"{prefix}_lookahead_deficit_not_positive")
+
+    for key in (
+        "model_slack_satisfied",
+        "model_lookahead_satisfied",
+        "any_model_route_satisfied",
+    ):
+        if summary.get(f"{prefix}_{key}") is not False:
+            failures.append(f"{prefix}_{key}_mismatch")
+
+
 def check_premap_lab_preflight_summary(
     summary: dict[str, Any],
     *,
@@ -1201,12 +1273,6 @@ def check_premap_lab_preflight_summary(
         "prefetch_lab_default_full_fetch_passed": True,
         "prefetch_lab_default_ready_time_report_passed": True,
         "prefetch_lab_default_ready_time_allow_full_fetch": False,
-        "prefetch_lab_default_ready_time_decision_reason": (
-            "full_fetch_threshold_not_met"
-        ),
-        "prefetch_lab_default_ready_time_threshold_failures": [
-            "used_per_issued_fetch_below_threshold"
-        ],
         "prefetch_lab_default_metadata_decision": "shadow_only",
         "prefetch_lab_default_metadata_passed": True,
         "prefetch_lab_default_premap_decision": (
@@ -1367,20 +1433,39 @@ def check_premap_lab_preflight_summary(
         summary,
         "prefetch_lab_default_ready_time_ready_late_miss_rate",
     )
-    if ready_time_issued is None or ready_time_issued <= 0:
-        failures.append("prefetch_lab_default_ready_time_issued_fetch_count_invalid")
-    if ready_time_used != 0:
-        failures.append("prefetch_lab_default_ready_time_used_fetch_count_mismatch")
-    if ready_time_used_per_issued != 0.0:
-        failures.append(
-            "prefetch_lab_default_ready_time_used_per_issued_fetch_mismatch"
-        )
-    if ready_time_demand_hit is None or not (0.0 <= ready_time_demand_hit <= 1.0):
-        failures.append("prefetch_lab_default_ready_time_demand_hit_rate_invalid")
-    if ready_time_late_miss is None or not (0.0 <= ready_time_late_miss <= 1.0):
-        failures.append(
-            "prefetch_lab_default_ready_time_ready_late_miss_rate_invalid"
-        )
+    ready_time_decision_reason = summary.get(
+        "prefetch_lab_default_ready_time_decision_reason"
+    )
+    ready_time_threshold_failures = summary.get(
+        "prefetch_lab_default_ready_time_threshold_failures"
+    )
+    if ready_time_decision_reason == "full_fetch_threshold_not_met":
+        if ready_time_threshold_failures != ["used_per_issued_fetch_below_threshold"]:
+            failures.append(
+                "prefetch_lab_default_ready_time_threshold_failures_mismatch"
+            )
+        if ready_time_issued is None or ready_time_issued <= 0:
+            failures.append("prefetch_lab_default_ready_time_issued_fetch_count_invalid")
+        if ready_time_used != 0:
+            failures.append("prefetch_lab_default_ready_time_used_fetch_count_mismatch")
+        if ready_time_used_per_issued != 0.0:
+            failures.append(
+                "prefetch_lab_default_ready_time_used_per_issued_fetch_mismatch"
+            )
+        if ready_time_demand_hit is None or not (0.0 <= ready_time_demand_hit <= 1.0):
+            failures.append("prefetch_lab_default_ready_time_demand_hit_rate_invalid")
+        if ready_time_late_miss is None or not (0.0 <= ready_time_late_miss <= 1.0):
+            failures.append(
+                "prefetch_lab_default_ready_time_ready_late_miss_rate_invalid"
+            )
+    elif ready_time_decision_reason == "insufficient_ready_time_and_lookahead":
+        if ready_time_threshold_failures != []:
+            failures.append(
+                "prefetch_lab_default_ready_time_threshold_failures_mismatch"
+            )
+        _check_ready_time_decision_gate_block(summary, failures)
+    else:
+        failures.append("prefetch_lab_default_ready_time_decision_reason_mismatch")
 
     for key in (
         "runtime_gate_evidence_deferred_count",

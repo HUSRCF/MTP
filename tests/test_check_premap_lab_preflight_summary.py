@@ -1988,6 +1988,78 @@ def test_check_premap_lab_preflight_summary_rejects_missing_ready_time_detail() 
     )
 
 
+def test_check_premap_lab_preflight_summary_accepts_ready_time_decision_gate_block() -> None:
+    summary = _summary()
+    summary.update(
+        {
+            "prefetch_lab_default_ready_time_decision_reason": (
+                "insufficient_ready_time_and_lookahead"
+            ),
+            "prefetch_lab_default_ready_time_threshold_failures": [],
+            "prefetch_lab_default_ready_time_demand_hit_rate": None,
+            "prefetch_lab_default_ready_time_ready_late_miss_rate": None,
+            "prefetch_lab_default_ready_time_used_per_issued_fetch": None,
+            "prefetch_lab_default_ready_time_issued_fetch_count": None,
+            "prefetch_lab_default_ready_time_used_fetch_count": None,
+            "prefetch_lab_default_ready_time_current_deadline_us": 200.0,
+            "prefetch_lab_default_ready_time_current_lookahead_us": 0.0,
+            "prefetch_lab_default_ready_time_first_model_passing_deadline_us": 4000.0,
+            "prefetch_lab_default_ready_time_first_model_passing_lookahead_us": 3800.0,
+            "prefetch_lab_default_ready_time_required_lookahead_slack_us": 4000.0,
+            "prefetch_lab_default_ready_time_required_issue_to_demand_lookahead_us": (
+                3800.0
+            ),
+            "prefetch_lab_default_ready_time_slack_deficit_us": 3800.0,
+            "prefetch_lab_default_ready_time_lookahead_deficit_us": 3800.0,
+            "prefetch_lab_default_ready_time_model_slack_satisfied": False,
+            "prefetch_lab_default_ready_time_model_lookahead_satisfied": False,
+            "prefetch_lab_default_ready_time_any_model_route_satisfied": False,
+        }
+    )
+
+    result = check_premap_lab_preflight_summary(summary)
+
+    assert result["passed"] is True
+
+
+def test_check_premap_lab_preflight_summary_rejects_ready_time_deficit_mismatch() -> None:
+    summary = _summary()
+    summary.update(
+        {
+            "prefetch_lab_default_ready_time_decision_reason": (
+                "insufficient_ready_time_and_lookahead"
+            ),
+            "prefetch_lab_default_ready_time_threshold_failures": [],
+            "prefetch_lab_default_ready_time_demand_hit_rate": None,
+            "prefetch_lab_default_ready_time_ready_late_miss_rate": None,
+            "prefetch_lab_default_ready_time_used_per_issued_fetch": None,
+            "prefetch_lab_default_ready_time_issued_fetch_count": None,
+            "prefetch_lab_default_ready_time_used_fetch_count": None,
+            "prefetch_lab_default_ready_time_current_deadline_us": 200.0,
+            "prefetch_lab_default_ready_time_current_lookahead_us": 0.0,
+            "prefetch_lab_default_ready_time_first_model_passing_deadline_us": 4000.0,
+            "prefetch_lab_default_ready_time_first_model_passing_lookahead_us": 3800.0,
+            "prefetch_lab_default_ready_time_required_lookahead_slack_us": 4000.0,
+            "prefetch_lab_default_ready_time_required_issue_to_demand_lookahead_us": (
+                3800.0
+            ),
+            "prefetch_lab_default_ready_time_slack_deficit_us": 1.0,
+            "prefetch_lab_default_ready_time_lookahead_deficit_us": 3800.0,
+            "prefetch_lab_default_ready_time_model_slack_satisfied": False,
+            "prefetch_lab_default_ready_time_model_lookahead_satisfied": False,
+            "prefetch_lab_default_ready_time_any_model_route_satisfied": False,
+        }
+    )
+
+    result = check_premap_lab_preflight_summary(summary)
+
+    assert result["passed"] is False
+    assert (
+        "prefetch_lab_default_ready_time_slack_deficit_mismatch"
+        in result["failures"]
+    )
+
+
 def test_check_premap_lab_preflight_summary_rejects_prefetch_capacity_gap() -> None:
     summary = _summary()
     summary["prefetch_lab_default_premap_recommended_capacity_entries"] = 8192
