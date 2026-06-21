@@ -41064,3 +41064,118 @@ shifted_issue_row_clamp_mismatch_count = 0
 Boundary remains unchanged: this is queue/replay evidence only. It does not
 move payload, grant ready credit, pass kernel args, measure endpoint TPOT, or
 enable real WNA16 runtime.
+
+### Dolly128 token-provenance stream gate promoted to lab default
+
+The lab-default full-fetch stream decision evidence has been upgraded from the
+short token-provenance smoke artifact to a Dolly128 / gen64 online audit:
+
+```text
+trace:
+  data/traces/external_prompt_gate_dolly_128_awq_vllm_gpu1_decode_gen64_producer_state_packet_export_token_provenance_audit_v1/
+
+online canary:
+  outputs/reports/premap_kernel_consumer/payload_cache_producer_state_online_canary_dolly128_gen64_token_provenance_audit_v1.json
+
+token provenance gate:
+  outputs/reports/premap_kernel_consumer/premap_payload_cache_producer_packet_token_provenance_dolly128_gen64_audit_v1.json
+
+stream executor:
+  outputs/reports/premap_kernel_consumer/premap_payload_cache_issue_stream_executor_dolly128_gen64_token_provenance_lead32_shifted_accounting_v1.json
+
+lookahead sweep:
+  outputs/reports/premap_kernel_consumer/premap_payload_cache_issue_stream_executor_dolly128_gen64_token_provenance_lead_sweep_v1.json
+
+queue budget sweep:
+  outputs/reports/premap_kernel_consumer/premap_payload_cache_issue_stream_executor_dolly128_gen64_token_provenance_queue_budget_v1.json
+
+decision gate:
+  outputs/reports/premap_kernel_consumer/premap_payload_cache_stream_full_fetch_decision_gate_dolly128_gen64_token_provenance_shifted_accounting_v1.json
+```
+
+Observed strict stream executor result:
+
+```text
+packet_count = 32
+nonempty_packet_count = 28
+demand_hit_rate = 0.866071
+ready_late_miss_rate = 0.133929
+used_per_issued_fetch = 0.774436
+issue_lead_tokens = 32
+shifted_issue_accounted_packet_count = 28
+shifted_issue_clamped_issue_count = 12
+shifted_issue_duplicate_issue_key_count = 12
+shifted_issue_unique_issue_key_count = 16
+shifted_issue_invalid_export_count = 0
+shifted_issue_row_shift_mismatch_count = 0
+shifted_issue_row_clamp_mismatch_count = 0
+```
+
+The new decision gate reaches:
+
+```text
+decision = model_stream_ready_time_satisfied_runtime_still_disabled
+current_row_model_passed = true
+current_lookahead_us = required_stream_lookahead_us = 2400000
+lookahead_deficit_us = 0
+full_fetch_runtime_allowed = false
+full_fetch_block_reason = real_payload_runtime_not_enabled
+descriptor_prep_runtime_preferred = true
+metadata_premap_runtime_preferred = false
+```
+
+This is intentionally stronger than the previous short smoke gate: the model
+side of the ready-time stream is satisfied on Dolly128 evidence, but real
+payload runtime remains disabled until a real payload/cache-manager runtime is
+implemented.
+
+Validation:
+
+```bash
+/home/husrcf/anaconda3/envs/TRY/bin/python -m pytest \
+  tests/test_check_prefetch_lab_default_gate.py \
+  tests/test_check_premap_lab_preflight_summary.py -q
+# 86 passed
+
+/home/husrcf/anaconda3/envs/TRY/bin/python scripts/run_premap_lab_preflight.py \
+  --prefetch-lab-default-gate configs/runtime/prefetch_lab_default_gate_gpu1.yaml \
+  --output-json outputs/reports/premap_lab_preflight/premap_lab_preflight_default_gpu1_dolly128_token_provenance_summary_v1.json
+
+/home/husrcf/anaconda3/envs/TRY/bin/python scripts/run_premap_lab_preflight.py \
+  --summary-only \
+  --prefetch-lab-default-gate configs/runtime/prefetch_lab_default_gate_gpu1.yaml \
+  --output-json outputs/reports/premap_lab_preflight/premap_lab_preflight_default_gpu1_dolly128_token_provenance_summary_compact_v1.json
+
+/home/husrcf/anaconda3/envs/TRY/bin/python scripts/check_premap_lab_preflight_summary.py \
+  outputs/reports/premap_lab_preflight/premap_lab_preflight_default_gpu1_dolly128_token_provenance_summary_compact_v1.json \
+  --output-json outputs/reports/premap_lab_preflight/premap_lab_preflight_default_gpu1_dolly128_token_provenance_summary_compact_v1.checked.json
+```
+
+`check_premap_lab_preflight_summary.py` now accepts both safe stream gate
+states:
+
+```text
+1. block_full_fetch_insufficient_stream_lookahead
+   - positive lookahead deficit
+   - full fetch blocked
+
+2. model_stream_ready_time_satisfied_runtime_still_disabled
+   - zero lookahead deficit
+   - full fetch still blocked because real_payload_runtime_not_enabled
+```
+
+Boundary remains unchanged:
+
+```text
+payload_bytes = 0
+payload_transfer_enabled = false
+payload_deref_allowed = false
+ready_credit = false
+ready_before_demand_credit = false
+real_ready_credit_granted = false
+kernel_arg_pass_allowed = false
+passed_to_kernel = false
+changes_kernel_launch_args = false
+measures_tpot = false
+measures_vllm_latency = false
+```

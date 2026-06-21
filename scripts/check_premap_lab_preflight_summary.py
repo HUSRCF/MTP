@@ -1259,16 +1259,18 @@ def _check_stream_full_fetch_block(
     failures: list[str],
 ) -> None:
     prefix = "prefetch_lab_default_stream"
+    decision = summary.get(f"{prefix}_decision")
+    full_fetch_block_reason = summary.get(f"{prefix}_full_fetch_block_reason")
+    runtime_disabled_after_model_pass = (
+        decision == "model_stream_ready_time_satisfied_runtime_still_disabled"
+    )
     for key, expected in {
         "decision_gate_present": True,
         "decision_gate_passed": True,
         "full_fetch_runtime_allowed": False,
-        "full_fetch_block_reason": "insufficient_stream_lookahead",
-        "metadata_premap_runtime_preferred": True,
         "descriptor_prep_runtime_preferred": True,
         "feasibility_present": True,
         "feasibility_passed": True,
-        "current_runtime_satisfies_model": False,
         "feasible_within_configured_token_window": True,
         "lead_token_sweep_present": True,
         "lead_token_sweep_passed": True,
@@ -1278,7 +1280,25 @@ def _check_stream_full_fetch_block(
         if summary.get(f"{prefix}_{key}") != expected:
             failures.append(f"{prefix}_{key}_mismatch")
 
-    if summary.get(f"{prefix}_decision") != "block_full_fetch_insufficient_stream_lookahead":
+    if runtime_disabled_after_model_pass:
+        if full_fetch_block_reason != "real_payload_runtime_not_enabled":
+            failures.append(f"{prefix}_full_fetch_block_reason_mismatch")
+        if summary.get(f"{prefix}_metadata_premap_runtime_preferred") is not False:
+            failures.append(f"{prefix}_metadata_premap_runtime_preferred_mismatch")
+        if summary.get(f"{prefix}_current_runtime_satisfies_model") is not True:
+            failures.append(f"{prefix}_current_runtime_satisfies_model_mismatch")
+    else:
+        if full_fetch_block_reason != "insufficient_stream_lookahead":
+            failures.append(f"{prefix}_full_fetch_block_reason_mismatch")
+        if summary.get(f"{prefix}_metadata_premap_runtime_preferred") is not True:
+            failures.append(f"{prefix}_metadata_premap_runtime_preferred_mismatch")
+        if summary.get(f"{prefix}_current_runtime_satisfies_model") is not False:
+            failures.append(f"{prefix}_current_runtime_satisfies_model_mismatch")
+
+    if decision not in {
+        "block_full_fetch_insufficient_stream_lookahead",
+        "model_stream_ready_time_satisfied_runtime_still_disabled",
+    }:
         failures.append(f"{prefix}_decision_mismatch")
 
     current_lookahead = _float_metric(summary, f"{prefix}_current_lookahead_us")
@@ -1358,7 +1378,10 @@ def _check_stream_full_fetch_block(
         expected_deficit = max(0.0, required_lookahead - current_lookahead)
         if abs(deficit - expected_deficit) > 1e-6:
             failures.append(f"{prefix}_lookahead_deficit_mismatch")
-        if deficit <= 0.0:
+        if runtime_disabled_after_model_pass:
+            if deficit != 0.0:
+                failures.append(f"{prefix}_lookahead_deficit_not_zero")
+        elif deficit <= 0.0:
             failures.append(f"{prefix}_lookahead_deficit_not_positive")
     if (
         required_lookahead is not None

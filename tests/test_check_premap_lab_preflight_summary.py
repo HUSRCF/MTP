@@ -1171,6 +1171,30 @@ def test_check_premap_lab_preflight_summary_accepts_valid_summary() -> None:
     assert result["online_merged_mirror_field"] == "scale_metadata_handle"
 
 
+def test_check_premap_lab_preflight_summary_accepts_stream_model_satisfied_runtime_disabled() -> None:
+    summary = _summary()
+    summary.update(
+        {
+            "prefetch_lab_default_stream_decision": (
+                "model_stream_ready_time_satisfied_runtime_still_disabled"
+            ),
+            "prefetch_lab_default_stream_full_fetch_block_reason": (
+                "real_payload_runtime_not_enabled"
+            ),
+            "prefetch_lab_default_stream_current_runtime_satisfies_model": True,
+            "prefetch_lab_default_stream_metadata_premap_runtime_preferred": False,
+            "prefetch_lab_default_stream_current_lookahead_us": 2400000.0,
+            "prefetch_lab_default_stream_required_lookahead_us": 2400000.0,
+            "prefetch_lab_default_stream_lookahead_deficit_us": 0.0,
+        }
+    )
+
+    result = check_premap_lab_preflight_summary(summary)
+
+    assert result["passed"] is True
+    assert result["failures"] == []
+
+
 def test_check_premap_lab_preflight_summary_accepts_wna16_side_same_source_gate() -> None:
     summary = _summary()
     summary[

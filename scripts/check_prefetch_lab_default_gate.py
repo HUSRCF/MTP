@@ -157,8 +157,8 @@ def _check_full_fetch(section: dict[str, Any], *, root: Path) -> dict[str, Any]:
             report,
             "ready_time_any_model_route_satisfied",
         ),
-        **stream_decision,
         **stream_feasibility,
+        **stream_decision,
         **stream_lead_sweep,
         **stream_shifted_issue,
     }
@@ -252,7 +252,7 @@ def _check_optional_stream_decision_gate(
         failures,
         label="stream_decision_gate_required_shifted_issue",
     )
-    return {
+    result = {
         "stream_decision_gate_present": True,
         "stream_decision_gate_report": str(path),
         "stream_decision_gate_passed": passed,
@@ -329,6 +329,12 @@ def _check_optional_stream_decision_gate(
             "shifted_issue_row_clamp_mismatch_count",
         ),
     }
+    if "current_row_model_passed" in report:
+        result["stream_current_runtime_satisfies_model"] = _optional_bool(
+            report,
+            "current_row_model_passed",
+        )
+    return result
 
 
 def _check_required_shifted_issue_accounting(
