@@ -115,6 +115,12 @@ def check_lab_gate_verify_artifact(
         failures.append("passed_to_kernel_mismatch")
     if payload.get("changes_kernel_launch_args") is not False:
         failures.append("changes_kernel_launch_args_mismatch")
+    if payload.get("reuse_artifact_refresh_required") is True:
+        failures.append("reuse_artifact_refresh_required_mismatch")
+    if payload.get("reuse_artifact_refresh_reasons") not in (None, []):
+        failures.append("reuse_artifact_refresh_reasons_not_empty")
+    if payload.get("reuse_artifact_refresh_command") not in (None, []):
+        failures.append("reuse_artifact_refresh_command_not_empty")
 
     steps = payload.get("steps")
     if not isinstance(steps, dict):

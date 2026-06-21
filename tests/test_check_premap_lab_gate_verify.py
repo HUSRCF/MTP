@@ -245,6 +245,25 @@ def test_lab_gate_verify_check_rejects_kernel_boundary_mutation(tmp_path: Path):
     assert "window_sweep_passed_to_kernel_mismatch" in result["failures"]
 
 
+def test_lab_gate_verify_check_rejects_refresh_required_artifact(tmp_path: Path):
+    path = tmp_path / "verify.json"
+    payload = _write_verify(path)
+    payload["reuse_artifact_refresh_required"] = True
+    payload["reuse_artifact_refresh_reasons"] = ["tail_window_closure_not_passed"]
+    payload["reuse_artifact_refresh_command"] = [
+        "python",
+        "scripts/run_premap_lab_gate_verify.py",
+    ]
+    path.write_text(json.dumps(payload) + "\n", encoding="utf-8")
+
+    result = check_lab_gate_verify_artifact(path)
+
+    assert result["passed"] is False
+    assert "reuse_artifact_refresh_required_mismatch" in result["failures"]
+    assert "reuse_artifact_refresh_reasons_not_empty" in result["failures"]
+    assert "reuse_artifact_refresh_command_not_empty" in result["failures"]
+
+
 def test_lab_gate_verify_check_rejects_wna16_side_variant_missing_gate(
     tmp_path: Path,
 ):
