@@ -2,10 +2,73 @@
 
 ## Progress Version
 
-- Version: `v1.44-payloadless-live-runtime-adapter-accounting-dry-run-canary`
+- Version: `v1.45-payload-issue-copy-descriptor-dry-run-gate`
 - Updated: 2026-06-22
 
-## Latest Update: Payloadless Live Runtime Adapter Accounting Dry-Run Canary
+## Latest Update: Payload Issue Copy-Descriptor Dry-Run Gate
+
+The payload/cache lab chain now reaches a copy-descriptor dry-run stage:
+
+```text
+PayloadCacheLiveRuntimeAdapterPayloadIssueCopyDescriptorDryRun
+```
+
+This stage consumes the transport-worker-dispatch blocked canary and validates
+the future copy descriptor envelope without submitting or executing it:
+
+```text
+request -> plan -> executor -> queue_entry -> queue_submit(blocked)
+        -> inflight_admission(blocked) -> scheduler_dispatch(blocked)
+        -> command_packet(dry-run) -> transport_enqueue(blocked)
+        -> transport_worker_dispatch(blocked) -> copy_descriptor(dry-run)
+```
+
+Required dry-run evidence:
+
+```text
+payload_issue_copy_descriptor_schema = payload_cache_runtime_payload_issue_copy_descriptor_v1
+payload_issue_copy_descriptor_created = true
+payload_issue_transport_worker_dispatch_consumed = true
+copy_descriptor_shape_checked = true
+copy_descriptor_submitted = false
+copy_descriptor_executed = false
+```
+
+The stage remains a strict non-runtime gate:
+
+```text
+copy_descriptor_count = 0
+issued_payload_count = 0
+payload_bytes = 0
+ready_credit = false
+real_ready_credit_granted = false
+kernel_arg_pass_allowed = false
+passed_to_kernel = false
+changes_kernel_launch_args = false
+uses_current_wna16_args = false
+passes_current_wna16_args = false
+measures_tpot = false
+measures_vllm_latency = false
+```
+
+The compact lab preflight summary now includes
+`prefetch_lab_default_stream_queue_budget_live_runtime_adapter_payload_issue_copy_descriptor_dry_run_*`
+fields, and the strict checker requires them.  This makes the future
+copy-descriptor packet shape visible to the lab gate while continuing to block
+payload movement, ready credit, kernel argument handoff, and WNA16 integration.
+
+Validation:
+
+```text
+py_compile touched runtime/scripts/tests: pass
+pytest tests/test_cache_lab_gate.py tests/test_check_prefetch_lab_default_gate.py tests/test_run_premap_lab_preflight.py tests/test_check_premap_lab_preflight_summary.py -q: 467 passed
+prefetch lab default gate artifact: passed
+strict preflight summary/check artifacts: passed
+wide focused preflight/cache suite: 660 passed
+git diff --check: pass
+```
+
+## Previous Update: Payloadless Live Runtime Adapter Accounting Dry-Run Canary
 
 The payload/cache lab chain now reaches a required payloadless manager
 accounting dry-run canary:
