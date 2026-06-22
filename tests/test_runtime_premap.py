@@ -650,6 +650,9 @@ def test_controlled_premap_address_manager_executes_descriptor_prep_readonly():
         read_result=read_result,
         expected_object_hash_by_address_key=result.consumer_object_hash_by_address_key,
     )
+    assert table_object._native_typed_consumer_columns_u64_prepared is not None
+    assert table_object._native_typed_consumer_columns_i64_prepared is not None
+    prepared_native_columns = table_object._native_typed_consumer_columns_u64_prepared
     native_input = table_object.to_native_typed_consumer_input_dict()
     assert native_input["_meta"]["schema_hash"] == (
         PREMAP_DESCRIPTOR_CONSUMER_HANDLE_TABLE_SCHEMA_HASH
@@ -668,6 +671,10 @@ def test_controlled_premap_address_manager_executes_descriptor_prep_readonly():
     assert all(isinstance(value, int) for value in native_input["descriptor_ptr"])
     assert all(value != 0 for value in native_input["descriptor_ptr"])
     assert native_input["aux_metadata_handle"] == [0, 0]
+    assert native_input["descriptor_ptr"] == list(prepared_native_columns[0])
+    assert native_input["packed_weight_descriptor"] == list(prepared_native_columns[1])
+    assert native_input["scale_metadata_handle"] == list(prepared_native_columns[2])
+    assert native_input["aux_metadata_handle"] == list(prepared_native_columns[3])
     direct_columns = [[0, 0], [0, 0], [0, 0], [-1, -1]]
     copied = table_object.copy_native_typed_consumer_columns_to(
         tuple(direct_columns)
@@ -2074,6 +2081,39 @@ def test_controlled_premap_address_manager_executes_descriptor_prep_readonly():
     assert stale_table_result.payload_bytes == 0
     assert stale_table_result.changes_kernel_launch_args is False
     assert stale_table_result.passed_to_kernel is False
+
+
+def test_kernel_arg_shadow_table_prepared_native_columns_skip_missing_rows():
+    plan = prepare_premap_address_plan(
+        [ExpertPrefetchDescriptor(0, 1, 3, 2, "transition_head", 0.95)],
+        descriptor_bytes=64,
+    )
+    manager = ControlledPremapAddressManager(capacity=4)
+    manager.prepare(plan)
+    keys = [record.address_key for record in plan.records]
+    prep_result = manager.execute_descriptor_prep_readonly(keys)
+    read_result = manager.read_descriptor_consumer_objects_readonly(
+        keys,
+        expected_object_hash_by_address_key=prep_result.consumer_object_hash_by_address_key,
+    )
+    missing_key = "sample999:l1:e42"
+
+    table_result, table_object = manager.build_kernel_arg_shadow_table_object_readonly(
+        [keys[0], missing_key],
+        read_result=read_result,
+        expected_object_hash_by_address_key=prep_result.consumer_object_hash_by_address_key,
+    )
+
+    assert table_result.row_count == 2
+    assert table_result.row_miss_count == 1
+    assert table_result.table_ok is False
+    assert table_object.row_count == 1
+    assert table_object._native_typed_consumer_columns_u64_prepared is not None
+    prepared_columns = table_object._native_typed_consumer_columns_u64_prepared
+    assert all(len(column) == table_object.row_count for column in prepared_columns)
+    native_input = table_object.to_native_typed_consumer_input_dict()
+    assert len(native_input["descriptor_ptr"]) == table_object.row_count
+    assert native_input["expert_id"] == [3]
 
 
 def test_future_wna16_typed_slot_content_cache_reuses_repeated_tables():

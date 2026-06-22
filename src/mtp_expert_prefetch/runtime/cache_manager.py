@@ -1695,6 +1695,14 @@ class PremapKernelArgShadowTableObject:
     changes_descriptor_order: bool = False
     changes_kernel_launch_args: bool = False
     passed_to_kernel: bool = False
+    _native_typed_consumer_columns_u64_prepared: (
+        tuple[tuple[int, ...], tuple[int, ...], tuple[int, ...], tuple[int, ...]]
+        | None
+    ) = field(default=None, compare=False, repr=False)
+    _native_typed_consumer_columns_i64_prepared: (
+        tuple[tuple[int, ...], tuple[int, ...], tuple[int, ...], tuple[int, ...]]
+        | None
+    ) = field(default=None, compare=False, repr=False)
 
     @property
     def row_count(self) -> int:
@@ -1782,6 +1790,8 @@ class PremapKernelArgShadowTableObject:
         args.
         """
 
+        if self._native_typed_consumer_columns_u64_prepared is not None:
+            return self._native_typed_consumer_columns_u64_prepared
         return (
             tuple(_handle_to_native_u64(row.descriptor_ptr) for row in self.rows),
             tuple(
@@ -1798,6 +1808,8 @@ class PremapKernelArgShadowTableObject:
     ) -> tuple[tuple[int, ...], tuple[int, ...], tuple[int, ...], tuple[int, ...]]:
         """Signed int64 view of the packed native columns for torch staging."""
 
+        if self._native_typed_consumer_columns_i64_prepared is not None:
+            return self._native_typed_consumer_columns_i64_prepared
         return tuple(  # type: ignore[return-value]
             tuple(_u64_to_signed_i64(value) for value in column)
             for column in self.native_typed_consumer_columns_u64
@@ -8150,6 +8162,10 @@ class ControlledPremapAddressManager:
         ).hexdigest()
         row_parts: list[str] = []
         rows: list[PremapKernelArgShadowTableRow] = []
+        descriptor_ptr_native: list[int] = []
+        packed_weight_descriptor_native: list[int] = []
+        scale_metadata_handle_native: list[int] = []
+        aux_metadata_handle_native: list[int] = []
         row_miss_count = 0
         stale_row_count = 0
         per_row_parity_ok_count = 0
@@ -8187,6 +8203,18 @@ class ControlledPremapAddressManager:
                 row_miss_count += 1
                 row_parts.append(f"{key}:<missing>")
                 continue
+            descriptor_ptr_native.append(
+                _handle_to_native_u64(consumer_object.descriptor_ptr)
+            )
+            packed_weight_descriptor_native.append(
+                _handle_to_native_u64(consumer_object.packed_weight_descriptor)
+            )
+            scale_metadata_handle_native.append(
+                _handle_to_native_u64(consumer_object.scale_metadata_handle)
+            )
+            aux_metadata_handle_native.append(
+                _handle_to_native_u64(consumer_object.aux_metadata_handle)
+            )
             row_parts.append(f"{key}:{object_hash}")
             rows.append(
                 PremapKernelArgShadowTableRow(
@@ -8243,6 +8271,16 @@ class ControlledPremapAddressManager:
             changes_kernel_launch_args=False,
             passed_to_kernel=False,
         )
+        native_u64_columns = (
+            tuple(descriptor_ptr_native),
+            tuple(packed_weight_descriptor_native),
+            tuple(scale_metadata_handle_native),
+            tuple(aux_metadata_handle_native),
+        )
+        native_i64_columns = tuple(  # type: ignore[assignment]
+            tuple(_u64_to_signed_i64(value) for value in column)
+            for column in native_u64_columns
+        )
         table_object = PremapKernelArgShadowTableObject(
             execution_mode=str(execution_mode),
             row_order_source=str(row_order_source),
@@ -8254,6 +8292,8 @@ class ControlledPremapAddressManager:
             changes_descriptor_order=False,
             changes_kernel_launch_args=False,
             passed_to_kernel=False,
+            _native_typed_consumer_columns_u64_prepared=native_u64_columns,
+            _native_typed_consumer_columns_i64_prepared=native_i64_columns,
         )
         return result, table_object
 
