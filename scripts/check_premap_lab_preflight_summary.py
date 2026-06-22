@@ -621,6 +621,13 @@ def _future_wna16_payloadless_useful_repeat_benchmark_ready(
     rows_consumed = _int_metric(summary, f"{prefix}_rows_consumed")
     repeat_requested = _int_metric(summary, f"{prefix}_repeat_count_requested")
     repeat_measured = _int_metric(summary, f"{prefix}_repeat_count_measured")
+    field_count = _int_metric(summary, f"{prefix}_field_count")
+    fields_per_row = _int_metric(summary, f"{prefix}_fields_per_row")
+    useful_work_units = _int_metric(summary, f"{prefix}_useful_work_units")
+    expected_useful_work_units = _int_metric(
+        summary,
+        f"{prefix}_expected_useful_work_units",
+    )
     execution_source_count = _int_metric(summary, f"{execution_prefix}_source_count")
     execution_row_count = _int_metric(summary, f"{execution_prefix}_row_count")
     if source_count is None or source_count < 128:
@@ -637,6 +644,36 @@ def _future_wna16_payloadless_useful_repeat_benchmark_ready(
         ready = False
     if execution_row_count is not None and row_count != execution_row_count:
         failures.append(f"{prefix}_execution_row_count_mismatch")
+        ready = False
+    if field_count != len(REQUIRED_ROW_FIELDS):
+        failures.append(f"{prefix}_field_count_mismatch")
+        ready = False
+    if fields_per_row != len(REQUIRED_ROW_FIELDS):
+        failures.append(f"{prefix}_fields_per_row_mismatch")
+        ready = False
+    if (
+        row_count is None
+        or expected_useful_work_units != row_count * len(REQUIRED_ROW_FIELDS)
+    ):
+        failures.append(f"{prefix}_expected_useful_work_units_mismatch")
+        ready = False
+    if useful_work_units != expected_useful_work_units:
+        failures.append(f"{prefix}_useful_work_units_mismatch")
+        ready = False
+    if useful_work_units is None or useful_work_units <= 0:
+        failures.append(f"{prefix}_useful_work_units_not_positive")
+        ready = False
+    if summary.get(f"{prefix}_useful_work_coverage") != 1.0:
+        failures.append(f"{prefix}_useful_work_coverage_mismatch")
+        ready = False
+    if (
+        summary.get(f"{prefix}_useful_work_kind")
+        != "native_typed_slot_four_field_row_projection"
+    ):
+        failures.append(f"{prefix}_useful_work_kind_mismatch")
+        ready = False
+    if summary.get(f"{prefix}_native_consumer_has_useful_work") is not True:
+        failures.append(f"{prefix}_native_consumer_has_useful_work_mismatch")
         ready = False
     if (
         repeat_requested is None

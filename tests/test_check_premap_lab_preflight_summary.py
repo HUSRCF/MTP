@@ -12,6 +12,12 @@ from scripts.check_premap_lab_preflight_summary import (
 
 
 HEX = "a" * 64
+PAYLOADLESS_USEFUL_FIELDS = [
+    "descriptor_ptr",
+    "packed_weight_descriptor",
+    "scale_metadata_handle",
+    "aux_metadata_handle",
+]
 
 
 def _request_all_field_handoff(
@@ -508,6 +514,18 @@ def _enable_payloadless_useful_repeat_benchmark_ready(
             f"{prefix}_row_count": row_count,
             f"{prefix}_row_ok_count": row_count,
             f"{prefix}_rows_consumed": row_count,
+            f"{prefix}_field_count": len(PAYLOADLESS_USEFUL_FIELDS),
+            f"{prefix}_fields_per_row": len(PAYLOADLESS_USEFUL_FIELDS),
+            f"{prefix}_useful_work_units": row_count
+            * len(PAYLOADLESS_USEFUL_FIELDS),
+            f"{prefix}_expected_useful_work_units": (
+                row_count * len(PAYLOADLESS_USEFUL_FIELDS)
+            ),
+            f"{prefix}_useful_work_coverage": 1.0,
+            f"{prefix}_useful_work_kind": (
+                "native_typed_slot_four_field_row_projection"
+            ),
+            f"{prefix}_native_consumer_has_useful_work": True,
             f"{prefix}_repeat_count_requested": repeat_count,
             f"{prefix}_repeat_count_measured": repeat_count,
             f"{prefix}_measurement_source": (
@@ -5259,6 +5277,51 @@ def test_check_premap_lab_preflight_summary_rejects_payloadless_useful_repeat_ha
         "default_kernel_consumer_future_wna16_payloadless_useful_repeat_benchmark_descriptor_ptr_execution_field_hash_mismatch"
         in result["failures"]
     )
+
+
+def test_check_premap_lab_preflight_summary_rejects_payloadless_useful_repeat_incomplete_useful_work() -> None:
+    summary = _summary()
+    summary[
+        "default_kernel_consumer_wna16_side_variant_online_source_identity_subset"
+    ] = True
+    summary[
+        "default_kernel_consumer_wna16_side_variant_online_source_identity_missing_count"
+    ] = 0
+    summary["default_kernel_consumer_wna16_side_variant_ready"] = True
+    _enable_wna16_kernel_side_execution_ready(summary)
+    _enable_payloadless_chain_ready(summary)
+    _enable_variant_execution_ready(summary)
+    _enable_useful_consumer_ready(summary)
+    _enable_payloadless_useful_execution_ready(summary)
+    _enable_payloadless_useful_repeat_benchmark_ready(summary)
+    summary[
+        "default_kernel_consumer_independent_typed_slot_payloadless_chain_ready"
+    ] = True
+    summary[
+        "default_kernel_consumer_future_wna16_payloadless_useful_repeat_benchmark_gate_ready"
+    ] = True
+    summary["default_kernel_consumer_next_runtime_stage"] = (
+        "implement_future_wna16_typed_slot_payloadless_useful_runtime_ablation"
+    )
+    prefix = (
+        "default_kernel_consumer_future_wna16_payloadless_useful_repeat_benchmark"
+    )
+    summary[f"{prefix}_useful_work_units"] = (
+        int(summary[f"{prefix}_row_count"]) * (len(PAYLOADLESS_USEFUL_FIELDS) - 1)
+    )
+    summary[f"{prefix}_useful_work_coverage"] = 0.75
+    summary[f"{prefix}_native_consumer_has_useful_work"] = False
+
+    result = check_premap_lab_preflight_summary(summary)
+
+    assert result["passed"] is False
+    assert (
+        "future_wna16_payloadless_useful_repeat_benchmark_ready_reported_without_valid_evidence"
+        in result["failures"]
+    )
+    assert f"{prefix}_useful_work_units_mismatch" in result["failures"]
+    assert f"{prefix}_useful_work_coverage_mismatch" in result["failures"]
+    assert f"{prefix}_native_consumer_has_useful_work_mismatch" in result["failures"]
 
 
 def test_check_premap_lab_preflight_summary_rejects_payloadless_useful_unbound_paths() -> None:

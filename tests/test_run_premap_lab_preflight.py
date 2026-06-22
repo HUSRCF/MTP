@@ -4037,6 +4037,15 @@ def _future_wna16_payloadless_useful_repeat_benchmark_payload(
         "row_count": row_count,
         "row_ok_count": row_count,
         "rows_consumed": row_count,
+        "field_count": len(_ALL_FIELD_ENTRY_ARGS_PTR_MIRROR_FIELDS),
+        "fields_per_row": len(_ALL_FIELD_ENTRY_ARGS_PTR_MIRROR_FIELDS),
+        "useful_work_units": row_count * len(_ALL_FIELD_ENTRY_ARGS_PTR_MIRROR_FIELDS),
+        "expected_useful_work_units": (
+            row_count * len(_ALL_FIELD_ENTRY_ARGS_PTR_MIRROR_FIELDS)
+        ),
+        "useful_work_coverage": 1.0,
+        "useful_work_kind": "native_typed_slot_four_field_row_projection",
+        "native_consumer_has_useful_work": True,
         "field_names": list(_ALL_FIELD_ENTRY_ARGS_PTR_MIRROR_FIELDS),
         "field_read_hashes": {
             "descriptor_ptr": "3333333333333333",
@@ -6644,6 +6653,48 @@ def test_premap_lab_preflight_accepts_default_readonly_wiring(tmp_path: Path):
     assert result["default_readonly_gate_required_evidence_check"]["passed"] is True
     summary = result["lab_gate_status_summary"]
     assert summary["passed"] is True
+    assert (
+        summary[
+            "default_kernel_consumer_future_wna16_payloadless_useful_repeat_benchmark_field_count"
+        ]
+        == len(_ALL_FIELD_ENTRY_ARGS_PTR_MIRROR_FIELDS)
+    )
+    assert (
+        summary[
+            "default_kernel_consumer_future_wna16_payloadless_useful_repeat_benchmark_fields_per_row"
+        ]
+        == len(_ALL_FIELD_ENTRY_ARGS_PTR_MIRROR_FIELDS)
+    )
+    assert (
+        summary[
+            "default_kernel_consumer_future_wna16_payloadless_useful_repeat_benchmark_useful_work_units"
+        ]
+        == 520 * len(_ALL_FIELD_ENTRY_ARGS_PTR_MIRROR_FIELDS)
+    )
+    assert (
+        summary[
+            "default_kernel_consumer_future_wna16_payloadless_useful_repeat_benchmark_expected_useful_work_units"
+        ]
+        == 520 * len(_ALL_FIELD_ENTRY_ARGS_PTR_MIRROR_FIELDS)
+    )
+    assert (
+        summary[
+            "default_kernel_consumer_future_wna16_payloadless_useful_repeat_benchmark_useful_work_coverage"
+        ]
+        == 1.0
+    )
+    assert (
+        summary[
+            "default_kernel_consumer_future_wna16_payloadless_useful_repeat_benchmark_useful_work_kind"
+        ]
+        == "native_typed_slot_four_field_row_projection"
+    )
+    assert (
+        summary[
+            "default_kernel_consumer_future_wna16_payloadless_useful_repeat_benchmark_native_consumer_has_useful_work"
+        ]
+        is True
+    )
     assert summary["default_readonly_gate_path"] == default_gate
     assert summary["default_readonly_gate_sha256"] == hashlib.sha256(
         (tmp_path / default_gate).read_bytes()

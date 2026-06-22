@@ -20046,6 +20046,47 @@ def run_premap_lab_preflight(
                 "repeat_count_measured",
             )
         ),
+        "default_kernel_consumer_future_wna16_payloadless_useful_repeat_benchmark_field_count": (
+            _int_metric(
+                future_wna16_payloadless_useful_repeat_benchmark_payload,
+                "field_count",
+            )
+        ),
+        "default_kernel_consumer_future_wna16_payloadless_useful_repeat_benchmark_fields_per_row": (
+            _int_metric(
+                future_wna16_payloadless_useful_repeat_benchmark_payload,
+                "fields_per_row",
+            )
+        ),
+        "default_kernel_consumer_future_wna16_payloadless_useful_repeat_benchmark_useful_work_units": (
+            _int_metric(
+                future_wna16_payloadless_useful_repeat_benchmark_payload,
+                "useful_work_units",
+            )
+        ),
+        "default_kernel_consumer_future_wna16_payloadless_useful_repeat_benchmark_expected_useful_work_units": (
+            _int_metric(
+                future_wna16_payloadless_useful_repeat_benchmark_payload,
+                "expected_useful_work_units",
+            )
+        ),
+        "default_kernel_consumer_future_wna16_payloadless_useful_repeat_benchmark_useful_work_coverage": (
+            _float_metric(
+                future_wna16_payloadless_useful_repeat_benchmark_payload,
+                "useful_work_coverage",
+            )
+        ),
+        "default_kernel_consumer_future_wna16_payloadless_useful_repeat_benchmark_useful_work_kind": (
+            future_wna16_payloadless_useful_repeat_benchmark_payload.get(
+                "useful_work_kind"
+            )
+        ),
+        "default_kernel_consumer_future_wna16_payloadless_useful_repeat_benchmark_native_consumer_has_useful_work": (
+            _bool_metric(
+                future_wna16_payloadless_useful_repeat_benchmark_payload,
+                "native_consumer_has_useful_work",
+            )
+        ),
         "default_kernel_consumer_future_wna16_payloadless_useful_repeat_benchmark_measurement_source": (
             future_wna16_payloadless_useful_repeat_benchmark_payload.get(
                 "measurement_source"
@@ -22839,6 +22880,22 @@ def run_premap_lab_preflight(
             "default_kernel_consumer_future_wna16_payloadless_useful_repeat_benchmark_repeat_count_measured",
         )
     )
+    future_wna16_payloadless_useful_repeat_benchmark_field_count = _int_metric(
+        lab_gate_status_summary,
+        "default_kernel_consumer_future_wna16_payloadless_useful_repeat_benchmark_field_count",
+    )
+    future_wna16_payloadless_useful_repeat_benchmark_fields_per_row = _int_metric(
+        lab_gate_status_summary,
+        "default_kernel_consumer_future_wna16_payloadless_useful_repeat_benchmark_fields_per_row",
+    )
+    future_wna16_payloadless_useful_repeat_benchmark_useful_work_units = _int_metric(
+        lab_gate_status_summary,
+        "default_kernel_consumer_future_wna16_payloadless_useful_repeat_benchmark_useful_work_units",
+    )
+    future_wna16_payloadless_useful_repeat_benchmark_expected_useful_work_units = _int_metric(
+        lab_gate_status_summary,
+        "default_kernel_consumer_future_wna16_payloadless_useful_repeat_benchmark_expected_useful_work_units",
+    )
     future_wna16_payloadless_useful_repeat_benchmark_ready = (
         future_wna16_payloadless_useful_execution_ready
         and lab_gate_status_summary.get(
@@ -22870,6 +22927,30 @@ def run_premap_lab_preflight(
         == future_wna16_payloadless_useful_repeat_benchmark_row_count
         and future_wna16_payloadless_useful_repeat_benchmark_row_count
         == future_wna16_payloadless_useful_execution_row_count
+        and future_wna16_payloadless_useful_repeat_benchmark_field_count
+        == len(ARG_SLOT_MIRROR_FIELDS)
+        and future_wna16_payloadless_useful_repeat_benchmark_fields_per_row
+        == len(ARG_SLOT_MIRROR_FIELDS)
+        and future_wna16_payloadless_useful_repeat_benchmark_useful_work_units
+        is not None
+        and future_wna16_payloadless_useful_repeat_benchmark_useful_work_units > 0
+        and future_wna16_payloadless_useful_repeat_benchmark_expected_useful_work_units
+        == future_wna16_payloadless_useful_repeat_benchmark_row_count
+        * len(ARG_SLOT_MIRROR_FIELDS)
+        and future_wna16_payloadless_useful_repeat_benchmark_useful_work_units
+        == future_wna16_payloadless_useful_repeat_benchmark_expected_useful_work_units
+        and lab_gate_status_summary.get(
+            "default_kernel_consumer_future_wna16_payloadless_useful_repeat_benchmark_useful_work_coverage"
+        )
+        == 1.0
+        and lab_gate_status_summary.get(
+            "default_kernel_consumer_future_wna16_payloadless_useful_repeat_benchmark_useful_work_kind"
+        )
+        == "native_typed_slot_four_field_row_projection"
+        and lab_gate_status_summary.get(
+            "default_kernel_consumer_future_wna16_payloadless_useful_repeat_benchmark_native_consumer_has_useful_work"
+        )
+        is True
         and future_wna16_payloadless_useful_repeat_benchmark_repeat_count_requested
         is not None
         and future_wna16_payloadless_useful_repeat_benchmark_repeat_count_requested
