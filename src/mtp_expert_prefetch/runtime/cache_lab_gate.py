@@ -4747,6 +4747,127 @@ class PayloadCacheLiveRuntimeAdapterPayloadIssueRequestBlockedCanary:
         return asdict(self)
 
 
+@dataclass(frozen=True)
+class PayloadCacheLiveRuntimeAdapterPayloadIssuePlanDryRun:
+    """Payload issue plan object built from a rejected source-bound request."""
+
+    present: bool
+    stage: str
+    status: str
+    consumes_payload_issue_request_blocked_canary: bool
+    payload_issue_request_blocked_canary_status: str
+    request_source: str
+    request_layer_idx: int
+    request_expert_idx: int
+    requested_payload_bytes: int
+    source_issue_packet_count: int
+    source_issue_unique_key_count: int
+    source_queue_budget_capacity: int
+    source_issue_lead_tokens: int
+    source_queue_deadline_us: float
+    planned_issue_count: int = 0
+    issued_payload_count: int = 0
+    payload_bytes: int = 0
+    decision: str = "blocked"
+    block_reason: str = "payload_transfer_disabled"
+    execution_mode: str = "payload_cache_live_runtime_adapter_payload_issue_plan_dry_run"
+    live_payload_runtime_enabled: bool = False
+    payload_transfer_runtime_enabled: bool = False
+    payload_deref_allowed: bool = False
+    payload_deref_runtime_allowed: bool = False
+    ready_credit: bool = False
+    ready_before_demand_credit: bool = False
+    real_ready_credit_granted: bool = False
+    kernel_arg_pass_allowed: bool = False
+    passed_to_kernel: bool = False
+    changes_kernel_launch_args: bool = False
+    full_fetch_runtime_allowed: bool = False
+    uses_current_wna16_args: bool = False
+    passes_current_wna16_args: bool = False
+    measures_tpot: bool = False
+    measures_vllm_latency: bool = False
+    live_runtime_instantiated: bool = False
+
+    def __post_init__(self) -> None:
+        if self.present is not True:
+            raise ValueError("payload issue plan dry-run must be present")
+        if self.stage != "payload_cache_live_runtime_adapter_payload_issue_plan_dry_run":
+            raise ValueError("payload issue plan dry-run stage mismatch")
+        if self.consumes_payload_issue_request_blocked_canary is not True:
+            raise ValueError("payload issue plan must consume blocked request canary")
+        if (
+            not isinstance(self.payload_issue_request_blocked_canary_status, str)
+            or not self.payload_issue_request_blocked_canary_status
+        ):
+            raise TypeError("payload_issue_request_blocked_canary_status must be nonempty")
+        expected_status = (
+            "blocked_by_payload_issue_request_blocked_canary:"
+            f"{self.payload_issue_request_blocked_canary_status}"
+        )
+        if self.status != expected_status:
+            raise ValueError("payload issue plan dry-run status mismatch")
+        if not isinstance(self.request_source, str) or not self.request_source:
+            raise TypeError("request_source must be nonempty")
+        for field_name in (
+            "request_layer_idx",
+            "request_expert_idx",
+            "requested_payload_bytes",
+            "source_issue_packet_count",
+            "source_issue_unique_key_count",
+            "source_queue_budget_capacity",
+            "source_issue_lead_tokens",
+        ):
+            value = getattr(self, field_name)
+            if not isinstance(value, int) or isinstance(value, bool):
+                raise TypeError(f"{field_name} must be an integer")
+            if value < 0:
+                raise ValueError(f"{field_name} must be non-negative")
+        if self.requested_payload_bytes <= 0:
+            raise ValueError("requested_payload_bytes must be positive")
+        if not isinstance(self.source_queue_deadline_us, (int, float)) or isinstance(
+            self.source_queue_deadline_us,
+            bool,
+        ):
+            raise TypeError("source_queue_deadline_us must be numeric")
+        if self.source_queue_deadline_us < 0.0:
+            raise ValueError("source_queue_deadline_us must be non-negative")
+        for field_name in ("planned_issue_count", "issued_payload_count", "payload_bytes"):
+            value = getattr(self, field_name)
+            if not isinstance(value, int) or isinstance(value, bool):
+                raise TypeError(f"{field_name} must be an integer")
+            if value != 0:
+                raise ValueError(f"{field_name} must remain zero")
+        if self.decision != "blocked":
+            raise ValueError("payload issue plan dry-run decision must stay blocked")
+        if self.block_reason != "payload_transfer_disabled":
+            raise ValueError("payload issue plan dry-run block reason mismatch")
+        if self.execution_mode != "payload_cache_live_runtime_adapter_payload_issue_plan_dry_run":
+            raise ValueError("payload issue plan dry-run execution mode mismatch")
+        for field_name in (
+            "live_payload_runtime_enabled",
+            "payload_transfer_runtime_enabled",
+            "payload_deref_allowed",
+            "payload_deref_runtime_allowed",
+            "ready_credit",
+            "ready_before_demand_credit",
+            "real_ready_credit_granted",
+            "kernel_arg_pass_allowed",
+            "passed_to_kernel",
+            "changes_kernel_launch_args",
+            "full_fetch_runtime_allowed",
+            "uses_current_wna16_args",
+            "passes_current_wna16_args",
+            "measures_tpot",
+            "measures_vllm_latency",
+            "live_runtime_instantiated",
+        ):
+            if getattr(self, field_name) is not False:
+                raise ValueError(f"{field_name} must remain disabled")
+
+    def as_dict(self) -> dict[str, bool | float | int | str]:
+        return asdict(self)
+
+
 def select_cache_lab_prefetch_gate(
     signals: CacheLabRuntimeSignals,
     *,
@@ -8133,6 +8254,161 @@ def build_payload_cache_live_runtime_adapter_payload_issue_request_blocked_canar
         measures_tpot=bool(snapshot_payload["measures_tpot"]),
         measures_vllm_latency=bool(snapshot_payload["measures_vllm_latency"]),
         live_runtime_instantiated=bool(snapshot_payload["live_runtime_instantiated"]),
+    )
+
+
+def build_payload_cache_live_runtime_adapter_payload_issue_plan_dry_run(
+    canary: PayloadCacheLiveRuntimeAdapterPayloadIssueRequestBlockedCanary,
+) -> PayloadCacheLiveRuntimeAdapterPayloadIssuePlanDryRun:
+    """Build the next payload issue plan object while transfer remains disabled."""
+
+    if not isinstance(canary, PayloadCacheLiveRuntimeAdapterPayloadIssueRequestBlockedCanary):
+        raise TypeError(
+            "canary must be a PayloadCacheLiveRuntimeAdapterPayloadIssueRequestBlockedCanary",
+        )
+    if canary.present is not True:
+        raise ValueError("payload issue request canary must be present")
+    if (
+        canary.stage
+        != "payload_cache_live_runtime_adapter_payload_issue_request_blocked_canary"
+    ):
+        raise ValueError("payload issue request canary stage mismatch")
+    if canary.consumes_payload_transfer_toggle_disabled_canary is not True:
+        raise ValueError("payload issue request must consume transfer toggle canary")
+    if (
+        not isinstance(canary.payload_transfer_toggle_disabled_canary_status, str)
+        or not canary.payload_transfer_toggle_disabled_canary_status
+    ):
+        raise TypeError("payload transfer toggle canary status must be nonempty")
+    if not canary.payload_transfer_toggle_disabled_canary_status.startswith(
+        "blocked_by_payloadless_instance_canary:"
+        "blocked_by_mixed_outcome_dry_run_canary:"
+        "blocked_by_accounting_dry_run_canary:"
+        "blocked_by_operation_rejection_canary:"
+        "blocked_by_object_shell_evidence:"
+        "blocked_by_instance_construction_plan:"
+        "blocked_by_constructor_binding_preflight:"
+        "blocked_by_instantiation_canary:"
+        "blocked_by_state_validation_artifact:"
+        "blocked_by_adapter_state_validation_preflight:"
+        "blocked_by_adapter_state_object_preflight:"
+        "blocked_by_adapter_materialization_preflight:"
+        "blocked_by_object_adapter_preflight:"
+        "blocked_by_object_construction_preflight:"
+        "blocked_by_state_shape_check:"
+        "blocked_by_live_runtime_canary:"
+        "blocked_by_live_runtime_preflight:"
+        "blocked_by_runtime_snapshot:"
+        "blocked_by_runtime_skeleton:"
+        "blocked_by_manager_artifact:"
+        "blocked_by_live_payload_runtime:"
+        "blocked_by_live_payload_stage:"
+        "blocked_by_queue_budget_runtime_envelope:",
+    ):
+        raise ValueError("payload issue request upstream ancestry status chain mismatch")
+    expected_status = (
+        "blocked_by_payload_transfer_toggle_disabled_canary:"
+        f"{canary.payload_transfer_toggle_disabled_canary_status}"
+    )
+    if canary.status != expected_status:
+        raise ValueError("payload issue request canary status mismatch")
+    if (
+        canary.payload_issue_request_schema
+        != "payload_cache_runtime_payload_issue_request_v1"
+    ):
+        raise ValueError("payload issue request schema mismatch")
+    if canary.payload_issue_request_created is not True:
+        raise ValueError("payload issue request must be created")
+    if canary.payload_issue_rejected is not True:
+        raise ValueError("payload issue request must be rejected")
+    if canary.decision != "blocked":
+        raise ValueError("payload issue request canary must stay blocked")
+    if (
+        canary.block_reason
+        != "live_runtime_adapter_payload_issue_request_blocked_canary_only"
+    ):
+        raise ValueError("payload issue request canary block reason mismatch")
+    if (
+        canary.execution_mode
+        != "payload_cache_live_runtime_adapter_payload_issue_request_blocked_canary_payloadless"
+    ):
+        raise ValueError("payload issue request canary execution mode mismatch")
+    for field_name in (
+        "request_layer_idx",
+        "request_expert_idx",
+        "requested_payload_bytes",
+        "source_issue_packet_count",
+        "source_issue_unique_key_count",
+        "source_queue_budget_capacity",
+        "source_issue_lead_tokens",
+    ):
+        value = getattr(canary, field_name)
+        if not isinstance(value, int) or isinstance(value, bool):
+            raise TypeError(f"{field_name} must be an integer")
+        if value < 0:
+            raise ValueError(f"{field_name} must be non-negative")
+    if canary.requested_payload_bytes <= 0:
+        raise ValueError("requested_payload_bytes must be positive")
+    if not isinstance(canary.request_source, str) or not canary.request_source:
+        raise TypeError("request_source must be nonempty")
+    if canary.request_source != "queue_budget_first_model_passing_cell":
+        raise ValueError("payload issue plan requires a source-bound queue-budget request")
+    if not isinstance(canary.source_queue_deadline_us, (int, float)) or isinstance(
+        canary.source_queue_deadline_us,
+        bool,
+    ):
+        raise TypeError("source_queue_deadline_us must be numeric")
+    if canary.source_queue_deadline_us < 0.0:
+        raise ValueError("source_queue_deadline_us must be non-negative")
+    if canary.source_issue_packet_count <= 0:
+        raise ValueError("source_issue_packet_count must be positive")
+    if canary.source_issue_unique_key_count <= 0:
+        raise ValueError("source_issue_unique_key_count must be positive")
+    if canary.source_queue_budget_capacity <= 0:
+        raise ValueError("source_queue_budget_capacity must be positive")
+    if canary.source_issue_lead_tokens <= 0:
+        raise ValueError("source_issue_lead_tokens must be positive")
+    if canary.source_queue_deadline_us <= 0.0:
+        raise ValueError("source_queue_deadline_us must be positive")
+    for field_name in ("issued_payload_count", "payload_bytes"):
+        if getattr(canary, field_name) != 0:
+            raise ValueError(f"payload issue request {field_name} must be zero")
+    for field_name in (
+        "live_payload_runtime_enabled",
+        "payload_transfer_runtime_enabled",
+        "payload_deref_allowed",
+        "payload_deref_runtime_allowed",
+        "ready_credit",
+        "ready_before_demand_credit",
+        "real_ready_credit_granted",
+        "kernel_arg_pass_allowed",
+        "passed_to_kernel",
+        "changes_kernel_launch_args",
+        "full_fetch_runtime_allowed",
+        "uses_current_wna16_args",
+        "passes_current_wna16_args",
+        "measures_tpot",
+        "measures_vllm_latency",
+        "live_runtime_instantiated",
+    ):
+        if getattr(canary, field_name) is not False:
+            raise ValueError(f"payload issue request {field_name} enabled")
+
+    return PayloadCacheLiveRuntimeAdapterPayloadIssuePlanDryRun(
+        present=True,
+        stage="payload_cache_live_runtime_adapter_payload_issue_plan_dry_run",
+        status=f"blocked_by_payload_issue_request_blocked_canary:{canary.status}",
+        consumes_payload_issue_request_blocked_canary=True,
+        payload_issue_request_blocked_canary_status=str(canary.status),
+        request_source=str(canary.request_source),
+        request_layer_idx=int(canary.request_layer_idx),
+        request_expert_idx=int(canary.request_expert_idx),
+        requested_payload_bytes=int(canary.requested_payload_bytes),
+        source_issue_packet_count=int(canary.source_issue_packet_count),
+        source_issue_unique_key_count=int(canary.source_issue_unique_key_count),
+        source_queue_budget_capacity=int(canary.source_queue_budget_capacity),
+        source_issue_lead_tokens=int(canary.source_issue_lead_tokens),
+        source_queue_deadline_us=float(canary.source_queue_deadline_us),
     )
 
 

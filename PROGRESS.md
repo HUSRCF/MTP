@@ -43071,6 +43071,78 @@ Validation:
 git diff --check
 ```
 
+## Payload issue plan dry-run gate
+
+The queue-budget source-bound payload issue request now feeds a second
+payloadless runtime object:
+
+```text
+PayloadCacheLiveRuntimeAdapterPayloadIssuePlanDryRun
+```
+
+This object is intentionally still a blocked plan.  It proves that the
+source-bound request can be consumed by the next payload/cache runtime layer
+without enabling any side effects:
+
+```text
+request_source = queue_budget_first_model_passing_cell
+source_issue_packet_count = 28
+source_issue_unique_key_count = 28
+source_queue_budget_capacity = 4096
+source_issue_lead_tokens = 8
+source_queue_deadline_us = 100.0
+
+planned_issue_count = 0
+issued_payload_count = 0
+payload_bytes = 0
+payload_transfer_runtime_enabled = false
+payload_deref_runtime_allowed = false
+ready_credit = false
+kernel_arg_pass_allowed = false
+passed_to_kernel = false
+changes_kernel_launch_args = false
+full_fetch_runtime_allowed = false
+live_runtime_instantiated = false
+```
+
+The builder now rejects synthetic or zero-source requests and validates the
+upstream disabled-transfer ancestry chain.  The strict preflight summary checker
+requires the new plan object and rejects any payload, ready-credit, or kernel
+handoff escape from that stage.
+
+Regenerated gate artifacts:
+
+```text
+outputs/reports/premap_kernel_consumer/
+  prefetch_lab_default_gate_gpu1_noop_fields_v2_check.json
+  premap_lab_preflight_noop_fields_v2_strict_summary.json
+  premap_lab_preflight_noop_fields_v2_strict_summary_check.json
+```
+
+Current validation:
+
+```bash
+/home/husrcf/anaconda3/envs/TRY/bin/python -m pytest \
+  tests/test_cache_manager.py \
+  tests/test_cache_lab_gate.py \
+  tests/test_check_prefetch_lab_default_gate.py \
+  tests/test_vllm_router_shadow_sink.py \
+  tests/test_run_premap_payload_cache_producer_state_online_canary.py \
+  tests/test_run_premap_payload_cache_issue_stream_executor.py \
+  tests/test_sweep_premap_payload_cache_issue_stream_executor_lookahead.py \
+  tests/test_sweep_premap_payload_cache_issue_stream_executor_queue_budget.py \
+  tests/test_run_premap_lab_preflight.py \
+  tests/test_check_premap_lab_preflight_summary.py -q
+# 627 passed
+
+/home/husrcf/anaconda3/envs/TRY/bin/python \
+  scripts/check_premap_lab_preflight_summary.py \
+  outputs/reports/premap_kernel_consumer/premap_lab_preflight_noop_fields_v2_strict_summary.json \
+  --output-json \
+  outputs/reports/premap_kernel_consumer/premap_lab_preflight_noop_fields_v2_strict_summary_check.json
+# passed: true, failure_count: 0
+```
+
 ### 2026-06-22: Payload-cache issue stream no-op fields promoted into strict lab preflight
 
 The producer-state packet export, online native canary, queue-budget replay, and
