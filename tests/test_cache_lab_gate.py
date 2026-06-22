@@ -5403,6 +5403,12 @@ def test_live_runtime_adapter_payload_issue_request_blocked_canary_consumes_disa
     assert payload["request_layer_idx"] == 0
     assert payload["request_expert_idx"] == 0
     assert payload["requested_payload_bytes"] == 64
+    assert payload["request_source"] == "synthetic_payload_issue_request"
+    assert payload["source_issue_packet_count"] == 0
+    assert payload["source_issue_unique_key_count"] == 0
+    assert payload["source_queue_budget_capacity"] == 0
+    assert payload["source_issue_lead_tokens"] == 0
+    assert payload["source_queue_deadline_us"] == 0.0
     assert payload["issued_payload_count"] == 0
     assert payload["payload_bytes"] == 0
     assert payload["decision"] == "blocked"

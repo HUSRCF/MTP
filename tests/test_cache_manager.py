@@ -540,6 +540,12 @@ def test_payload_cache_runtime_payload_issue_request_records_request_only() -> N
         layer_idx=1,
         expert_idx=2,
         requested_payload_bytes=64,
+        request_source="queue_budget_first_model_passing_cell",
+        source_issue_packet_count=28,
+        source_issue_unique_key_count=16,
+        source_queue_budget_capacity=4096,
+        source_issue_lead_tokens=32,
+        source_queue_deadline_us=100.0,
     )
     payload = request.as_dict()
 
@@ -548,6 +554,12 @@ def test_payload_cache_runtime_payload_issue_request_records_request_only() -> N
     assert payload["layer_idx"] == 1
     assert payload["expert_idx"] == 2
     assert payload["requested_payload_bytes"] == 64
+    assert payload["request_source"] == "queue_budget_first_model_passing_cell"
+    assert payload["source_issue_packet_count"] == 28
+    assert payload["source_issue_unique_key_count"] == 16
+    assert payload["source_queue_budget_capacity"] == 4096
+    assert payload["source_issue_lead_tokens"] == 32
+    assert payload["source_queue_deadline_us"] == 100.0
     assert payload["issued_payload_count"] == 0
     assert payload["payload_bytes"] == 0
     for key in (

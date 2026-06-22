@@ -1176,6 +1176,12 @@ class PayloadCacheRuntimePayloadIssueRequest:
     layer_idx: int
     expert_idx: int
     requested_payload_bytes: int
+    request_source: str = "synthetic_payload_issue_request"
+    source_issue_packet_count: int = 0
+    source_issue_unique_key_count: int = 0
+    source_queue_budget_capacity: int = 0
+    source_issue_lead_tokens: int = 0
+    source_queue_deadline_us: float = 0.0
     issued_payload_count: int = 0
     payload_bytes: int = 0
     live_payload_runtime_enabled: bool = False
@@ -1208,6 +1214,26 @@ class PayloadCacheRuntimePayloadIssueRequest:
                 raise ValueError(f"{field_name} must be non-negative")
         if self.requested_payload_bytes <= 0:
             raise ValueError("requested_payload_bytes must be positive")
+        if not isinstance(self.request_source, str) or not self.request_source:
+            raise TypeError("request_source must be nonempty")
+        for field_name in (
+            "source_issue_packet_count",
+            "source_issue_unique_key_count",
+            "source_queue_budget_capacity",
+            "source_issue_lead_tokens",
+        ):
+            value = getattr(self, field_name)
+            if not isinstance(value, int) or isinstance(value, bool):
+                raise TypeError(f"{field_name} must be an integer")
+            if value < 0:
+                raise ValueError(f"{field_name} must be non-negative")
+        if not isinstance(self.source_queue_deadline_us, (int, float)) or isinstance(
+            self.source_queue_deadline_us,
+            bool,
+        ):
+            raise TypeError("source_queue_deadline_us must be numeric")
+        if self.source_queue_deadline_us < 0.0:
+            raise ValueError("source_queue_deadline_us must be non-negative")
         for field_name in ("issued_payload_count", "payload_bytes"):
             value = getattr(self, field_name)
             if not isinstance(value, int) or isinstance(value, bool):
@@ -1235,7 +1261,7 @@ class PayloadCacheRuntimePayloadIssueRequest:
             if getattr(self, field_name) is not False:
                 raise ValueError(f"{field_name} must remain disabled")
 
-    def as_dict(self) -> dict[str, bool | int | str]:
+    def as_dict(self) -> dict[str, bool | float | int | str]:
         return asdict(self)
 
 

@@ -3190,6 +3190,24 @@ def _summary() -> dict[str, object]:
             f"{payload_issue_request_prefix}_request_layer_idx": 0,
             f"{payload_issue_request_prefix}_request_expert_idx": 0,
             f"{payload_issue_request_prefix}_requested_payload_bytes": 64,
+            f"{payload_issue_request_prefix}_request_source": (
+                "queue_budget_first_model_passing_cell"
+            ),
+            f"{payload_issue_request_prefix}_source_issue_packet_count": summary[
+                "prefetch_lab_default_stream_queue_budget_first_shifted_issue_accounted_packet_count"
+            ],
+            f"{payload_issue_request_prefix}_source_issue_unique_key_count": summary[
+                "prefetch_lab_default_stream_queue_budget_first_shifted_issue_unique_issue_key_count"
+            ],
+            f"{payload_issue_request_prefix}_source_queue_budget_capacity": summary[
+                "prefetch_lab_default_stream_queue_budget_first_model_passing_capacity"
+            ],
+            f"{payload_issue_request_prefix}_source_issue_lead_tokens": summary[
+                "prefetch_lab_default_stream_queue_budget_first_model_passing_issue_lead_tokens"
+            ],
+            f"{payload_issue_request_prefix}_source_queue_deadline_us": summary[
+                "prefetch_lab_default_stream_queue_budget_first_model_passing_queue_deadline_us"
+            ],
             f"{payload_issue_request_prefix}_issued_payload_count": 0,
             f"{payload_issue_request_prefix}_payload_bytes": 0,
             f"{payload_issue_request_prefix}_decision": "blocked",
@@ -5410,6 +5428,12 @@ def test_check_premap_lab_preflight_summary_rejects_payload_issue_request_escape
     summary[f"{prefix}_payload_issue_request_created"] = False
     summary[f"{prefix}_payload_issue_rejected"] = False
     summary[f"{prefix}_requested_payload_bytes"] = 0
+    summary[f"{prefix}_request_source"] = "synthetic_payload_issue_request"
+    summary[f"{prefix}_source_issue_packet_count"] = 0
+    summary[f"{prefix}_source_issue_unique_key_count"] = 0
+    summary[f"{prefix}_source_queue_budget_capacity"] = 0
+    summary[f"{prefix}_source_issue_lead_tokens"] = 0
+    summary[f"{prefix}_source_queue_deadline_us"] = 0.0
     summary[f"{prefix}_issued_payload_count"] = 1
     summary[f"{prefix}_payload_bytes"] = 64
     summary[f"{prefix}_payload_transfer_runtime_enabled"] = True
@@ -5429,6 +5453,12 @@ def test_check_premap_lab_preflight_summary_rejects_payload_issue_request_escape
     assert f"{prefix}_payload_issue_request_created_mismatch" in result["failures"]
     assert f"{prefix}_payload_issue_rejected_mismatch" in result["failures"]
     assert f"{prefix}_requested_payload_bytes_mismatch" in result["failures"]
+    assert f"{prefix}_request_source_mismatch" in result["failures"]
+    assert f"{prefix}_source_issue_packet_count_mismatch" in result["failures"]
+    assert f"{prefix}_source_issue_unique_key_count_mismatch" in result["failures"]
+    assert f"{prefix}_source_queue_budget_capacity_mismatch" in result["failures"]
+    assert f"{prefix}_source_issue_lead_tokens_mismatch" in result["failures"]
+    assert f"{prefix}_source_queue_deadline_us_mismatch" in result["failures"]
     assert f"{prefix}_issued_payload_count_mismatch" in result["failures"]
     assert f"{prefix}_payload_bytes_mismatch" in result["failures"]
     assert f"{prefix}_payload_transfer_runtime_enabled_mismatch" in result["failures"]

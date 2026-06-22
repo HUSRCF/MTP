@@ -1509,6 +1509,24 @@ def _check_optional_stream_queue_budget_sweep(
             live_runtime_adapter_payload_issue_request_blocked_canary = (
                 build_payload_cache_live_runtime_adapter_payload_issue_request_blocked_canary(
                     live_runtime_adapter_payload_transfer_toggle_disabled_canary,
+                    request_source="queue_budget_first_model_passing_cell",
+                    source_issue_packet_count=int(
+                        _optional_int(
+                            shifted_issue,
+                            "shifted_issue_accounted_packet_count",
+                        )
+                        or 0
+                    ),
+                    source_issue_unique_key_count=int(
+                        _optional_int(
+                            shifted_issue,
+                            "shifted_issue_unique_issue_key_count",
+                        )
+                        or 0
+                    ),
+                    source_queue_budget_capacity=int(first_capacity or 0),
+                    source_issue_lead_tokens=int(first_lead or 0),
+                    source_queue_deadline_us=float(first_queue_deadline_us or 0.0),
                 )
             )
             live_runtime_adapter_payload_issue_request_blocked_canary_payload = (

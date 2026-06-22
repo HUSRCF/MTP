@@ -43120,6 +43120,23 @@ full fetch runtime allowed: false
 live runtime instantiated: false
 ```
 
+The blocked payload issue request canary is now source-bound to the queue-budget
+first passing cell instead of being a purely synthetic request:
+
+```text
+request_source = queue_budget_first_model_passing_cell
+source_issue_packet_count = 28
+source_issue_unique_key_count = 28
+source_queue_budget_capacity = 4096
+source_issue_lead_tokens = 8
+source_queue_deadline_us = 100.0
+```
+
+This still does not issue payloads.  It only proves that the next payload/cache
+runtime request object can be tied back to the protected queue-budget issue
+stream while transfer, dereference, ready credit, and kernel argument handoff
+remain disabled.
+
 Validation:
 
 ```bash

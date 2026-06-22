@@ -5167,11 +5167,25 @@ def _check_stream_queue_budget(summary: dict[str, Any], failures: list[str]) -> 
         "request_layer_idx": 0,
         "request_expert_idx": 0,
         "requested_payload_bytes": 64,
+        "source_issue_packet_count": first_shifted_packet_count,
+        "source_issue_unique_key_count": first_shifted_unique_count,
+        "source_queue_budget_capacity": first_capacity,
+        "source_issue_lead_tokens": first_lead,
         "issued_payload_count": 0,
         "payload_bytes": 0,
     }.items():
         if _int_metric(summary, f"{payload_issue_request_prefix}_{key}") != expected:
             failures.append(f"{payload_issue_request_prefix}_{key}_mismatch")
+    if (
+        summary.get(f"{payload_issue_request_prefix}_request_source")
+        != "queue_budget_first_model_passing_cell"
+    ):
+        failures.append(f"{payload_issue_request_prefix}_request_source_mismatch")
+    if (
+        _float_metric(summary, f"{payload_issue_request_prefix}_source_queue_deadline_us")
+        != first_deadline
+    ):
+        failures.append(f"{payload_issue_request_prefix}_source_queue_deadline_us_mismatch")
     if summary.get(f"{payload_issue_request_prefix}_decision") != "blocked":
         failures.append(f"{payload_issue_request_prefix}_decision_mismatch")
     if (
