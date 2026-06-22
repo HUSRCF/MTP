@@ -36,6 +36,7 @@ from scripts.check_premap_payload_cache_ready_time_gate import (  # noqa: E402
 from mtp_expert_prefetch.runtime import (  # noqa: E402
     build_payload_cache_live_payload_runtime_disabled_canary,
     build_payload_cache_live_payload_stage_preflight,
+    build_payload_cache_live_runtime_adapter_accounting_dry_run_canary,
     build_payload_cache_live_runtime_adapter_constructor_binding_preflight,
     build_payload_cache_live_runtime_adapter_instance_construction_plan,
     build_payload_cache_live_runtime_adapter_object_shell_evidence,
@@ -1266,6 +1267,7 @@ def _check_optional_stream_queue_budget_sweep(
     live_runtime_adapter_instance_construction_plan_payload: dict[str, Any] = {}
     live_runtime_adapter_object_shell_evidence_payload: dict[str, Any] = {}
     live_runtime_adapter_operation_rejection_canary_payload: dict[str, Any] = {}
+    live_runtime_adapter_accounting_dry_run_canary_payload: dict[str, Any] = {}
     if len(failures) == queue_failure_base:
         try:
             envelope = build_payload_cache_queue_budget_runtime_envelope(
@@ -1418,8 +1420,21 @@ def _check_optional_stream_queue_budget_sweep(
             live_runtime_adapter_operation_rejection_canary_payload = (
                 live_runtime_adapter_operation_rejection_canary.as_dict()
             )
+            live_runtime_adapter_accounting_dry_run_canary = (
+                build_payload_cache_live_runtime_adapter_accounting_dry_run_canary(
+                    live_runtime_adapter_operation_rejection_canary,
+                )
+            )
+            live_runtime_adapter_accounting_dry_run_canary_payload = (
+                live_runtime_adapter_accounting_dry_run_canary.as_dict()
+            )
         except (TypeError, ValueError) as exc:
-            if live_runtime_adapter_object_shell_evidence_payload:
+            if live_runtime_adapter_operation_rejection_canary_payload:
+                label = (
+                    "stream_queue_budget_live_runtime_adapter_"
+                    "accounting_dry_run_canary_invalid"
+                )
+            elif live_runtime_adapter_object_shell_evidence_payload:
                 label = (
                     "stream_queue_budget_live_runtime_adapter_"
                     "operation_rejection_canary_invalid"
@@ -2406,6 +2421,10 @@ def _check_optional_stream_queue_budget_sweep(
         **_prefixed_payload(
             "stream_queue_budget_live_runtime_adapter_operation_rejection_canary",
             live_runtime_adapter_operation_rejection_canary_payload,
+        ),
+        **_prefixed_payload(
+            "stream_queue_budget_live_runtime_adapter_accounting_dry_run_canary",
+            live_runtime_adapter_accounting_dry_run_canary_payload,
         ),
         "stream_queue_budget_payload_bytes": _optional_int(report, "payload_bytes"),
         "stream_queue_budget_payload_transfer_enabled": _optional_bool(

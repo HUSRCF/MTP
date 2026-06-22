@@ -2,10 +2,79 @@
 
 ## Progress Version
 
-- Version: `v1.43-disabled-live-runtime-adapter-operation-rejection-canary`
+- Version: `v1.44-payloadless-live-runtime-adapter-accounting-dry-run-canary`
 - Updated: 2026-06-22
 
-## Latest Update: Disabled Live Runtime Adapter Operation-Rejection Canary
+## Latest Update: Payloadless Live Runtime Adapter Accounting Dry-Run Canary
+
+The payload/cache lab chain now reaches a required payloadless manager
+accounting dry-run canary:
+
+```text
+PayloadCacheLiveRuntimeAdapterAccountingDryRunCanary
+```
+
+This canary consumes `PayloadCacheLiveRuntimeAdapterOperationRejectionCanary`
+and creates a payloadless accounting dry-run adapter.  It executes a
+deterministic issue/demand sequence against a private
+`ReadyTimeExpertCacheManager`:
+
+```text
+issue_prefetch(0, 0) -> accepted
+issue_prefetch(0, 0) -> duplicate suppressed
+demand(0, 0) -> hit
+```
+
+This is the first adapter-layer gate with nonzero manager accounting:
+
+```text
+accounting_dry_run_adapter_created = true
+accounting_dry_run_operations_ran = true
+accounting_dry_run_enabled = true
+resident_count = 1
+issued_fetch_count = 1
+used_fetch_count = 1
+demand_count = 1
+demand_hit_count = 1
+queue_batch_count = 1
+```
+
+It is still not a live payload runtime:
+
+```text
+live_adapter_instance_created = false
+live_runtime_instantiated = false
+payload_bytes = 0
+issued_payload_count = 0
+ready_credit = false
+real_ready_credit_granted = false
+kernel_arg_pass_allowed = false
+passed_to_kernel = false
+changes_kernel_launch_args = false
+uses_current_wna16_args = false
+passes_current_wna16_args = false
+measures_tpot = false
+measures_vllm_latency = false
+```
+
+The compact lab preflight summary now includes
+`prefetch_lab_default_stream_queue_budget_live_runtime_adapter_accounting_dry_run_canary_*`
+fields, and the checker treats them as required evidence.  The checker allows
+the fixed nonzero manager counters above, while rejecting payload bytes, ready
+credit, kernel argument handoff, WNA16 pass-through, TPOT, and vLLM latency
+claims.
+
+Validation:
+
+```text
+py_compile runtime/cache_lab_gate.py, cache_manager.py, __init__.py, and summary scripts: pass
+pytest tests/test_check_premap_lab_preflight_summary.py tests/test_cache_lab_gate.py tests/test_cache_manager.py -q: 186 passed
+strict preflight summary/check artifacts: pass
+wide focused preflight/cache suite: 423 passed
+Hubble static review for runtime/test layer: no blockers
+```
+
+## Previous Update: Disabled Live Runtime Adapter Operation-Rejection Canary
 
 The payload/cache lab chain now reaches a required disabled operation-rejection
 canary layer:
@@ -65,16 +134,6 @@ fields, and the final checker treats them as required gate evidence.  The
 checker explicitly rejects missing operation rejection, `shell_enabled=true`,
 `adapter_instance_created=true`, nonzero payload, ready credit, kernel arg
 handoff, WNA16 pass-through, TPOT, and vLLM latency claims.
-
-Validation:
-
-```text
-py_compile runtime/cache_lab_gate.py, cache_manager.py, __init__.py, and summary scripts: pass
-pytest tests/test_cache_lab_gate.py tests/test_cache_manager.py -q: 82 passed
-pytest tests/test_cache_lab_gate.py tests/test_cache_manager.py tests/test_check_premap_lab_preflight_summary.py -q: 180 passed
-generated summary/check artifacts: pass
-Hubble static review for runtime/test layer: no blockers
-```
 
 ## Previous Update: Disabled Live Runtime Adapter Object-Shell Evidence
 

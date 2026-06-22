@@ -2763,6 +2763,102 @@ def _summary() -> dict[str, object]:
         "measures_vllm_latency",
     ):
         summary[f"{operation_rejection_prefix}_{key}"] = False
+    accounting_dry_run_prefix = (
+        "prefetch_lab_default_stream_queue_budget_"
+        "live_runtime_adapter_accounting_dry_run_canary"
+    )
+    operation_rejection_status = str(summary[f"{operation_rejection_prefix}_status"])
+    summary.update(
+        {
+            f"{accounting_dry_run_prefix}_present": True,
+            f"{accounting_dry_run_prefix}_stage": (
+                "payload_cache_live_runtime_adapter_accounting_dry_run_canary"
+            ),
+            f"{accounting_dry_run_prefix}_status": (
+                f"blocked_by_operation_rejection_canary:{operation_rejection_status}"
+            ),
+            f"{accounting_dry_run_prefix}_consumes_operation_rejection_canary": True,
+            f"{accounting_dry_run_prefix}_operation_rejection_canary_status": (
+                operation_rejection_status
+            ),
+            f"{accounting_dry_run_prefix}_manager_backend": (
+                "ReadyTimeExpertCacheManager"
+            ),
+            f"{accounting_dry_run_prefix}_manager_runtime_contract": (
+                "ready_time_issue_demand_skeleton_v1"
+            ),
+            f"{accounting_dry_run_prefix}_manager_runtime_mode": (
+                "ready_time_payload_cache_skeleton"
+            ),
+            f"{accounting_dry_run_prefix}_accounting_dry_run_schema": (
+                "ready_time_payload_cache_runtime_adapter_accounting_dry_run_canary_v1"
+            ),
+            f"{accounting_dry_run_prefix}_accounting_dry_run_adapter_created": True,
+            f"{accounting_dry_run_prefix}_accounting_dry_run_operations_ran": True,
+            f"{accounting_dry_run_prefix}_accounting_dry_run_enabled": True,
+            f"{accounting_dry_run_prefix}_issue_prefetch_accepted": True,
+            f"{accounting_dry_run_prefix}_duplicate_issue_suppressed": True,
+            f"{accounting_dry_run_prefix}_demand_hit": True,
+            f"{accounting_dry_run_prefix}_live_adapter_instance_created": False,
+            f"{accounting_dry_run_prefix}_live_runtime_instantiated": False,
+            f"{accounting_dry_run_prefix}_capacity_entries": 4096,
+            f"{accounting_dry_run_prefix}_issue_lead_tokens": 32,
+            f"{accounting_dry_run_prefix}_queue_deadline_us": 100.0,
+            f"{accounting_dry_run_prefix}_lookahead_us": 2400000.0,
+            f"{accounting_dry_run_prefix}_queue_batch_size": 1,
+            f"{accounting_dry_run_prefix}_resident_count": 1,
+            f"{accounting_dry_run_prefix}_issued_fetch_count": 1,
+            f"{accounting_dry_run_prefix}_used_fetch_count": 1,
+            f"{accounting_dry_run_prefix}_unused_fetch_count": 0,
+            f"{accounting_dry_run_prefix}_demand_count": 1,
+            f"{accounting_dry_run_prefix}_demand_hit_count": 1,
+            f"{accounting_dry_run_prefix}_demand_miss_count": 0,
+            f"{accounting_dry_run_prefix}_evicted_before_use_count": 0,
+            f"{accounting_dry_run_prefix}_ready_late_miss_count": 0,
+            f"{accounting_dry_run_prefix}_late_completion_unused_count": 0,
+            f"{accounting_dry_run_prefix}_queue_batch_count": 1,
+            f"{accounting_dry_run_prefix}_shifted_issue_accounting_enabled": True,
+            f"{accounting_dry_run_prefix}_shifted_issue_accounted_packet_count": 28,
+            f"{accounting_dry_run_prefix}_shifted_issue_unique_issue_key_count": 16,
+            f"{accounting_dry_run_prefix}_decision": "blocked",
+            f"{accounting_dry_run_prefix}_block_reason": (
+                "live_runtime_adapter_accounting_dry_run_canary_only"
+            ),
+            f"{accounting_dry_run_prefix}_execution_mode": (
+                "payload_cache_live_runtime_adapter_accounting_dry_run_canary_payloadless"
+            ),
+        },
+    )
+    for key in (
+        "queue_service_us",
+        "queue_total_span_us",
+        "queue_wait_us",
+        "queue_max_delay_us",
+    ):
+        summary[f"{accounting_dry_run_prefix}_{key}"] = 0.0
+    for key in (
+        "issued_payload_count",
+        "payload_bytes",
+    ):
+        summary[f"{accounting_dry_run_prefix}_{key}"] = 0
+    for key in (
+        "live_payload_runtime_enabled",
+        "payload_transfer_runtime_enabled",
+        "payload_deref_allowed",
+        "payload_deref_runtime_allowed",
+        "ready_credit",
+        "ready_before_demand_credit",
+        "real_ready_credit_granted",
+        "kernel_arg_pass_allowed",
+        "passed_to_kernel",
+        "changes_kernel_launch_args",
+        "full_fetch_runtime_allowed",
+        "uses_current_wna16_args",
+        "passes_current_wna16_args",
+        "measures_tpot",
+        "measures_vllm_latency",
+    ):
+        summary[f"{accounting_dry_run_prefix}_{key}"] = False
     return summary
 
 
@@ -4697,6 +4793,34 @@ def test_check_premap_lab_preflight_summary_rejects_operation_rejection_escape()
     assert f"{prefix}_demand_rejected_mismatch" in result["failures"]
     assert f"{prefix}_shell_enabled_mismatch" in result["failures"]
     assert f"{prefix}_adapter_instance_created_mismatch" in result["failures"]
+    assert f"{prefix}_payload_bytes_mismatch" in result["failures"]
+    assert f"{prefix}_ready_credit_mismatch" in result["failures"]
+    assert f"{prefix}_kernel_arg_pass_allowed_mismatch" in result["failures"]
+
+
+def test_check_premap_lab_preflight_summary_rejects_accounting_dry_run_escape() -> None:
+    summary = _summary()
+    prefix = (
+        "prefetch_lab_default_stream_queue_budget_"
+        "live_runtime_adapter_accounting_dry_run_canary"
+    )
+    summary[f"{prefix}_status"] = "passed"
+    summary[f"{prefix}_accounting_dry_run_enabled"] = False
+    summary[f"{prefix}_resident_count"] = 0
+    summary[f"{prefix}_live_adapter_instance_created"] = True
+    summary[f"{prefix}_live_runtime_instantiated"] = True
+    summary[f"{prefix}_payload_bytes"] = 64
+    summary[f"{prefix}_ready_credit"] = True
+    summary[f"{prefix}_kernel_arg_pass_allowed"] = True
+
+    result = check_premap_lab_preflight_summary(summary)
+
+    assert result["passed"] is False
+    assert f"{prefix}_status_mismatch" in result["failures"]
+    assert f"{prefix}_accounting_dry_run_enabled_mismatch" in result["failures"]
+    assert f"{prefix}_resident_count_mismatch" in result["failures"]
+    assert f"{prefix}_live_adapter_instance_created_mismatch" in result["failures"]
+    assert f"{prefix}_live_runtime_instantiated_mismatch" in result["failures"]
     assert f"{prefix}_payload_bytes_mismatch" in result["failures"]
     assert f"{prefix}_ready_credit_mismatch" in result["failures"]
     assert f"{prefix}_kernel_arg_pass_allowed_mismatch" in result["failures"]
