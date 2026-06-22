@@ -43523,6 +43523,96 @@ Current validation:
 # passed: true, failure_count: 0
 ```
 
+## Payload issue command-packet dry-run gate
+
+The scheduler-dispatch blocked canary now feeds a dry-run command packet object:
+
+```text
+PayloadCacheLiveRuntimeAdapterPayloadIssueCommandPacketDryRun
+```
+
+This stage models the future payload issue command-packet shape, but it never
+submits or executes the packet:
+
+```text
+request_source = queue_budget_first_model_passing_cell
+source_issue_packet_count = 28
+source_issue_unique_key_count = 28
+source_queue_budget_capacity = 4096
+source_issue_lead_tokens = 8
+source_queue_deadline_us = 100.0
+
+command_packet_shape_checked = true
+command_packet_submitted = false
+command_packet_executed = false
+
+planned_issue_count = 0
+scheduled_issue_count = 0
+queued_issue_count = 0
+submitted_issue_count = 0
+inflight_issue_count = 0
+dispatched_issue_count = 0
+command_packet_count = 0
+issued_payload_count = 0
+payload_bytes = 0
+payload_transfer_runtime_enabled = false
+payload_deref_runtime_allowed = false
+ready_credit = false
+ready_before_demand_credit = false
+real_ready_credit_granted = false
+kernel_arg_pass_allowed = false
+passed_to_kernel = false
+changes_kernel_launch_args = false
+full_fetch_runtime_allowed = false
+uses_current_wna16_args = false
+passes_current_wna16_args = false
+live_runtime_instantiated = false
+```
+
+The builder requires the exact scheduler-dispatch blocked-canary ancestry chain
+and rejects stale status prefixes, synthetic requests, non-zero
+planned/scheduled/queued/submitted/in-flight/dispatched/command/issued counts,
+or any attempt to submit/execute the command packet, enable payload transfer,
+grant ready credit, pass kernel args, use current WNA16 args, measure TPOT, or
+instantiate a live runtime.
+
+The strict preflight summary now requires this object under:
+
+```text
+prefetch_lab_default_stream_queue_budget_live_runtime_adapter_payload_issue_command_packet_dry_run_*
+```
+
+Current validation:
+
+```bash
+/home/husrcf/anaconda3/envs/TRY/bin/python -m pytest \
+  tests/test_cache_lab_gate.py \
+  tests/test_check_prefetch_lab_default_gate.py \
+  tests/test_run_premap_lab_preflight.py \
+  tests/test_check_premap_lab_preflight_summary.py -q
+# 454 passed
+
+/home/husrcf/anaconda3/envs/TRY/bin/python -m pytest \
+  tests/test_cache_manager.py \
+  tests/test_cache_lab_gate.py \
+  tests/test_check_prefetch_lab_default_gate.py \
+  tests/test_vllm_router_shadow_sink.py \
+  tests/test_run_premap_payload_cache_producer_state_online_canary.py \
+  tests/test_run_premap_payload_cache_issue_stream_executor.py \
+  tests/test_sweep_premap_payload_cache_issue_stream_executor_lookahead.py \
+  tests/test_sweep_premap_payload_cache_issue_stream_executor_queue_budget.py \
+  tests/test_run_premap_lab_preflight.py \
+  tests/test_check_premap_lab_preflight_summary.py -q
+# 647 passed
+
+/home/husrcf/anaconda3/envs/TRY/bin/python \
+  scripts/check_premap_lab_preflight_summary.py \
+  outputs/reports/premap_kernel_consumer/premap_lab_preflight_noop_fields_v2_strict_summary.json \
+  --output-json \
+  outputs/reports/premap_kernel_consumer/premap_lab_preflight_noop_fields_v2_strict_summary_check.json
+# passed: true, failure_count: 0
+```
+
 ### 2026-06-22: Payload-cache issue stream no-op fields promoted into strict lab preflight
 
 The producer-state packet export, online native canary, queue-budget replay, and

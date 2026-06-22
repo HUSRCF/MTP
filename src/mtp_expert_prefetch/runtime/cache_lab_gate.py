@@ -5711,6 +5711,182 @@ class PayloadCacheLiveRuntimeAdapterPayloadIssueSchedulerDispatchBlockedCanary:
         return asdict(self)
 
 
+@dataclass(frozen=True)
+class PayloadCacheLiveRuntimeAdapterPayloadIssueCommandPacketDryRun:
+    """Future payload issue command-packet shape that is never submitted."""
+
+    present: bool
+    stage: str
+    status: str
+    consumes_payload_issue_scheduler_dispatch_blocked_canary: bool
+    payload_issue_scheduler_dispatch_status: str
+    payload_issue_command_packet_schema: str
+    payload_issue_command_packet_created: bool
+    payload_issue_scheduler_dispatch_consumed: bool
+    command_packet_shape_checked: bool
+    command_packet_submitted: bool
+    command_packet_executed: bool
+    request_source: str
+    request_layer_idx: int
+    request_expert_idx: int
+    requested_payload_bytes: int
+    source_issue_packet_count: int
+    source_issue_unique_key_count: int
+    source_queue_budget_capacity: int
+    source_issue_lead_tokens: int
+    source_queue_deadline_us: float
+    planned_issue_count: int = 0
+    scheduled_issue_count: int = 0
+    queued_issue_count: int = 0
+    submitted_issue_count: int = 0
+    inflight_issue_count: int = 0
+    dispatched_issue_count: int = 0
+    command_packet_count: int = 0
+    issued_payload_count: int = 0
+    payload_bytes: int = 0
+    decision: str = "blocked"
+    block_reason: str = "payload_transfer_disabled"
+    execution_mode: str = "payload_cache_live_runtime_adapter_payload_issue_command_packet_dry_run"
+    live_payload_runtime_enabled: bool = False
+    payload_transfer_runtime_enabled: bool = False
+    payload_deref_allowed: bool = False
+    payload_deref_runtime_allowed: bool = False
+    ready_credit: bool = False
+    ready_before_demand_credit: bool = False
+    real_ready_credit_granted: bool = False
+    kernel_arg_pass_allowed: bool = False
+    passed_to_kernel: bool = False
+    changes_kernel_launch_args: bool = False
+    full_fetch_runtime_allowed: bool = False
+    uses_current_wna16_args: bool = False
+    passes_current_wna16_args: bool = False
+    measures_tpot: bool = False
+    measures_vllm_latency: bool = False
+    live_runtime_instantiated: bool = False
+
+    def __post_init__(self) -> None:
+        if self.present is not True:
+            raise ValueError("payload issue command-packet dry-run must be present")
+        if self.stage != "payload_cache_live_runtime_adapter_payload_issue_command_packet_dry_run":
+            raise ValueError("payload issue command-packet dry-run stage mismatch")
+        if self.consumes_payload_issue_scheduler_dispatch_blocked_canary is not True:
+            raise ValueError("command packet must consume scheduler-dispatch canary")
+        if (
+            not isinstance(self.payload_issue_scheduler_dispatch_status, str)
+            or not self.payload_issue_scheduler_dispatch_status
+        ):
+            raise TypeError("payload_issue_scheduler_dispatch_status must be nonempty")
+        if (
+            self.payload_issue_scheduler_dispatch_status
+            != _SOURCE_BOUND_PAYLOAD_ISSUE_SCHEDULER_DISPATCH_BLOCKED_CANARY_STATUS
+        ):
+            raise ValueError(
+                "payload issue command-packet upstream ancestry status mismatch",
+            )
+        expected_status = (
+            "blocked_by_payload_issue_scheduler_dispatch_blocked_canary:"
+            f"{self.payload_issue_scheduler_dispatch_status}"
+        )
+        if self.status != expected_status:
+            raise ValueError("payload issue command-packet dry-run status mismatch")
+        if (
+            self.payload_issue_command_packet_schema
+            != "payload_cache_runtime_payload_issue_command_packet_v1"
+        ):
+            raise ValueError("payload issue command-packet schema mismatch")
+        for field_name in (
+            "payload_issue_command_packet_created",
+            "payload_issue_scheduler_dispatch_consumed",
+            "command_packet_shape_checked",
+        ):
+            if getattr(self, field_name) is not True:
+                raise ValueError(f"{field_name} must be true")
+        for field_name in ("command_packet_submitted", "command_packet_executed"):
+            if getattr(self, field_name) is not False:
+                raise ValueError(f"{field_name} must remain disabled")
+        if self.request_source != "queue_budget_first_model_passing_cell":
+            raise ValueError("payload issue command packet requires a source-bound request")
+        for field_name in (
+            "request_layer_idx",
+            "request_expert_idx",
+            "requested_payload_bytes",
+            "source_issue_packet_count",
+            "source_issue_unique_key_count",
+            "source_queue_budget_capacity",
+            "source_issue_lead_tokens",
+        ):
+            value = getattr(self, field_name)
+            if not isinstance(value, int) or isinstance(value, bool):
+                raise TypeError(f"{field_name} must be an integer")
+            if value < 0:
+                raise ValueError(f"{field_name} must be non-negative")
+        if self.requested_payload_bytes <= 0:
+            raise ValueError("requested_payload_bytes must be positive")
+        if self.source_issue_packet_count <= 0:
+            raise ValueError("source_issue_packet_count must be positive")
+        if self.source_issue_unique_key_count <= 0:
+            raise ValueError("source_issue_unique_key_count must be positive")
+        if self.source_queue_budget_capacity <= 0:
+            raise ValueError("source_queue_budget_capacity must be positive")
+        if self.source_issue_lead_tokens <= 0:
+            raise ValueError("source_issue_lead_tokens must be positive")
+        if not isinstance(self.source_queue_deadline_us, (int, float)) or isinstance(
+            self.source_queue_deadline_us,
+            bool,
+        ):
+            raise TypeError("source_queue_deadline_us must be numeric")
+        if self.source_queue_deadline_us <= 0.0:
+            raise ValueError("source_queue_deadline_us must be positive")
+        for field_name in (
+            "planned_issue_count",
+            "scheduled_issue_count",
+            "queued_issue_count",
+            "submitted_issue_count",
+            "inflight_issue_count",
+            "dispatched_issue_count",
+            "command_packet_count",
+            "issued_payload_count",
+            "payload_bytes",
+        ):
+            value = getattr(self, field_name)
+            if not isinstance(value, int) or isinstance(value, bool):
+                raise TypeError(f"{field_name} must be an integer")
+            if value != 0:
+                raise ValueError(f"{field_name} must remain zero")
+        if self.decision != "blocked":
+            raise ValueError("payload issue command-packet decision must stay blocked")
+        if self.block_reason != "payload_transfer_disabled":
+            raise ValueError("payload issue command-packet block reason mismatch")
+        if (
+            self.execution_mode
+            != "payload_cache_live_runtime_adapter_payload_issue_command_packet_dry_run"
+        ):
+            raise ValueError("payload issue command-packet execution mode mismatch")
+        for field_name in (
+            "live_payload_runtime_enabled",
+            "payload_transfer_runtime_enabled",
+            "payload_deref_allowed",
+            "payload_deref_runtime_allowed",
+            "ready_credit",
+            "ready_before_demand_credit",
+            "real_ready_credit_granted",
+            "kernel_arg_pass_allowed",
+            "passed_to_kernel",
+            "changes_kernel_launch_args",
+            "full_fetch_runtime_allowed",
+            "uses_current_wna16_args",
+            "passes_current_wna16_args",
+            "measures_tpot",
+            "measures_vllm_latency",
+            "live_runtime_instantiated",
+        ):
+            if getattr(self, field_name) is not False:
+                raise ValueError(f"{field_name} must remain disabled")
+
+    def as_dict(self) -> dict[str, bool | float | int | str]:
+        return asdict(self)
+
+
 def select_cache_lab_prefetch_gate(
     signals: CacheLabRuntimeSignals,
     *,
@@ -9157,6 +9333,11 @@ _SOURCE_BOUND_PAYLOAD_ISSUE_INFLIGHT_ADMISSION_BLOCKED_CANARY_STATUS = (
     f"{_SOURCE_BOUND_PAYLOAD_ISSUE_QUEUE_SUBMIT_BLOCKED_CANARY_STATUS}"
 )
 
+_SOURCE_BOUND_PAYLOAD_ISSUE_SCHEDULER_DISPATCH_BLOCKED_CANARY_STATUS = (
+    "blocked_by_payload_issue_inflight_admission_blocked_canary:"
+    f"{_SOURCE_BOUND_PAYLOAD_ISSUE_INFLIGHT_ADMISSION_BLOCKED_CANARY_STATUS}"
+)
+
 
 def build_payload_cache_live_runtime_adapter_payload_issue_plan_dry_run(
     canary: PayloadCacheLiveRuntimeAdapterPayloadIssueRequestBlockedCanary,
@@ -9969,6 +10150,157 @@ def build_payload_cache_live_runtime_adapter_payload_issue_scheduler_dispatch_bl
         source_queue_budget_capacity=int(admission.source_queue_budget_capacity),
         source_issue_lead_tokens=int(admission.source_issue_lead_tokens),
         source_queue_deadline_us=float(admission.source_queue_deadline_us),
+    )
+
+
+def build_payload_cache_live_runtime_adapter_payload_issue_command_packet_dry_run(
+    dispatch: PayloadCacheLiveRuntimeAdapterPayloadIssueSchedulerDispatchBlockedCanary,
+) -> PayloadCacheLiveRuntimeAdapterPayloadIssueCommandPacketDryRun:
+    """Build a dry-run payload issue command packet from scheduler dispatch."""
+
+    if not isinstance(
+        dispatch,
+        PayloadCacheLiveRuntimeAdapterPayloadIssueSchedulerDispatchBlockedCanary,
+    ):
+        raise TypeError(
+            "dispatch must be a "
+            "PayloadCacheLiveRuntimeAdapterPayloadIssueSchedulerDispatchBlockedCanary",
+        )
+    if dispatch.present is not True:
+        raise ValueError("payload issue scheduler-dispatch canary must be present")
+    if (
+        dispatch.stage
+        != "payload_cache_live_runtime_adapter_payload_issue_scheduler_dispatch_blocked_canary"
+    ):
+        raise ValueError("payload issue scheduler-dispatch canary stage mismatch")
+    if dispatch.consumes_payload_issue_inflight_admission_blocked_canary is not True:
+        raise ValueError("scheduler dispatch must consume in-flight admission canary")
+    if (
+        dispatch.payload_issue_inflight_admission_status
+        != _SOURCE_BOUND_PAYLOAD_ISSUE_INFLIGHT_ADMISSION_BLOCKED_CANARY_STATUS
+    ):
+        raise ValueError(
+            "payload issue scheduler-dispatch upstream ancestry status chain mismatch",
+        )
+    if dispatch.status != _SOURCE_BOUND_PAYLOAD_ISSUE_SCHEDULER_DISPATCH_BLOCKED_CANARY_STATUS:
+        raise ValueError("payload issue scheduler-dispatch status mismatch")
+    if (
+        dispatch.payload_issue_scheduler_dispatch_schema
+        != "payload_cache_runtime_payload_issue_scheduler_dispatch_v1"
+    ):
+        raise ValueError("payload issue scheduler-dispatch schema mismatch")
+    for field_name in (
+        "payload_issue_scheduler_dispatch_canary_created",
+        "payload_issue_inflight_admission_consumed",
+        "scheduler_dispatch_checked",
+        "scheduler_dispatch_rejected",
+    ):
+        if getattr(dispatch, field_name) is not True:
+            raise ValueError(f"payload issue scheduler-dispatch {field_name} must be true")
+    for field_name in ("scheduler_dispatch_allowed", "scheduler_dispatch_enqueued"):
+        if getattr(dispatch, field_name) is not False:
+            raise ValueError(f"payload issue scheduler-dispatch {field_name} enabled")
+    if dispatch.request_source != "queue_budget_first_model_passing_cell":
+        raise ValueError("payload issue command packet requires a source-bound dispatch")
+    for field_name in (
+        "request_layer_idx",
+        "request_expert_idx",
+        "requested_payload_bytes",
+        "source_issue_packet_count",
+        "source_issue_unique_key_count",
+        "source_queue_budget_capacity",
+        "source_issue_lead_tokens",
+    ):
+        value = getattr(dispatch, field_name)
+        if not isinstance(value, int) or isinstance(value, bool):
+            raise TypeError(f"{field_name} must be an integer")
+        if value < 0:
+            raise ValueError(f"{field_name} must be non-negative")
+    if dispatch.requested_payload_bytes <= 0:
+        raise ValueError("requested_payload_bytes must be positive")
+    if dispatch.source_issue_packet_count <= 0:
+        raise ValueError("source_issue_packet_count must be positive")
+    if dispatch.source_issue_unique_key_count <= 0:
+        raise ValueError("source_issue_unique_key_count must be positive")
+    if dispatch.source_queue_budget_capacity <= 0:
+        raise ValueError("source_queue_budget_capacity must be positive")
+    if dispatch.source_issue_lead_tokens <= 0:
+        raise ValueError("source_issue_lead_tokens must be positive")
+    if not isinstance(dispatch.source_queue_deadline_us, (int, float)) or isinstance(
+        dispatch.source_queue_deadline_us,
+        bool,
+    ):
+        raise TypeError("source_queue_deadline_us must be numeric")
+    if dispatch.source_queue_deadline_us <= 0.0:
+        raise ValueError("source_queue_deadline_us must be positive")
+    for field_name in (
+        "planned_issue_count",
+        "scheduled_issue_count",
+        "queued_issue_count",
+        "submitted_issue_count",
+        "inflight_issue_count",
+        "dispatched_issue_count",
+        "issued_payload_count",
+        "payload_bytes",
+    ):
+        if getattr(dispatch, field_name) != 0:
+            raise ValueError(f"payload issue scheduler-dispatch {field_name} must be zero")
+    if dispatch.decision != "blocked":
+        raise ValueError("payload issue scheduler-dispatch must stay blocked")
+    if dispatch.block_reason != "payload_transfer_disabled":
+        raise ValueError("payload issue scheduler-dispatch block reason mismatch")
+    if (
+        dispatch.execution_mode
+        != "payload_cache_live_runtime_adapter_payload_issue_scheduler_dispatch_blocked_canary"
+    ):
+        raise ValueError("payload issue scheduler-dispatch execution mode mismatch")
+    for field_name in (
+        "live_payload_runtime_enabled",
+        "payload_transfer_runtime_enabled",
+        "payload_deref_allowed",
+        "payload_deref_runtime_allowed",
+        "ready_credit",
+        "ready_before_demand_credit",
+        "real_ready_credit_granted",
+        "kernel_arg_pass_allowed",
+        "passed_to_kernel",
+        "changes_kernel_launch_args",
+        "full_fetch_runtime_allowed",
+        "uses_current_wna16_args",
+        "passes_current_wna16_args",
+        "measures_tpot",
+        "measures_vllm_latency",
+        "live_runtime_instantiated",
+    ):
+        if getattr(dispatch, field_name) is not False:
+            raise ValueError(f"payload issue scheduler-dispatch {field_name} enabled")
+
+    return PayloadCacheLiveRuntimeAdapterPayloadIssueCommandPacketDryRun(
+        present=True,
+        stage="payload_cache_live_runtime_adapter_payload_issue_command_packet_dry_run",
+        status=(
+            "blocked_by_payload_issue_scheduler_dispatch_blocked_canary:"
+            f"{dispatch.status}"
+        ),
+        consumes_payload_issue_scheduler_dispatch_blocked_canary=True,
+        payload_issue_scheduler_dispatch_status=str(dispatch.status),
+        payload_issue_command_packet_schema=(
+            "payload_cache_runtime_payload_issue_command_packet_v1"
+        ),
+        payload_issue_command_packet_created=True,
+        payload_issue_scheduler_dispatch_consumed=True,
+        command_packet_shape_checked=True,
+        command_packet_submitted=False,
+        command_packet_executed=False,
+        request_source=str(dispatch.request_source),
+        request_layer_idx=int(dispatch.request_layer_idx),
+        request_expert_idx=int(dispatch.request_expert_idx),
+        requested_payload_bytes=int(dispatch.requested_payload_bytes),
+        source_issue_packet_count=int(dispatch.source_issue_packet_count),
+        source_issue_unique_key_count=int(dispatch.source_issue_unique_key_count),
+        source_queue_budget_capacity=int(dispatch.source_queue_budget_capacity),
+        source_issue_lead_tokens=int(dispatch.source_issue_lead_tokens),
+        source_queue_deadline_us=float(dispatch.source_queue_deadline_us),
     )
 
 
