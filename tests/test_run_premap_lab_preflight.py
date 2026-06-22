@@ -4085,6 +4085,144 @@ def _future_wna16_payloadless_useful_repeat_benchmark_payload(
     }
 
 
+def _future_wna16_payloadless_useful_runtime_ablation_payload(
+    *,
+    repeat_benchmark_json: str,
+    repeat_benchmark_sha256: str,
+    row_count: int = 520,
+    source_count: int = 128,
+    repeat_count: int = 3,
+) -> dict[str, object]:
+    return {
+        "schema_version": 1,
+        "artifact_kind": "future_wna16_typed_slot_payloadless_useful_runtime_ablation",
+        "ablation_name": (
+            "premap_future_wna16_typed_slot_payloadless_useful_runtime_ablation_v1"
+        ),
+        "ablation_mode": "payloadless_useful_native_stub_repeat_stability_ablation",
+        "ablation_source": (
+            "premap_future_wna16_typed_slot_payloadless_useful_repeat_benchmark_v1"
+        ),
+        "passed": True,
+        "failures": [],
+        "runtime_ablation_ready": True,
+        "payloadless_useful_runtime_ablation_ready": True,
+        "repeat_benchmark_json": repeat_benchmark_json,
+        "repeat_benchmark_sha256": repeat_benchmark_sha256,
+        "source_count": source_count,
+        "row_count": row_count,
+        "row_ok_count": row_count,
+        "rows_consumed": row_count,
+        "repeat_count_measured": repeat_count,
+        "field_count": len(_ALL_FIELD_ENTRY_ARGS_PTR_MIRROR_FIELDS),
+        "fields_per_row": len(_ALL_FIELD_ENTRY_ARGS_PTR_MIRROR_FIELDS),
+        "useful_work_units": row_count * len(_ALL_FIELD_ENTRY_ARGS_PTR_MIRROR_FIELDS),
+        "expected_useful_work_units": (
+            row_count * len(_ALL_FIELD_ENTRY_ARGS_PTR_MIRROR_FIELDS)
+        ),
+        "useful_work_coverage": 1.0,
+        "useful_work_kind": "native_typed_slot_four_field_row_projection",
+        "native_consumer_has_useful_work": True,
+        "field_names": list(_ALL_FIELD_ENTRY_ARGS_PTR_MIRROR_FIELDS),
+        "field_read_hashes": {
+            "descriptor_ptr": "3333333333333333",
+            "packed_weight_descriptor": "4444444444444444",
+            "scale_metadata_handle": "5555555555555555",
+            "aux_metadata_handle": "6666666666666666",
+        },
+        "payload_bytes": 0,
+        "payload_deref_allowed": False,
+        "kernel_arg_pass_allowed": False,
+        "passed_to_kernel": False,
+        "changes_kernel_launch_args": False,
+        "uses_current_wna16_args": False,
+        "passes_current_wna16_args": False,
+        "current_wna16_arg_compatible": False,
+        "requires_wna16_arg_reinterpretation": False,
+        "measures_tpot": False,
+        "measures_vllm_latency": False,
+        "wna16_benchmark_ready": False,
+        "next_runtime_stage": (
+            "implement_future_wna16_typed_slot_payloadless_useful_production_like_timing"
+        ),
+    }
+
+
+def _future_wna16_payloadless_useful_production_like_timing_gate_payload(
+    *,
+    runtime_ablation_json: str,
+    runtime_ablation_sha256: str,
+    row_count: int = 520,
+    source_count: int = 128,
+    repeat_count: int = 3,
+) -> dict[str, object]:
+    return {
+        "schema_version": 1,
+        "artifact_kind": (
+            "future_wna16_typed_slot_payloadless_useful_production_like_timing_gate"
+        ),
+        "timing_gate_name": (
+            "premap_future_wna16_typed_slot_payloadless_useful_production_like_timing_gate_v1"
+        ),
+        "timing_gate_mode": "production_like_config_readiness_gate",
+        "timing_gate_source": (
+            "premap_future_wna16_typed_slot_payloadless_useful_runtime_ablation_v1"
+        ),
+        "passed": True,
+        "failures": [],
+        "production_like_timing_ready": True,
+        "runtime_ablation_ready": True,
+        "payloadless_useful_runtime_ablation_ready": True,
+        "runtime_ablation_json": runtime_ablation_json,
+        "runtime_ablation_sha256": runtime_ablation_sha256,
+        "trace_config_is_production_like": True,
+        "payloadless_live_config_performance_claim_frozen": True,
+        "payloadless_production_tpot_allowed": False,
+        "will_measure_tpot_next": False,
+        "current_artifact_is_tpot_benchmark": False,
+        "source_count": source_count,
+        "row_count": row_count,
+        "repeat_count_measured": repeat_count,
+        "field_count": len(_ALL_FIELD_ENTRY_ARGS_PTR_MIRROR_FIELDS),
+        "fields_per_row": len(_ALL_FIELD_ENTRY_ARGS_PTR_MIRROR_FIELDS),
+        "useful_work_units": row_count * len(_ALL_FIELD_ENTRY_ARGS_PTR_MIRROR_FIELDS),
+        "expected_useful_work_units": (
+            row_count * len(_ALL_FIELD_ENTRY_ARGS_PTR_MIRROR_FIELDS)
+        ),
+        "useful_work_coverage": 1.0,
+        "useful_work_kind": "native_typed_slot_four_field_row_projection",
+        "native_consumer_has_useful_work": True,
+        "payload_bytes": 0,
+        "payload_deref_allowed": False,
+        "kernel_arg_pass_allowed": False,
+        "passed_to_kernel": False,
+        "changes_kernel_launch_args": False,
+        "uses_current_wna16_args": False,
+        "passes_current_wna16_args": False,
+        "current_wna16_arg_compatible": False,
+        "requires_wna16_arg_reinterpretation": False,
+        "measures_tpot": False,
+        "measures_vllm_latency": False,
+        "wna16_benchmark_ready": False,
+        "bound_runtime_ablation_safety": {
+            "benchmark_is_current_wna16_fused_moe": False,
+            "changes_kernel_launch_args": False,
+            "current_wna16_arg_compatible": False,
+            "kernel_arg_pass_allowed": False,
+            "measures_tpot": False,
+            "measures_vllm_latency": False,
+            "passed_to_kernel": False,
+            "passes_current_wna16_args": False,
+            "payload_bytes": 0,
+            "payload_deref_allowed": False,
+            "requires_wna16_arg_reinterpretation": False,
+            "uses_current_wna16_args": False,
+            "wna16_benchmark_ready": False,
+        },
+        "next_runtime_stage": "future_typed_slot_useful_consumer_or_payload_cache_manager",
+    }
+
+
 def _future_native_arg_slot_all_field_entry_args_ptr_sweep_payload(
     *,
     check_json: str,
@@ -5154,6 +5292,12 @@ def _write_gate(
     future_wna16_typed_slot_payloadless_useful_repeat_benchmark_path = (
         f"reports/{name}_future_wna16_typed_slot_payloadless_useful_repeat_benchmark.json"
     )
+    future_wna16_typed_slot_payloadless_useful_runtime_ablation_path = (
+        f"reports/{name}_future_wna16_typed_slot_payloadless_useful_runtime_ablation.json"
+    )
+    future_wna16_typed_slot_payloadless_useful_production_like_timing_gate_path = (
+        f"reports/{name}_future_wna16_typed_slot_payloadless_useful_production_like_timing_gate.json"
+    )
     future_wna16_typed_slot_payloadless_timing_stub_path = (
         f"reports/{name}_future_wna16_typed_slot_payloadless_timing_stub.json"
     )
@@ -6145,6 +6289,50 @@ def _write_gate(
             root / future_wna16_typed_slot_payloadless_useful_repeat_benchmark_path,
             json.dumps(repeat_payload) + "\n",
         )
+        future_wna16_typed_slot_payloadless_useful_repeat_benchmark_sha256 = (
+            hashlib.sha256(
+                (
+                    root
+                    / future_wna16_typed_slot_payloadless_useful_repeat_benchmark_path
+                ).read_bytes()
+            ).hexdigest()
+        )
+        _write(
+            root / future_wna16_typed_slot_payloadless_useful_runtime_ablation_path,
+            json.dumps(
+                _future_wna16_payloadless_useful_runtime_ablation_payload(
+                    repeat_benchmark_json=(
+                        future_wna16_typed_slot_payloadless_useful_repeat_benchmark_path
+                    ),
+                    repeat_benchmark_sha256=(
+                        future_wna16_typed_slot_payloadless_useful_repeat_benchmark_sha256
+                    ),
+                )
+            )
+            + "\n",
+        )
+        future_wna16_typed_slot_payloadless_useful_runtime_ablation_sha256 = (
+            hashlib.sha256(
+                (
+                    root / future_wna16_typed_slot_payloadless_useful_runtime_ablation_path
+                ).read_bytes()
+            ).hexdigest()
+        )
+        _write(
+            root
+            / future_wna16_typed_slot_payloadless_useful_production_like_timing_gate_path,
+            json.dumps(
+                _future_wna16_payloadless_useful_production_like_timing_gate_payload(
+                    runtime_ablation_json=(
+                        future_wna16_typed_slot_payloadless_useful_runtime_ablation_path
+                    ),
+                    runtime_ablation_sha256=(
+                        future_wna16_typed_slot_payloadless_useful_runtime_ablation_sha256
+                    ),
+                )
+            )
+            + "\n",
+        )
         _write(
             root / payload_cache_producer_state_native_canary_path,
             json.dumps(_payload_cache_producer_state_native_canary_payload()) + "\n",
@@ -6351,6 +6539,12 @@ def _write_gate(
         "  future_wna16_typed_slot_payloadless_useful_repeat_benchmark_required: true\n"
         "  future_wna16_typed_slot_payloadless_useful_repeat_benchmark_min_source_count: 128\n"
         "  future_wna16_typed_slot_payloadless_useful_repeat_benchmark_min_repeat_count: 3\n"
+        "  future_wna16_typed_slot_payloadless_useful_runtime_ablation_required: true\n"
+        "  future_wna16_typed_slot_payloadless_useful_runtime_ablation_min_source_count: 128\n"
+        "  future_wna16_typed_slot_payloadless_useful_runtime_ablation_min_repeat_count: 3\n"
+        "  future_wna16_typed_slot_payloadless_useful_production_like_timing_gate_required: true\n"
+        "  future_wna16_typed_slot_payloadless_useful_production_like_timing_gate_min_source_count: 128\n"
+        "  future_wna16_typed_slot_payloadless_useful_production_like_timing_gate_min_repeat_count: 3\n"
         "  wna16_side_consumer_variant_execution_required: true\n"
         "  wna16_side_consumer_variant_execution_min_source_count: 128\n"
         "  single_field_handle_handoff_canary_required: true\n"
@@ -6538,6 +6732,10 @@ def _write_gate(
             f"{future_wna16_typed_slot_kernel_variant_payloadless_useful_execution_path}\n"
             "  future_wna16_typed_slot_payloadless_useful_repeat_benchmark_json: "
             f"{future_wna16_typed_slot_payloadless_useful_repeat_benchmark_path}\n"
+            "  future_wna16_typed_slot_payloadless_useful_runtime_ablation_json: "
+            f"{future_wna16_typed_slot_payloadless_useful_runtime_ablation_path}\n"
+            "  future_wna16_typed_slot_payloadless_useful_production_like_timing_gate_json: "
+            f"{future_wna16_typed_slot_payloadless_useful_production_like_timing_gate_path}\n"
             "  future_kernel_native_arg_slot_all_field_entry_args_ptr_sweep_json: "
             f"{future_native_arg_slot_all_field_entry_args_ptr_sweep_path}\n"
             "  future_kernel_native_arg_slot_all_field_entry_args_ptr_sweep_check_json: "
@@ -6649,7 +6847,7 @@ def test_premap_lab_preflight_accepts_default_readonly_wiring(tmp_path: Path):
     assert result["passed"] is True
     assert result["failures"] == []
     assert result["runtime_gate_evidence_scan"]["gate_count"] == 5
-    assert result["runtime_gate_evidence_scan"]["evidence_path_count"] == 130
+    assert result["runtime_gate_evidence_scan"]["evidence_path_count"] == 134
     assert result["default_readonly_gate_required_evidence_check"]["passed"] is True
     summary = result["lab_gate_status_summary"]
     assert summary["passed"] is True
@@ -6694,6 +6892,36 @@ def test_premap_lab_preflight_accepts_default_readonly_wiring(tmp_path: Path):
             "default_kernel_consumer_future_wna16_payloadless_useful_repeat_benchmark_native_consumer_has_useful_work"
         ]
         is True
+    )
+    assert (
+        summary[
+            "default_kernel_consumer_future_wna16_payloadless_useful_runtime_ablation_gate_ready"
+        ]
+        is True
+    )
+    assert (
+        summary[
+            "default_kernel_consumer_future_wna16_payloadless_useful_runtime_ablation_useful_work_units"
+        ]
+        == 520 * len(_ALL_FIELD_ENTRY_ARGS_PTR_MIRROR_FIELDS)
+    )
+    assert (
+        summary[
+            "default_kernel_consumer_future_wna16_payloadless_useful_production_like_timing_gate_gate_ready"
+        ]
+        is True
+    )
+    assert (
+        summary[
+            "default_kernel_consumer_future_wna16_payloadless_useful_production_like_timing_gate_useful_work_units"
+        ]
+        == 520 * len(_ALL_FIELD_ENTRY_ARGS_PTR_MIRROR_FIELDS)
+    )
+    assert (
+        summary[
+            "default_kernel_consumer_future_wna16_payloadless_useful_production_like_timing_gate_production_tpot_allowed"
+        ]
+        is False
     )
     assert summary["default_readonly_gate_path"] == default_gate
     assert summary["default_readonly_gate_sha256"] == hashlib.sha256(
@@ -7623,7 +7851,7 @@ def test_premap_lab_preflight_accepts_default_readonly_wiring(tmp_path: Path):
     )
     assert (
         summary["default_kernel_consumer_next_runtime_stage"]
-        == "implement_future_wna16_typed_slot_payloadless_useful_runtime_ablation"
+        == "future_typed_slot_useful_consumer_or_payload_cache_manager"
     )
     assert (
         summary["default_kernel_consumer_schema_name"]
@@ -8832,9 +9060,9 @@ def test_premap_lab_preflight_accepts_default_readonly_wiring(tmp_path: Path):
     assert summary["payload_bytes_required"] == 0
     assert summary["passed_to_kernel_required"] is False
     assert summary["changes_kernel_launch_args_required"] is False
-    assert summary["required_evidence"]["required_count"] == 55
-    assert summary["required_evidence"]["present_count"] == 55
-    assert summary["required_evidence"]["passed_count"] == 55
+    assert summary["required_evidence"]["required_count"] == 57
+    assert summary["required_evidence"]["present_count"] == 57
+    assert summary["required_evidence"]["passed_count"] == 57
     assert summary["optional_evidence"]["required_count"] == 13
     assert summary["optional_evidence"]["present_count"] == 13
     assert summary["optional_evidence"]["passed_count"] == 13
@@ -9009,6 +9237,147 @@ def test_premap_lab_preflight_rejects_payloadless_useful_repeat_seed_only(
     )
 
 
+def test_premap_lab_preflight_rejects_payloadless_useful_runtime_ablation_kind_mismatch(
+    tmp_path: Path,
+):
+    default_gate = _write_gate(tmp_path, "default_gate", "default_gate.json")
+    ablation_path = (
+        tmp_path
+        / "reports/default_gate_future_wna16_typed_slot_payloadless_useful_runtime_ablation.json"
+    )
+    payload = json.loads(ablation_path.read_text(encoding="utf-8"))
+    payload["artifact_kind"] = "fake_runtime_ablation"
+    ablation_path.write_text(json.dumps(payload) + "\n", encoding="utf-8")
+    canary_gate = _write_gate(tmp_path, "canary_gate", "canary_gate.json")
+    trace_config = _write_trace_config(
+        tmp_path,
+        "longrun",
+        readonly_gate_path=default_gate,
+    )
+
+    result = run_premap_lab_preflight(
+        root=tmp_path,
+        runtime_pattern="configs/runtime/*.yaml",
+        trace_configs=[trace_config],
+        default_readonly_gate=default_gate,
+        canary_gate=canary_gate,
+    )
+
+    failures = result["default_readonly_gate_required_evidence_check"]["failures"]
+    assert result["passed"] is False
+    assert "default_readonly_gate_required_evidence_check_failed" in result["failures"]
+    assert (
+        "future_wna16_typed_slot_payloadless_useful_runtime_ablation_json:"
+        "artifact_kind_mismatch"
+    ) in failures
+
+
+def test_premap_lab_preflight_rejects_payloadless_useful_timing_gate_tpot_allowed(
+    tmp_path: Path,
+):
+    default_gate = _write_gate(tmp_path, "default_gate", "default_gate.json")
+    timing_path = (
+        tmp_path
+        / "reports/default_gate_future_wna16_typed_slot_payloadless_useful_production_like_timing_gate.json"
+    )
+    payload = json.loads(timing_path.read_text(encoding="utf-8"))
+    payload["payloadless_production_tpot_allowed"] = True
+    timing_path.write_text(json.dumps(payload) + "\n", encoding="utf-8")
+    canary_gate = _write_gate(tmp_path, "canary_gate", "canary_gate.json")
+    trace_config = _write_trace_config(
+        tmp_path,
+        "longrun",
+        readonly_gate_path=default_gate,
+    )
+
+    result = run_premap_lab_preflight(
+        root=tmp_path,
+        runtime_pattern="configs/runtime/*.yaml",
+        trace_configs=[trace_config],
+        default_readonly_gate=default_gate,
+        canary_gate=canary_gate,
+    )
+
+    failures = result["default_readonly_gate_required_evidence_check"]["failures"]
+    assert result["passed"] is False
+    assert "default_readonly_gate_required_evidence_check_failed" in result["failures"]
+    assert (
+        "future_wna16_typed_slot_payloadless_useful_production_like_timing_gate_json:"
+        "payloadless_production_tpot_allowed_mismatch"
+    ) in failures
+
+
+def test_premap_lab_preflight_rejects_payloadless_useful_timing_gate_bound_kernel_arg(
+    tmp_path: Path,
+):
+    default_gate = _write_gate(tmp_path, "default_gate", "default_gate.json")
+    timing_path = (
+        tmp_path
+        / "reports/default_gate_future_wna16_typed_slot_payloadless_useful_production_like_timing_gate.json"
+    )
+    payload = json.loads(timing_path.read_text(encoding="utf-8"))
+    payload["bound_runtime_ablation_safety"]["kernel_arg_pass_allowed"] = True
+    timing_path.write_text(json.dumps(payload) + "\n", encoding="utf-8")
+    canary_gate = _write_gate(tmp_path, "canary_gate", "canary_gate.json")
+    trace_config = _write_trace_config(
+        tmp_path,
+        "longrun",
+        readonly_gate_path=default_gate,
+    )
+
+    result = run_premap_lab_preflight(
+        root=tmp_path,
+        runtime_pattern="configs/runtime/*.yaml",
+        trace_configs=[trace_config],
+        default_readonly_gate=default_gate,
+        canary_gate=canary_gate,
+    )
+
+    failures = result["default_readonly_gate_required_evidence_check"]["failures"]
+    assert result["passed"] is False
+    assert "default_readonly_gate_required_evidence_check_failed" in result["failures"]
+    assert (
+        "future_wna16_typed_slot_payloadless_useful_production_like_timing_gate_json:"
+        "bound_runtime_ablation_safety_kernel_arg_pass_allowed_mismatch"
+    ) in failures
+
+
+def test_premap_lab_preflight_rejects_payloadless_useful_timing_gate_bad_row_coverage(
+    tmp_path: Path,
+):
+    default_gate = _write_gate(tmp_path, "default_gate", "default_gate.json")
+    timing_path = (
+        tmp_path
+        / "reports/default_gate_future_wna16_typed_slot_payloadless_useful_production_like_timing_gate.json"
+    )
+    payload = json.loads(timing_path.read_text(encoding="utf-8"))
+    payload["row_ok_count"] = payload["row_count"] - 1
+    payload["rows_consumed"] = payload["row_count"]
+    timing_path.write_text(json.dumps(payload) + "\n", encoding="utf-8")
+    canary_gate = _write_gate(tmp_path, "canary_gate", "canary_gate.json")
+    trace_config = _write_trace_config(
+        tmp_path,
+        "longrun",
+        readonly_gate_path=default_gate,
+    )
+
+    result = run_premap_lab_preflight(
+        root=tmp_path,
+        runtime_pattern="configs/runtime/*.yaml",
+        trace_configs=[trace_config],
+        default_readonly_gate=default_gate,
+        canary_gate=canary_gate,
+    )
+
+    failures = result["default_readonly_gate_required_evidence_check"]["failures"]
+    assert result["passed"] is False
+    assert "default_readonly_gate_required_evidence_check_failed" in result["failures"]
+    assert (
+        "future_wna16_typed_slot_payloadless_useful_production_like_timing_gate_json:"
+        "row_ok_count_mismatch"
+    ) in failures
+
+
 def test_premap_lab_preflight_rejects_incomplete_payloadless_useful_work(
     tmp_path: Path,
 ):
@@ -9041,7 +9410,13 @@ def test_premap_lab_preflight_rejects_incomplete_payloadless_useful_work(
     )
 
     summary = result["lab_gate_status_summary"]
+    failures = result["default_readonly_gate_required_evidence_check"]["failures"]
     assert result["passed"] is False
+    assert "default_readonly_gate_required_evidence_check_failed" in result["failures"]
+    assert (
+        "future_wna16_typed_slot_kernel_variant_payloadless_useful_execution_json:"
+        "payloadless_useful_execution_fields_per_row_mismatch"
+    ) in failures
     assert (
         summary[
             "default_kernel_consumer_future_wna16_payloadless_useful_execution_gate_ready"
@@ -9389,6 +9764,23 @@ def test_premap_lab_preflight_downgrades_wna16_ready_on_source_mismatch(
         variant_path.read_bytes()
     ).hexdigest()
     useful_path.write_text(json.dumps(useful_payload) + "\n", encoding="utf-8")
+    payloadless_useful_path = (
+        tmp_path
+        / "reports/default_gate_future_wna16_typed_slot_kernel_variant_payloadless_useful_execution.json"
+    )
+    payloadless_useful_payload = json.loads(
+        payloadless_useful_path.read_text(encoding="utf-8")
+    )
+    payloadless_useful_payload["execution_sha256"] = hashlib.sha256(
+        variant_path.read_bytes()
+    ).hexdigest()
+    payloadless_useful_payload["useful_consumer_sha256"] = hashlib.sha256(
+        useful_path.read_bytes()
+    ).hexdigest()
+    payloadless_useful_path.write_text(
+        json.dumps(payloadless_useful_payload) + "\n",
+        encoding="utf-8",
+    )
     canary_gate = _write_gate(tmp_path, "canary_gate", "canary_gate.json")
     trace_config = _write_trace_config(
         tmp_path,
@@ -9939,7 +10331,7 @@ def test_premap_lab_preflight_rejects_missing_optional_future_args_coverage(
         "default_kernel_consumer_future_kernel_args_total_mirror_coverage_incomplete"
         in result["failures"]
     )
-    assert summary["required_evidence"]["passed_count"] == 55
+    assert summary["required_evidence"]["passed_count"] == 57
     assert summary["default_optional_evidence_passed"] is True
     assert (
         summary[
@@ -12030,6 +12422,8 @@ def test_premap_lab_preflight_rejects_default_gate_without_typed_evidence(
         "future_wna16_typed_slot_kernel_variant_useful_consumer_json:missing_evidence_path",
         "future_wna16_typed_slot_kernel_variant_payloadless_useful_execution_json:missing_evidence_path",
         "future_wna16_typed_slot_payloadless_useful_repeat_benchmark_json:missing_evidence_path",
+        "future_wna16_typed_slot_payloadless_useful_runtime_ablation_json:missing_evidence_path",
+        "future_wna16_typed_slot_payloadless_useful_production_like_timing_gate_json:missing_evidence_path",
         "future_kernel_native_arg_slot_all_field_entry_args_ptr_sweep_json:missing_evidence_path",
         "future_kernel_native_arg_slot_all_field_entry_args_ptr_sweep_check_json:missing_evidence_path",
         "wna16_side_consumer_variant_execution_128strict_runner_json:missing_evidence_path",
@@ -16095,9 +16489,9 @@ def test_premap_lab_preflight_can_defer_self_referential_runner_evidence(
     assert summary["deferred_online_prelaunch_artifact_evidence"] is False
     assert summary["runtime_gate_evidence_deferred_count"] == 10
     assert summary["strict_default_gate_evidence_deferred_count"] == 5
-    assert summary["required_evidence"]["required_count"] == 55
-    assert summary["required_evidence"]["present_count"] == 53
-    assert summary["required_evidence"]["passed_count"] == 53
+    assert summary["required_evidence"]["required_count"] == 57
+    assert summary["required_evidence"]["present_count"] == 55
+    assert summary["required_evidence"]["passed_count"] == 55
     assert summary["optional_evidence"]["passed_count"] == 13
     for label in (
         "future_kernel_args_compatible_path_16_128export_artifact_check_json",
@@ -16672,7 +17066,7 @@ def test_premap_lab_preflight_cli_writes_summary(tmp_path: Path):
     assert result["runtime_gate_evidence_scan"]["passed"] is True
     assert result["lab_gate_status_summary"]["passed"] is True
     assert (
-        result["lab_gate_status_summary"]["required_evidence"]["passed_count"] == 55
+        result["lab_gate_status_summary"]["required_evidence"]["passed_count"] == 57
     )
 
 
@@ -16708,7 +17102,7 @@ def test_premap_lab_preflight_cli_summary_only_writes_status_block(tmp_path: Pat
     assert exit_code == 0
     assert result["passed"] is True
     assert result["default_readonly_gate_path"] == default_gate
-    assert result["required_evidence"]["passed_count"] == 55
+    assert result["required_evidence"]["passed_count"] == 57
     assert result["optional_evidence"]["passed_count"] == 13
     assert "lab_gate_status_summary" not in result
 

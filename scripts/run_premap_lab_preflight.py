@@ -149,6 +149,12 @@ REQUIRED_DEFAULT_GATE_CONTRACT = {
     "future_wna16_typed_slot_payloadless_useful_repeat_benchmark_required": True,
     "future_wna16_typed_slot_payloadless_useful_repeat_benchmark_min_source_count": 128,
     "future_wna16_typed_slot_payloadless_useful_repeat_benchmark_min_repeat_count": 3,
+    "future_wna16_typed_slot_payloadless_useful_runtime_ablation_required": True,
+    "future_wna16_typed_slot_payloadless_useful_runtime_ablation_min_source_count": 128,
+    "future_wna16_typed_slot_payloadless_useful_runtime_ablation_min_repeat_count": 3,
+    "future_wna16_typed_slot_payloadless_useful_production_like_timing_gate_required": True,
+    "future_wna16_typed_slot_payloadless_useful_production_like_timing_gate_min_source_count": 128,
+    "future_wna16_typed_slot_payloadless_useful_production_like_timing_gate_min_repeat_count": 3,
     "wna16_side_consumer_variant_execution_required": True,
     "wna16_side_consumer_variant_execution_min_source_count": 128,
     "single_field_handle_handoff_canary_required": True,
@@ -304,6 +310,8 @@ REQUIRED_DEFAULT_GATE_EVIDENCE_JSON_LABELS = {
     "future_wna16_typed_slot_kernel_variant_useful_consumer_json",
     "future_wna16_typed_slot_kernel_variant_payloadless_useful_execution_json",
     "future_wna16_typed_slot_payloadless_useful_repeat_benchmark_json",
+    "future_wna16_typed_slot_payloadless_useful_runtime_ablation_json",
+    "future_wna16_typed_slot_payloadless_useful_production_like_timing_gate_json",
     "wna16_side_consumer_variant_execution_128strict_runner_json",
     "payload_cache_producer_state_native_canary_json",
     "payload_cache_shifted_issue_runtime_shadow_gate_json",
@@ -4451,6 +4459,16 @@ def _validate_future_wna16_typed_slot_kernel_variant_payloadless_useful_executio
     row_count = _int_metric(evidence, "row_count")
     row_ok_count = _int_metric(evidence, "row_ok_count")
     rows_consumed = _int_metric(evidence, "payloadless_useful_execution_rows_consumed")
+    field_count = _int_metric(evidence, "payloadless_useful_execution_field_count")
+    fields_per_row = _int_metric(evidence, "payloadless_useful_execution_fields_per_row")
+    useful_work_units = _int_metric(
+        evidence,
+        "payloadless_useful_execution_useful_work_units",
+    )
+    expected_useful_work_units = _int_metric(
+        evidence,
+        "payloadless_useful_execution_expected_useful_work_units",
+    )
     if source_count is None or source_count < min_source_count:
         failures.append("source_count_invalid")
     if row_count is None or row_count <= 0:
@@ -4459,6 +4477,34 @@ def _validate_future_wna16_typed_slot_kernel_variant_payloadless_useful_executio
         failures.append("row_ok_count_mismatch")
     if row_count is not None and rows_consumed != row_count:
         failures.append("payloadless_useful_execution_rows_consumed_mismatch")
+    if field_count != len(ARG_SLOT_MIRROR_FIELDS):
+        failures.append("payloadless_useful_execution_field_count_mismatch")
+    if fields_per_row != len(ARG_SLOT_MIRROR_FIELDS):
+        failures.append("payloadless_useful_execution_fields_per_row_mismatch")
+    if row_count is None or expected_useful_work_units != row_count * len(
+        ARG_SLOT_MIRROR_FIELDS
+    ):
+        failures.append(
+            "payloadless_useful_execution_expected_useful_work_units_mismatch"
+        )
+    if useful_work_units != expected_useful_work_units:
+        failures.append("payloadless_useful_execution_useful_work_units_mismatch")
+    if useful_work_units is None or useful_work_units <= 0:
+        failures.append("payloadless_useful_execution_useful_work_units_not_positive")
+    if _float_metric(
+        evidence,
+        "payloadless_useful_execution_useful_work_coverage",
+    ) != 1.0:
+        failures.append("payloadless_useful_execution_useful_work_coverage_mismatch")
+    if (
+        evidence.get("payloadless_useful_execution_useful_work_kind")
+        != "native_typed_slot_four_field_row_projection"
+    ):
+        failures.append("payloadless_useful_execution_useful_work_kind_mismatch")
+    if evidence.get("payloadless_useful_execution_native_consumer_has_useful_work") is not True:
+        failures.append(
+            "payloadless_useful_execution_native_consumer_has_useful_work_mismatch"
+        )
     if evidence.get("field_names") != list(ARG_SLOT_MIRROR_FIELDS):
         failures.append("field_names_mismatch")
     if evidence.get("useful_consumer_fields_consumed") != list(ARG_SLOT_MIRROR_FIELDS):
@@ -4657,6 +4703,214 @@ def _validate_future_wna16_typed_slot_payloadless_useful_repeat_benchmark(
         failures.append("repeat_output_jsons_count_mismatch")
     if any(not isinstance(value, str) or not value for value in repeat_jsons):
         failures.append("repeat_output_jsons_invalid")
+    return failures
+
+
+def _validate_payloadless_useful_projection_metrics(
+    evidence: dict[str, Any],
+    *,
+    min_source_count_key: str,
+    min_repeat_count_key: str | None,
+    require_row_coverage: bool = True,
+) -> list[str]:
+    failures: list[str] = []
+    min_source_count = int(REQUIRED_DEFAULT_GATE_CONTRACT[min_source_count_key])
+    source_count = _int_metric(evidence, "source_count")
+    row_count = _int_metric(evidence, "row_count")
+    row_ok_count = _int_metric(evidence, "row_ok_count")
+    rows_consumed = _int_metric(evidence, "rows_consumed")
+    repeat_count_measured = _int_metric(evidence, "repeat_count_measured")
+    field_count = _int_metric(evidence, "field_count")
+    fields_per_row = _int_metric(evidence, "fields_per_row")
+    useful_work_units = _int_metric(evidence, "useful_work_units")
+    expected_useful_work_units = _int_metric(evidence, "expected_useful_work_units")
+    if source_count is None or source_count < min_source_count:
+        failures.append("source_count_invalid")
+    if row_count is None or row_count <= 0:
+        failures.append("row_count_invalid")
+    elif require_row_coverage and (row_ok_count != row_count or rows_consumed != row_count):
+        failures.append("row_coverage_mismatch")
+    elif not require_row_coverage:
+        if row_ok_count is not None and row_ok_count != row_count:
+            failures.append("row_ok_count_mismatch")
+        if rows_consumed is not None and rows_consumed != row_count:
+            failures.append("rows_consumed_mismatch")
+    if field_count != len(ARG_SLOT_MIRROR_FIELDS):
+        failures.append("field_count_mismatch")
+    if fields_per_row != len(ARG_SLOT_MIRROR_FIELDS):
+        failures.append("fields_per_row_mismatch")
+    if row_count is None or expected_useful_work_units != row_count * len(
+        ARG_SLOT_MIRROR_FIELDS
+    ):
+        failures.append("expected_useful_work_units_mismatch")
+    if useful_work_units != expected_useful_work_units:
+        failures.append("useful_work_units_mismatch")
+    if useful_work_units is None or useful_work_units <= 0:
+        failures.append("useful_work_units_not_positive")
+    if _float_metric(evidence, "useful_work_coverage") != 1.0:
+        failures.append("useful_work_coverage_mismatch")
+    if evidence.get("useful_work_kind") != "native_typed_slot_four_field_row_projection":
+        failures.append("useful_work_kind_mismatch")
+    if evidence.get("native_consumer_has_useful_work") is not True:
+        failures.append("native_consumer_has_useful_work_mismatch")
+    if min_repeat_count_key is not None:
+        min_repeat_count = int(REQUIRED_DEFAULT_GATE_CONTRACT[min_repeat_count_key])
+        if repeat_count_measured is None or repeat_count_measured < min_repeat_count:
+            failures.append("repeat_count_measured_invalid")
+    return failures
+
+
+def _validate_future_wna16_typed_slot_payloadless_useful_runtime_ablation(
+    evidence: dict[str, Any],
+) -> list[str]:
+    failures: list[str] = []
+    expected_values = {
+        "artifact_kind": "future_wna16_typed_slot_payloadless_useful_runtime_ablation",
+        "ablation_name": (
+            "premap_future_wna16_typed_slot_payloadless_useful_runtime_ablation_v1"
+        ),
+        "ablation_mode": "payloadless_useful_native_stub_repeat_stability_ablation",
+        "ablation_source": (
+            "premap_future_wna16_typed_slot_payloadless_useful_repeat_benchmark_v1"
+        ),
+        "passed": True,
+        "failures": [],
+        "runtime_ablation_ready": True,
+        "payloadless_useful_runtime_ablation_ready": True,
+        "payload_bytes": 0,
+        "payload_deref_allowed": False,
+        "kernel_arg_pass_allowed": False,
+        "passed_to_kernel": False,
+        "changes_kernel_launch_args": False,
+        "uses_current_wna16_args": False,
+        "passes_current_wna16_args": False,
+        "current_wna16_arg_compatible": False,
+        "requires_wna16_arg_reinterpretation": False,
+        "measures_tpot": False,
+        "measures_vllm_latency": False,
+        "wna16_benchmark_ready": False,
+        "next_runtime_stage": (
+            "implement_future_wna16_typed_slot_payloadless_useful_production_like_timing"
+        ),
+    }
+    for key, expected in expected_values.items():
+        failures.extend(_check_metric_equals(evidence, key, expected))
+    failures.extend(
+        _validate_payloadless_useful_projection_metrics(
+            evidence,
+            min_source_count_key=(
+                "future_wna16_typed_slot_payloadless_useful_runtime_ablation_min_source_count"
+            ),
+            min_repeat_count_key=(
+                "future_wna16_typed_slot_payloadless_useful_runtime_ablation_min_repeat_count"
+            ),
+        )
+    )
+    if evidence.get("field_names") != list(ARG_SLOT_MIRROR_FIELDS):
+        failures.append("field_names_mismatch")
+    field_hashes = evidence.get("field_read_hashes")
+    if not isinstance(field_hashes, dict):
+        failures.append("field_read_hashes_missing")
+        field_hashes = {}
+    for field in ARG_SLOT_MIRROR_FIELDS:
+        if _hex64_metric(field_hashes, field) is None:
+            failures.append(f"{field}_read_hash_invalid")
+    for key in ("repeat_benchmark_json",):
+        value = evidence.get(key)
+        if not isinstance(value, str) or not value:
+            failures.append(f"{key}_missing")
+    if _sha256_hex_metric(evidence, "repeat_benchmark_sha256") is None:
+        failures.append("repeat_benchmark_sha256_invalid")
+    return failures
+
+
+def _validate_future_wna16_typed_slot_payloadless_useful_production_like_timing_gate(
+    evidence: dict[str, Any],
+) -> list[str]:
+    failures: list[str] = []
+    safety_expected_values = {
+        "benchmark_is_current_wna16_fused_moe": False,
+        "changes_kernel_launch_args": False,
+        "current_wna16_arg_compatible": False,
+        "kernel_arg_pass_allowed": False,
+        "measures_tpot": False,
+        "measures_vllm_latency": False,
+        "passed_to_kernel": False,
+        "passes_current_wna16_args": False,
+        "payload_bytes": 0,
+        "payload_deref_allowed": False,
+        "requires_wna16_arg_reinterpretation": False,
+        "uses_current_wna16_args": False,
+        "wna16_benchmark_ready": False,
+    }
+    expected_values = {
+        "artifact_kind": (
+            "future_wna16_typed_slot_payloadless_useful_production_like_timing_gate"
+        ),
+        "timing_gate_name": (
+            "premap_future_wna16_typed_slot_payloadless_useful_production_like_timing_gate_v1"
+        ),
+        "timing_gate_mode": "production_like_config_readiness_gate",
+        "timing_gate_source": (
+            "premap_future_wna16_typed_slot_payloadless_useful_runtime_ablation_v1"
+        ),
+        "passed": True,
+        "failures": [],
+        "production_like_timing_ready": True,
+        "runtime_ablation_ready": True,
+        "payloadless_useful_runtime_ablation_ready": True,
+        "trace_config_is_production_like": True,
+        "payloadless_live_config_performance_claim_frozen": True,
+        "payloadless_production_tpot_allowed": False,
+        "will_measure_tpot_next": False,
+        "current_artifact_is_tpot_benchmark": False,
+        "payload_bytes": 0,
+        "payload_deref_allowed": False,
+        "kernel_arg_pass_allowed": False,
+        "passed_to_kernel": False,
+        "changes_kernel_launch_args": False,
+        "uses_current_wna16_args": False,
+        "passes_current_wna16_args": False,
+        "current_wna16_arg_compatible": False,
+        "requires_wna16_arg_reinterpretation": False,
+        "measures_tpot": False,
+        "measures_vllm_latency": False,
+        "wna16_benchmark_ready": False,
+        "next_runtime_stage": "future_typed_slot_useful_consumer_or_payload_cache_manager",
+    }
+    for key, expected in expected_values.items():
+        failures.extend(_check_metric_equals(evidence, key, expected))
+    failures.extend(
+        _validate_payloadless_useful_projection_metrics(
+            evidence,
+            min_source_count_key=(
+                "future_wna16_typed_slot_payloadless_useful_production_like_timing_gate_min_source_count"
+            ),
+            min_repeat_count_key=(
+                "future_wna16_typed_slot_payloadless_useful_production_like_timing_gate_min_repeat_count"
+            ),
+            require_row_coverage=False,
+        )
+    )
+    for key in ("runtime_ablation_json",):
+        value = evidence.get(key)
+        if not isinstance(value, str) or not value:
+            failures.append(f"{key}_missing")
+    if _sha256_hex_metric(evidence, "runtime_ablation_sha256") is None:
+        failures.append("runtime_ablation_sha256_invalid")
+    bound_safety = evidence.get("bound_runtime_ablation_safety")
+    if not isinstance(bound_safety, dict):
+        failures.append("bound_runtime_ablation_safety_missing")
+    else:
+        for key, expected in safety_expected_values.items():
+            failures.extend(
+                f"bound_runtime_ablation_safety_{failure}"
+                for failure in _check_metric_equals(
+                    bound_safety,
+                    key,
+                    expected,
+                )
+            )
     return failures
 
 
@@ -4970,7 +5224,10 @@ def _validate_required_evidence_payload(
         "future_wna16_typed_slot_payloadless_execution_json",
         "future_wna16_typed_slot_kernel_variant_execution_json",
         "future_wna16_typed_slot_kernel_variant_useful_consumer_json",
+        "future_wna16_typed_slot_kernel_variant_payloadless_useful_execution_json",
         "future_wna16_typed_slot_payloadless_useful_repeat_benchmark_json",
+        "future_wna16_typed_slot_payloadless_useful_runtime_ablation_json",
+        "future_wna16_typed_slot_payloadless_useful_production_like_timing_gate_json",
         "wna16_side_consumer_variant_execution_128strict_runner_json",
         "payload_cache_producer_state_native_canary_json",
         "payload_cache_shifted_issue_runtime_shadow_gate_json",
@@ -6173,6 +6430,97 @@ def _validate_required_evidence_payload(
             expected_wall = repeat_values[idx] if idx < len(repeat_values) else None
             if child_wall != expected_wall:
                 failures.append(f"{evidence_label}:repeat_{idx}_host_wall_mismatch")
+        return failures
+    if (
+        evidence_label
+        == "future_wna16_typed_slot_payloadless_useful_runtime_ablation_json"
+    ):
+        failures = [
+            f"{evidence_label}:{failure}"
+            for failure in _validate_future_wna16_typed_slot_payloadless_useful_runtime_ablation(
+                evidence
+            )
+        ]
+        if root is None or evidence_paths is None:
+            failures.append(f"{evidence_label}:evidence_paths_missing")
+            return failures
+        repeat_path = evidence_paths.get(
+            "future_wna16_typed_slot_payloadless_useful_repeat_benchmark_json"
+        )
+        observed_repeat_path = evidence.get("repeat_benchmark_json")
+        if isinstance(repeat_path, str) and isinstance(observed_repeat_path, str):
+            if _path_label(_path_for_label(repeat_path, root), root=root) != _path_label(
+                _path_for_label(observed_repeat_path, root),
+                root=root,
+            ):
+                failures.append(f"{evidence_label}:repeat_benchmark_json_mismatch")
+            if _path_label_sha256(repeat_path, root=root) != evidence.get(
+                "repeat_benchmark_sha256"
+            ):
+                failures.append(f"{evidence_label}:repeat_benchmark_sha256_mismatch")
+        else:
+            failures.append(f"{evidence_label}:repeat_benchmark_json_missing")
+        repeat_payload = _load_json_object_path(repeat_path, root=root)
+        for key in ("source_count", "row_count", "row_ok_count", "rows_consumed"):
+            if evidence.get(key) != repeat_payload.get(key):
+                failures.append(f"{evidence_label}:{key}_repeat_mismatch")
+        for key in (
+            "field_count",
+            "fields_per_row",
+            "useful_work_units",
+            "expected_useful_work_units",
+            "useful_work_coverage",
+            "useful_work_kind",
+            "native_consumer_has_useful_work",
+            "field_names",
+            "field_read_hashes",
+        ):
+            if evidence.get(key) != repeat_payload.get(key):
+                failures.append(f"{evidence_label}:{key}_repeat_mismatch")
+        return failures
+    if (
+        evidence_label
+        == "future_wna16_typed_slot_payloadless_useful_production_like_timing_gate_json"
+    ):
+        failures = [
+            f"{evidence_label}:{failure}"
+            for failure in _validate_future_wna16_typed_slot_payloadless_useful_production_like_timing_gate(
+                evidence
+            )
+        ]
+        if root is None or evidence_paths is None:
+            failures.append(f"{evidence_label}:evidence_paths_missing")
+            return failures
+        runtime_path = evidence_paths.get(
+            "future_wna16_typed_slot_payloadless_useful_runtime_ablation_json"
+        )
+        observed_runtime_path = evidence.get("runtime_ablation_json")
+        if isinstance(runtime_path, str) and isinstance(observed_runtime_path, str):
+            if _path_label(
+                _path_for_label(runtime_path, root),
+                root=root,
+            ) != _path_label(_path_for_label(observed_runtime_path, root), root=root):
+                failures.append(f"{evidence_label}:runtime_ablation_json_mismatch")
+            if _path_label_sha256(runtime_path, root=root) != evidence.get(
+                "runtime_ablation_sha256"
+            ):
+                failures.append(f"{evidence_label}:runtime_ablation_sha256_mismatch")
+        else:
+            failures.append(f"{evidence_label}:runtime_ablation_json_missing")
+        runtime_payload = _load_json_object_path(runtime_path, root=root)
+        for key in (
+            "source_count",
+            "row_count",
+            "field_count",
+            "fields_per_row",
+            "useful_work_units",
+            "expected_useful_work_units",
+            "useful_work_coverage",
+            "useful_work_kind",
+            "native_consumer_has_useful_work",
+        ):
+            if evidence.get(key) != runtime_payload.get(key):
+                failures.append(f"{evidence_label}:{key}_runtime_ablation_mismatch")
         return failures
     if evidence_label == "wna16_side_consumer_variant_execution_128strict_runner_json":
         return [
@@ -12685,6 +13033,38 @@ def run_premap_lab_preflight(
         _load_evidence_payload_from_check(
             default_gate_required_evidence_check,
             future_wna16_payloadless_useful_repeat_benchmark_evidence_label,
+            root=root,
+        )
+    )
+    future_wna16_payloadless_useful_runtime_ablation_evidence_label = (
+        "future_wna16_typed_slot_payloadless_useful_runtime_ablation_json"
+    )
+    future_wna16_payloadless_useful_runtime_ablation_evidence_row = (
+        _find_evidence_row(
+            default_gate_required_evidence_check,
+            future_wna16_payloadless_useful_runtime_ablation_evidence_label,
+        )
+    )
+    future_wna16_payloadless_useful_runtime_ablation_payload = (
+        _load_evidence_payload_from_check(
+            default_gate_required_evidence_check,
+            future_wna16_payloadless_useful_runtime_ablation_evidence_label,
+            root=root,
+        )
+    )
+    future_wna16_payloadless_useful_production_like_timing_gate_evidence_label = (
+        "future_wna16_typed_slot_payloadless_useful_production_like_timing_gate_json"
+    )
+    future_wna16_payloadless_useful_production_like_timing_gate_evidence_row = (
+        _find_evidence_row(
+            default_gate_required_evidence_check,
+            future_wna16_payloadless_useful_production_like_timing_gate_evidence_label,
+        )
+    )
+    future_wna16_payloadless_useful_production_like_timing_gate_payload = (
+        _load_evidence_payload_from_check(
+            default_gate_required_evidence_check,
+            future_wna16_payloadless_useful_production_like_timing_gate_evidence_label,
             root=root,
         )
     )
@@ -20281,6 +20661,456 @@ def run_premap_lab_preflight(
                 "next_runtime_stage"
             )
         ),
+        "default_kernel_consumer_future_wna16_payloadless_useful_runtime_ablation_evidence_label": (
+            future_wna16_payloadless_useful_runtime_ablation_evidence_label
+        ),
+        "default_kernel_consumer_future_wna16_payloadless_useful_runtime_ablation_evidence_path": (
+            future_wna16_payloadless_useful_runtime_ablation_evidence_row.get("path")
+        ),
+        "default_kernel_consumer_future_wna16_payloadless_useful_runtime_ablation_evidence_sha256": (
+            _evidence_row_sha256(
+                future_wna16_payloadless_useful_runtime_ablation_evidence_row
+            )
+        ),
+        "default_kernel_consumer_future_wna16_payloadless_useful_runtime_ablation_evidence_passed": (
+            _evidence_row_passed(
+                future_wna16_payloadless_useful_runtime_ablation_evidence_row
+            )
+        ),
+        "default_kernel_consumer_future_wna16_payloadless_useful_runtime_ablation_artifact_kind": (
+            future_wna16_payloadless_useful_runtime_ablation_payload.get(
+                "artifact_kind"
+            )
+        ),
+        "default_kernel_consumer_future_wna16_payloadless_useful_runtime_ablation_name": (
+            future_wna16_payloadless_useful_runtime_ablation_payload.get(
+                "ablation_name"
+            )
+        ),
+        "default_kernel_consumer_future_wna16_payloadless_useful_runtime_ablation_mode": (
+            future_wna16_payloadless_useful_runtime_ablation_payload.get(
+                "ablation_mode"
+            )
+        ),
+        "default_kernel_consumer_future_wna16_payloadless_useful_runtime_ablation_source": (
+            future_wna16_payloadless_useful_runtime_ablation_payload.get(
+                "ablation_source"
+            )
+        ),
+        "default_kernel_consumer_future_wna16_payloadless_useful_runtime_ablation_ready": (
+            _bool_metric(
+                future_wna16_payloadless_useful_runtime_ablation_payload,
+                "runtime_ablation_ready",
+            )
+        ),
+        "default_kernel_consumer_future_wna16_payloadless_useful_runtime_ablation_payloadless_ready": (
+            _bool_metric(
+                future_wna16_payloadless_useful_runtime_ablation_payload,
+                "payloadless_useful_runtime_ablation_ready",
+            )
+        ),
+        "default_kernel_consumer_future_wna16_payloadless_useful_runtime_ablation_source_count": (
+            _int_metric(
+                future_wna16_payloadless_useful_runtime_ablation_payload,
+                "source_count",
+            )
+        ),
+        "default_kernel_consumer_future_wna16_payloadless_useful_runtime_ablation_row_count": (
+            _int_metric(
+                future_wna16_payloadless_useful_runtime_ablation_payload,
+                "row_count",
+            )
+        ),
+        "default_kernel_consumer_future_wna16_payloadless_useful_runtime_ablation_row_ok_count": (
+            _int_metric(
+                future_wna16_payloadless_useful_runtime_ablation_payload,
+                "row_ok_count",
+            )
+        ),
+        "default_kernel_consumer_future_wna16_payloadless_useful_runtime_ablation_rows_consumed": (
+            _int_metric(
+                future_wna16_payloadless_useful_runtime_ablation_payload,
+                "rows_consumed",
+            )
+        ),
+        "default_kernel_consumer_future_wna16_payloadless_useful_runtime_ablation_repeat_count_measured": (
+            _int_metric(
+                future_wna16_payloadless_useful_runtime_ablation_payload,
+                "repeat_count_measured",
+            )
+        ),
+        "default_kernel_consumer_future_wna16_payloadless_useful_runtime_ablation_field_count": (
+            _int_metric(
+                future_wna16_payloadless_useful_runtime_ablation_payload,
+                "field_count",
+            )
+        ),
+        "default_kernel_consumer_future_wna16_payloadless_useful_runtime_ablation_fields_per_row": (
+            _int_metric(
+                future_wna16_payloadless_useful_runtime_ablation_payload,
+                "fields_per_row",
+            )
+        ),
+        "default_kernel_consumer_future_wna16_payloadless_useful_runtime_ablation_useful_work_units": (
+            _int_metric(
+                future_wna16_payloadless_useful_runtime_ablation_payload,
+                "useful_work_units",
+            )
+        ),
+        "default_kernel_consumer_future_wna16_payloadless_useful_runtime_ablation_expected_useful_work_units": (
+            _int_metric(
+                future_wna16_payloadless_useful_runtime_ablation_payload,
+                "expected_useful_work_units",
+            )
+        ),
+        "default_kernel_consumer_future_wna16_payloadless_useful_runtime_ablation_useful_work_coverage": (
+            _float_metric(
+                future_wna16_payloadless_useful_runtime_ablation_payload,
+                "useful_work_coverage",
+            )
+        ),
+        "default_kernel_consumer_future_wna16_payloadless_useful_runtime_ablation_useful_work_kind": (
+            future_wna16_payloadless_useful_runtime_ablation_payload.get(
+                "useful_work_kind"
+            )
+        ),
+        "default_kernel_consumer_future_wna16_payloadless_useful_runtime_ablation_native_consumer_has_useful_work": (
+            _bool_metric(
+                future_wna16_payloadless_useful_runtime_ablation_payload,
+                "native_consumer_has_useful_work",
+            )
+        ),
+        "default_kernel_consumer_future_wna16_payloadless_useful_runtime_ablation_repeat_benchmark_json": (
+            future_wna16_payloadless_useful_runtime_ablation_payload.get(
+                "repeat_benchmark_json"
+            )
+        ),
+        "default_kernel_consumer_future_wna16_payloadless_useful_runtime_ablation_repeat_benchmark_sha256": (
+            future_wna16_payloadless_useful_runtime_ablation_payload.get(
+                "repeat_benchmark_sha256"
+            )
+        ),
+        "default_kernel_consumer_future_wna16_payloadless_useful_runtime_ablation_payload_bytes": (
+            _int_metric(
+                future_wna16_payloadless_useful_runtime_ablation_payload,
+                "payload_bytes",
+            )
+        ),
+        "default_kernel_consumer_future_wna16_payloadless_useful_runtime_ablation_payload_deref_allowed": (
+            _bool_metric(
+                future_wna16_payloadless_useful_runtime_ablation_payload,
+                "payload_deref_allowed",
+            )
+        ),
+        "default_kernel_consumer_future_wna16_payloadless_useful_runtime_ablation_kernel_arg_pass_allowed": (
+            _bool_metric(
+                future_wna16_payloadless_useful_runtime_ablation_payload,
+                "kernel_arg_pass_allowed",
+            )
+        ),
+        "default_kernel_consumer_future_wna16_payloadless_useful_runtime_ablation_passed_to_kernel": (
+            _bool_metric(
+                future_wna16_payloadless_useful_runtime_ablation_payload,
+                "passed_to_kernel",
+            )
+        ),
+        "default_kernel_consumer_future_wna16_payloadless_useful_runtime_ablation_changes_kernel_launch_args": (
+            _bool_metric(
+                future_wna16_payloadless_useful_runtime_ablation_payload,
+                "changes_kernel_launch_args",
+            )
+        ),
+        "default_kernel_consumer_future_wna16_payloadless_useful_runtime_ablation_current_wna16_arg_compatible": (
+            _bool_metric(
+                future_wna16_payloadless_useful_runtime_ablation_payload,
+                "current_wna16_arg_compatible",
+            )
+        ),
+        "default_kernel_consumer_future_wna16_payloadless_useful_runtime_ablation_uses_current_wna16_args": (
+            _bool_metric(
+                future_wna16_payloadless_useful_runtime_ablation_payload,
+                "uses_current_wna16_args",
+            )
+        ),
+        "default_kernel_consumer_future_wna16_payloadless_useful_runtime_ablation_passes_current_wna16_args": (
+            _bool_metric(
+                future_wna16_payloadless_useful_runtime_ablation_payload,
+                "passes_current_wna16_args",
+            )
+        ),
+        "default_kernel_consumer_future_wna16_payloadless_useful_runtime_ablation_requires_wna16_arg_reinterpretation": (
+            _bool_metric(
+                future_wna16_payloadless_useful_runtime_ablation_payload,
+                "requires_wna16_arg_reinterpretation",
+            )
+        ),
+        "default_kernel_consumer_future_wna16_payloadless_useful_runtime_ablation_measures_tpot": (
+            _bool_metric(
+                future_wna16_payloadless_useful_runtime_ablation_payload,
+                "measures_tpot",
+            )
+        ),
+        "default_kernel_consumer_future_wna16_payloadless_useful_runtime_ablation_measures_vllm_latency": (
+            _bool_metric(
+                future_wna16_payloadless_useful_runtime_ablation_payload,
+                "measures_vllm_latency",
+            )
+        ),
+        "default_kernel_consumer_future_wna16_payloadless_useful_runtime_ablation_wna16_benchmark_ready": (
+            _bool_metric(
+                future_wna16_payloadless_useful_runtime_ablation_payload,
+                "wna16_benchmark_ready",
+            )
+        ),
+        "default_kernel_consumer_future_wna16_payloadless_useful_runtime_ablation_next_runtime_stage": (
+            future_wna16_payloadless_useful_runtime_ablation_payload.get(
+                "next_runtime_stage"
+            )
+        ),
+        "default_kernel_consumer_future_wna16_payloadless_useful_production_like_timing_gate_evidence_label": (
+            future_wna16_payloadless_useful_production_like_timing_gate_evidence_label
+        ),
+        "default_kernel_consumer_future_wna16_payloadless_useful_production_like_timing_gate_evidence_path": (
+            future_wna16_payloadless_useful_production_like_timing_gate_evidence_row.get(
+                "path"
+            )
+        ),
+        "default_kernel_consumer_future_wna16_payloadless_useful_production_like_timing_gate_evidence_sha256": (
+            _evidence_row_sha256(
+                future_wna16_payloadless_useful_production_like_timing_gate_evidence_row
+            )
+        ),
+        "default_kernel_consumer_future_wna16_payloadless_useful_production_like_timing_gate_evidence_passed": (
+            _evidence_row_passed(
+                future_wna16_payloadless_useful_production_like_timing_gate_evidence_row
+            )
+        ),
+        "default_kernel_consumer_future_wna16_payloadless_useful_production_like_timing_gate_artifact_kind": (
+            future_wna16_payloadless_useful_production_like_timing_gate_payload.get(
+                "artifact_kind"
+            )
+        ),
+        "default_kernel_consumer_future_wna16_payloadless_useful_production_like_timing_gate_name": (
+            future_wna16_payloadless_useful_production_like_timing_gate_payload.get(
+                "timing_gate_name"
+            )
+        ),
+        "default_kernel_consumer_future_wna16_payloadless_useful_production_like_timing_gate_mode": (
+            future_wna16_payloadless_useful_production_like_timing_gate_payload.get(
+                "timing_gate_mode"
+            )
+        ),
+        "default_kernel_consumer_future_wna16_payloadless_useful_production_like_timing_gate_source": (
+            future_wna16_payloadless_useful_production_like_timing_gate_payload.get(
+                "timing_gate_source"
+            )
+        ),
+        "default_kernel_consumer_future_wna16_payloadless_useful_production_like_timing_gate_ready": (
+            _bool_metric(
+                future_wna16_payloadless_useful_production_like_timing_gate_payload,
+                "production_like_timing_ready",
+            )
+        ),
+        "default_kernel_consumer_future_wna16_payloadless_useful_production_like_timing_gate_runtime_ablation_ready": (
+            _bool_metric(
+                future_wna16_payloadless_useful_production_like_timing_gate_payload,
+                "runtime_ablation_ready",
+            )
+        ),
+        "default_kernel_consumer_future_wna16_payloadless_useful_production_like_timing_gate_payloadless_runtime_ablation_ready": (
+            _bool_metric(
+                future_wna16_payloadless_useful_production_like_timing_gate_payload,
+                "payloadless_useful_runtime_ablation_ready",
+            )
+        ),
+        "default_kernel_consumer_future_wna16_payloadless_useful_production_like_timing_gate_source_count": (
+            _int_metric(
+                future_wna16_payloadless_useful_production_like_timing_gate_payload,
+                "source_count",
+            )
+        ),
+        "default_kernel_consumer_future_wna16_payloadless_useful_production_like_timing_gate_row_count": (
+            _int_metric(
+                future_wna16_payloadless_useful_production_like_timing_gate_payload,
+                "row_count",
+            )
+        ),
+        "default_kernel_consumer_future_wna16_payloadless_useful_production_like_timing_gate_row_ok_count": (
+            _int_metric(
+                future_wna16_payloadless_useful_production_like_timing_gate_payload,
+                "row_ok_count",
+            )
+        ),
+        "default_kernel_consumer_future_wna16_payloadless_useful_production_like_timing_gate_rows_consumed": (
+            _int_metric(
+                future_wna16_payloadless_useful_production_like_timing_gate_payload,
+                "rows_consumed",
+            )
+        ),
+        "default_kernel_consumer_future_wna16_payloadless_useful_production_like_timing_gate_repeat_count_measured": (
+            _int_metric(
+                future_wna16_payloadless_useful_production_like_timing_gate_payload,
+                "repeat_count_measured",
+            )
+        ),
+        "default_kernel_consumer_future_wna16_payloadless_useful_production_like_timing_gate_field_count": (
+            _int_metric(
+                future_wna16_payloadless_useful_production_like_timing_gate_payload,
+                "field_count",
+            )
+        ),
+        "default_kernel_consumer_future_wna16_payloadless_useful_production_like_timing_gate_fields_per_row": (
+            _int_metric(
+                future_wna16_payloadless_useful_production_like_timing_gate_payload,
+                "fields_per_row",
+            )
+        ),
+        "default_kernel_consumer_future_wna16_payloadless_useful_production_like_timing_gate_useful_work_units": (
+            _int_metric(
+                future_wna16_payloadless_useful_production_like_timing_gate_payload,
+                "useful_work_units",
+            )
+        ),
+        "default_kernel_consumer_future_wna16_payloadless_useful_production_like_timing_gate_expected_useful_work_units": (
+            _int_metric(
+                future_wna16_payloadless_useful_production_like_timing_gate_payload,
+                "expected_useful_work_units",
+            )
+        ),
+        "default_kernel_consumer_future_wna16_payloadless_useful_production_like_timing_gate_useful_work_coverage": (
+            _float_metric(
+                future_wna16_payloadless_useful_production_like_timing_gate_payload,
+                "useful_work_coverage",
+            )
+        ),
+        "default_kernel_consumer_future_wna16_payloadless_useful_production_like_timing_gate_useful_work_kind": (
+            future_wna16_payloadless_useful_production_like_timing_gate_payload.get(
+                "useful_work_kind"
+            )
+        ),
+        "default_kernel_consumer_future_wna16_payloadless_useful_production_like_timing_gate_native_consumer_has_useful_work": (
+            _bool_metric(
+                future_wna16_payloadless_useful_production_like_timing_gate_payload,
+                "native_consumer_has_useful_work",
+            )
+        ),
+        "default_kernel_consumer_future_wna16_payloadless_useful_production_like_timing_gate_runtime_ablation_json": (
+            future_wna16_payloadless_useful_production_like_timing_gate_payload.get(
+                "runtime_ablation_json"
+            )
+        ),
+        "default_kernel_consumer_future_wna16_payloadless_useful_production_like_timing_gate_runtime_ablation_sha256": (
+            future_wna16_payloadless_useful_production_like_timing_gate_payload.get(
+                "runtime_ablation_sha256"
+            )
+        ),
+        "default_kernel_consumer_future_wna16_payloadless_useful_production_like_timing_gate_trace_config_is_production_like": (
+            _bool_metric(
+                future_wna16_payloadless_useful_production_like_timing_gate_payload,
+                "trace_config_is_production_like",
+            )
+        ),
+        "default_kernel_consumer_future_wna16_payloadless_useful_production_like_timing_gate_performance_claim_frozen": (
+            _bool_metric(
+                future_wna16_payloadless_useful_production_like_timing_gate_payload,
+                "payloadless_live_config_performance_claim_frozen",
+            )
+        ),
+        "default_kernel_consumer_future_wna16_payloadless_useful_production_like_timing_gate_production_tpot_allowed": (
+            _bool_metric(
+                future_wna16_payloadless_useful_production_like_timing_gate_payload,
+                "payloadless_production_tpot_allowed",
+            )
+        ),
+        "default_kernel_consumer_future_wna16_payloadless_useful_production_like_timing_gate_will_measure_tpot_next": (
+            _bool_metric(
+                future_wna16_payloadless_useful_production_like_timing_gate_payload,
+                "will_measure_tpot_next",
+            )
+        ),
+        "default_kernel_consumer_future_wna16_payloadless_useful_production_like_timing_gate_current_artifact_is_tpot_benchmark": (
+            _bool_metric(
+                future_wna16_payloadless_useful_production_like_timing_gate_payload,
+                "current_artifact_is_tpot_benchmark",
+            )
+        ),
+        "default_kernel_consumer_future_wna16_payloadless_useful_production_like_timing_gate_payload_bytes": (
+            _int_metric(
+                future_wna16_payloadless_useful_production_like_timing_gate_payload,
+                "payload_bytes",
+            )
+        ),
+        "default_kernel_consumer_future_wna16_payloadless_useful_production_like_timing_gate_payload_deref_allowed": (
+            _bool_metric(
+                future_wna16_payloadless_useful_production_like_timing_gate_payload,
+                "payload_deref_allowed",
+            )
+        ),
+        "default_kernel_consumer_future_wna16_payloadless_useful_production_like_timing_gate_kernel_arg_pass_allowed": (
+            _bool_metric(
+                future_wna16_payloadless_useful_production_like_timing_gate_payload,
+                "kernel_arg_pass_allowed",
+            )
+        ),
+        "default_kernel_consumer_future_wna16_payloadless_useful_production_like_timing_gate_passed_to_kernel": (
+            _bool_metric(
+                future_wna16_payloadless_useful_production_like_timing_gate_payload,
+                "passed_to_kernel",
+            )
+        ),
+        "default_kernel_consumer_future_wna16_payloadless_useful_production_like_timing_gate_changes_kernel_launch_args": (
+            _bool_metric(
+                future_wna16_payloadless_useful_production_like_timing_gate_payload,
+                "changes_kernel_launch_args",
+            )
+        ),
+        "default_kernel_consumer_future_wna16_payloadless_useful_production_like_timing_gate_current_wna16_arg_compatible": (
+            _bool_metric(
+                future_wna16_payloadless_useful_production_like_timing_gate_payload,
+                "current_wna16_arg_compatible",
+            )
+        ),
+        "default_kernel_consumer_future_wna16_payloadless_useful_production_like_timing_gate_uses_current_wna16_args": (
+            _bool_metric(
+                future_wna16_payloadless_useful_production_like_timing_gate_payload,
+                "uses_current_wna16_args",
+            )
+        ),
+        "default_kernel_consumer_future_wna16_payloadless_useful_production_like_timing_gate_passes_current_wna16_args": (
+            _bool_metric(
+                future_wna16_payloadless_useful_production_like_timing_gate_payload,
+                "passes_current_wna16_args",
+            )
+        ),
+        "default_kernel_consumer_future_wna16_payloadless_useful_production_like_timing_gate_requires_wna16_arg_reinterpretation": (
+            _bool_metric(
+                future_wna16_payloadless_useful_production_like_timing_gate_payload,
+                "requires_wna16_arg_reinterpretation",
+            )
+        ),
+        "default_kernel_consumer_future_wna16_payloadless_useful_production_like_timing_gate_measures_tpot": (
+            _bool_metric(
+                future_wna16_payloadless_useful_production_like_timing_gate_payload,
+                "measures_tpot",
+            )
+        ),
+        "default_kernel_consumer_future_wna16_payloadless_useful_production_like_timing_gate_measures_vllm_latency": (
+            _bool_metric(
+                future_wna16_payloadless_useful_production_like_timing_gate_payload,
+                "measures_vllm_latency",
+            )
+        ),
+        "default_kernel_consumer_future_wna16_payloadless_useful_production_like_timing_gate_wna16_benchmark_ready": (
+            _bool_metric(
+                future_wna16_payloadless_useful_production_like_timing_gate_payload,
+                "wna16_benchmark_ready",
+            )
+        ),
+        "default_kernel_consumer_future_wna16_payloadless_useful_production_like_timing_gate_next_runtime_stage": (
+            future_wna16_payloadless_useful_production_like_timing_gate_payload.get(
+                "next_runtime_stage"
+            )
+        ),
         "default_kernel_consumer_wna16_side_variant_evidence_label": (
             wna16_side_variant_evidence_label
         ),
@@ -23048,6 +23878,348 @@ def run_premap_lab_preflight(
         )
         is False
     )
+    future_wna16_payloadless_useful_runtime_ablation_source_count = _int_metric(
+        lab_gate_status_summary,
+        "default_kernel_consumer_future_wna16_payloadless_useful_runtime_ablation_source_count",
+    )
+    future_wna16_payloadless_useful_runtime_ablation_row_count = _int_metric(
+        lab_gate_status_summary,
+        "default_kernel_consumer_future_wna16_payloadless_useful_runtime_ablation_row_count",
+    )
+    future_wna16_payloadless_useful_runtime_ablation_repeat_count_measured = (
+        _int_metric(
+            lab_gate_status_summary,
+            "default_kernel_consumer_future_wna16_payloadless_useful_runtime_ablation_repeat_count_measured",
+        )
+    )
+    future_wna16_payloadless_useful_runtime_ablation_field_count = _int_metric(
+        lab_gate_status_summary,
+        "default_kernel_consumer_future_wna16_payloadless_useful_runtime_ablation_field_count",
+    )
+    future_wna16_payloadless_useful_runtime_ablation_fields_per_row = _int_metric(
+        lab_gate_status_summary,
+        "default_kernel_consumer_future_wna16_payloadless_useful_runtime_ablation_fields_per_row",
+    )
+    future_wna16_payloadless_useful_runtime_ablation_useful_work_units = _int_metric(
+        lab_gate_status_summary,
+        "default_kernel_consumer_future_wna16_payloadless_useful_runtime_ablation_useful_work_units",
+    )
+    future_wna16_payloadless_useful_runtime_ablation_expected_useful_work_units = (
+        _int_metric(
+            lab_gate_status_summary,
+            "default_kernel_consumer_future_wna16_payloadless_useful_runtime_ablation_expected_useful_work_units",
+        )
+    )
+    future_wna16_payloadless_useful_runtime_ablation_ready = (
+        future_wna16_payloadless_useful_repeat_benchmark_ready
+        and lab_gate_status_summary.get(
+            "default_kernel_consumer_future_wna16_payloadless_useful_runtime_ablation_evidence_passed"
+        )
+        is True
+        and lab_gate_status_summary.get(
+            "default_kernel_consumer_future_wna16_payloadless_useful_runtime_ablation_ready"
+        )
+        is True
+        and lab_gate_status_summary.get(
+            "default_kernel_consumer_future_wna16_payloadless_useful_runtime_ablation_payloadless_ready"
+        )
+        is True
+        and future_wna16_payloadless_useful_runtime_ablation_source_count is not None
+        and future_wna16_payloadless_useful_runtime_ablation_source_count
+        >= int(
+            REQUIRED_DEFAULT_GATE_CONTRACT[
+                "future_wna16_typed_slot_payloadless_useful_runtime_ablation_min_source_count"
+            ]
+        )
+        and future_wna16_payloadless_useful_runtime_ablation_source_count
+        == future_wna16_payloadless_useful_repeat_benchmark_source_count
+        and future_wna16_payloadless_useful_runtime_ablation_row_count
+        == future_wna16_payloadless_useful_repeat_benchmark_row_count
+        and lab_gate_status_summary.get(
+            "default_kernel_consumer_future_wna16_payloadless_useful_runtime_ablation_row_ok_count"
+        )
+        == future_wna16_payloadless_useful_runtime_ablation_row_count
+        and lab_gate_status_summary.get(
+            "default_kernel_consumer_future_wna16_payloadless_useful_runtime_ablation_rows_consumed"
+        )
+        == future_wna16_payloadless_useful_runtime_ablation_row_count
+        and future_wna16_payloadless_useful_runtime_ablation_field_count
+        == len(ARG_SLOT_MIRROR_FIELDS)
+        and future_wna16_payloadless_useful_runtime_ablation_fields_per_row
+        == len(ARG_SLOT_MIRROR_FIELDS)
+        and future_wna16_payloadless_useful_runtime_ablation_useful_work_units
+        is not None
+        and future_wna16_payloadless_useful_runtime_ablation_useful_work_units > 0
+        and future_wna16_payloadless_useful_runtime_ablation_expected_useful_work_units
+        == future_wna16_payloadless_useful_runtime_ablation_row_count
+        * len(ARG_SLOT_MIRROR_FIELDS)
+        and future_wna16_payloadless_useful_runtime_ablation_useful_work_units
+        == future_wna16_payloadless_useful_runtime_ablation_expected_useful_work_units
+        and lab_gate_status_summary.get(
+            "default_kernel_consumer_future_wna16_payloadless_useful_runtime_ablation_useful_work_coverage"
+        )
+        == 1.0
+        and lab_gate_status_summary.get(
+            "default_kernel_consumer_future_wna16_payloadless_useful_runtime_ablation_useful_work_kind"
+        )
+        == "native_typed_slot_four_field_row_projection"
+        and lab_gate_status_summary.get(
+            "default_kernel_consumer_future_wna16_payloadless_useful_runtime_ablation_native_consumer_has_useful_work"
+        )
+        is True
+        and future_wna16_payloadless_useful_runtime_ablation_repeat_count_measured
+        is not None
+        and future_wna16_payloadless_useful_runtime_ablation_repeat_count_measured
+        >= int(
+            REQUIRED_DEFAULT_GATE_CONTRACT[
+                "future_wna16_typed_slot_payloadless_useful_runtime_ablation_min_repeat_count"
+            ]
+        )
+        and _path_labels_match(
+            lab_gate_status_summary.get(
+                "default_kernel_consumer_future_wna16_payloadless_useful_runtime_ablation_repeat_benchmark_json"
+            ),
+            lab_gate_status_summary.get(
+                "default_kernel_consumer_future_wna16_payloadless_useful_repeat_benchmark_evidence_path"
+            ),
+            root=root,
+        )
+        and lab_gate_status_summary.get(
+            "default_kernel_consumer_future_wna16_payloadless_useful_runtime_ablation_repeat_benchmark_sha256"
+        )
+        == lab_gate_status_summary.get(
+            "default_kernel_consumer_future_wna16_payloadless_useful_repeat_benchmark_evidence_sha256"
+        )
+        and lab_gate_status_summary.get(
+            "default_kernel_consumer_future_wna16_payloadless_useful_runtime_ablation_payload_bytes"
+        )
+        == 0
+        and lab_gate_status_summary.get(
+            "default_kernel_consumer_future_wna16_payloadless_useful_runtime_ablation_payload_deref_allowed"
+        )
+        is False
+        and lab_gate_status_summary.get(
+            "default_kernel_consumer_future_wna16_payloadless_useful_runtime_ablation_kernel_arg_pass_allowed"
+        )
+        is False
+        and lab_gate_status_summary.get(
+            "default_kernel_consumer_future_wna16_payloadless_useful_runtime_ablation_passed_to_kernel"
+        )
+        is False
+        and lab_gate_status_summary.get(
+            "default_kernel_consumer_future_wna16_payloadless_useful_runtime_ablation_changes_kernel_launch_args"
+        )
+        is False
+        and lab_gate_status_summary.get(
+            "default_kernel_consumer_future_wna16_payloadless_useful_runtime_ablation_current_wna16_arg_compatible"
+        )
+        is False
+        and lab_gate_status_summary.get(
+            "default_kernel_consumer_future_wna16_payloadless_useful_runtime_ablation_uses_current_wna16_args"
+        )
+        is False
+        and lab_gate_status_summary.get(
+            "default_kernel_consumer_future_wna16_payloadless_useful_runtime_ablation_passes_current_wna16_args"
+        )
+        is False
+        and lab_gate_status_summary.get(
+            "default_kernel_consumer_future_wna16_payloadless_useful_runtime_ablation_requires_wna16_arg_reinterpretation"
+        )
+        is False
+        and lab_gate_status_summary.get(
+            "default_kernel_consumer_future_wna16_payloadless_useful_runtime_ablation_measures_tpot"
+        )
+        is False
+        and lab_gate_status_summary.get(
+            "default_kernel_consumer_future_wna16_payloadless_useful_runtime_ablation_measures_vllm_latency"
+        )
+        is False
+        and lab_gate_status_summary.get(
+            "default_kernel_consumer_future_wna16_payloadless_useful_runtime_ablation_wna16_benchmark_ready"
+        )
+        is False
+    )
+    future_wna16_payloadless_useful_production_like_timing_gate_source_count = (
+        _int_metric(
+            lab_gate_status_summary,
+            "default_kernel_consumer_future_wna16_payloadless_useful_production_like_timing_gate_source_count",
+        )
+    )
+    future_wna16_payloadless_useful_production_like_timing_gate_row_count = (
+        _int_metric(
+            lab_gate_status_summary,
+            "default_kernel_consumer_future_wna16_payloadless_useful_production_like_timing_gate_row_count",
+        )
+    )
+    future_wna16_payloadless_useful_production_like_timing_gate_repeat_count_measured = (
+        _int_metric(
+            lab_gate_status_summary,
+            "default_kernel_consumer_future_wna16_payloadless_useful_production_like_timing_gate_repeat_count_measured",
+        )
+    )
+    future_wna16_payloadless_useful_production_like_timing_gate_useful_work_units = (
+        _int_metric(
+            lab_gate_status_summary,
+            "default_kernel_consumer_future_wna16_payloadless_useful_production_like_timing_gate_useful_work_units",
+        )
+    )
+    future_wna16_payloadless_useful_production_like_timing_gate_expected_useful_work_units = (
+        _int_metric(
+            lab_gate_status_summary,
+            "default_kernel_consumer_future_wna16_payloadless_useful_production_like_timing_gate_expected_useful_work_units",
+        )
+    )
+    future_wna16_payloadless_useful_production_like_timing_gate_ready = (
+        future_wna16_payloadless_useful_runtime_ablation_ready
+        and lab_gate_status_summary.get(
+            "default_kernel_consumer_future_wna16_payloadless_useful_production_like_timing_gate_evidence_passed"
+        )
+        is True
+        and lab_gate_status_summary.get(
+            "default_kernel_consumer_future_wna16_payloadless_useful_production_like_timing_gate_ready"
+        )
+        is True
+        and lab_gate_status_summary.get(
+            "default_kernel_consumer_future_wna16_payloadless_useful_production_like_timing_gate_runtime_ablation_ready"
+        )
+        is True
+        and lab_gate_status_summary.get(
+            "default_kernel_consumer_future_wna16_payloadless_useful_production_like_timing_gate_payloadless_runtime_ablation_ready"
+        )
+        is True
+        and future_wna16_payloadless_useful_production_like_timing_gate_source_count
+        is not None
+        and future_wna16_payloadless_useful_production_like_timing_gate_source_count
+        >= int(
+            REQUIRED_DEFAULT_GATE_CONTRACT[
+                "future_wna16_typed_slot_payloadless_useful_production_like_timing_gate_min_source_count"
+            ]
+        )
+        and future_wna16_payloadless_useful_production_like_timing_gate_source_count
+        == future_wna16_payloadless_useful_runtime_ablation_source_count
+        and future_wna16_payloadless_useful_production_like_timing_gate_row_count
+        == future_wna16_payloadless_useful_runtime_ablation_row_count
+        and lab_gate_status_summary.get(
+            "default_kernel_consumer_future_wna16_payloadless_useful_production_like_timing_gate_field_count"
+        )
+        == len(ARG_SLOT_MIRROR_FIELDS)
+        and lab_gate_status_summary.get(
+            "default_kernel_consumer_future_wna16_payloadless_useful_production_like_timing_gate_fields_per_row"
+        )
+        == len(ARG_SLOT_MIRROR_FIELDS)
+        and future_wna16_payloadless_useful_production_like_timing_gate_useful_work_units
+        is not None
+        and future_wna16_payloadless_useful_production_like_timing_gate_useful_work_units
+        > 0
+        and future_wna16_payloadless_useful_production_like_timing_gate_expected_useful_work_units
+        == future_wna16_payloadless_useful_production_like_timing_gate_row_count
+        * len(ARG_SLOT_MIRROR_FIELDS)
+        and future_wna16_payloadless_useful_production_like_timing_gate_useful_work_units
+        == future_wna16_payloadless_useful_production_like_timing_gate_expected_useful_work_units
+        and lab_gate_status_summary.get(
+            "default_kernel_consumer_future_wna16_payloadless_useful_production_like_timing_gate_useful_work_coverage"
+        )
+        == 1.0
+        and lab_gate_status_summary.get(
+            "default_kernel_consumer_future_wna16_payloadless_useful_production_like_timing_gate_useful_work_kind"
+        )
+        == "native_typed_slot_four_field_row_projection"
+        and lab_gate_status_summary.get(
+            "default_kernel_consumer_future_wna16_payloadless_useful_production_like_timing_gate_native_consumer_has_useful_work"
+        )
+        is True
+        and future_wna16_payloadless_useful_production_like_timing_gate_repeat_count_measured
+        is not None
+        and future_wna16_payloadless_useful_production_like_timing_gate_repeat_count_measured
+        >= int(
+            REQUIRED_DEFAULT_GATE_CONTRACT[
+                "future_wna16_typed_slot_payloadless_useful_production_like_timing_gate_min_repeat_count"
+            ]
+        )
+        and _path_labels_match(
+            lab_gate_status_summary.get(
+                "default_kernel_consumer_future_wna16_payloadless_useful_production_like_timing_gate_runtime_ablation_json"
+            ),
+            lab_gate_status_summary.get(
+                "default_kernel_consumer_future_wna16_payloadless_useful_runtime_ablation_evidence_path"
+            ),
+            root=root,
+        )
+        and lab_gate_status_summary.get(
+            "default_kernel_consumer_future_wna16_payloadless_useful_production_like_timing_gate_runtime_ablation_sha256"
+        )
+        == lab_gate_status_summary.get(
+            "default_kernel_consumer_future_wna16_payloadless_useful_runtime_ablation_evidence_sha256"
+        )
+        and lab_gate_status_summary.get(
+            "default_kernel_consumer_future_wna16_payloadless_useful_production_like_timing_gate_trace_config_is_production_like"
+        )
+        is True
+        and lab_gate_status_summary.get(
+            "default_kernel_consumer_future_wna16_payloadless_useful_production_like_timing_gate_performance_claim_frozen"
+        )
+        is True
+        and lab_gate_status_summary.get(
+            "default_kernel_consumer_future_wna16_payloadless_useful_production_like_timing_gate_production_tpot_allowed"
+        )
+        is False
+        and lab_gate_status_summary.get(
+            "default_kernel_consumer_future_wna16_payloadless_useful_production_like_timing_gate_will_measure_tpot_next"
+        )
+        is False
+        and lab_gate_status_summary.get(
+            "default_kernel_consumer_future_wna16_payloadless_useful_production_like_timing_gate_current_artifact_is_tpot_benchmark"
+        )
+        is False
+        and lab_gate_status_summary.get(
+            "default_kernel_consumer_future_wna16_payloadless_useful_production_like_timing_gate_payload_bytes"
+        )
+        == 0
+        and lab_gate_status_summary.get(
+            "default_kernel_consumer_future_wna16_payloadless_useful_production_like_timing_gate_payload_deref_allowed"
+        )
+        is False
+        and lab_gate_status_summary.get(
+            "default_kernel_consumer_future_wna16_payloadless_useful_production_like_timing_gate_kernel_arg_pass_allowed"
+        )
+        is False
+        and lab_gate_status_summary.get(
+            "default_kernel_consumer_future_wna16_payloadless_useful_production_like_timing_gate_passed_to_kernel"
+        )
+        is False
+        and lab_gate_status_summary.get(
+            "default_kernel_consumer_future_wna16_payloadless_useful_production_like_timing_gate_changes_kernel_launch_args"
+        )
+        is False
+        and lab_gate_status_summary.get(
+            "default_kernel_consumer_future_wna16_payloadless_useful_production_like_timing_gate_current_wna16_arg_compatible"
+        )
+        is False
+        and lab_gate_status_summary.get(
+            "default_kernel_consumer_future_wna16_payloadless_useful_production_like_timing_gate_uses_current_wna16_args"
+        )
+        is False
+        and lab_gate_status_summary.get(
+            "default_kernel_consumer_future_wna16_payloadless_useful_production_like_timing_gate_passes_current_wna16_args"
+        )
+        is False
+        and lab_gate_status_summary.get(
+            "default_kernel_consumer_future_wna16_payloadless_useful_production_like_timing_gate_requires_wna16_arg_reinterpretation"
+        )
+        is False
+        and lab_gate_status_summary.get(
+            "default_kernel_consumer_future_wna16_payloadless_useful_production_like_timing_gate_measures_tpot"
+        )
+        is False
+        and lab_gate_status_summary.get(
+            "default_kernel_consumer_future_wna16_payloadless_useful_production_like_timing_gate_measures_vllm_latency"
+        )
+        is False
+        and lab_gate_status_summary.get(
+            "default_kernel_consumer_future_wna16_payloadless_useful_production_like_timing_gate_wna16_benchmark_ready"
+        )
+        is False
+    )
     wna16_benchmark_prerequisites_ready = (
         all_four_field_consumer_ready
         and future_wna16_kernel_side_typed_consumer_path_ready
@@ -23137,7 +24309,33 @@ def run_premap_lab_preflight(
         failures.append(
             "default_kernel_consumer_future_wna16_payloadless_useful_repeat_benchmark_not_ready"
         )
-    if future_wna16_payloadless_useful_repeat_benchmark_ready:
+    if (
+        REQUIRED_DEFAULT_GATE_CONTRACT[
+            "future_wna16_typed_slot_payloadless_useful_runtime_ablation_required"
+        ]
+        and future_wna16_payloadless_useful_repeat_benchmark_ready
+        and not future_wna16_payloadless_useful_runtime_ablation_ready
+    ):
+        failures.append(
+            "default_kernel_consumer_future_wna16_payloadless_useful_runtime_ablation_not_ready"
+        )
+    if (
+        REQUIRED_DEFAULT_GATE_CONTRACT[
+            "future_wna16_typed_slot_payloadless_useful_production_like_timing_gate_required"
+        ]
+        and future_wna16_payloadless_useful_runtime_ablation_ready
+        and not future_wna16_payloadless_useful_production_like_timing_gate_ready
+    ):
+        failures.append(
+            "default_kernel_consumer_future_wna16_payloadless_useful_production_like_timing_gate_not_ready"
+        )
+    if future_wna16_payloadless_useful_production_like_timing_gate_ready:
+        next_runtime_stage = "future_typed_slot_useful_consumer_or_payload_cache_manager"
+    elif future_wna16_payloadless_useful_runtime_ablation_ready:
+        next_runtime_stage = (
+            "implement_future_wna16_typed_slot_payloadless_useful_production_like_timing"
+        )
+    elif future_wna16_payloadless_useful_repeat_benchmark_ready:
         next_runtime_stage = (
             "implement_future_wna16_typed_slot_payloadless_useful_runtime_ablation"
         )
@@ -23213,6 +24411,12 @@ def run_premap_lab_preflight(
     lab_gate_status_summary[
         "default_kernel_consumer_future_wna16_payloadless_useful_repeat_benchmark_gate_ready"
     ] = future_wna16_payloadless_useful_repeat_benchmark_ready
+    lab_gate_status_summary[
+        "default_kernel_consumer_future_wna16_payloadless_useful_runtime_ablation_gate_ready"
+    ] = future_wna16_payloadless_useful_runtime_ablation_ready
+    lab_gate_status_summary[
+        "default_kernel_consumer_future_wna16_payloadless_useful_production_like_timing_gate_gate_ready"
+    ] = future_wna16_payloadless_useful_production_like_timing_gate_ready
     lab_gate_status_summary[
         "default_kernel_consumer_wna16_side_variant_ready"
     ] = wna16_side_variant_ready

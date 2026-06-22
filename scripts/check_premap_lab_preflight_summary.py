@@ -726,6 +726,254 @@ def _future_wna16_payloadless_useful_repeat_benchmark_ready(
     return ready
 
 
+def _payloadless_useful_projection_summary_ready(
+    summary: dict[str, Any],
+    failures: list[str],
+    *,
+    prefix: str,
+    source_count_reference: int | None,
+    row_count_reference: int | None,
+    min_repeat_count: int = 3,
+    require_row_coverage: bool = True,
+) -> bool:
+    ready = True
+    source_count = _int_metric(summary, f"{prefix}_source_count")
+    row_count = _int_metric(summary, f"{prefix}_row_count")
+    row_ok_count = _int_metric(summary, f"{prefix}_row_ok_count")
+    rows_consumed = _int_metric(summary, f"{prefix}_rows_consumed")
+    repeat_measured = _int_metric(summary, f"{prefix}_repeat_count_measured")
+    field_count = _int_metric(summary, f"{prefix}_field_count")
+    fields_per_row = _int_metric(summary, f"{prefix}_fields_per_row")
+    useful_work_units = _int_metric(summary, f"{prefix}_useful_work_units")
+    expected_useful_work_units = _int_metric(
+        summary,
+        f"{prefix}_expected_useful_work_units",
+    )
+    if source_count is None or source_count < 128:
+        failures.append(f"{prefix}_source_count_invalid")
+        ready = False
+    if source_count_reference is not None and source_count != source_count_reference:
+        failures.append(f"{prefix}_source_count_reference_mismatch")
+        ready = False
+    if row_count is None or row_count <= 0:
+        failures.append(f"{prefix}_row_count_invalid")
+        ready = False
+    if row_count_reference is not None and row_count != row_count_reference:
+        failures.append(f"{prefix}_row_count_reference_mismatch")
+        ready = False
+    if (
+        require_row_coverage
+        and row_count is not None
+        and (row_ok_count != row_count or rows_consumed != row_count)
+    ):
+        failures.append(f"{prefix}_row_coverage_mismatch")
+        ready = False
+    if not require_row_coverage and row_count is not None:
+        if row_ok_count is not None and row_ok_count != row_count:
+            failures.append(f"{prefix}_row_ok_count_mismatch")
+            ready = False
+        if rows_consumed is not None and rows_consumed != row_count:
+            failures.append(f"{prefix}_rows_consumed_mismatch")
+            ready = False
+    if field_count != len(REQUIRED_ROW_FIELDS):
+        failures.append(f"{prefix}_field_count_mismatch")
+        ready = False
+    if fields_per_row != len(REQUIRED_ROW_FIELDS):
+        failures.append(f"{prefix}_fields_per_row_mismatch")
+        ready = False
+    if (
+        row_count is None
+        or expected_useful_work_units != row_count * len(REQUIRED_ROW_FIELDS)
+    ):
+        failures.append(f"{prefix}_expected_useful_work_units_mismatch")
+        ready = False
+    if useful_work_units != expected_useful_work_units:
+        failures.append(f"{prefix}_useful_work_units_mismatch")
+        ready = False
+    if useful_work_units is None or useful_work_units <= 0:
+        failures.append(f"{prefix}_useful_work_units_not_positive")
+        ready = False
+    if _float_metric(summary, f"{prefix}_useful_work_coverage") != 1.0:
+        failures.append(f"{prefix}_useful_work_coverage_mismatch")
+        ready = False
+    if (
+        summary.get(f"{prefix}_useful_work_kind")
+        != "native_typed_slot_four_field_row_projection"
+    ):
+        failures.append(f"{prefix}_useful_work_kind_mismatch")
+        ready = False
+    if summary.get(f"{prefix}_native_consumer_has_useful_work") is not True:
+        failures.append(f"{prefix}_native_consumer_has_useful_work_mismatch")
+        ready = False
+    if repeat_measured is None or repeat_measured < min_repeat_count:
+        failures.append(f"{prefix}_repeat_count_invalid")
+        ready = False
+    return ready
+
+
+def _future_wna16_payloadless_useful_runtime_ablation_ready(
+    summary: dict[str, Any],
+    failures: list[str],
+) -> bool:
+    prefix = "default_kernel_consumer_future_wna16_payloadless_useful_runtime_ablation"
+    repeat_prefix = (
+        "default_kernel_consumer_future_wna16_payloadless_useful_repeat_benchmark"
+    )
+    expected_values = {
+        f"{prefix}_evidence_passed": True,
+        f"{prefix}_ready": True,
+        f"{prefix}_payloadless_ready": True,
+        f"{prefix}_payload_bytes": 0,
+        f"{prefix}_payload_deref_allowed": False,
+        f"{prefix}_kernel_arg_pass_allowed": False,
+        f"{prefix}_passed_to_kernel": False,
+        f"{prefix}_changes_kernel_launch_args": False,
+        f"{prefix}_current_wna16_arg_compatible": False,
+        f"{prefix}_uses_current_wna16_args": False,
+        f"{prefix}_passes_current_wna16_args": False,
+        f"{prefix}_requires_wna16_arg_reinterpretation": False,
+        f"{prefix}_measures_tpot": False,
+        f"{prefix}_measures_vllm_latency": False,
+        f"{prefix}_wna16_benchmark_ready": False,
+    }
+    ready = True
+    for key, expected in expected_values.items():
+        if summary.get(key) != expected:
+            failures.append(f"{key}_mismatch")
+            ready = False
+    for key, expected in {
+        f"{prefix}_artifact_kind": (
+            "future_wna16_typed_slot_payloadless_useful_runtime_ablation"
+        ),
+        f"{prefix}_name": (
+            "premap_future_wna16_typed_slot_payloadless_useful_runtime_ablation_v1"
+        ),
+        f"{prefix}_mode": "payloadless_useful_native_stub_repeat_stability_ablation",
+        f"{prefix}_source": (
+            "premap_future_wna16_typed_slot_payloadless_useful_repeat_benchmark_v1"
+        ),
+        f"{prefix}_next_runtime_stage": (
+            "implement_future_wna16_typed_slot_payloadless_useful_production_like_timing"
+        ),
+    }.items():
+        if summary.get(key) != expected:
+            failures.append(f"{key}_mismatch")
+            ready = False
+    if not _payloadless_useful_projection_summary_ready(
+        summary,
+        failures,
+        prefix=prefix,
+        source_count_reference=_int_metric(summary, f"{repeat_prefix}_source_count"),
+        row_count_reference=_int_metric(summary, f"{repeat_prefix}_row_count"),
+    ):
+        ready = False
+    if not _same_path_label(
+        summary.get(f"{prefix}_repeat_benchmark_json"),
+        summary.get(f"{repeat_prefix}_evidence_path"),
+    ):
+        failures.append(f"{prefix}_repeat_benchmark_json_mismatch")
+        ready = False
+    if summary.get(f"{prefix}_repeat_benchmark_sha256") != summary.get(
+        f"{repeat_prefix}_evidence_sha256"
+    ):
+        failures.append(f"{prefix}_repeat_benchmark_sha256_mismatch")
+        ready = False
+    if not _is_hex64(summary.get(f"{prefix}_evidence_sha256")):
+        failures.append(f"{prefix}_evidence_sha256_invalid")
+        ready = False
+    if not isinstance(summary.get(f"{prefix}_evidence_path"), str) or not summary.get(
+        f"{prefix}_evidence_path"
+    ):
+        failures.append(f"{prefix}_evidence_path_missing")
+        ready = False
+    return ready
+
+
+def _future_wna16_payloadless_useful_production_like_timing_gate_ready(
+    summary: dict[str, Any],
+    failures: list[str],
+) -> bool:
+    prefix = (
+        "default_kernel_consumer_future_wna16_payloadless_useful_production_like_timing_gate"
+    )
+    runtime_prefix = (
+        "default_kernel_consumer_future_wna16_payloadless_useful_runtime_ablation"
+    )
+    expected_values = {
+        f"{prefix}_evidence_passed": True,
+        f"{prefix}_ready": True,
+        f"{prefix}_runtime_ablation_ready": True,
+        f"{prefix}_payloadless_runtime_ablation_ready": True,
+        f"{prefix}_trace_config_is_production_like": True,
+        f"{prefix}_performance_claim_frozen": True,
+        f"{prefix}_production_tpot_allowed": False,
+        f"{prefix}_will_measure_tpot_next": False,
+        f"{prefix}_current_artifact_is_tpot_benchmark": False,
+        f"{prefix}_payload_bytes": 0,
+        f"{prefix}_payload_deref_allowed": False,
+        f"{prefix}_kernel_arg_pass_allowed": False,
+        f"{prefix}_passed_to_kernel": False,
+        f"{prefix}_changes_kernel_launch_args": False,
+        f"{prefix}_current_wna16_arg_compatible": False,
+        f"{prefix}_uses_current_wna16_args": False,
+        f"{prefix}_passes_current_wna16_args": False,
+        f"{prefix}_requires_wna16_arg_reinterpretation": False,
+        f"{prefix}_measures_tpot": False,
+        f"{prefix}_measures_vllm_latency": False,
+        f"{prefix}_wna16_benchmark_ready": False,
+    }
+    ready = True
+    for key, expected in expected_values.items():
+        if summary.get(key) != expected:
+            failures.append(f"{key}_mismatch")
+            ready = False
+    for key, expected in {
+        f"{prefix}_artifact_kind": (
+            "future_wna16_typed_slot_payloadless_useful_production_like_timing_gate"
+        ),
+        f"{prefix}_name": (
+            "premap_future_wna16_typed_slot_payloadless_useful_production_like_timing_gate_v1"
+        ),
+        f"{prefix}_mode": "production_like_config_readiness_gate",
+        f"{prefix}_source": (
+            "premap_future_wna16_typed_slot_payloadless_useful_runtime_ablation_v1"
+        ),
+        f"{prefix}_next_runtime_stage": "future_typed_slot_useful_consumer_or_payload_cache_manager",
+    }.items():
+        if summary.get(key) != expected:
+            failures.append(f"{key}_mismatch")
+            ready = False
+    if not _payloadless_useful_projection_summary_ready(
+        summary,
+        failures,
+        prefix=prefix,
+        source_count_reference=_int_metric(summary, f"{runtime_prefix}_source_count"),
+        row_count_reference=_int_metric(summary, f"{runtime_prefix}_row_count"),
+        require_row_coverage=False,
+    ):
+        ready = False
+    if not _same_path_label(
+        summary.get(f"{prefix}_runtime_ablation_json"),
+        summary.get(f"{runtime_prefix}_evidence_path"),
+    ):
+        failures.append(f"{prefix}_runtime_ablation_json_mismatch")
+        ready = False
+    if summary.get(f"{prefix}_runtime_ablation_sha256") != summary.get(
+        f"{runtime_prefix}_evidence_sha256"
+    ):
+        failures.append(f"{prefix}_runtime_ablation_sha256_mismatch")
+        ready = False
+    if not _is_hex64(summary.get(f"{prefix}_evidence_sha256")):
+        failures.append(f"{prefix}_evidence_sha256_invalid")
+        ready = False
+    if not isinstance(summary.get(f"{prefix}_evidence_path"), str) or not summary.get(
+        f"{prefix}_evidence_path"
+    ):
+        failures.append(f"{prefix}_evidence_path_missing")
+        ready = False
+    return ready
+
+
 def _future_kernel_side_typed_path_ready(
     summary: dict[str, Any],
     failures: list[str],
@@ -8439,6 +8687,28 @@ def check_premap_lab_preflight_summary(
             future_wna16_payloadless_useful_execution_ready
             and payloadless_useful_repeat_benchmark_structural_ready
         )
+        payloadless_useful_runtime_ablation_failures: list[str] = []
+        payloadless_useful_runtime_ablation_structural_ready = (
+            _future_wna16_payloadless_useful_runtime_ablation_ready(
+                summary,
+                payloadless_useful_runtime_ablation_failures,
+            )
+        )
+        future_wna16_payloadless_useful_runtime_ablation_ready = (
+            future_wna16_payloadless_useful_repeat_benchmark_ready
+            and payloadless_useful_runtime_ablation_structural_ready
+        )
+        payloadless_useful_production_like_timing_failures: list[str] = []
+        payloadless_useful_production_like_timing_structural_ready = (
+            _future_wna16_payloadless_useful_production_like_timing_gate_ready(
+                summary,
+                payloadless_useful_production_like_timing_failures,
+            )
+        )
+        future_wna16_payloadless_useful_production_like_timing_ready = (
+            future_wna16_payloadless_useful_runtime_ablation_ready
+            and payloadless_useful_production_like_timing_structural_ready
+        )
         reported_payloadless_chain_ready = summary.get(
             "default_kernel_consumer_independent_typed_slot_payloadless_chain_ready"
         )
@@ -8538,8 +8808,68 @@ def check_premap_lab_preflight_summary(
             failures.append(
                 "future_wna16_payloadless_useful_repeat_benchmark_ready_invalid"
             )
+        reported_payloadless_useful_runtime_ablation_ready = summary.get(
+            "default_kernel_consumer_future_wna16_payloadless_useful_runtime_ablation_gate_ready"
+        )
+        if (
+            reported_payloadless_useful_runtime_ablation_ready is True
+            and not future_wna16_payloadless_useful_runtime_ablation_ready
+        ):
+            failures.append(
+                "future_wna16_payloadless_useful_runtime_ablation_ready_reported_without_valid_evidence"
+            )
+            failures.extend(payloadless_useful_runtime_ablation_failures)
+            if not future_wna16_payloadless_useful_repeat_benchmark_ready:
+                failures.extend(payloadless_useful_repeat_benchmark_failures)
+        elif (
+            future_wna16_payloadless_useful_runtime_ablation_ready
+            and reported_payloadless_useful_runtime_ablation_ready is not True
+        ):
+            failures.append(
+                "future_wna16_payloadless_useful_runtime_ablation_ready_not_reported"
+            )
+        elif reported_payloadless_useful_runtime_ablation_ready not in (
+            False,
+            None,
+            True,
+        ):
+            failures.append(
+                "future_wna16_payloadless_useful_runtime_ablation_ready_invalid"
+            )
+        reported_payloadless_useful_production_like_timing_ready = summary.get(
+            "default_kernel_consumer_future_wna16_payloadless_useful_production_like_timing_gate_gate_ready"
+        )
+        if (
+            reported_payloadless_useful_production_like_timing_ready is True
+            and not future_wna16_payloadless_useful_production_like_timing_ready
+        ):
+            failures.append(
+                "future_wna16_payloadless_useful_production_like_timing_ready_reported_without_valid_evidence"
+            )
+            failures.extend(payloadless_useful_production_like_timing_failures)
+            if not future_wna16_payloadless_useful_runtime_ablation_ready:
+                failures.extend(payloadless_useful_runtime_ablation_failures)
+        elif (
+            future_wna16_payloadless_useful_production_like_timing_ready
+            and reported_payloadless_useful_production_like_timing_ready is not True
+        ):
+            failures.append(
+                "future_wna16_payloadless_useful_production_like_timing_ready_not_reported"
+            )
+        elif reported_payloadless_useful_production_like_timing_ready not in (
+            False,
+            None,
+            True,
+        ):
+            failures.append(
+                "future_wna16_payloadless_useful_production_like_timing_ready_invalid"
+            )
         expected_stage = (
-            "implement_future_wna16_typed_slot_payloadless_useful_runtime_ablation"
+            "future_typed_slot_useful_consumer_or_payload_cache_manager"
+            if future_wna16_payloadless_useful_production_like_timing_ready
+            else "implement_future_wna16_typed_slot_payloadless_useful_production_like_timing"
+            if future_wna16_payloadless_useful_runtime_ablation_ready
+            else "implement_future_wna16_typed_slot_payloadless_useful_runtime_ablation"
             if future_wna16_payloadless_useful_repeat_benchmark_ready
             else "implement_future_wna16_typed_slot_payloadless_useful_runtime_gate"
             if future_wna16_payloadless_useful_execution_ready
