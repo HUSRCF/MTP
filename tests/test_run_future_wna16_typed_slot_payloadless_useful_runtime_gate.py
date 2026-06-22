@@ -49,6 +49,13 @@ def _summary_payload(module, *, row_count: int = 513, source_count: int = 128) -
         f"{prefix}_row_count": row_count,
         f"{prefix}_row_ok_count": row_count,
         f"{prefix}_rows_consumed": row_count,
+        f"{prefix}_field_count": len(module.FIELDS),
+        f"{prefix}_fields_per_row": len(module.FIELDS),
+        f"{prefix}_useful_work_units": row_count * len(module.FIELDS),
+        f"{prefix}_expected_useful_work_units": row_count * len(module.FIELDS),
+        f"{prefix}_useful_work_coverage": 1.0,
+        f"{prefix}_useful_work_kind": "native_typed_slot_four_field_row_projection",
+        f"{prefix}_native_consumer_has_useful_work": True,
         f"{prefix}_payload_bytes": 0,
         f"{prefix}_payload_deref_allowed": False,
         f"{prefix}_kernel_arg_pass_allowed": False,
@@ -136,6 +143,13 @@ def test_payloadless_useful_runtime_gate_accepts_strict_preflight(
     assert result["source_count"] == 128
     assert result["row_count"] == 513
     assert result["rows_consumed"] == 513
+    assert result["field_count"] == 4
+    assert result["fields_per_row"] == 4
+    assert result["useful_work_units"] == 513 * 4
+    assert result["expected_useful_work_units"] == 513 * 4
+    assert result["useful_work_coverage"] == 1.0
+    assert result["useful_work_kind"] == "native_typed_slot_four_field_row_projection"
+    assert result["native_consumer_has_useful_work"] is True
     assert result["field_names"] == list(module.FIELDS)
     assert set(result["field_read_hashes"]) == set(module.FIELDS)
     assert result["payload_bytes"] == 0
@@ -334,3 +348,30 @@ def test_payloadless_useful_runtime_gate_rejects_missing_field_coverage(
     assert result["passed"] is False
     assert "descriptor_ptr_row_ok_count_mismatch" in result["failures"]
     assert "scale_metadata_handle_field_hash_invalid" in result["failures"]
+
+
+def test_payloadless_useful_runtime_gate_rejects_incomplete_useful_work(
+    tmp_path: Path,
+):
+    module = _load_module()
+    prefix = module.PREFIX
+
+    def mutate(summary: dict) -> None:
+        summary[f"{prefix}_fields_per_row"] = 3
+        summary[f"{prefix}_useful_work_units"] = 513 * 3
+        summary[f"{prefix}_useful_work_coverage"] = 0.75
+        summary[f"{prefix}_native_consumer_has_useful_work"] = False
+
+    summary_path, check_path = _materialize_inputs(
+        tmp_path,
+        module,
+        summary_mutation=mutate,
+    )
+
+    result = _run(module, summary_path, check_path, tmp_path / "out.json")
+
+    assert result["passed"] is False
+    assert "fields_per_row_mismatch" in result["failures"]
+    assert "useful_work_units_mismatch" in result["failures"]
+    assert "useful_work_coverage_mismatch" in result["failures"]
+    assert "native_consumer_has_useful_work_mismatch" in result["failures"]

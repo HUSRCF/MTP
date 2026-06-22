@@ -197,6 +197,13 @@ def run_payloadless_useful_runtime_gate(args: argparse.Namespace) -> dict[str, A
     row_count = _int_metric(summary, f"{PREFIX}_row_count")
     row_ok_count = _int_metric(summary, f"{PREFIX}_row_ok_count")
     rows_consumed = _int_metric(summary, f"{PREFIX}_rows_consumed")
+    field_count = _int_metric(summary, f"{PREFIX}_field_count")
+    fields_per_row = _int_metric(summary, f"{PREFIX}_fields_per_row")
+    useful_work_units = _int_metric(summary, f"{PREFIX}_useful_work_units")
+    expected_useful_work_units = _int_metric(
+        summary,
+        f"{PREFIX}_expected_useful_work_units",
+    )
     if source_count is None or source_count < args.min_source_count:
         failures.append("source_count_invalid")
     if row_count is None or row_count < args.min_row_count:
@@ -205,6 +212,26 @@ def run_payloadless_useful_runtime_gate(args: argparse.Namespace) -> dict[str, A
         failures.append("row_ok_count_mismatch")
     if row_count is not None and rows_consumed != row_count:
         failures.append("rows_consumed_mismatch")
+    if field_count != len(FIELDS):
+        failures.append("field_count_mismatch")
+    if fields_per_row != len(FIELDS):
+        failures.append("fields_per_row_mismatch")
+    expected_units = int(row_count or 0) * len(FIELDS)
+    if expected_useful_work_units != expected_units:
+        failures.append("expected_useful_work_units_mismatch")
+    if useful_work_units != expected_useful_work_units:
+        failures.append("useful_work_units_mismatch")
+    if useful_work_units is None or useful_work_units <= 0:
+        failures.append("useful_work_units_not_positive")
+    if summary.get(f"{PREFIX}_useful_work_coverage") != 1.0:
+        failures.append("useful_work_coverage_mismatch")
+    if (
+        summary.get(f"{PREFIX}_useful_work_kind")
+        != "native_typed_slot_four_field_row_projection"
+    ):
+        failures.append("useful_work_kind_mismatch")
+    if summary.get(f"{PREFIX}_native_consumer_has_useful_work") is not True:
+        failures.append("native_consumer_has_useful_work_mismatch")
 
     field_hashes: dict[str, str] = {}
     for field in FIELDS:
@@ -266,6 +293,15 @@ def run_payloadless_useful_runtime_gate(args: argparse.Namespace) -> dict[str, A
         "row_count": row_count,
         "row_ok_count": row_ok_count,
         "rows_consumed": rows_consumed,
+        "field_count": field_count,
+        "fields_per_row": fields_per_row,
+        "useful_work_units": useful_work_units,
+        "expected_useful_work_units": expected_useful_work_units,
+        "useful_work_coverage": summary.get(f"{PREFIX}_useful_work_coverage"),
+        "useful_work_kind": summary.get(f"{PREFIX}_useful_work_kind"),
+        "native_consumer_has_useful_work": summary.get(
+            f"{PREFIX}_native_consumer_has_useful_work",
+        ),
         "field_names": list(FIELDS),
         "field_read_hashes": field_hashes,
         "runtime_gate_ready": passed,
