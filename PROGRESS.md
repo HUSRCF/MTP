@@ -43143,6 +43143,79 @@ Current validation:
 # passed: true, failure_count: 0
 ```
 
+## Payload issue executor dry-run gate
+
+The source-bound payload issue plan now feeds a third payloadless runtime object:
+
+```text
+PayloadCacheLiveRuntimeAdapterPayloadIssueExecutorDryRun
+```
+
+This stage models the future issue scheduler/executor boundary, but it still
+does not schedule or issue payload work:
+
+```text
+request_source = queue_budget_first_model_passing_cell
+source_issue_packet_count = 28
+source_issue_unique_key_count = 28
+source_queue_budget_capacity = 4096
+source_issue_lead_tokens = 8
+source_queue_deadline_us = 100.0
+
+planned_issue_count = 0
+scheduled_issue_count = 0
+issued_payload_count = 0
+payload_bytes = 0
+payload_transfer_runtime_enabled = false
+payload_deref_runtime_allowed = false
+ready_credit = false
+ready_before_demand_credit = false
+real_ready_credit_granted = false
+kernel_arg_pass_allowed = false
+passed_to_kernel = false
+changes_kernel_launch_args = false
+full_fetch_runtime_allowed = false
+uses_current_wna16_args = false
+passes_current_wna16_args = false
+live_runtime_instantiated = false
+```
+
+The plan and executor builders now reject prefix-shaped stale ancestry by
+requiring the queue-budget leaf status:
+
+```text
+model_queue_budget_satisfied_runtime_disabled
+```
+
+This closes the stale-terminal-status hole found in review.  The strict summary
+checker also covers every required-false executor field, including payload
+transfer, payload dereference, ready credit, kernel handoff, current WNA16 args,
+and TPOT/vLLM latency measurement flags.
+
+Current validation:
+
+```bash
+/home/husrcf/anaconda3/envs/TRY/bin/python -m pytest \
+  tests/test_cache_manager.py \
+  tests/test_cache_lab_gate.py \
+  tests/test_check_prefetch_lab_default_gate.py \
+  tests/test_vllm_router_shadow_sink.py \
+  tests/test_run_premap_payload_cache_producer_state_online_canary.py \
+  tests/test_run_premap_payload_cache_issue_stream_executor.py \
+  tests/test_sweep_premap_payload_cache_issue_stream_executor_lookahead.py \
+  tests/test_sweep_premap_payload_cache_issue_stream_executor_queue_budget.py \
+  tests/test_run_premap_lab_preflight.py \
+  tests/test_check_premap_lab_preflight_summary.py -q
+# 631 passed
+
+/home/husrcf/anaconda3/envs/TRY/bin/python \
+  scripts/check_premap_lab_preflight_summary.py \
+  outputs/reports/premap_kernel_consumer/premap_lab_preflight_noop_fields_v2_strict_summary.json \
+  --output-json \
+  outputs/reports/premap_kernel_consumer/premap_lab_preflight_noop_fields_v2_strict_summary_check.json
+# passed: true, failure_count: 0
+```
+
 ### 2026-06-22: Payload-cache issue stream no-op fields promoted into strict lab preflight
 
 The producer-state packet export, online native canary, queue-budget replay, and
