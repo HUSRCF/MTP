@@ -71,6 +71,15 @@ def test_payloadless_useful_execution_accepts_useful_consumer_chain(
     assert result["payloadless_useful_execution_chain_checked"] is True
     assert result["payloadless_useful_execution_native_stub_checked"] is True
     assert result["payloadless_useful_execution_rows_consumed"] == 5345
+    assert result["payloadless_useful_execution_field_count"] == 4
+    assert result["payloadless_useful_execution_fields_per_row"] == 4
+    assert result["payloadless_useful_execution_useful_work_units"] == 5345 * 4
+    assert result["payloadless_useful_execution_expected_useful_work_units"] == 5345 * 4
+    assert result["payloadless_useful_execution_useful_work_coverage"] == 1.0
+    assert result["payloadless_useful_execution_useful_work_kind"] == (
+        "native_typed_slot_four_field_row_projection"
+    )
+    assert result["payloadless_useful_execution_native_consumer_has_useful_work"] is True
     assert result["useful_consumer_fields_consumed"] == HANDLE_FIELDS
     assert result["uses_current_wna16_args"] is False
     assert result["passes_current_wna16_args"] is False
@@ -112,6 +121,36 @@ def test_payloadless_useful_execution_rejects_payload_or_kernel_arg_path(
     assert "useful_payload_bytes_mismatch" in result["failures"]
     assert "useful_passed_to_kernel_mismatch" in result["failures"]
     assert result["payloadless_useful_execution_chain_checked"] is False
+
+
+def test_payloadless_useful_execution_rejects_incomplete_useful_work_units(
+    tmp_path: Path,
+):
+    module = _load_module(
+        "run_future_wna16_typed_slot_kernel_variant_payloadless_useful_execution",
+        "run_future_wna16_typed_slot_kernel_variant_payloadless_useful_execution.py",
+    )
+    useful_path = _materialize_useful_consumer(tmp_path)
+    useful = json.loads(useful_path.read_text(encoding="utf-8"))
+    useful["useful_consumer_fields_consumed"] = HANDLE_FIELDS[:-1]
+    _write_json(useful_path, useful)
+
+    args = module.build_parser().parse_args(
+        [
+            "--useful-consumer-json",
+            str(useful_path),
+            "--output-json",
+            str(tmp_path / "out.json"),
+        ]
+    )
+    result = module.run_payloadless_useful_execution(args)
+
+    assert result["passed"] is False
+    assert "useful_fields_consumed_mismatch" in result["failures"]
+    assert "payloadless_useful_work_units_mismatch" in result["failures"]
+    assert result["payloadless_useful_execution_useful_work_units"] == 5345 * 3
+    assert result["payloadless_useful_execution_expected_useful_work_units"] == 5345 * 4
+    assert result["payloadless_useful_execution_useful_work_coverage"] == 0.75
 
 
 def test_payloadless_useful_execution_rejects_execution_sha_mismatch(

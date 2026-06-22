@@ -519,6 +519,24 @@ def run_payloadless_useful_execution(args: argparse.Namespace) -> dict[str, Any]
         )
         failures.extend(chain_failures)
     row_count = _int_metric(useful, "row_count") or 0
+    field_count = len(HANDLE_FIELDS)
+    useful_fields_consumed = useful.get("useful_consumer_fields_consumed")
+    useful_field_count = (
+        len(useful_fields_consumed)
+        if isinstance(useful_fields_consumed, list)
+        and all(isinstance(field, str) for field in useful_fields_consumed)
+        else 0
+    )
+    useful_rows_consumed = _int_metric(useful, "useful_consumer_rows_consumed") or 0
+    useful_work_units = int(useful_rows_consumed) * int(useful_field_count)
+    expected_useful_work_units = int(row_count) * int(field_count)
+    useful_work_coverage = (
+        float(useful_work_units) / float(expected_useful_work_units)
+        if expected_useful_work_units > 0
+        else 0.0
+    )
+    if useful and useful_work_units != expected_useful_work_units:
+        failures.append("payloadless_useful_work_units_mismatch")
     if stub and row_count > 0:
         failures.extend(_check_stub_backing(useful, stub, row_count=row_count))
     elif useful:
@@ -570,6 +588,19 @@ def run_payloadless_useful_execution(args: argparse.Namespace) -> dict[str, Any]
             "useful_consumer_field_read_hashes"
         ),
         "useful_consumer_hash": useful.get("useful_consumer_hash"),
+        "payloadless_useful_execution_field_count": field_count,
+        "payloadless_useful_execution_fields_per_row": useful_field_count,
+        "payloadless_useful_execution_useful_work_units": useful_work_units,
+        "payloadless_useful_execution_expected_useful_work_units": (
+            expected_useful_work_units
+        ),
+        "payloadless_useful_execution_useful_work_coverage": useful_work_coverage,
+        "payloadless_useful_execution_useful_work_kind": (
+            "native_typed_slot_four_field_row_projection"
+        ),
+        "payloadless_useful_execution_native_consumer_has_useful_work": (
+            passed and useful_work_units > 0
+        ),
         "wna16_side_consumer_variant_execution_hash_accumulator": useful.get(
             f"{STUB_PREFIX}_hash_accumulator"
         ),

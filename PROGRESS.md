@@ -41393,6 +41393,8 @@ passed_to_kernel = false
 changes_kernel_launch_args = false
 uses_current_wna16_args = false
 passes_current_wna16_args = false
+current_wna16_arg_compatible = false
+requires_wna16_arg_reinterpretation = false
 ```
 
 The wrapper is tied to the readiness gate:
@@ -41410,7 +41412,7 @@ performance_summary must report:
 This is a baseline archive for future A/B.  It is not a typed-slot useful-path
 win and does not enable the future WNA16 consumer path.
 
-Validation:
+Payload-cache queue-budget validation retained:
 
 ```text
 /home/husrcf/anaconda3/envs/TRY/bin/python -m pytest \
@@ -41621,6 +41623,8 @@ passed_to_kernel = false
 changes_kernel_launch_args = false
 uses_current_wna16_args = false
 passes_current_wna16_args = false
+current_wna16_arg_compatible = false
+requires_wna16_arg_reinterpretation = false
 ```
 
 Interpretation:
@@ -41677,7 +41681,7 @@ payloadless_*_allowed = false
 next_runtime_stage = future_typed_slot_useful_consumer_or_payload_cache_manager
 ```
 
-Validation:
+Payload-cache queue-budget validation retained:
 
 ```text
 /home/husrcf/anaconda3/envs/TRY/bin/python -m pytest \
@@ -44426,7 +44430,75 @@ runtime request object can be tied back to the protected queue-budget issue
 stream while transfer, dereference, ready credit, and kernel argument handoff
 remain disabled.
 
+### 2026-06-22: Typed-slot native consumer useful-work gate made explicit
+
+The future WNA16 typed-slot native consumer path now reports explicit
+payloadless useful-work coverage instead of only row/field hash parity:
+
+```text
+artifact:
+  outputs/reports/premap_kernel_consumer/
+    future_wna16_typed_slot_kernel_variant_payloadless_useful_execution_entry_args_ptr_native_v1.json
+
+source_count = 128
+row_count = 5345
+field_count = 4
+fields_per_row = 4
+useful_work_kind = native_typed_slot_four_field_row_projection
+useful_work_units = 21380
+expected_useful_work_units = 21380
+useful_work_coverage = 1.0
+native_consumer_has_useful_work = true
+```
+
+This remains a payloadless independent typed-slot consumer gate:
+
+```text
+benchmark_is_current_wna16_fused_moe = false
+measures_tpot = false
+measures_vllm_latency = false
+wna16_benchmark_ready = false
+payload_bytes = 0
+payload_deref_allowed = false
+kernel_arg_pass_allowed = false
+passed_to_kernel = false
+changes_kernel_launch_args = false
+uses_current_wna16_args = false
+passes_current_wna16_args = false
+current_wna16_arg_compatible = false
+requires_wna16_arg_reinterpretation = false
+```
+
+`native_consumer_has_useful_work` is gate-qualified: it means the payloadless
+useful-execution gate passed and the independent native consumer consumed a
+non-zero number of typed-slot row fields.  It is not a current WNA16 fused-MoE
+TPOT, payload/full-fetch, or kernel-arg handoff performance claim.
+
 Validation:
+
+```bash
+/home/husrcf/anaconda3/envs/TRY/bin/python -m py_compile \
+  scripts/run_future_wna16_typed_slot_kernel_variant_payloadless_useful_execution.py \
+  tests/test_run_future_wna16_typed_slot_kernel_variant_payloadless_useful_execution.py
+
+/home/husrcf/anaconda3/envs/TRY/bin/python -m pytest \
+  tests/test_run_future_wna16_typed_slot_kernel_variant_payloadless_useful_execution.py -q
+# 8 passed
+
+/home/husrcf/anaconda3/envs/TRY/bin/python -m pytest \
+  tests/test_run_future_wna16_typed_slot_kernel_variant_useful_consumer.py \
+  tests/test_run_future_wna16_typed_slot_kernel_variant_payloadless_useful_execution.py \
+  tests/test_run_future_wna16_typed_slot_kernel_variant_execution.py \
+  tests/test_run_future_wna16_typed_slot_kernel_timing_stub.py -q
+# 47 passed
+
+/home/husrcf/anaconda3/envs/TRY/bin/python \
+  scripts/run_future_wna16_typed_slot_kernel_variant_payloadless_useful_execution.py \
+  --require-pass
+# passed: true, useful_work_units: 21380, useful_work_coverage: 1.0
+```
+
+Payload-cache queue-budget validation retained:
 
 ```bash
 /home/husrcf/anaconda3/envs/TRY/bin/python -m pytest \
