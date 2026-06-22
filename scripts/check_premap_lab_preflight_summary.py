@@ -663,7 +663,7 @@ def _future_wna16_payloadless_useful_repeat_benchmark_ready(
     if useful_work_units is None or useful_work_units <= 0:
         failures.append(f"{prefix}_useful_work_units_not_positive")
         ready = False
-    if summary.get(f"{prefix}_useful_work_coverage") != 1.0:
+    if _float_metric(summary, f"{prefix}_useful_work_coverage") != 1.0:
         failures.append(f"{prefix}_useful_work_coverage_mismatch")
         ready = False
     if (

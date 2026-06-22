@@ -5324,6 +5324,45 @@ def test_check_premap_lab_preflight_summary_rejects_payloadless_useful_repeat_in
     assert f"{prefix}_native_consumer_has_useful_work_mismatch" in result["failures"]
 
 
+def test_check_premap_lab_preflight_summary_rejects_payloadless_useful_repeat_bool_coverage() -> None:
+    summary = _summary()
+    summary[
+        "default_kernel_consumer_wna16_side_variant_online_source_identity_subset"
+    ] = True
+    summary[
+        "default_kernel_consumer_wna16_side_variant_online_source_identity_missing_count"
+    ] = 0
+    summary["default_kernel_consumer_wna16_side_variant_ready"] = True
+    _enable_wna16_kernel_side_execution_ready(summary)
+    _enable_payloadless_chain_ready(summary)
+    _enable_variant_execution_ready(summary)
+    _enable_useful_consumer_ready(summary)
+    _enable_payloadless_useful_execution_ready(summary)
+    _enable_payloadless_useful_repeat_benchmark_ready(summary)
+    summary[
+        "default_kernel_consumer_independent_typed_slot_payloadless_chain_ready"
+    ] = True
+    summary[
+        "default_kernel_consumer_future_wna16_payloadless_useful_repeat_benchmark_gate_ready"
+    ] = True
+    summary["default_kernel_consumer_next_runtime_stage"] = (
+        "implement_future_wna16_typed_slot_payloadless_useful_runtime_ablation"
+    )
+    prefix = (
+        "default_kernel_consumer_future_wna16_payloadless_useful_repeat_benchmark"
+    )
+    summary[f"{prefix}_useful_work_coverage"] = True
+
+    result = check_premap_lab_preflight_summary(summary)
+
+    assert result["passed"] is False
+    assert (
+        "future_wna16_payloadless_useful_repeat_benchmark_ready_reported_without_valid_evidence"
+        in result["failures"]
+    )
+    assert f"{prefix}_useful_work_coverage_mismatch" in result["failures"]
+
+
 def test_check_premap_lab_preflight_summary_rejects_payloadless_useful_unbound_paths() -> None:
     summary = _summary()
     summary[

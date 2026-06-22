@@ -4565,12 +4565,34 @@ def _validate_future_wna16_typed_slot_payloadless_useful_repeat_benchmark(
     rows_consumed = _int_metric(evidence, "rows_consumed")
     repeat_count_requested = _int_metric(evidence, "repeat_count_requested")
     repeat_count_measured = _int_metric(evidence, "repeat_count_measured")
+    field_count = _int_metric(evidence, "field_count")
+    fields_per_row = _int_metric(evidence, "fields_per_row")
+    useful_work_units = _int_metric(evidence, "useful_work_units")
+    expected_useful_work_units = _int_metric(evidence, "expected_useful_work_units")
     if source_count is None or source_count < min_source_count:
         failures.append("source_count_invalid")
     if row_count is None or row_count <= 0:
         failures.append("row_count_invalid")
     elif row_ok_count != row_count or rows_consumed != row_count:
         failures.append("row_coverage_mismatch")
+    if field_count != len(ARG_SLOT_MIRROR_FIELDS):
+        failures.append("field_count_mismatch")
+    if fields_per_row != len(ARG_SLOT_MIRROR_FIELDS):
+        failures.append("fields_per_row_mismatch")
+    if row_count is None or expected_useful_work_units != row_count * len(
+        ARG_SLOT_MIRROR_FIELDS
+    ):
+        failures.append("expected_useful_work_units_mismatch")
+    if useful_work_units != expected_useful_work_units:
+        failures.append("useful_work_units_mismatch")
+    if useful_work_units is None or useful_work_units <= 0:
+        failures.append("useful_work_units_not_positive")
+    if _float_metric(evidence, "useful_work_coverage") != 1.0:
+        failures.append("useful_work_coverage_mismatch")
+    if evidence.get("useful_work_kind") != "native_typed_slot_four_field_row_projection":
+        failures.append("useful_work_kind_mismatch")
+    if evidence.get("native_consumer_has_useful_work") is not True:
+        failures.append("native_consumer_has_useful_work_mismatch")
     if (
         repeat_count_requested is None
         or repeat_count_requested < min_repeat_count
