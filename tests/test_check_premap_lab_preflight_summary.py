@@ -3149,6 +3149,65 @@ def _summary() -> dict[str, object]:
         "measures_vllm_latency",
     ):
         summary[f"{payload_transfer_toggle_prefix}_{key}"] = False
+    payload_issue_request_prefix = (
+        "prefetch_lab_default_stream_queue_budget_"
+        "live_runtime_adapter_payload_issue_request_blocked_canary"
+    )
+    payload_transfer_toggle_status = str(
+        summary[f"{payload_transfer_toggle_prefix}_status"],
+    )
+    summary.update(
+        {
+            f"{payload_issue_request_prefix}_present": True,
+            f"{payload_issue_request_prefix}_stage": (
+                "payload_cache_live_runtime_adapter_payload_issue_request_blocked_canary"
+            ),
+            f"{payload_issue_request_prefix}_status": (
+                "blocked_by_payload_transfer_toggle_disabled_canary:"
+                f"{payload_transfer_toggle_status}"
+            ),
+            f"{payload_issue_request_prefix}_consumes_payload_transfer_toggle_disabled_canary": True,
+            f"{payload_issue_request_prefix}_payload_transfer_toggle_disabled_canary_status": (
+                payload_transfer_toggle_status
+            ),
+            f"{payload_issue_request_prefix}_payload_issue_request_schema": (
+                "payload_cache_runtime_payload_issue_request_v1"
+            ),
+            f"{payload_issue_request_prefix}_payload_issue_request_created": True,
+            f"{payload_issue_request_prefix}_payload_issue_rejected": True,
+            f"{payload_issue_request_prefix}_request_layer_idx": 0,
+            f"{payload_issue_request_prefix}_request_expert_idx": 0,
+            f"{payload_issue_request_prefix}_requested_payload_bytes": 64,
+            f"{payload_issue_request_prefix}_issued_payload_count": 0,
+            f"{payload_issue_request_prefix}_payload_bytes": 0,
+            f"{payload_issue_request_prefix}_decision": "blocked",
+            f"{payload_issue_request_prefix}_block_reason": (
+                "live_runtime_adapter_payload_issue_request_blocked_canary_only"
+            ),
+            f"{payload_issue_request_prefix}_execution_mode": (
+                "payload_cache_live_runtime_adapter_payload_issue_request_blocked_canary_payloadless"
+            ),
+        },
+    )
+    for key in (
+        "live_payload_runtime_enabled",
+        "payload_transfer_runtime_enabled",
+        "payload_deref_allowed",
+        "payload_deref_runtime_allowed",
+        "ready_credit",
+        "ready_before_demand_credit",
+        "real_ready_credit_granted",
+        "kernel_arg_pass_allowed",
+        "passed_to_kernel",
+        "changes_kernel_launch_args",
+        "full_fetch_runtime_allowed",
+        "uses_current_wna16_args",
+        "passes_current_wna16_args",
+        "measures_tpot",
+        "measures_vllm_latency",
+        "live_runtime_instantiated",
+    ):
+        summary[f"{payload_issue_request_prefix}_{key}"] = False
     return summary
 
 
@@ -5230,6 +5289,48 @@ def test_check_premap_lab_preflight_summary_rejects_payload_transfer_toggle_esca
     assert f"{prefix}_passes_current_wna16_args_mismatch" in result["failures"]
     assert f"{prefix}_measures_tpot_mismatch" in result["failures"]
     assert f"{prefix}_measures_vllm_latency_mismatch" in result["failures"]
+
+
+def test_check_premap_lab_preflight_summary_rejects_payload_issue_request_escape() -> None:
+    summary = _summary()
+    prefix = (
+        "prefetch_lab_default_stream_queue_budget_"
+        "live_runtime_adapter_payload_issue_request_blocked_canary"
+    )
+    summary[f"{prefix}_status"] = "passed"
+    summary[f"{prefix}_payload_issue_request_created"] = False
+    summary[f"{prefix}_payload_issue_rejected"] = False
+    summary[f"{prefix}_requested_payload_bytes"] = 0
+    summary[f"{prefix}_issued_payload_count"] = 1
+    summary[f"{prefix}_payload_bytes"] = 64
+    summary[f"{prefix}_payload_transfer_runtime_enabled"] = True
+    summary[f"{prefix}_payload_deref_allowed"] = True
+    summary[f"{prefix}_ready_credit"] = True
+    summary[f"{prefix}_kernel_arg_pass_allowed"] = True
+    summary[f"{prefix}_passed_to_kernel"] = True
+    summary[f"{prefix}_changes_kernel_launch_args"] = True
+    summary[f"{prefix}_uses_current_wna16_args"] = True
+    summary[f"{prefix}_measures_tpot"] = True
+    summary[f"{prefix}_live_runtime_instantiated"] = True
+
+    result = check_premap_lab_preflight_summary(summary)
+
+    assert result["passed"] is False
+    assert f"{prefix}_status_mismatch" in result["failures"]
+    assert f"{prefix}_payload_issue_request_created_mismatch" in result["failures"]
+    assert f"{prefix}_payload_issue_rejected_mismatch" in result["failures"]
+    assert f"{prefix}_requested_payload_bytes_mismatch" in result["failures"]
+    assert f"{prefix}_issued_payload_count_mismatch" in result["failures"]
+    assert f"{prefix}_payload_bytes_mismatch" in result["failures"]
+    assert f"{prefix}_payload_transfer_runtime_enabled_mismatch" in result["failures"]
+    assert f"{prefix}_payload_deref_allowed_mismatch" in result["failures"]
+    assert f"{prefix}_ready_credit_mismatch" in result["failures"]
+    assert f"{prefix}_kernel_arg_pass_allowed_mismatch" in result["failures"]
+    assert f"{prefix}_passed_to_kernel_mismatch" in result["failures"]
+    assert f"{prefix}_changes_kernel_launch_args_mismatch" in result["failures"]
+    assert f"{prefix}_uses_current_wna16_args_mismatch" in result["failures"]
+    assert f"{prefix}_measures_tpot_mismatch" in result["failures"]
+    assert f"{prefix}_live_runtime_instantiated_mismatch" in result["failures"]
 
 
 def test_check_premap_lab_preflight_summary_rejects_queue_budget_summary_mixing() -> None:

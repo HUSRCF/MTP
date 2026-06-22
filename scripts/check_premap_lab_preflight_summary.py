@@ -5100,6 +5100,95 @@ def _check_stream_queue_budget(summary: dict[str, Any], failures: list[str]) -> 
         if summary.get(f"{payload_transfer_toggle_prefix}_{key}") is not False:
             failures.append(f"{payload_transfer_toggle_prefix}_{key}_mismatch")
 
+    payload_issue_request_prefix = (
+        f"{prefix}_live_runtime_adapter_payload_issue_request_blocked_canary"
+    )
+    expected_payload_issue_request_status = (
+        "blocked_by_payload_transfer_toggle_disabled_canary:"
+        f"{expected_payload_transfer_toggle_status}"
+    )
+    if summary.get(f"{payload_issue_request_prefix}_present") is not True:
+        failures.append(f"{payload_issue_request_prefix}_present_mismatch")
+    if (
+        summary.get(f"{payload_issue_request_prefix}_stage")
+        != "payload_cache_live_runtime_adapter_payload_issue_request_blocked_canary"
+    ):
+        failures.append(f"{payload_issue_request_prefix}_stage_mismatch")
+    if (
+        summary.get(f"{payload_issue_request_prefix}_status")
+        != expected_payload_issue_request_status
+    ):
+        failures.append(f"{payload_issue_request_prefix}_status_mismatch")
+    if (
+        summary.get(
+            f"{payload_issue_request_prefix}_consumes_payload_transfer_toggle_disabled_canary",
+        )
+        is not True
+    ):
+        failures.append(
+            f"{payload_issue_request_prefix}_consumes_payload_transfer_toggle_disabled_canary_mismatch",
+        )
+    if (
+        summary.get(
+            f"{payload_issue_request_prefix}_payload_transfer_toggle_disabled_canary_status",
+        )
+        != expected_payload_transfer_toggle_status
+    ):
+        failures.append(
+            f"{payload_issue_request_prefix}_payload_transfer_toggle_disabled_canary_status_mismatch",
+        )
+    if (
+        summary.get(f"{payload_issue_request_prefix}_payload_issue_request_schema")
+        != "payload_cache_runtime_payload_issue_request_v1"
+    ):
+        failures.append(
+            f"{payload_issue_request_prefix}_payload_issue_request_schema_mismatch",
+        )
+    for key in ("payload_issue_request_created", "payload_issue_rejected"):
+        if summary.get(f"{payload_issue_request_prefix}_{key}") is not True:
+            failures.append(f"{payload_issue_request_prefix}_{key}_mismatch")
+    for key, expected in {
+        "request_layer_idx": 0,
+        "request_expert_idx": 0,
+        "requested_payload_bytes": 64,
+        "issued_payload_count": 0,
+        "payload_bytes": 0,
+    }.items():
+        if _int_metric(summary, f"{payload_issue_request_prefix}_{key}") != expected:
+            failures.append(f"{payload_issue_request_prefix}_{key}_mismatch")
+    if summary.get(f"{payload_issue_request_prefix}_decision") != "blocked":
+        failures.append(f"{payload_issue_request_prefix}_decision_mismatch")
+    if (
+        summary.get(f"{payload_issue_request_prefix}_block_reason")
+        != "live_runtime_adapter_payload_issue_request_blocked_canary_only"
+    ):
+        failures.append(f"{payload_issue_request_prefix}_block_reason_mismatch")
+    if (
+        summary.get(f"{payload_issue_request_prefix}_execution_mode")
+        != "payload_cache_live_runtime_adapter_payload_issue_request_blocked_canary_payloadless"
+    ):
+        failures.append(f"{payload_issue_request_prefix}_execution_mode_mismatch")
+    for key in (
+        "live_payload_runtime_enabled",
+        "payload_transfer_runtime_enabled",
+        "payload_deref_allowed",
+        "payload_deref_runtime_allowed",
+        "ready_credit",
+        "ready_before_demand_credit",
+        "real_ready_credit_granted",
+        "kernel_arg_pass_allowed",
+        "passed_to_kernel",
+        "changes_kernel_launch_args",
+        "full_fetch_runtime_allowed",
+        "uses_current_wna16_args",
+        "passes_current_wna16_args",
+        "measures_tpot",
+        "measures_vllm_latency",
+        "live_runtime_instantiated",
+    ):
+        if summary.get(f"{payload_issue_request_prefix}_{key}") is not False:
+            failures.append(f"{payload_issue_request_prefix}_{key}_mismatch")
+
     if first_shifted_enabled is not True:
         failures.append(f"{prefix}_first_shifted_issue_accounting_enabled_mismatch")
     if first_shifted_packet_count != 28:
