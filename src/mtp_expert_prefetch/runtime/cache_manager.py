@@ -1866,6 +1866,9 @@ class PremapKernelArgShadowTableObject:
         persistent adapter own the destination buffers.  The handles remain
         deterministic u64 identities; this still does not dereference payload or
         imply compatibility with the current WNA16 launch args.
+
+        Torch signed-int64 destinations must use `signed_i64=True`, because raw
+        u64 handle identities can exceed the signed int64 range.
         """
 
         if len(columns) != len(PREMAP_DESCRIPTOR_CONSUMER_HANDLE_TABLE_COLUMNS):
@@ -1893,6 +1896,27 @@ class PremapKernelArgShadowTableObject:
             source_columns,
             strict=True,
         ):
+            if hasattr(output_column, "new_tensor") and hasattr(
+                output_column,
+                "narrow",
+            ):
+                dtype_name = str(getattr(output_column, "dtype", ""))
+                if (
+                    not bool(signed_i64)
+                    and "int64" in dtype_name
+                    and "uint" not in dtype_name
+                ):
+                    msg = (
+                        "copy_native_typed_consumer_columns_to requires "
+                        "signed_i64=True for torch int64 destinations."
+                    )
+                    raise ValueError(msg)
+                source_len = len(source_values)
+                if source_len > 0:
+                    output_column.narrow(0, base, source_len).copy_(  # type: ignore[attr-defined]
+                        output_column.new_tensor(source_values)  # type: ignore[attr-defined]
+                    )
+                continue
             for row_index, value in enumerate(source_values):
                 output_column[base + int(row_index)] = int(value)  # type: ignore[index]
         return int(self.row_count)

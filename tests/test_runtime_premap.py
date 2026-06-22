@@ -691,6 +691,26 @@ def test_controlled_premap_address_manager_executes_descriptor_prep_readonly():
     )
     assert signed_copied == 2
     assert all(-(1 << 63) <= value < (1 << 63) for column in signed_columns for value in column)
+    with pytest.raises(ValueError, match="signed_i64=True"):
+        table_object.copy_native_typed_consumer_columns_to(
+            tuple(torch.full((4,), -7, dtype=torch.int64) for _ in range(4)),
+            offset=1,
+        )
+    tensor_columns = tuple(torch.full((4,), -7, dtype=torch.int64) for _ in range(4))
+    tensor_copied = table_object.copy_native_typed_consumer_columns_to(
+        tensor_columns,
+        offset=1,
+        signed_i64=True,
+    )
+    assert tensor_copied == 2
+    for tensor_column, expected_column in zip(
+        tensor_columns,
+        table_object.native_typed_consumer_columns_i64,
+        strict=True,
+    ):
+        assert tensor_column[0].item() == -7
+        assert tensor_column[3].item() == -7
+        assert tensor_column[1:3].tolist() == list(expected_column)
     prep_dry_run_result = manager.execute_descriptor_address_prep_dry_run_readonly(
         table_object,
         read_result=read_result,
