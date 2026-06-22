@@ -6514,6 +6514,139 @@ def _check_stream_queue_budget(summary: dict[str, Any], failures: list[str]) -> 
         if summary.get(f"{payload_issue_copy_descriptor_submit_prefix}_{key}") is not False:
             failures.append(f"{payload_issue_copy_descriptor_submit_prefix}_{key}_mismatch")
 
+    payload_issue_copy_descriptor_dispatch_prefix = (
+        f"{prefix}_live_runtime_adapter_payload_issue_copy_descriptor_dispatch_blocked_canary"
+    )
+    expected_payload_issue_copy_descriptor_dispatch_status = (
+        "blocked_by_payload_issue_copy_descriptor_submit_blocked_canary:"
+        f"{expected_payload_issue_copy_descriptor_submit_status}"
+    )
+    if summary.get(f"{payload_issue_copy_descriptor_dispatch_prefix}_present") is not True:
+        failures.append(f"{payload_issue_copy_descriptor_dispatch_prefix}_present_mismatch")
+    if (
+        summary.get(f"{payload_issue_copy_descriptor_dispatch_prefix}_stage")
+        != "payload_cache_live_runtime_adapter_payload_issue_copy_descriptor_dispatch_blocked_canary"
+    ):
+        failures.append(f"{payload_issue_copy_descriptor_dispatch_prefix}_stage_mismatch")
+    if (
+        summary.get(f"{payload_issue_copy_descriptor_dispatch_prefix}_status")
+        != expected_payload_issue_copy_descriptor_dispatch_status
+    ):
+        failures.append(f"{payload_issue_copy_descriptor_dispatch_prefix}_status_mismatch")
+    if (
+        summary.get(
+            f"{payload_issue_copy_descriptor_dispatch_prefix}_consumes_payload_issue_copy_descriptor_submit_blocked_canary",
+        )
+        is not True
+    ):
+        failures.append(
+            f"{payload_issue_copy_descriptor_dispatch_prefix}_consumes_payload_issue_copy_descriptor_submit_blocked_canary_mismatch",
+        )
+    if (
+        summary.get(
+            f"{payload_issue_copy_descriptor_dispatch_prefix}_payload_issue_copy_descriptor_submit_status",
+        )
+        != expected_payload_issue_copy_descriptor_submit_status
+    ):
+        failures.append(
+            f"{payload_issue_copy_descriptor_dispatch_prefix}_payload_issue_copy_descriptor_submit_status_mismatch",
+        )
+    if (
+        summary.get(
+            f"{payload_issue_copy_descriptor_dispatch_prefix}_payload_issue_copy_descriptor_dispatch_schema",
+        )
+        != "payload_cache_runtime_payload_issue_copy_descriptor_dispatch_v1"
+    ):
+        failures.append(
+            f"{payload_issue_copy_descriptor_dispatch_prefix}_payload_issue_copy_descriptor_dispatch_schema_mismatch",
+        )
+    for key in (
+        "payload_issue_copy_descriptor_dispatch_canary_created",
+        "payload_issue_copy_descriptor_submit_consumed",
+        "copy_descriptor_dispatch_checked",
+        "copy_descriptor_dispatch_rejected",
+    ):
+        if summary.get(f"{payload_issue_copy_descriptor_dispatch_prefix}_{key}") is not True:
+            failures.append(f"{payload_issue_copy_descriptor_dispatch_prefix}_{key}_mismatch")
+    for key in (
+        "copy_descriptor_dispatch_allowed",
+        "copy_descriptor_dispatched",
+        "copy_descriptor_submitted",
+        "copy_descriptor_executed",
+    ):
+        if summary.get(f"{payload_issue_copy_descriptor_dispatch_prefix}_{key}") is not False:
+            failures.append(f"{payload_issue_copy_descriptor_dispatch_prefix}_{key}_mismatch")
+    for key, expected in {
+        "request_layer_idx": 0,
+        "request_expert_idx": 0,
+        "requested_payload_bytes": 64,
+        "source_issue_packet_count": first_shifted_packet_count,
+        "source_issue_unique_key_count": first_shifted_unique_count,
+        "source_queue_budget_capacity": first_capacity,
+        "source_issue_lead_tokens": first_lead,
+        "planned_issue_count": 0,
+        "scheduled_issue_count": 0,
+        "queued_issue_count": 0,
+        "submitted_issue_count": 0,
+        "inflight_issue_count": 0,
+        "dispatched_issue_count": 0,
+        "command_packet_count": 0,
+        "transport_work_count": 0,
+        "transport_worker_dispatch_count": 0,
+        "copy_descriptor_count": 0,
+        "issued_payload_count": 0,
+        "payload_bytes": 0,
+    }.items():
+        if _int_metric(summary, f"{payload_issue_copy_descriptor_dispatch_prefix}_{key}") != expected:
+            failures.append(f"{payload_issue_copy_descriptor_dispatch_prefix}_{key}_mismatch")
+    if (
+        summary.get(f"{payload_issue_copy_descriptor_dispatch_prefix}_request_source")
+        != "queue_budget_first_model_passing_cell"
+    ):
+        failures.append(f"{payload_issue_copy_descriptor_dispatch_prefix}_request_source_mismatch")
+    if (
+        _float_metric(
+            summary,
+            f"{payload_issue_copy_descriptor_dispatch_prefix}_source_queue_deadline_us",
+        )
+        != first_deadline
+    ):
+        failures.append(
+            f"{payload_issue_copy_descriptor_dispatch_prefix}_source_queue_deadline_us_mismatch",
+        )
+    if summary.get(f"{payload_issue_copy_descriptor_dispatch_prefix}_decision") != "blocked":
+        failures.append(f"{payload_issue_copy_descriptor_dispatch_prefix}_decision_mismatch")
+    if (
+        summary.get(f"{payload_issue_copy_descriptor_dispatch_prefix}_block_reason")
+        != "payload_transfer_disabled"
+    ):
+        failures.append(f"{payload_issue_copy_descriptor_dispatch_prefix}_block_reason_mismatch")
+    if (
+        summary.get(f"{payload_issue_copy_descriptor_dispatch_prefix}_execution_mode")
+        != "payload_cache_live_runtime_adapter_payload_issue_copy_descriptor_dispatch_blocked_canary"
+    ):
+        failures.append(f"{payload_issue_copy_descriptor_dispatch_prefix}_execution_mode_mismatch")
+    for key in (
+        "live_payload_runtime_enabled",
+        "payload_transfer_runtime_enabled",
+        "payload_deref_allowed",
+        "payload_deref_runtime_allowed",
+        "ready_credit",
+        "ready_before_demand_credit",
+        "real_ready_credit_granted",
+        "kernel_arg_pass_allowed",
+        "passed_to_kernel",
+        "changes_kernel_launch_args",
+        "full_fetch_runtime_allowed",
+        "uses_current_wna16_args",
+        "passes_current_wna16_args",
+        "measures_tpot",
+        "measures_vllm_latency",
+        "live_runtime_instantiated",
+    ):
+        if summary.get(f"{payload_issue_copy_descriptor_dispatch_prefix}_{key}") is not False:
+            failures.append(f"{payload_issue_copy_descriptor_dispatch_prefix}_{key}_mismatch")
+
     if first_shifted_enabled is not True:
         failures.append(f"{prefix}_first_shifted_issue_accounting_enabled_mismatch")
     if first_shifted_packet_count != 28:

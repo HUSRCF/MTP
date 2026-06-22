@@ -30,6 +30,7 @@ from mtp_expert_prefetch.runtime import (
     PayloadCacheLiveRuntimeAdapterPayloadIssueTransportWorkerDispatchBlockedCanary,
     PayloadCacheLiveRuntimeAdapterPayloadIssueCopyDescriptorDryRun,
     PayloadCacheLiveRuntimeAdapterPayloadIssueCopyDescriptorSubmitBlockedCanary,
+    PayloadCacheLiveRuntimeAdapterPayloadIssueCopyDescriptorDispatchBlockedCanary,
     PayloadCacheLiveRuntimeAdapterStateObjectPreflight,
     PayloadCacheLiveRuntimeAdapterStateValidationArtifact,
     PayloadCacheLiveRuntimeAdapterStateValidationPreflight,
@@ -80,6 +81,7 @@ from mtp_expert_prefetch.runtime import (
     build_payload_cache_live_runtime_adapter_payload_issue_transport_worker_dispatch_blocked_canary,
     build_payload_cache_live_runtime_adapter_payload_issue_copy_descriptor_dry_run,
     build_payload_cache_live_runtime_adapter_payload_issue_copy_descriptor_submit_blocked_canary,
+    build_payload_cache_live_runtime_adapter_payload_issue_copy_descriptor_dispatch_blocked_canary,
     build_payload_cache_queue_budget_runtime_envelope,
     build_payload_cache_runtime_execution_dry_run,
     build_payload_cache_runtime_participation,
@@ -5473,6 +5475,14 @@ def _build_payload_issue_copy_descriptor_dry_run() -> (
     )
 
 
+def _build_payload_issue_copy_descriptor_submit_blocked_canary() -> (
+    PayloadCacheLiveRuntimeAdapterPayloadIssueCopyDescriptorSubmitBlockedCanary
+):
+    return build_payload_cache_live_runtime_adapter_payload_issue_copy_descriptor_submit_blocked_canary(
+        _build_payload_issue_copy_descriptor_dry_run(),
+    )
+
+
 def test_live_runtime_adapter_payload_issue_request_blocked_canary_consumes_disabled_toggle() -> None:
     toggle = _build_live_runtime_adapter_payload_transfer_toggle_disabled_canary()
 
@@ -7619,6 +7629,168 @@ def test_live_runtime_adapter_payload_issue_copy_descriptor_submit_builder_rejec
     with pytest.raises(ValueError, match="ancestry"):
         build_payload_cache_live_runtime_adapter_payload_issue_copy_descriptor_submit_blocked_canary(
             descriptor,
+        )
+
+
+def test_live_runtime_adapter_payload_issue_copy_descriptor_dispatch_blocked_canary_consumes_submit() -> None:
+    submit = _build_payload_issue_copy_descriptor_submit_blocked_canary()
+
+    canary = build_payload_cache_live_runtime_adapter_payload_issue_copy_descriptor_dispatch_blocked_canary(
+        submit,
+    )
+
+    assert canary.present is True
+    assert canary.stage == (
+        "payload_cache_live_runtime_adapter_"
+        "payload_issue_copy_descriptor_dispatch_blocked_canary"
+    )
+    assert canary.status == (
+        f"blocked_by_payload_issue_copy_descriptor_submit_blocked_canary:{submit.status}"
+    )
+    assert canary.consumes_payload_issue_copy_descriptor_submit_blocked_canary is True
+    assert canary.payload_issue_copy_descriptor_submit_status == submit.status
+    assert canary.payload_issue_copy_descriptor_dispatch_schema == (
+        "payload_cache_runtime_payload_issue_copy_descriptor_dispatch_v1"
+    )
+    assert canary.payload_issue_copy_descriptor_dispatch_canary_created is True
+    assert canary.payload_issue_copy_descriptor_submit_consumed is True
+    assert canary.copy_descriptor_dispatch_checked is True
+    assert canary.copy_descriptor_dispatch_rejected is True
+    assert canary.copy_descriptor_dispatch_allowed is False
+    assert canary.copy_descriptor_dispatched is False
+    assert canary.copy_descriptor_submitted is False
+    assert canary.copy_descriptor_executed is False
+    assert canary.source_issue_packet_count == 28
+    assert canary.source_issue_unique_key_count == 28
+    assert canary.source_queue_budget_capacity == 4096
+    assert canary.source_issue_lead_tokens == 8
+    assert canary.copy_descriptor_count == 0
+    assert canary.issued_payload_count == 0
+    assert canary.payload_bytes == 0
+    assert canary.ready_credit is False
+    assert canary.kernel_arg_pass_allowed is False
+    assert canary.passed_to_kernel is False
+
+
+def test_live_runtime_adapter_payload_issue_copy_descriptor_dispatch_blocked_canary_rejects_side_effects() -> None:
+    submit = _build_payload_issue_copy_descriptor_submit_blocked_canary()
+    base_kwargs = {
+        "present": True,
+        "stage": (
+            "payload_cache_live_runtime_adapter_"
+            "payload_issue_copy_descriptor_dispatch_blocked_canary"
+        ),
+        "status": (
+            f"blocked_by_payload_issue_copy_descriptor_submit_blocked_canary:{submit.status}"
+        ),
+        "consumes_payload_issue_copy_descriptor_submit_blocked_canary": True,
+        "payload_issue_copy_descriptor_submit_status": submit.status,
+        "payload_issue_copy_descriptor_dispatch_schema": (
+            "payload_cache_runtime_payload_issue_copy_descriptor_dispatch_v1"
+        ),
+        "payload_issue_copy_descriptor_dispatch_canary_created": True,
+        "payload_issue_copy_descriptor_submit_consumed": True,
+        "copy_descriptor_dispatch_checked": True,
+        "copy_descriptor_dispatch_rejected": True,
+        "copy_descriptor_dispatch_allowed": False,
+        "copy_descriptor_dispatched": False,
+        "copy_descriptor_submitted": False,
+        "copy_descriptor_executed": False,
+        "request_source": submit.request_source,
+        "request_layer_idx": submit.request_layer_idx,
+        "request_expert_idx": submit.request_expert_idx,
+        "requested_payload_bytes": submit.requested_payload_bytes,
+        "source_issue_packet_count": submit.source_issue_packet_count,
+        "source_issue_unique_key_count": submit.source_issue_unique_key_count,
+        "source_queue_budget_capacity": submit.source_queue_budget_capacity,
+        "source_issue_lead_tokens": submit.source_issue_lead_tokens,
+        "source_queue_deadline_us": submit.source_queue_deadline_us,
+    }
+
+    for field_name in (
+        "planned_issue_count",
+        "scheduled_issue_count",
+        "queued_issue_count",
+        "submitted_issue_count",
+        "inflight_issue_count",
+        "dispatched_issue_count",
+        "command_packet_count",
+        "transport_work_count",
+        "transport_worker_dispatch_count",
+        "copy_descriptor_count",
+        "issued_payload_count",
+        "payload_bytes",
+    ):
+        with pytest.raises(ValueError, match=field_name):
+            PayloadCacheLiveRuntimeAdapterPayloadIssueCopyDescriptorDispatchBlockedCanary(
+                **{
+                    **base_kwargs,
+                    field_name: 1,
+                },
+            )
+
+    for field_name in (
+        "copy_descriptor_dispatch_allowed",
+        "copy_descriptor_dispatched",
+        "copy_descriptor_submitted",
+        "copy_descriptor_executed",
+    ):
+        with pytest.raises(ValueError, match=field_name):
+            PayloadCacheLiveRuntimeAdapterPayloadIssueCopyDescriptorDispatchBlockedCanary(
+                **{
+                    **base_kwargs,
+                    field_name: True,
+                },
+            )
+
+    for field_name in (
+        "live_payload_runtime_enabled",
+        "payload_transfer_runtime_enabled",
+        "payload_deref_allowed",
+        "payload_deref_runtime_allowed",
+        "ready_credit",
+        "ready_before_demand_credit",
+        "real_ready_credit_granted",
+        "kernel_arg_pass_allowed",
+        "passed_to_kernel",
+        "changes_kernel_launch_args",
+        "full_fetch_runtime_allowed",
+        "uses_current_wna16_args",
+        "passes_current_wna16_args",
+        "measures_tpot",
+        "measures_vllm_latency",
+        "live_runtime_instantiated",
+    ):
+        with pytest.raises(ValueError, match=field_name):
+            PayloadCacheLiveRuntimeAdapterPayloadIssueCopyDescriptorDispatchBlockedCanary(
+                **{
+                    **base_kwargs,
+                    field_name: True,
+                },
+            )
+
+    with pytest.raises(TypeError, match="submit"):
+        build_payload_cache_live_runtime_adapter_payload_issue_copy_descriptor_dispatch_blocked_canary(
+            object(),  # type: ignore[arg-type]
+        )
+
+
+def test_live_runtime_adapter_payload_issue_copy_descriptor_dispatch_builder_rejects_mutated_submit() -> None:
+    submit = _build_payload_issue_copy_descriptor_submit_blocked_canary()
+
+    object.__setattr__(submit, "copy_descriptor_submitted", True)
+
+    with pytest.raises(ValueError, match="copy_descriptor_submitted"):
+        build_payload_cache_live_runtime_adapter_payload_issue_copy_descriptor_dispatch_blocked_canary(
+            submit,
+        )
+
+    submit = _build_payload_issue_copy_descriptor_submit_blocked_canary()
+    object.__setattr__(submit, "payload_issue_copy_descriptor_status", "stale")
+
+    with pytest.raises(ValueError, match="ancestry"):
+        build_payload_cache_live_runtime_adapter_payload_issue_copy_descriptor_dispatch_blocked_canary(
+            submit,
         )
 
 
