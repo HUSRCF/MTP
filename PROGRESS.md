@@ -43071,6 +43071,73 @@ Validation:
 git diff --check
 ```
 
+## Payload issue transport-enqueue blocked canary gate
+
+The payload/cache lab preflight now extends the source-bound issue chain one
+step past command-packet dry-run:
+
+```text
+request -> plan -> executor -> queue_entry -> queue_submit(blocked)
+  -> inflight_admission(blocked)
+  -> scheduler_dispatch(blocked)
+  -> command_packet(dry-run)
+  -> transport_enqueue(blocked)
+```
+
+The new transport-enqueue canary consumes the command-packet dry-run artifact
+and verifies the future transport/copy queue boundary without submitting any
+work:
+
+```text
+transport_enqueue_checked = true
+transport_enqueue_rejected = true
+transport_enqueue_allowed = false
+transport_work_enqueued = false
+transport_work_count = 0
+issued_payload_count = 0
+payload_bytes = 0
+ready_credit = false
+kernel_arg_pass_allowed = false
+passed_to_kernel = false
+changes_kernel_launch_args = false
+```
+
+This keeps the payload/full-fetch side disabled while making the next queue
+boundary explicit in the lab gate.  The gate artifacts were regenerated:
+
+```text
+outputs/reports/premap_kernel_consumer/
+  prefetch_lab_default_gate_gpu1_noop_fields_v2_check.json
+  premap_lab_preflight_noop_fields_v2_strict_summary.json
+  premap_lab_preflight_noop_fields_v2_strict_summary_check.json
+```
+
+Validation:
+
+```bash
+/home/husrcf/anaconda3/envs/TRY/bin/python -m pytest \
+  tests/test_cache_lab_gate.py \
+  tests/test_check_prefetch_lab_default_gate.py \
+  tests/test_run_premap_lab_preflight.py \
+  tests/test_check_premap_lab_preflight_summary.py -q
+# 458 passed
+
+/home/husrcf/anaconda3/envs/TRY/bin/python -m pytest \
+  tests/test_cache_manager.py \
+  tests/test_cache_lab_gate.py \
+  tests/test_check_prefetch_lab_default_gate.py \
+  tests/test_vllm_router_shadow_sink.py \
+  tests/test_run_premap_payload_cache_producer_state_online_canary.py \
+  tests/test_run_premap_payload_cache_issue_stream_executor.py \
+  tests/test_sweep_premap_payload_cache_issue_stream_executor_lookahead.py \
+  tests/test_sweep_premap_payload_cache_issue_stream_executor_queue_budget.py \
+  tests/test_run_premap_lab_preflight.py \
+  tests/test_check_premap_lab_preflight_summary.py -q
+# 651 passed
+
+git diff --check
+```
+
 ## Payload issue plan dry-run gate
 
 The queue-budget source-bound payload issue request now feeds a second

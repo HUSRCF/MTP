@@ -766,6 +766,27 @@ def test_prefetch_lab_default_gate_passes_low_risk_premap_path(tmp_path: Path):
     assert full_fetch[f"{packet_prefix}_command_packet_submitted"] is False
     assert full_fetch[f"{packet_prefix}_command_packet_executed"] is False
     assert full_fetch[f"{packet_prefix}_passed_to_kernel"] is False
+    transport_prefix = (
+        "stream_queue_budget_live_runtime_adapter_"
+        "payload_issue_transport_enqueue_blocked_canary"
+    )
+    assert full_fetch[f"{transport_prefix}_request_source"] == (
+        "queue_budget_first_model_passing_cell"
+    )
+    assert full_fetch[f"{transport_prefix}_source_issue_packet_count"] == 28
+    assert full_fetch[f"{transport_prefix}_source_issue_unique_key_count"] == 16
+    assert full_fetch[f"{transport_prefix}_source_queue_budget_capacity"] == 4096
+    assert full_fetch[f"{transport_prefix}_source_issue_lead_tokens"] == 32
+    assert full_fetch[f"{transport_prefix}_source_queue_deadline_us"] == 100.0
+    assert full_fetch[f"{transport_prefix}_command_packet_count"] == 0
+    assert full_fetch[f"{transport_prefix}_transport_work_count"] == 0
+    assert full_fetch[f"{transport_prefix}_issued_payload_count"] == 0
+    assert full_fetch[f"{transport_prefix}_payload_bytes"] == 0
+    assert full_fetch[f"{transport_prefix}_transport_enqueue_checked"] is True
+    assert full_fetch[f"{transport_prefix}_transport_enqueue_rejected"] is True
+    assert full_fetch[f"{transport_prefix}_transport_enqueue_allowed"] is False
+    assert full_fetch[f"{transport_prefix}_transport_work_enqueued"] is False
+    assert full_fetch[f"{transport_prefix}_passed_to_kernel"] is False
     assert full_fetch["stream_queue_budget_runtime_envelope_present"] is True
     assert (
         full_fetch["stream_queue_budget_runtime_envelope_stage"]
@@ -1123,6 +1144,23 @@ def test_prefetch_lab_default_gate_accepts_queue_budget_early_first_lead(
     assert full_fetch[f"{packet_prefix}_command_packet_shape_checked"] is True
     assert full_fetch[f"{packet_prefix}_command_packet_submitted"] is False
     assert full_fetch[f"{packet_prefix}_command_packet_executed"] is False
+    transport_prefix = (
+        "stream_queue_budget_live_runtime_adapter_"
+        "payload_issue_transport_enqueue_blocked_canary"
+    )
+    assert full_fetch[f"{transport_prefix}_source_issue_packet_count"] == 28
+    assert full_fetch[f"{transport_prefix}_source_issue_unique_key_count"] == 28
+    assert full_fetch[f"{transport_prefix}_source_queue_budget_capacity"] == 4096
+    assert full_fetch[f"{transport_prefix}_source_issue_lead_tokens"] == 8
+    assert full_fetch[f"{transport_prefix}_source_queue_deadline_us"] == 100.0
+    assert full_fetch[f"{transport_prefix}_command_packet_count"] == 0
+    assert full_fetch[f"{transport_prefix}_transport_work_count"] == 0
+    assert full_fetch[f"{transport_prefix}_issued_payload_count"] == 0
+    assert full_fetch[f"{transport_prefix}_payload_bytes"] == 0
+    assert full_fetch[f"{transport_prefix}_transport_enqueue_checked"] is True
+    assert full_fetch[f"{transport_prefix}_transport_enqueue_rejected"] is True
+    assert full_fetch[f"{transport_prefix}_transport_enqueue_allowed"] is False
+    assert full_fetch[f"{transport_prefix}_transport_work_enqueued"] is False
 
 
 def test_prefetch_lab_default_gate_rejects_queue_budget_string_cell_index(
