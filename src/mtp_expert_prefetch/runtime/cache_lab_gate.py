@@ -280,9 +280,14 @@ class PayloadCacheQueueBudgetRuntimeEnvelope:
     shifted_issue_unique_issue_key_count: int
     execution_mode: str = "payloadless_queue_budget_lab_gate"
     payload_bytes: int = 0
+    issued_payload_count: int = 0
+    live_payload_runtime_enabled: bool = False
     payload_transfer_enabled: bool = False
+    payload_transfer_runtime_enabled: bool = False
     payload_deref_allowed: bool = False
+    payload_deref_runtime_allowed: bool = False
     full_fetch_allowed: bool = False
+    full_fetch_runtime_allowed: bool = False
     ready_credit: bool = False
     ready_before_demand_credit: bool = False
     real_ready_credit_granted: bool = False
@@ -293,6 +298,7 @@ class PayloadCacheQueueBudgetRuntimeEnvelope:
     passes_current_wna16_args: bool = False
     measures_tpot: bool = False
     measures_vllm_latency: bool = False
+    live_runtime_instantiated: bool = False
 
     def __post_init__(self) -> None:
         if self.present is not True:
@@ -314,6 +320,7 @@ class PayloadCacheQueueBudgetRuntimeEnvelope:
             "shifted_issue_accounted_packet_count",
             "shifted_issue_unique_issue_key_count",
             "payload_bytes",
+            "issued_payload_count",
         ):
             value = getattr(self, field_name)
             if not isinstance(value, int) or isinstance(value, bool):
@@ -341,10 +348,16 @@ class PayloadCacheQueueBudgetRuntimeEnvelope:
             raise ValueError("shifted issue accounting must be enabled")
         if self.payload_bytes != 0:
             raise ValueError("queue-budget runtime envelope must be payloadless")
+        if self.issued_payload_count != 0:
+            raise ValueError("queue-budget runtime envelope must not issue payload")
         for field_name in (
+            "live_payload_runtime_enabled",
             "payload_transfer_enabled",
+            "payload_transfer_runtime_enabled",
             "payload_deref_allowed",
+            "payload_deref_runtime_allowed",
             "full_fetch_allowed",
+            "full_fetch_runtime_allowed",
             "ready_credit",
             "ready_before_demand_credit",
             "real_ready_credit_granted",
@@ -355,6 +368,7 @@ class PayloadCacheQueueBudgetRuntimeEnvelope:
             "passes_current_wna16_args",
             "measures_tpot",
             "measures_vllm_latency",
+            "live_runtime_instantiated",
         ):
             if getattr(self, field_name) is not False:
                 raise ValueError(f"{field_name} must remain disabled")

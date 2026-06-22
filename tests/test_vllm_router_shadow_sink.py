@@ -1263,7 +1263,13 @@ def test_premap_payload_cache_producer_transition_owner_issues_before_next_deman
     assert second_payload["current_experts"] == [2]
     assert second_payload["ready"] is True
     assert second_payload["payload_bytes"] == 0
+    assert second_payload["issued_payload_count"] == 0
     assert second_payload["ready_credit"] is False
+    assert second_payload["live_payload_runtime_enabled"] is False
+    assert second_payload["payload_transfer_runtime_enabled"] is False
+    assert second_payload["payload_deref_runtime_allowed"] is False
+    assert second_payload["full_fetch_runtime_allowed"] is False
+    assert second_payload["live_runtime_instantiated"] is False
     assert second_payload["passed_to_kernel"] is False
     assert second_payload["changes_kernel_launch_args"] is False
     assert second_payload["_export_context"]["source"] == (
@@ -1271,6 +1277,12 @@ def test_premap_payload_cache_producer_transition_owner_issues_before_next_deman
     )
     assert second_payload["_export_context"]["layer_id"] == 0
     assert second_payload["_export_context"]["token_index"] == 11
+    assert second_payload["_export_context"]["issued_payload_count"] == 0
+    assert second_payload["_export_context"]["live_payload_runtime_enabled"] is False
+    assert second_payload["_export_context"]["payload_transfer_runtime_enabled"] is False
+    assert second_payload["_export_context"]["payload_deref_runtime_allowed"] is False
+    assert second_payload["_export_context"]["full_fetch_runtime_allowed"] is False
+    assert second_payload["_export_context"]["live_runtime_instantiated"] is False
     assert recorder._premap_payload_cache_producer_state_packet_export_count == 2
     assert export_path_list == [str(path) for path in export_paths]
 
@@ -2106,11 +2118,17 @@ def test_premap_payload_cache_producer_state_packet_export_respects_stride(
     assert payload["current_experts"] == [2]
     assert payload["native_abi_field_count"] > 0
     assert payload["payload_bytes"] == 0
+    assert payload["issued_payload_count"] == 0
     assert payload["ready_credit"] is False
     assert payload["ready_before_demand_credit"] is False
     assert payload["payload_transfer_enabled"] is False
+    assert payload["live_payload_runtime_enabled"] is False
+    assert payload["payload_transfer_runtime_enabled"] is False
     assert payload["payload_deref_allowed"] is False
+    assert payload["payload_deref_runtime_allowed"] is False
     assert payload["kernel_arg_pass_allowed"] is False
+    assert payload["full_fetch_runtime_allowed"] is False
+    assert payload["live_runtime_instantiated"] is False
     assert payload["real_ready_credit_granted"] is False
     assert payload["passed_to_kernel"] is False
     assert payload["changes_kernel_launch_args"] is False
@@ -2123,11 +2141,17 @@ def test_premap_payload_cache_producer_state_packet_export_respects_stride(
     assert payload["issue_candidate_last_expert"] == 1
     assert payload["issue_candidate_hash"] == "082f2307b4e88e77"
     assert payload["_export_context"]["payload_bytes"] == 0
+    assert payload["_export_context"]["issued_payload_count"] == 0
     assert payload["_export_context"]["ready_credit"] is False
     assert payload["_export_context"]["ready_before_demand_credit"] is False
     assert payload["_export_context"]["payload_transfer_enabled"] is False
+    assert payload["_export_context"]["live_payload_runtime_enabled"] is False
+    assert payload["_export_context"]["payload_transfer_runtime_enabled"] is False
     assert payload["_export_context"]["payload_deref_allowed"] is False
+    assert payload["_export_context"]["payload_deref_runtime_allowed"] is False
     assert payload["_export_context"]["kernel_arg_pass_allowed"] is False
+    assert payload["_export_context"]["full_fetch_runtime_allowed"] is False
+    assert payload["_export_context"]["live_runtime_instantiated"] is False
     assert payload["_export_context"]["real_ready_credit_granted"] is False
     assert payload["_export_context"]["passed_to_kernel"] is False
     assert payload["_export_context"]["changes_kernel_launch_args"] is False

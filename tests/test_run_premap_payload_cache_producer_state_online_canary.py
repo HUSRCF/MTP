@@ -91,12 +91,18 @@ def test_online_canary_selects_packet_from_performance_summary(
     assert payload["online_configured_export_enabled"] is True
     assert payload["online_configured_export_count"] == 2
     assert payload["payload_bytes"] == 0
+    assert payload["issued_payload_count"] == 0
     assert payload["ready_credit"] is False
     assert payload["ready_before_demand_credit"] is False
     assert payload["real_ready_credit_granted"] is False
     assert payload["payload_transfer_enabled"] is False
+    assert payload["live_payload_runtime_enabled"] is False
+    assert payload["payload_transfer_runtime_enabled"] is False
     assert payload["payload_deref_allowed"] is False
+    assert payload["payload_deref_runtime_allowed"] is False
     assert payload["kernel_arg_pass_allowed"] is False
+    assert payload["full_fetch_runtime_allowed"] is False
+    assert payload["live_runtime_instantiated"] is False
     assert payload["passed_to_kernel"] is False
     assert payload["changes_kernel_launch_args"] is False
     assert payload["uses_current_wna16_args"] is False

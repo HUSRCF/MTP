@@ -12,8 +12,13 @@ from scripts.check_prefetch_lab_default_gate import (
 
 _FULL_FETCH_DECISION_NOOP_FIELDS = {
     "payload_bytes": 0,
+    "issued_payload_count": 0,
+    "live_payload_runtime_enabled": False,
     "payload_transfer_enabled": False,
+    "payload_transfer_runtime_enabled": False,
     "payload_deref_allowed": False,
+    "payload_deref_runtime_allowed": False,
+    "full_fetch_runtime_allowed": False,
     "ready_credit": False,
     "ready_before_demand_credit": False,
     "real_ready_credit_granted": False,
@@ -27,6 +32,7 @@ _FULL_FETCH_DECISION_NOOP_FIELDS = {
     "wna16_benchmark_ready": False,
     "measures_tpot": False,
     "measures_vllm_latency": False,
+    "live_runtime_instantiated": False,
 }
 
 
@@ -758,9 +764,14 @@ def test_prefetch_lab_default_gate_passes_low_risk_premap_path(tmp_path: Path):
         is False
     )
     assert full_fetch["stream_queue_budget_payload_bytes"] == 0
+    assert full_fetch["stream_queue_budget_issued_payload_count"] == 0
+    assert full_fetch["stream_queue_budget_live_payload_runtime_enabled"] is False
     assert full_fetch["stream_queue_budget_payload_transfer_enabled"] is False
+    assert full_fetch["stream_queue_budget_payload_transfer_runtime_enabled"] is False
     assert full_fetch["stream_queue_budget_payload_deref_allowed"] is False
+    assert full_fetch["stream_queue_budget_payload_deref_runtime_allowed"] is False
     assert full_fetch["stream_queue_budget_full_fetch_allowed"] is False
+    assert full_fetch["stream_queue_budget_full_fetch_runtime_allowed"] is False
     assert full_fetch["stream_queue_budget_ready_before_demand_credit"] is False
     assert full_fetch["stream_queue_budget_real_ready_credit_granted"] is False
     assert full_fetch["stream_queue_budget_kernel_arg_pass_allowed"] is False
@@ -770,6 +781,7 @@ def test_prefetch_lab_default_gate_passes_low_risk_premap_path(tmp_path: Path):
     assert full_fetch["stream_queue_budget_passes_current_wna16_args"] is False
     assert full_fetch["stream_queue_budget_measures_tpot"] is False
     assert full_fetch["stream_queue_budget_measures_vllm_latency"] is False
+    assert full_fetch["stream_queue_budget_live_runtime_instantiated"] is False
 
 
 def test_prefetch_lab_default_gate_rejects_queue_budget_first_cell_mismatch(
@@ -797,6 +809,44 @@ def test_prefetch_lab_default_gate_rejects_queue_budget_first_cell_mismatch(
     assert full_fetch["stream_queue_budget_runtime_envelope_present"] is None
     assert full_fetch["stream_queue_budget_live_payload_stage_present"] is None
     assert full_fetch["stream_queue_budget_live_payload_runtime_present"] is None
+
+
+def test_prefetch_lab_default_gate_accepts_queue_budget_early_first_lead(
+    tmp_path: Path,
+):
+    config = _write_fixture(tmp_path)
+    payload = yaml.safe_load(config.read_text(encoding="utf-8"))
+    stream_path = Path(payload["full_fetch"]["stream_queue_budget_report"])
+    stream = json.loads(stream_path.read_text(encoding="utf-8"))
+    shifted_issue = {
+        "shifted_issue_accounting_enabled": True,
+        "shifted_issue_lead_tokens": 8,
+        "shifted_issue_clamped_issue_count": 0,
+        "shifted_issue_duplicate_issue_key_count": 0,
+        "shifted_issue_unique_issue_key_count": 28,
+        "shifted_issue_accounted_packet_count": 28,
+        "shifted_issue_invalid_export_count": 0,
+        "shifted_issue_row_shift_mismatch_count": 0,
+        "shifted_issue_row_clamp_mismatch_count": 0,
+    }
+    stream["first_model_passing_cell"]["issue_lead_tokens"] = 8
+    stream["first_model_passing_cell"]["lookahead_us"] = 600000.0
+    stream["first_model_passing_cell"]["shifted_issue_accounting"] = shifted_issue
+    stream["cells"][0]["first_model_passing_issue_lead_tokens"] = 8
+    stream["cells"][0]["first_model_passing_lookahead_us"] = 600000.0
+    stream["cells"][0]["first_model_passing_shifted_issue_accounting"] = shifted_issue
+    stream_path.write_text(json.dumps(stream), encoding="utf-8")
+
+    result = check_prefetch_lab_default_gate(config, root=tmp_path)
+
+    assert result["passed"] is True
+    full_fetch = result["sections"]["full_fetch"]
+    assert full_fetch["stream_shifted_issue_replay_contract_required_lead_tokens"] == 32
+    assert full_fetch["stream_queue_budget_first_model_passing_issue_lead_tokens"] == 8
+    assert (
+        full_fetch["stream_queue_budget_first_shifted_issue_accounted_packet_count"]
+        == 28
+    )
 
 
 def test_prefetch_lab_default_gate_rejects_queue_budget_string_cell_index(
@@ -1145,20 +1195,11 @@ def test_prefetch_lab_default_gate_rejects_wrong_required_shifted_issue(
 def test_prefetch_lab_default_gate_rejects_unsafe_stream_evidence(tmp_path: Path):
     config = _write_fixture(tmp_path)
     payload = yaml.safe_load(config.read_text(encoding="utf-8"))
-    stream_decision = tmp_path / "stream_decision.json"
-    fields = dict(_FULL_FETCH_DECISION_NOOP_FIELDS)
-    fields["payload_transfer_enabled"] = True
-    stream_decision.write_text(
-        json.dumps(
-            {
-                "artifact_kind": "premap_payload_cache_stream_full_fetch_decision_gate",
-                "passed": True,
-                "full_fetch_runtime_allowed": True,
-                **fields,
-            }
-        ),
-        encoding="utf-8",
-    )
+    stream_decision = Path(payload["full_fetch"]["stream_decision_gate_report"])
+    stream_payload = json.loads(stream_decision.read_text(encoding="utf-8"))
+    stream_payload["full_fetch_runtime_allowed"] = True
+    stream_payload["payload_transfer_enabled"] = True
+    stream_decision.write_text(json.dumps(stream_payload), encoding="utf-8")
     payload["full_fetch"]["stream_decision_gate_report"] = str(stream_decision)
     config.write_text(yaml.safe_dump(payload), encoding="utf-8")
 
@@ -1174,20 +1215,10 @@ def test_prefetch_lab_default_gate_rejects_unsafe_stream_evidence(tmp_path: Path
 def test_prefetch_lab_default_gate_rejects_stream_wna16_arg_usage(tmp_path: Path):
     config = _write_fixture(tmp_path)
     payload = yaml.safe_load(config.read_text(encoding="utf-8"))
-    stream_decision = tmp_path / "stream_decision.json"
-    fields = dict(_FULL_FETCH_DECISION_NOOP_FIELDS)
-    fields["uses_current_wna16_args"] = True
-    stream_decision.write_text(
-        json.dumps(
-            {
-                "artifact_kind": "premap_payload_cache_stream_full_fetch_decision_gate",
-                "passed": True,
-                "full_fetch_runtime_allowed": False,
-                **fields,
-            }
-        ),
-        encoding="utf-8",
-    )
+    stream_decision = Path(payload["full_fetch"]["stream_decision_gate_report"])
+    stream_payload = json.loads(stream_decision.read_text(encoding="utf-8"))
+    stream_payload["uses_current_wna16_args"] = True
+    stream_decision.write_text(json.dumps(stream_payload), encoding="utf-8")
     payload["full_fetch"]["stream_decision_gate_report"] = str(stream_decision)
     config.write_text(yaml.safe_dump(payload), encoding="utf-8")
 
@@ -1199,31 +1230,42 @@ def test_prefetch_lab_default_gate_rejects_stream_wna16_arg_usage(tmp_path: Path
     )
 
 
-def test_prefetch_lab_default_gate_rejects_stream_wna16_readiness(tmp_path: Path):
+def test_prefetch_lab_default_gate_rejects_stream_current_wna16_pass(tmp_path: Path):
     config = _write_fixture(tmp_path)
     payload = yaml.safe_load(config.read_text(encoding="utf-8"))
-    stream_decision = tmp_path / "stream_decision.json"
-    fields = dict(_FULL_FETCH_DECISION_NOOP_FIELDS)
-    fields["wna16_benchmark_ready"] = True
-    stream_decision.write_text(
-        json.dumps(
-            {
-                "artifact_kind": "premap_payload_cache_stream_full_fetch_decision_gate",
-                "passed": True,
-                "full_fetch_runtime_allowed": False,
-                **fields,
-            }
-        ),
-        encoding="utf-8",
-    )
+    stream_decision = Path(payload["full_fetch"]["stream_decision_gate_report"])
+    stream_payload = json.loads(stream_decision.read_text(encoding="utf-8"))
+    stream_payload["passes_current_wna16_args"] = True
+    stream_decision.write_text(json.dumps(stream_payload), encoding="utf-8")
     payload["full_fetch"]["stream_decision_gate_report"] = str(stream_decision)
     config.write_text(yaml.safe_dump(payload), encoding="utf-8")
 
     result = check_prefetch_lab_default_gate(config, root=tmp_path)
 
     assert result["passed"] is False
-    assert "full_fetch:stream_decision_gate_wna16_benchmark_ready_not_false" in (
+    assert "full_fetch:stream_decision_gate_passes_current_wna16_args_not_false" in (
         result["failures"]
+    )
+
+
+def test_prefetch_lab_default_gate_rejects_stream_current_wna16_compat(
+    tmp_path: Path,
+):
+    config = _write_fixture(tmp_path)
+    payload = yaml.safe_load(config.read_text(encoding="utf-8"))
+    stream_decision = Path(payload["full_fetch"]["stream_decision_gate_report"])
+    stream_payload = json.loads(stream_decision.read_text(encoding="utf-8"))
+    stream_payload["current_wna16_arg_compatible"] = True
+    stream_decision.write_text(json.dumps(stream_payload), encoding="utf-8")
+    payload["full_fetch"]["stream_decision_gate_report"] = str(stream_decision)
+    config.write_text(yaml.safe_dump(payload), encoding="utf-8")
+
+    result = check_prefetch_lab_default_gate(config, root=tmp_path)
+
+    assert result["passed"] is False
+    assert (
+        "full_fetch:stream_decision_gate_current_wna16_arg_compatible_not_false"
+        in result["failures"]
     )
 
 
@@ -1310,10 +1352,14 @@ def test_prefetch_lab_default_gate_rejects_decision_gate_missing_runtime_allow(
     ready.write_text(
         json.dumps(
             {
-                "artifact_kind": "premap_payload_cache_full_fetch_decision_gate",
-                "passed": True,
-                "allow_full_fetch": False,
-                **_FULL_FETCH_DECISION_NOOP_FIELDS,
+                key: value
+                for key, value in {
+                    "artifact_kind": "premap_payload_cache_full_fetch_decision_gate",
+                    "passed": True,
+                    "allow_full_fetch": False,
+                    **_FULL_FETCH_DECISION_NOOP_FIELDS,
+                }.items()
+                if key != "full_fetch_runtime_allowed"
             }
         ),
         encoding="utf-8",

@@ -83,12 +83,17 @@ class _FakeLookahead:
             "first_model_passing_shifted_issue_accounting": first_shifted,
             "rows": rows,
             "payload_bytes": 0,
+            "issued_payload_count": 0,
             "full_fetch_allowed": False,
             "ready_credit": False,
             "ready_before_demand_credit": False,
             "real_ready_credit_granted": False,
             "payload_transfer_enabled": False,
+            "live_payload_runtime_enabled": False,
+            "payload_transfer_runtime_enabled": False,
             "payload_deref_allowed": False,
+            "payload_deref_runtime_allowed": False,
+            "full_fetch_runtime_allowed": False,
             "kernel_arg_pass_allowed": False,
             "passed_to_kernel": False,
             "changes_kernel_launch_args": False,
@@ -96,6 +101,7 @@ class _FakeLookahead:
             "passes_current_wna16_args": False,
             "measures_tpot": False,
             "measures_vllm_latency": False,
+            "live_runtime_instantiated": False,
         }
 
 
@@ -177,8 +183,14 @@ def test_queue_budget_sweep_finds_first_passing_cell(monkeypatch, tmp_path: Path
         "shifted_issue_accounted_packet_count"
     ] == 4
     assert result["full_fetch_allowed"] is False
+    assert result["full_fetch_runtime_allowed"] is False
+    assert result["issued_payload_count"] == 0
     assert result["payload_transfer_enabled"] is False
+    assert result["live_payload_runtime_enabled"] is False
+    assert result["payload_transfer_runtime_enabled"] is False
+    assert result["payload_deref_runtime_allowed"] is False
     assert result["kernel_arg_pass_allowed"] is False
+    assert result["live_runtime_instantiated"] is False
     assert (tmp_path / "out.json").exists()
     assert [(call.capacity, call.queue_deadline_us) for call in LOOKAHEAD_CALLS] == [
         (64, 200.0),

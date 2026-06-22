@@ -62,12 +62,17 @@ class _FakeExecutor:
         return {
             "passed": passed,
             "payload_bytes": 0,
+            "issued_payload_count": 0,
             "full_fetch_allowed": False,
             "ready_credit": False,
             "ready_before_demand_credit": False,
             "real_ready_credit_granted": False,
             "payload_transfer_enabled": False,
+            "live_payload_runtime_enabled": False,
+            "payload_transfer_runtime_enabled": False,
             "payload_deref_allowed": False,
+            "payload_deref_runtime_allowed": False,
+            "full_fetch_runtime_allowed": False,
             "kernel_arg_pass_allowed": False,
             "passed_to_kernel": False,
             "changes_kernel_launch_args": False,
@@ -75,6 +80,7 @@ class _FakeExecutor:
             "passes_current_wna16_args": False,
             "measures_tpot": False,
             "measures_vllm_latency": False,
+            "live_runtime_instantiated": False,
             "full_fetch_block_reason": (
                 "real_payload_runtime_not_enabled"
                 if passed
@@ -178,8 +184,14 @@ def test_stream_lookahead_sweep_finds_first_model_passing_row(
         "shifted_issue_row_clamp_mismatch_count": 0,
     }
     assert result["full_fetch_allowed"] is False
+    assert result["full_fetch_runtime_allowed"] is False
+    assert result["issued_payload_count"] == 0
+    assert result["live_payload_runtime_enabled"] is False
     assert result["payload_transfer_enabled"] is False
+    assert result["payload_transfer_runtime_enabled"] is False
+    assert result["payload_deref_runtime_allowed"] is False
     assert result["kernel_arg_pass_allowed"] is False
+    assert result["live_runtime_instantiated"] is False
     assert (tmp_path / "out.json").exists()
     assert [call.issue_lead_tokens for call in EXECUTOR_CALLS] == [0, 0, 0, 0]
     assert [call.demand_gap_us for call in EXECUTOR_CALLS] == [0.0, 100.0, 250.0, 300.0]

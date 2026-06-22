@@ -61,18 +61,24 @@ def _packet_payload(
         "current_experts": [11],
         "transition_topk_count": topk,
         "payload_bytes": 0,
+        "issued_payload_count": 0,
         "ready_credit": False,
         "ready_before_demand_credit": False,
         "payload_transfer_enabled": False,
+        "live_payload_runtime_enabled": False,
+        "payload_transfer_runtime_enabled": False,
         "payload_deref_allowed": False,
+        "payload_deref_runtime_allowed": False,
         "kernel_arg_pass_allowed": False,
         "real_ready_credit_granted": False,
         "passed_to_kernel": False,
         "changes_kernel_launch_args": False,
+        "full_fetch_runtime_allowed": False,
         "uses_current_wna16_args": False,
         "passes_current_wna16_args": False,
         "measures_tpot": False,
         "measures_vllm_latency": False,
+        "live_runtime_instantiated": False,
         "issue_candidate_experts": issue_candidates,
         "issue_candidate_count": len(issue_candidates),
         "issue_candidate_first_expert": issue_candidates[0] if issue_candidates else -1,
@@ -82,18 +88,24 @@ def _packet_payload(
     if token_index is not None:
         payload["_export_context"] = {
             "payload_bytes": 0,
+            "issued_payload_count": 0,
             "ready_credit": False,
             "ready_before_demand_credit": False,
             "payload_transfer_enabled": False,
+            "live_payload_runtime_enabled": False,
+            "payload_transfer_runtime_enabled": False,
             "payload_deref_allowed": False,
+            "payload_deref_runtime_allowed": False,
             "kernel_arg_pass_allowed": False,
             "real_ready_credit_granted": False,
             "passed_to_kernel": False,
             "changes_kernel_launch_args": False,
+            "full_fetch_runtime_allowed": False,
             "uses_current_wna16_args": False,
             "passes_current_wna16_args": False,
             "measures_tpot": False,
             "measures_vllm_latency": False,
+            "live_runtime_instantiated": False,
             "token_index": int(token_index),
             "token_index_source": token_source,
             "sample_idx": 0,
@@ -124,18 +136,24 @@ def _online_payload(packet_paths: list[Path], *, unsafe: bool = False) -> dict:
         "online_packet_export_paths": [str(path) for path in packet_paths],
         "online_configured_export_count": len(packet_paths),
         "payload_bytes": 0,
+        "issued_payload_count": 0,
         "ready_credit": False,
         "ready_before_demand_credit": False,
         "payload_transfer_enabled": False,
+        "live_payload_runtime_enabled": False,
+        "payload_transfer_runtime_enabled": False,
         "payload_deref_allowed": False,
+        "payload_deref_runtime_allowed": False,
         "kernel_arg_pass_allowed": False,
         "real_ready_credit_granted": False,
         "passed_to_kernel": False,
         "changes_kernel_launch_args": False,
+        "full_fetch_runtime_allowed": False,
         "uses_current_wna16_args": False,
         "passes_current_wna16_args": False,
         "measures_tpot": False,
         "measures_vllm_latency": False,
+        "live_runtime_instantiated": False,
     }
     if unsafe:
         payload["payload_transfer_enabled"] = True
@@ -199,8 +217,13 @@ def test_issue_stream_executor_accepts_multi_packet_ready_time_hits(tmp_path: Pa
     assert result["demand_hit_rate"] == 1.0
     assert result["used_per_issued_fetch"] == 1.0
     assert result["real_payload_ready_hit_count"] == 0
+    assert result["issued_payload_count"] == 0
     assert result["payload_transfer_enabled"] is False
+    assert result["live_payload_runtime_enabled"] is False
+    assert result["payload_transfer_runtime_enabled"] is False
     assert result["kernel_arg_pass_allowed"] is False
+    assert result["full_fetch_runtime_allowed"] is False
+    assert result["live_runtime_instantiated"] is False
     assert json.loads((tmp_path / "out.json").read_text(encoding="utf-8"))[
         "passed"
     ] is True
@@ -758,29 +781,7 @@ def test_issue_stream_executor_rejects_export_context_issue_mismatch(
     module = _load_module()
     packet0 = tmp_path / "packet0.json"
     online = tmp_path / "online.json"
-    packet = _packet_payload(previous=(3,), topk=1)
-    packet["_export_context"] = {
-        key: packet[key]
-        for key in (
-            "payload_bytes",
-            "ready_credit",
-            "ready_before_demand_credit",
-            "payload_transfer_enabled",
-            "payload_deref_allowed",
-            "kernel_arg_pass_allowed",
-            "real_ready_credit_granted",
-            "passed_to_kernel",
-            "changes_kernel_launch_args",
-            "uses_current_wna16_args",
-            "passes_current_wna16_args",
-            "measures_tpot",
-            "measures_vllm_latency",
-            "issue_candidate_count",
-            "issue_candidate_first_expert",
-            "issue_candidate_last_expert",
-            "issue_candidate_hash",
-        )
-    }
+    packet = _packet_payload(previous=(3,), topk=1, token_index=0)
     packet["_export_context"]["issue_candidate_count"] = 2
     _write_json(packet0, packet)
     _write_json(online, _online_payload([packet0]))
@@ -798,10 +799,13 @@ def test_issue_stream_executor_rejects_missing_noop_contract_fields(tmp_path: Pa
     module = _load_module()
     packet0 = tmp_path / "packet0.json"
     online = tmp_path / "online.json"
-    packet = _packet_payload(previous=(3,), topk=1)
+    packet = _packet_payload(previous=(3,), topk=1, token_index=2)
     packet.pop("payload_transfer_enabled")
+    packet.pop("payload_transfer_runtime_enabled")
+    packet["_export_context"].pop("live_runtime_instantiated")
     online_payload = _online_payload([packet0])
     online_payload.pop("kernel_arg_pass_allowed")
+    online_payload.pop("issued_payload_count")
     _write_json(packet0, packet)
     _write_json(online, online_payload)
 
@@ -809,7 +813,12 @@ def test_issue_stream_executor_rejects_missing_noop_contract_fields(tmp_path: Pa
 
     assert result["passed"] is False
     assert "online_kernel_arg_pass_allowed_missing" in result["failures"]
+    assert "online_issued_payload_count_missing" in result["failures"]
     assert "packet_0_payload_transfer_enabled_missing" in result["failures"]
+    assert "packet_0_payload_transfer_runtime_enabled_missing" in result["failures"]
+    assert "packet_0_export_context_live_runtime_instantiated_missing" in result[
+        "failures"
+    ]
 
 
 def test_issue_stream_executor_rejects_packet_export_count_mismatch(tmp_path: Path):

@@ -828,6 +828,47 @@ def _check_required_shifted_issue_accounting(
             failures.append(f"{label}_{key}_mismatch")
 
 
+def _check_queue_budget_shifted_issue_accounting(
+    payload: dict[str, Any],
+    failures: list[str],
+    *,
+    expected_lead_tokens: int | None,
+    label: str,
+) -> None:
+    if not payload:
+        failures.append(f"{label}_missing")
+        return
+    if _optional_bool(payload, "shifted_issue_accounting_enabled") is not True:
+        failures.append(f"{label}_enabled_mismatch")
+    lead_tokens = _optional_int(payload, "shifted_issue_lead_tokens")
+    if expected_lead_tokens is None:
+        if lead_tokens is None or lead_tokens <= 0:
+            failures.append(f"{label}_shifted_issue_lead_tokens_invalid")
+    elif lead_tokens != expected_lead_tokens:
+        failures.append(f"{label}_shifted_issue_lead_tokens_mismatch")
+    for key in (
+        "shifted_issue_unique_issue_key_count",
+        "shifted_issue_accounted_packet_count",
+    ):
+        value = _optional_int(payload, key)
+        if value is None or value <= 0:
+            failures.append(f"{label}_{key}_invalid")
+    for key in (
+        "shifted_issue_clamped_issue_count",
+        "shifted_issue_duplicate_issue_key_count",
+    ):
+        value = _optional_int(payload, key)
+        if value is None or value < 0:
+            failures.append(f"{label}_{key}_invalid")
+    for key in (
+        "shifted_issue_invalid_export_count",
+        "shifted_issue_row_shift_mismatch_count",
+        "shifted_issue_row_clamp_mismatch_count",
+    ):
+        if _optional_int(payload, key) != 0:
+            failures.append(f"{label}_{key}_mismatch")
+
+
 def _check_optional_stream_feasibility(
     section: dict[str, Any],
     root: Path,
@@ -1186,7 +1227,11 @@ def _check_optional_stream_queue_budget_sweep(
         failures.append("stream_queue_budget_not_passed")
     if report.get("full_fetch_allowed") is not False:
         failures.append("stream_queue_budget_allows_full_fetch")
-    _check_stream_noop_safety(report, failures, label="stream_queue_budget")
+    _check_stream_queue_budget_noop_safety(
+        report,
+        failures,
+        label="stream_queue_budget",
+    )
     if report.get("event_timing_mode") != "token_index":
         failures.append("stream_queue_budget_event_timing_mode_mismatch")
     cell_count = _strict_int(report, "cell_count")
@@ -1207,8 +1252,8 @@ def _check_optional_stream_queue_budget_sweep(
     first_lookahead_us = _optional_float(first_cell, "lookahead_us")
     if first_capacity is None or first_capacity <= 0:
         failures.append("stream_queue_budget_first_capacity_invalid")
-    if first_lead != 32:
-        failures.append("stream_queue_budget_first_issue_lead_tokens_mismatch")
+    if first_lead is None or first_lead <= 0:
+        failures.append("stream_queue_budget_first_issue_lead_tokens_invalid")
     if first_queue_deadline_us is None or first_queue_deadline_us <= 0.0:
         failures.append("stream_queue_budget_first_queue_deadline_us_invalid")
     if first_lookahead_us is None or first_lookahead_us <= 0.0:
@@ -1246,9 +1291,10 @@ def _check_optional_stream_queue_budget_sweep(
         )
         if row_shifted_issue != shifted_issue:
             failures.append("stream_queue_budget_first_shifted_issue_cell_mismatch")
-    _check_required_shifted_issue_accounting(
+    _check_queue_budget_shifted_issue_accounting(
         shifted_issue,
         failures,
+        expected_lead_tokens=first_lead,
         label="stream_queue_budget_first_shifted_issue",
     )
     envelope_payload: dict[str, Any] = {}
@@ -1607,14 +1653,29 @@ def _check_optional_stream_queue_budget_sweep(
         "stream_queue_budget_runtime_envelope_payload_bytes": envelope_payload.get(
             "payload_bytes",
         ),
+        "stream_queue_budget_runtime_envelope_issued_payload_count": (
+            envelope_payload.get("issued_payload_count")
+        ),
+        "stream_queue_budget_runtime_envelope_live_payload_runtime_enabled": (
+            envelope_payload.get("live_payload_runtime_enabled")
+        ),
         "stream_queue_budget_runtime_envelope_payload_transfer_enabled": (
             envelope_payload.get("payload_transfer_enabled")
+        ),
+        "stream_queue_budget_runtime_envelope_payload_transfer_runtime_enabled": (
+            envelope_payload.get("payload_transfer_runtime_enabled")
         ),
         "stream_queue_budget_runtime_envelope_payload_deref_allowed": (
             envelope_payload.get("payload_deref_allowed")
         ),
+        "stream_queue_budget_runtime_envelope_payload_deref_runtime_allowed": (
+            envelope_payload.get("payload_deref_runtime_allowed")
+        ),
         "stream_queue_budget_runtime_envelope_full_fetch_allowed": (
             envelope_payload.get("full_fetch_allowed")
+        ),
+        "stream_queue_budget_runtime_envelope_full_fetch_runtime_allowed": (
+            envelope_payload.get("full_fetch_runtime_allowed")
         ),
         "stream_queue_budget_runtime_envelope_ready_credit": envelope_payload.get(
             "ready_credit",
@@ -1645,6 +1706,9 @@ def _check_optional_stream_queue_budget_sweep(
         ),
         "stream_queue_budget_runtime_envelope_measures_vllm_latency": (
             envelope_payload.get("measures_vllm_latency")
+        ),
+        "stream_queue_budget_runtime_envelope_live_runtime_instantiated": (
+            envelope_payload.get("live_runtime_instantiated")
         ),
         "stream_queue_budget_live_payload_stage_present": (
             live_payload_stage_payload.get("present")
@@ -2502,18 +2566,38 @@ def _check_optional_stream_queue_budget_sweep(
             "stream_queue_budget_live_runtime_adapter_payload_issue_request_blocked_canary",
             live_runtime_adapter_payload_issue_request_blocked_canary_payload,
         ),
+        "stream_queue_budget_issued_payload_count": _optional_int(
+            report,
+            "issued_payload_count",
+        ),
         "stream_queue_budget_payload_bytes": _optional_int(report, "payload_bytes"),
+        "stream_queue_budget_live_payload_runtime_enabled": _optional_bool(
+            report,
+            "live_payload_runtime_enabled",
+        ),
         "stream_queue_budget_payload_transfer_enabled": _optional_bool(
             report,
             "payload_transfer_enabled",
+        ),
+        "stream_queue_budget_payload_transfer_runtime_enabled": _optional_bool(
+            report,
+            "payload_transfer_runtime_enabled",
         ),
         "stream_queue_budget_payload_deref_allowed": _optional_bool(
             report,
             "payload_deref_allowed",
         ),
+        "stream_queue_budget_payload_deref_runtime_allowed": _optional_bool(
+            report,
+            "payload_deref_runtime_allowed",
+        ),
         "stream_queue_budget_full_fetch_allowed": _optional_bool(
             report,
             "full_fetch_allowed",
+        ),
+        "stream_queue_budget_full_fetch_runtime_allowed": _optional_bool(
+            report,
+            "full_fetch_runtime_allowed",
         ),
         "stream_queue_budget_ready_credit": _optional_bool(report, "ready_credit"),
         "stream_queue_budget_ready_before_demand_credit": _optional_bool(
@@ -2552,6 +2636,10 @@ def _check_optional_stream_queue_budget_sweep(
             report,
             "measures_vllm_latency",
         ),
+        "stream_queue_budget_live_runtime_instantiated": _optional_bool(
+            report,
+            "live_runtime_instantiated",
+        ),
     }
 
 
@@ -2585,6 +2673,26 @@ def _check_stream_noop_safety(
         "wna16_benchmark_ready",
     ):
         if field in report and report.get(field) is not False:
+            failures.append(f"{label}_{field}_not_false")
+
+
+def _check_stream_queue_budget_noop_safety(
+    report: dict[str, Any],
+    failures: list[str],
+    *,
+    label: str,
+) -> None:
+    _check_stream_noop_safety(report, failures, label=label)
+    if report.get("issued_payload_count") != 0:
+        failures.append(f"{label}_issued_payload_count_nonzero")
+    for field in (
+        "live_payload_runtime_enabled",
+        "payload_transfer_runtime_enabled",
+        "payload_deref_runtime_allowed",
+        "full_fetch_runtime_allowed",
+        "live_runtime_instantiated",
+    ):
+        if report.get(field) is not False:
             failures.append(f"{label}_{field}_not_false")
 
 

@@ -33,7 +33,11 @@ SAFE_FALSE_FLAGS = (
     "ready_before_demand_credit",
     "real_ready_credit_granted",
     "payload_transfer_enabled",
+    "live_payload_runtime_enabled",
+    "payload_transfer_runtime_enabled",
     "payload_deref_allowed",
+    "payload_deref_runtime_allowed",
+    "full_fetch_runtime_allowed",
     "kernel_arg_pass_allowed",
     "passed_to_kernel",
     "changes_kernel_launch_args",
@@ -41,8 +45,9 @@ SAFE_FALSE_FLAGS = (
     "passes_current_wna16_args",
     "measures_tpot",
     "measures_vllm_latency",
+    "live_runtime_instantiated",
 )
-SAFE_ZERO_FLAGS = ("payload_bytes",)
+SAFE_ZERO_FLAGS = ("payload_bytes", "issued_payload_count")
 SHIFTED_ISSUE_ACCOUNTING_FIELDS = (
     "shifted_issue_accounting_enabled",
     "shifted_issue_lead_tokens",
@@ -294,11 +299,20 @@ def run_stream_lookahead_sweep(args: argparse.Namespace) -> dict[str, Any]:
             "full_fetch_allowed": bool(result.get("full_fetch_allowed")),
             "full_fetch_block_reason": result.get("full_fetch_block_reason"),
             "payload_bytes": result.get("payload_bytes"),
+            "issued_payload_count": result.get("issued_payload_count"),
             "ready_credit": result.get("ready_credit"),
             "ready_before_demand_credit": result.get("ready_before_demand_credit"),
             "real_ready_credit_granted": result.get("real_ready_credit_granted"),
             "payload_transfer_enabled": result.get("payload_transfer_enabled"),
+            "live_payload_runtime_enabled": result.get("live_payload_runtime_enabled"),
+            "payload_transfer_runtime_enabled": result.get(
+                "payload_transfer_runtime_enabled"
+            ),
             "payload_deref_allowed": result.get("payload_deref_allowed"),
+            "payload_deref_runtime_allowed": result.get(
+                "payload_deref_runtime_allowed"
+            ),
+            "full_fetch_runtime_allowed": result.get("full_fetch_runtime_allowed"),
             "kernel_arg_pass_allowed": result.get("kernel_arg_pass_allowed"),
             "passed_to_kernel": result.get("passed_to_kernel"),
             "changes_kernel_launch_args": result.get("changes_kernel_launch_args"),
@@ -389,12 +403,17 @@ def run_stream_lookahead_sweep(args: argparse.Namespace) -> dict[str, Any]:
         "max_ready_late_miss_rate": float(args.max_ready_late_miss_rate),
         "min_used_per_issued_fetch": float(args.min_used_per_issued_fetch),
         "payload_bytes": 0,
+        "issued_payload_count": 0,
         "ready_credit": False,
         "ready_before_demand_credit": False,
         "real_ready_credit_granted": False,
         "payload_transfer_enabled": False,
+        "live_payload_runtime_enabled": False,
+        "payload_transfer_runtime_enabled": False,
         "payload_deref_allowed": False,
+        "payload_deref_runtime_allowed": False,
         "full_fetch_allowed": False,
+        "full_fetch_runtime_allowed": False,
         "full_fetch_block_reason": "real_payload_runtime_not_enabled",
         "kernel_arg_pass_allowed": False,
         "passed_to_kernel": False,
@@ -403,6 +422,7 @@ def run_stream_lookahead_sweep(args: argparse.Namespace) -> dict[str, Any]:
         "passes_current_wna16_args": False,
         "measures_tpot": False,
         "measures_vllm_latency": False,
+        "live_runtime_instantiated": False,
         "boundary": (
             "ready-time stream lookahead sweep only; no real payload movement, "
             "ready credit, kernel arg pass, or endpoint latency"

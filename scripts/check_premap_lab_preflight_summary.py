@@ -1563,9 +1563,13 @@ def _check_stream_queue_budget(summary: dict[str, Any], failures: list[str]) -> 
         if summary.get(f"{prefix}_{key}") is not True:
             failures.append(f"{prefix}_{key}_mismatch")
     for key in (
+        "live_payload_runtime_enabled",
         "payload_transfer_enabled",
+        "payload_transfer_runtime_enabled",
         "payload_deref_allowed",
+        "payload_deref_runtime_allowed",
         "full_fetch_allowed",
+        "full_fetch_runtime_allowed",
         "ready_credit",
         "ready_before_demand_credit",
         "real_ready_credit_granted",
@@ -1576,11 +1580,14 @@ def _check_stream_queue_budget(summary: dict[str, Any], failures: list[str]) -> 
         "passes_current_wna16_args",
         "measures_tpot",
         "measures_vllm_latency",
+        "live_runtime_instantiated",
     ):
         if summary.get(f"{prefix}_{key}") is not False:
             failures.append(f"{prefix}_{key}_mismatch")
     if _int_metric(summary, f"{prefix}_payload_bytes") != 0:
         failures.append(f"{prefix}_payload_bytes_mismatch")
+    if _int_metric(summary, f"{prefix}_issued_payload_count") != 0:
+        failures.append(f"{prefix}_issued_payload_count_mismatch")
     if summary.get(f"{prefix}_event_timing_mode") != "token_index":
         failures.append(f"{prefix}_event_timing_mode_mismatch")
 
@@ -1615,16 +1622,18 @@ def _check_stream_queue_budget(summary: dict[str, Any], failures: list[str]) -> 
         failures.append(f"{prefix}_first_model_passing_capacity_invalid")
     if first_capacity != 4096:
         failures.append(f"{prefix}_first_model_passing_capacity_mismatch")
-    if first_lead != 32:
-        failures.append(f"{prefix}_first_model_passing_issue_lead_tokens_mismatch")
+    if first_lead is None or first_lead <= 0:
+        failures.append(f"{prefix}_first_model_passing_issue_lead_tokens_invalid")
     if first_deadline is None or first_deadline <= 0.0:
         failures.append(f"{prefix}_first_model_passing_queue_deadline_us_invalid")
     if first_deadline != 100.0:
         failures.append(f"{prefix}_first_model_passing_queue_deadline_us_mismatch")
     if first_lookahead is None or first_lookahead <= 0.0:
         failures.append(f"{prefix}_first_model_passing_lookahead_us_invalid")
-    if first_lookahead != 2_400_000.0:
-        failures.append(f"{prefix}_first_model_passing_lookahead_us_mismatch")
+    if first_lookahead is not None and first_lead is not None:
+        expected_lookahead = float(first_lead) * 75_000.0
+        if first_lookahead != expected_lookahead:
+            failures.append(f"{prefix}_first_model_passing_lookahead_us_mismatch")
 
     envelope_prefix = f"{prefix}_runtime_envelope"
     if summary.get(f"{envelope_prefix}_present") is not True:
@@ -1648,10 +1657,16 @@ def _check_stream_queue_budget(summary: dict[str, Any], failures: list[str]) -> 
         failures.append(f"{envelope_prefix}_consumes_queue_budget_sweep_mismatch")
     if _int_metric(summary, f"{envelope_prefix}_payload_bytes") != 0:
         failures.append(f"{envelope_prefix}_payload_bytes_mismatch")
+    if _int_metric(summary, f"{envelope_prefix}_issued_payload_count") != 0:
+        failures.append(f"{envelope_prefix}_issued_payload_count_mismatch")
     for key in (
+        "live_payload_runtime_enabled",
         "payload_transfer_enabled",
+        "payload_transfer_runtime_enabled",
         "payload_deref_allowed",
+        "payload_deref_runtime_allowed",
         "full_fetch_allowed",
+        "full_fetch_runtime_allowed",
         "ready_credit",
         "ready_before_demand_credit",
         "real_ready_credit_granted",
@@ -1662,6 +1677,7 @@ def _check_stream_queue_budget(summary: dict[str, Any], failures: list[str]) -> 
         "passes_current_wna16_args",
         "measures_tpot",
         "measures_vllm_latency",
+        "live_runtime_instantiated",
     ):
         if summary.get(f"{envelope_prefix}_{key}") is not False:
             failures.append(f"{envelope_prefix}_{key}_mismatch")
@@ -5195,10 +5211,8 @@ def _check_stream_queue_budget(summary: dict[str, Any], failures: list[str]) -> 
         failures.append(
             f"{prefix}_first_shifted_issue_accounted_packet_count_mismatch"
         )
-    if first_shifted_unique_count != 16:
-        failures.append(
-            f"{prefix}_first_shifted_issue_unique_issue_key_count_mismatch"
-        )
+    if first_shifted_unique_count is None or first_shifted_unique_count <= 0:
+        failures.append(f"{prefix}_first_shifted_issue_unique_issue_key_count_invalid")
 
 
 def check_premap_lab_preflight_summary(

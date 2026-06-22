@@ -27,7 +27,11 @@ SAFE_FALSE_FLAGS = (
     "ready_before_demand_credit",
     "real_ready_credit_granted",
     "payload_transfer_enabled",
+    "live_payload_runtime_enabled",
+    "payload_transfer_runtime_enabled",
     "payload_deref_allowed",
+    "payload_deref_runtime_allowed",
+    "full_fetch_runtime_allowed",
     "kernel_arg_pass_allowed",
     "passed_to_kernel",
     "changes_kernel_launch_args",
@@ -35,8 +39,9 @@ SAFE_FALSE_FLAGS = (
     "passes_current_wna16_args",
     "measures_tpot",
     "measures_vllm_latency",
+    "live_runtime_instantiated",
 )
-SAFE_ZERO_FLAGS = ("payload_bytes",)
+SAFE_ZERO_FLAGS = ("payload_bytes", "issued_payload_count")
 SHIFTED_ISSUE_ACCOUNTING_FIELDS = (
     "shifted_issue_accounting_enabled",
     "shifted_issue_lead_tokens",
@@ -302,12 +307,17 @@ def run_queue_budget_sweep(args: argparse.Namespace) -> dict[str, Any]:
         "cell_count": len(cells),
         "cells": cells,
         "payload_bytes": 0,
+        "issued_payload_count": 0,
         "ready_credit": False,
         "ready_before_demand_credit": False,
         "real_ready_credit_granted": False,
         "payload_transfer_enabled": False,
+        "live_payload_runtime_enabled": False,
+        "payload_transfer_runtime_enabled": False,
         "payload_deref_allowed": False,
+        "payload_deref_runtime_allowed": False,
         "full_fetch_allowed": False,
+        "full_fetch_runtime_allowed": False,
         "full_fetch_block_reason": "real_payload_runtime_not_enabled",
         "kernel_arg_pass_allowed": False,
         "passed_to_kernel": False,
@@ -316,6 +326,7 @@ def run_queue_budget_sweep(args: argparse.Namespace) -> dict[str, Any]:
         "passes_current_wna16_args": False,
         "measures_tpot": False,
         "measures_vllm_latency": False,
+        "live_runtime_instantiated": False,
         "boundary": (
             "queue-budget replay only; no real payload movement, ready credit, "
             "kernel arg pass, or endpoint latency"

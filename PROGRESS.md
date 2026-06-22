@@ -43070,3 +43070,69 @@ Validation:
 
 git diff --check
 ```
+
+### 2026-06-22: Payload-cache issue stream no-op fields promoted into strict lab preflight
+
+The producer-state packet export, online native canary, queue-budget replay, and
+lab preflight summary now carry the explicit payloadless runtime boundary:
+
+```text
+issued_payload_count = 0
+live_payload_runtime_enabled = false
+payload_transfer_runtime_enabled = false
+payload_deref_runtime_allowed = false
+full_fetch_runtime_allowed = false
+live_runtime_instantiated = false
+```
+
+The formal evidence chain is based on the 128-sample Dolly GPU1 gen64 packet
+export audit:
+
+```text
+data/traces/external_prompt_gate_dolly_128_awq_vllm_gpu1_decode_gen64_producer_state_packet_export_token_provenance_audit_v1/performance_summary.json
+
+outputs/reports/premap_kernel_consumer/
+  payload_cache_producer_state_online_canary_dolly128_gen64_token_provenance_noop_fields_v2.json
+  premap_payload_cache_issue_stream_executor_dolly128_gen64_token_provenance_queue_budget_noop_fields_v2.json
+  prefetch_lab_default_gate_gpu1_noop_fields_v2_check.json
+  premap_lab_preflight_noop_fields_v2_strict_summary.json
+  premap_lab_preflight_noop_fields_v2_strict_summary_check.json
+```
+
+`configs/runtime/prefetch_lab_default_gate_gpu1.yaml` now points at the new
+128-sample queue-budget artifact.  The queue-budget first passing cell is
+allowed to be earlier than the old shifted-replay contract when it is internally
+consistent; the independent shifted replay contract still requires the old
+32-token lead evidence.
+
+Current gate result:
+
+```text
+prefetch_lab_default_gate: passed
+strict summary-only preflight: passed
+queue-budget first lead: 8 tokens
+queue-budget first lookahead: 600000 us
+payload bytes: 0
+issued payload count: 0
+kernel arg pass: false
+changes kernel launch args: false
+full fetch runtime allowed: false
+live runtime instantiated: false
+```
+
+Validation:
+
+```bash
+/home/husrcf/anaconda3/envs/TRY/bin/python -m pytest \
+  tests/test_check_prefetch_lab_default_gate.py \
+  tests/test_vllm_router_shadow_sink.py \
+  tests/test_run_premap_payload_cache_producer_state_online_canary.py \
+  tests/test_run_premap_payload_cache_issue_stream_executor.py \
+  tests/test_sweep_premap_payload_cache_issue_stream_executor_lookahead.py \
+  tests/test_sweep_premap_payload_cache_issue_stream_executor_queue_budget.py \
+  tests/test_run_premap_lab_preflight.py \
+  tests/test_check_premap_lab_preflight_summary.py -q
+# 517 passed
+
+git diff --check
+```

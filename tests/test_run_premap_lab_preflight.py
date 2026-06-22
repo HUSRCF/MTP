@@ -4759,8 +4759,13 @@ def _write_prefetch_lab_default_gate(root: Path) -> str:
     )
     no_op_fields = {
         "payload_bytes": 0,
+        "issued_payload_count": 0,
+        "live_payload_runtime_enabled": False,
         "payload_transfer_enabled": False,
+        "payload_transfer_runtime_enabled": False,
         "payload_deref_allowed": False,
+        "payload_deref_runtime_allowed": False,
+        "full_fetch_runtime_allowed": False,
         "ready_credit": False,
         "ready_before_demand_credit": False,
         "real_ready_credit_granted": False,
@@ -4774,6 +4779,7 @@ def _write_prefetch_lab_default_gate(root: Path) -> str:
         "wna16_benchmark_ready": False,
         "measures_tpot": False,
         "measures_vllm_latency": False,
+        "live_runtime_instantiated": False,
     }
     _write(
         root / stream_decision_gate,
@@ -7139,11 +7145,39 @@ def test_premap_lab_preflight_accepts_default_readonly_wiring(tmp_path: Path):
         is False
     )
     assert (
+        summary["prefetch_lab_default_stream_queue_budget_issued_payload_count"]
+        == 0
+    )
+    assert (
+        summary[
+            "prefetch_lab_default_stream_queue_budget_live_payload_runtime_enabled"
+        ]
+        is False
+    )
+    assert (
         summary["prefetch_lab_default_stream_queue_budget_payload_transfer_enabled"]
         is False
     )
     assert (
+        summary[
+            "prefetch_lab_default_stream_queue_budget_payload_transfer_runtime_enabled"
+        ]
+        is False
+    )
+    assert (
         summary["prefetch_lab_default_stream_queue_budget_payload_deref_allowed"]
+        is False
+    )
+    assert (
+        summary[
+            "prefetch_lab_default_stream_queue_budget_payload_deref_runtime_allowed"
+        ]
+        is False
+    )
+    assert (
+        summary[
+            "prefetch_lab_default_stream_queue_budget_full_fetch_runtime_allowed"
+        ]
         is False
     )
     assert (
@@ -7171,6 +7205,10 @@ def test_premap_lab_preflight_accepts_default_readonly_wiring(tmp_path: Path):
     )
     assert (
         summary["prefetch_lab_default_stream_queue_budget_passes_current_wna16_args"]
+        is False
+    )
+    assert (
+        summary["prefetch_lab_default_stream_queue_budget_live_runtime_instantiated"]
         is False
     )
     assert (
