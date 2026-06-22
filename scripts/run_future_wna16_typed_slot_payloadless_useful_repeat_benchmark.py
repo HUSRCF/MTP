@@ -59,6 +59,7 @@ FIELDS = (
     "scale_metadata_handle",
     "aux_metadata_handle",
 )
+USEFUL_WORK_KIND = "native_typed_slot_four_field_row_projection"
 EXPECTED_HARNESS_FLAGS: dict[str, Any] = {
     "artifact_kind": "future_wna16_typed_slot_payloadless_useful_benchmark_harness",
     "harness_name": "premap_future_wna16_typed_slot_payloadless_useful_benchmark_harness_v1",
@@ -188,6 +189,27 @@ def _check_harness(harness: dict[str, Any], failures: list[str]) -> None:
             failures.append("harness_row_ok_count_mismatch")
         if rows_consumed != row_count:
             failures.append("harness_rows_consumed_mismatch")
+    field_count = _int_metric(harness, "field_count")
+    fields_per_row = _int_metric(harness, "fields_per_row")
+    useful_work_units = _int_metric(harness, "useful_work_units")
+    expected_useful_work_units = _int_metric(harness, "expected_useful_work_units")
+    expected_units = int(row_count or 0) * len(FIELDS)
+    if field_count != len(FIELDS):
+        failures.append("harness_field_count_mismatch")
+    if fields_per_row != len(FIELDS):
+        failures.append("harness_fields_per_row_mismatch")
+    if expected_useful_work_units != expected_units:
+        failures.append("harness_expected_useful_work_units_mismatch")
+    if useful_work_units != expected_useful_work_units:
+        failures.append("harness_useful_work_units_mismatch")
+    if useful_work_units is None or useful_work_units <= 0:
+        failures.append("harness_useful_work_units_not_positive")
+    if harness.get("useful_work_coverage") != 1.0:
+        failures.append("harness_useful_work_coverage_mismatch")
+    if harness.get("useful_work_kind") != USEFUL_WORK_KIND:
+        failures.append("harness_useful_work_kind_mismatch")
+    if harness.get("native_consumer_has_useful_work") is not True:
+        failures.append("harness_native_consumer_has_useful_work_mismatch")
     hashes = harness.get("field_read_hashes")
     if not isinstance(hashes, dict):
         failures.append("harness_field_read_hashes_missing")
@@ -407,6 +429,15 @@ def run_payloadless_useful_repeat_benchmark(
         "row_count": harness.get("row_count"),
         "row_ok_count": harness.get("row_ok_count"),
         "rows_consumed": harness.get("rows_consumed"),
+        "field_count": harness.get("field_count"),
+        "fields_per_row": harness.get("fields_per_row"),
+        "useful_work_units": harness.get("useful_work_units"),
+        "expected_useful_work_units": harness.get("expected_useful_work_units"),
+        "useful_work_coverage": harness.get("useful_work_coverage"),
+        "useful_work_kind": harness.get("useful_work_kind"),
+        "native_consumer_has_useful_work": harness.get(
+            "native_consumer_has_useful_work",
+        ),
         "field_names": list(FIELDS),
         "field_read_hashes": harness.get("field_read_hashes"),
         "repeat_count_requested": int(args.repeat_count),

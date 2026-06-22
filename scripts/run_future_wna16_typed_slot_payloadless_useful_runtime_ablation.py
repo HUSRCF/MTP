@@ -50,6 +50,7 @@ FIELDS = (
     "scale_metadata_handle",
     "aux_metadata_handle",
 )
+USEFUL_WORK_KIND = "native_typed_slot_four_field_row_projection"
 EXPECTED_REPEAT_FLAGS: dict[str, Any] = {
     "artifact_kind": "future_wna16_typed_slot_payloadless_useful_repeat_benchmark",
     "benchmark_name": "premap_future_wna16_typed_slot_payloadless_useful_repeat_benchmark_v1",
@@ -257,6 +258,51 @@ def _check_field_hashes(
                 failures.append(f"{label}_{key}_mismatch")
 
 
+def _failure_name(label: str, suffix: str) -> str:
+    return f"{label}_{suffix}" if label else suffix
+
+
+def _check_useful_work(
+    payload: dict[str, Any],
+    failures: list[str],
+    *,
+    label: str,
+    row_count: int | None,
+) -> dict[str, Any]:
+    field_count = _int_metric(payload, "field_count")
+    fields_per_row = _int_metric(payload, "fields_per_row")
+    useful_work_units = _int_metric(payload, "useful_work_units")
+    expected_useful_work_units = _int_metric(payload, "expected_useful_work_units")
+    expected_units = int(row_count or 0) * len(FIELDS)
+    if field_count != len(FIELDS):
+        failures.append(_failure_name(label, "field_count_mismatch"))
+    if fields_per_row != len(FIELDS):
+        failures.append(_failure_name(label, "fields_per_row_mismatch"))
+    if expected_useful_work_units != expected_units:
+        failures.append(_failure_name(label, "expected_useful_work_units_mismatch"))
+    if useful_work_units != expected_useful_work_units:
+        failures.append(_failure_name(label, "useful_work_units_mismatch"))
+    if useful_work_units is None or useful_work_units <= 0:
+        failures.append(_failure_name(label, "useful_work_units_not_positive"))
+    if payload.get("useful_work_coverage") != 1.0:
+        failures.append(_failure_name(label, "useful_work_coverage_mismatch"))
+    if payload.get("useful_work_kind") != USEFUL_WORK_KIND:
+        failures.append(_failure_name(label, "useful_work_kind_mismatch"))
+    if payload.get("native_consumer_has_useful_work") is not True:
+        failures.append(_failure_name(label, "native_consumer_has_useful_work_mismatch"))
+    return {
+        "field_count": field_count,
+        "fields_per_row": fields_per_row,
+        "useful_work_units": useful_work_units,
+        "expected_useful_work_units": expected_useful_work_units,
+        "useful_work_coverage": payload.get("useful_work_coverage"),
+        "useful_work_kind": payload.get("useful_work_kind"),
+        "native_consumer_has_useful_work": payload.get(
+            "native_consumer_has_useful_work"
+        ),
+    }
+
+
 def _check_native_stub(
     stub: dict[str, Any],
     failures: list[str],
@@ -441,6 +487,7 @@ def run_payloadless_useful_runtime_ablation(args: argparse.Namespace) -> dict[st
         failures.append("row_ok_count_mismatch")
     if row_count is not None and rows_consumed != row_count:
         failures.append("rows_consumed_mismatch")
+    useful_work = _check_useful_work(repeat, failures, label="", row_count=row_count)
     if (
         repeat_count_requested is None
         or repeat_count_requested < args.min_repeat_count
@@ -490,6 +537,12 @@ def run_payloadless_useful_runtime_ablation(args: argparse.Namespace) -> dict[st
             failures,
             label="harness",
             expected_hashes=field_hashes,
+            row_count=row_count,
+        )
+        _check_useful_work(
+            harness,
+            failures,
+            label="harness",
             row_count=row_count,
         )
 
@@ -557,6 +610,15 @@ def run_payloadless_useful_runtime_ablation(args: argparse.Namespace) -> dict[st
         "row_count": row_count,
         "row_ok_count": row_ok_count,
         "rows_consumed": rows_consumed,
+        "field_count": useful_work["field_count"],
+        "fields_per_row": useful_work["fields_per_row"],
+        "useful_work_units": useful_work["useful_work_units"],
+        "expected_useful_work_units": useful_work["expected_useful_work_units"],
+        "useful_work_coverage": useful_work["useful_work_coverage"],
+        "useful_work_kind": useful_work["useful_work_kind"],
+        "native_consumer_has_useful_work": useful_work[
+            "native_consumer_has_useful_work"
+        ],
         "field_names": list(FIELDS),
         "field_read_hashes": field_hashes,
         "repeat_count_requested": repeat_count_requested,

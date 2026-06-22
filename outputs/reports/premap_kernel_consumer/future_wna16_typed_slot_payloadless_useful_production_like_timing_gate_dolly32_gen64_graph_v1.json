@@ -31,16 +31,20 @@
     "repeat_signal": "small_positive_original_split",
     "useful_signal": "ready_but_not_tpot_measured"
   },
+  "expected_useful_work_units": 21380,
   "failures": [],
+  "field_count": 4,
   "field_names": [
     "descriptor_ptr",
     "packed_weight_descriptor",
     "scale_metadata_handle",
     "aux_metadata_handle"
   ],
+  "fields_per_row": 4,
   "kernel_arg_pass_allowed": false,
   "measures_tpot": false,
   "measures_vllm_latency": false,
+  "native_consumer_has_useful_work": true,
   "next_runtime_stage": "future_typed_slot_useful_consumer_or_payload_cache_manager",
   "passed": true,
   "passed_to_kernel": false,
@@ -57,7 +61,7 @@
   "row_count": 5345,
   "runtime_ablation_json": "/home/husrcf/Code/ProtBind/MTP/outputs/reports/premap_kernel_consumer/future_wna16_typed_slot_payloadless_useful_runtime_ablation_entry_args_ptr_repeat3_gpu1_v1.json",
   "runtime_ablation_ready": true,
-  "runtime_ablation_sha256": "96bbd2288659721632d42254df546b9705d13c3fa2362ceb1e15946e1712583f",
+  "runtime_ablation_sha256": "45b2e20c83a6196a0020f8ccd2f9c1c2999973f193180bacb87088bd25423e4e",
   "source_count": 128,
   "timing_gate_mode": "production_like_config_readiness_gate",
   "timing_gate_name": "premap_future_wna16_typed_slot_payloadless_useful_production_like_timing_gate_v1",
@@ -81,6 +85,9 @@
     "split_id": "external_prompt_gate_dolly_32_gen64_utilization",
     "start_sample": 0
   },
+  "useful_work_coverage": 1.0,
+  "useful_work_kind": "native_typed_slot_four_field_row_projection",
+  "useful_work_units": 21380,
   "uses_current_wna16_args": false,
   "will_measure_tpot_next": false,
   "wna16_benchmark_ready": false

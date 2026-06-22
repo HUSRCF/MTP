@@ -65,6 +65,7 @@ FIELDS = (
     "scale_metadata_handle",
     "aux_metadata_handle",
 )
+USEFUL_WORK_KIND = "native_typed_slot_four_field_row_projection"
 
 EXPECTED_RUNTIME_ABLATION_FLAGS: dict[str, Any] = {
     "artifact_kind": "future_wna16_typed_slot_payloadless_useful_runtime_ablation",
@@ -222,6 +223,10 @@ def _check_runtime_ablation(
     row_ok_count = _int_metric(payload, "row_ok_count")
     rows_consumed = _int_metric(payload, "rows_consumed")
     repeat_count = _int_metric(payload, "repeat_count_measured")
+    field_count = _int_metric(payload, "field_count")
+    fields_per_row = _int_metric(payload, "fields_per_row")
+    useful_work_units = _int_metric(payload, "useful_work_units")
+    expected_useful_work_units = _int_metric(payload, "expected_useful_work_units")
     if source_count is None or source_count < min_source_count:
         failures.append("runtime_ablation_source_count_invalid")
     if row_count is None or row_count < min_row_count:
@@ -230,6 +235,23 @@ def _check_runtime_ablation(
         failures.append("runtime_ablation_row_ok_count_mismatch")
     if row_count is not None and rows_consumed != row_count:
         failures.append("runtime_ablation_rows_consumed_mismatch")
+    expected_units = int(row_count or 0) * len(FIELDS)
+    if field_count != len(FIELDS):
+        failures.append("runtime_ablation_field_count_mismatch")
+    if fields_per_row != len(FIELDS):
+        failures.append("runtime_ablation_fields_per_row_mismatch")
+    if expected_useful_work_units != expected_units:
+        failures.append("runtime_ablation_expected_useful_work_units_mismatch")
+    if useful_work_units != expected_useful_work_units:
+        failures.append("runtime_ablation_useful_work_units_mismatch")
+    if useful_work_units is None or useful_work_units <= 0:
+        failures.append("runtime_ablation_useful_work_units_not_positive")
+    if payload.get("useful_work_coverage") != 1.0:
+        failures.append("runtime_ablation_useful_work_coverage_mismatch")
+    if payload.get("useful_work_kind") != USEFUL_WORK_KIND:
+        failures.append("runtime_ablation_useful_work_kind_mismatch")
+    if payload.get("native_consumer_has_useful_work") is not True:
+        failures.append("runtime_ablation_native_consumer_has_useful_work_mismatch")
     if repeat_count is None or repeat_count < min_repeat_count:
         failures.append("runtime_ablation_repeat_count_invalid")
     repeat_path = payload.get("repeat_benchmark_json")
@@ -509,6 +531,17 @@ def run_production_like_timing_gate(args: argparse.Namespace) -> dict[str, Any]:
         "source_count": runtime_ablation.get("source_count"),
         "row_count": runtime_ablation.get("row_count"),
         "repeat_count_measured": runtime_ablation.get("repeat_count_measured"),
+        "field_count": runtime_ablation.get("field_count"),
+        "fields_per_row": runtime_ablation.get("fields_per_row"),
+        "useful_work_units": runtime_ablation.get("useful_work_units"),
+        "expected_useful_work_units": runtime_ablation.get(
+            "expected_useful_work_units"
+        ),
+        "useful_work_coverage": runtime_ablation.get("useful_work_coverage"),
+        "useful_work_kind": runtime_ablation.get("useful_work_kind"),
+        "native_consumer_has_useful_work": runtime_ablation.get(
+            "native_consumer_has_useful_work"
+        ),
         "field_names": runtime_ablation.get("field_names"),
         "payload_bytes": runtime_ablation.get("payload_bytes"),
         "payload_deref_allowed": runtime_ablation.get("payload_deref_allowed"),

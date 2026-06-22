@@ -43,6 +43,13 @@ def _runtime_ablation_payload(module) -> dict:
         "rows_consumed": 5345,
         "repeat_count_measured": 3,
         "repeat_count_requested": 3,
+        "field_count": len(module.FIELDS),
+        "fields_per_row": len(module.FIELDS),
+        "useful_work_units": 5345 * len(module.FIELDS),
+        "expected_useful_work_units": 5345 * len(module.FIELDS),
+        "useful_work_coverage": 1.0,
+        "useful_work_kind": module.USEFUL_WORK_KIND,
+        "native_consumer_has_useful_work": True,
         "field_names": list(module.FIELDS),
         "field_read_hashes": {
             "descriptor_ptr": "1111111111111111",
@@ -213,6 +220,13 @@ def test_production_like_timing_gate_accepts_clean_config(tmp_path: Path):
         == "future_typed_slot_useful_consumer_or_payload_cache_manager"
     )
     assert result["kernel_arg_pass_allowed"] is False
+    assert result["field_count"] == 4
+    assert result["fields_per_row"] == 4
+    assert result["useful_work_units"] == 5345 * 4
+    assert result["expected_useful_work_units"] == 5345 * 4
+    assert result["useful_work_coverage"] == 1.0
+    assert result["useful_work_kind"] == module.USEFUL_WORK_KIND
+    assert result["native_consumer_has_useful_work"] is True
     assert result["trace_config_summary"]["max_samples"] == 32
     assert json.loads(output_path.read_text(encoding="utf-8"))["passed"] is True
 
@@ -337,6 +351,31 @@ def test_production_like_timing_gate_rejects_runtime_ablation_kernel_arg_pass(
     assert result["passed"] is False
     assert "runtime_ablation_kernel_arg_pass_allowed_mismatch" in result["failures"]
     assert result["kernel_arg_pass_allowed"] is True
+
+
+def test_production_like_timing_gate_rejects_runtime_ablation_incomplete_useful_work(
+    tmp_path: Path,
+):
+    module = _load_module()
+    runtime = _runtime_ablation_payload(module)
+    runtime["fields_per_row"] = 3
+    runtime["useful_work_units"] = 5345 * 3
+    runtime["useful_work_coverage"] = 0.75
+    runtime["native_consumer_has_useful_work"] = False
+    config_path = tmp_path / "prod_like.yaml"
+    runtime_path = _prepare_runtime_file(module, tmp_path, runtime)
+    _write_yaml(config_path, _trace_config_payload())
+
+    result = _run(module, runtime_path, config_path, tmp_path / "out.json")
+
+    assert result["passed"] is False
+    assert "runtime_ablation_fields_per_row_mismatch" in result["failures"]
+    assert "runtime_ablation_useful_work_units_mismatch" in result["failures"]
+    assert "runtime_ablation_useful_work_coverage_mismatch" in result["failures"]
+    assert (
+        "runtime_ablation_native_consumer_has_useful_work_mismatch"
+        in result["failures"]
+    )
 
 
 def test_production_like_timing_gate_rejects_shadow_enabled(tmp_path: Path):

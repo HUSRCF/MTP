@@ -5,7 +5,9 @@
   "benchmark_is_current_wna16_fused_moe": false,
   "changes_kernel_launch_args": false,
   "current_wna16_arg_compatible": false,
+  "expected_useful_work_units": 21380,
   "failures": [],
+  "field_count": 4,
   "field_names": [
     "descriptor_ptr",
     "packed_weight_descriptor",
@@ -18,6 +20,7 @@
     "packed_weight_descriptor": "c5ca7b791f2fef98",
     "scale_metadata_handle": "564bfdbd0fc6aecb"
   },
+  "fields_per_row": 4,
   "harness_mode": "independent_payloadless_useful_native_stub_benchmark_harness",
   "harness_name": "premap_future_wna16_typed_slot_payloadless_useful_benchmark_harness_v1",
   "harness_source": "premap_future_wna16_typed_slot_payloadless_useful_runtime_gate_v1",
@@ -25,6 +28,7 @@
   "measures_native_stub_host_wall_time": true,
   "measures_tpot": false,
   "measures_vllm_latency": false,
+  "native_consumer_has_useful_work": true,
   "native_stub_host_wall_ms": 323.854801,
   "native_stub_json": "/home/husrcf/Code/ProtBind/MTP/outputs/reports/premap_kernel_consumer/future_wna16_typed_slot_kernel_variant_execution_entry_args_ptr_native_v1/future_wna16_variant_execution_typed_consumer_stub.json",
   "native_stub_sha256": "a983170e0ccb10a0b3188452bbd266ddde6c250ae9930293b37c39600299cbac",
@@ -42,9 +46,12 @@
   "row_ok_count": 5345,
   "rows_consumed": 5345,
   "runtime_gate_json": "/home/husrcf/Code/ProtBind/MTP/outputs/reports/premap_kernel_consumer/future_wna16_typed_slot_payloadless_useful_runtime_gate_entry_args_ptr_v1.json",
-  "runtime_gate_sha256": "77ef2aacd3a15111041dde84c2a17b6e6743c0c1aa35e6bd9eff507e3b243806",
+  "runtime_gate_sha256": "79051f3bf721d60e986f53dc43922ae571ee83a64edeec3db3d8f4db7f5075e5",
   "schema_version": 1,
   "source_count": 128,
+  "useful_work_coverage": 1.0,
+  "useful_work_kind": "native_typed_slot_four_field_row_projection",
+  "useful_work_units": 21380,
   "uses_current_wna16_args": false,
   "wna16_benchmark_ready": false
 }

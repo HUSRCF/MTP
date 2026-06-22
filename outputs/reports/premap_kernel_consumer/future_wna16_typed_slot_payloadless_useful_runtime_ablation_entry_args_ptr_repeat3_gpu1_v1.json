@@ -7,7 +7,9 @@
   "benchmark_is_current_wna16_fused_moe": false,
   "changes_kernel_launch_args": false,
   "current_wna16_arg_compatible": false,
+  "expected_useful_work_units": 21380,
   "failures": [],
+  "field_count": 4,
   "field_names": [
     "descriptor_ptr",
     "packed_weight_descriptor",
@@ -20,26 +22,28 @@
     "packed_weight_descriptor": "c5ca7b791f2fef98",
     "scale_metadata_handle": "564bfdbd0fc6aecb"
   },
+  "fields_per_row": 4,
   "kernel_arg_pass_allowed": false,
   "max_coefficient_of_variation": 0.03,
   "max_relative_range": 0.05,
   "measures_native_stub_host_wall_time": true,
   "measures_tpot": false,
   "measures_vllm_latency": false,
+  "native_consumer_has_useful_work": true,
   "native_stub_host_wall_ms_stats": {
-    "coefficient_of_variation": 0.012724226689377149,
+    "coefficient_of_variation": 0.02462969514922952,
     "count": 3,
-    "max_ms": 342.33831,
-    "mean_ms": 339.799672,
-    "median_ms": 342.253358,
-    "min_ms": 334.807348,
-    "relative_range": 0.022004055837488636,
-    "stdev_ms": 4.323688055504001
+    "max_ms": 350.406805,
+    "mean_ms": 341.45873766666665,
+    "median_ms": 340.252361,
+    "min_ms": 333.717047,
+    "relative_range": 0.04905111591569541,
+    "stdev_ms": 8.410024614770736
   },
   "native_stub_host_wall_ms_values": [
-    342.33831,
-    334.807348,
-    342.253358
+    350.406805,
+    333.717047,
+    340.252361
   ],
   "next_runtime_stage": "implement_future_wna16_typed_slot_payloadless_useful_production_like_timing",
   "passed": true,
@@ -49,7 +53,7 @@
   "payload_deref_allowed": false,
   "payloadless_useful_runtime_ablation_ready": true,
   "repeat_benchmark_json": "/home/husrcf/Code/ProtBind/MTP/outputs/reports/premap_kernel_consumer/future_wna16_typed_slot_payloadless_useful_repeat_benchmark_entry_args_ptr_repeat3_gpu1_v1.json",
-  "repeat_benchmark_sha256": "0d5091918977d0415a02d525de738afcd096f7176b9480c8676f6ccf04393f89",
+  "repeat_benchmark_sha256": "3ab442e97ccb4e768801c6ca611af8a5d55a37cd1ff896c0cae5e84d30b691a9",
   "repeat_count_measured": 3,
   "repeat_count_requested": 3,
   "requires_wna16_arg_reinterpretation": false,
@@ -59,6 +63,9 @@
   "runtime_ablation_ready": true,
   "schema_version": 1,
   "source_count": 128,
+  "useful_work_coverage": 1.0,
+  "useful_work_kind": "native_typed_slot_four_field_row_projection",
+  "useful_work_units": 21380,
   "uses_current_wna16_args": false,
   "wna16_benchmark_ready": false
 }

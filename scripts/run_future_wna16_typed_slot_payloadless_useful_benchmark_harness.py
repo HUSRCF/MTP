@@ -47,6 +47,7 @@ FIELDS = (
     "scale_metadata_handle",
     "aux_metadata_handle",
 )
+USEFUL_WORK_KIND = "native_typed_slot_four_field_row_projection"
 EXPECTED_RUNTIME_GATE_FLAGS: dict[str, Any] = {
     "artifact_kind": "future_wna16_typed_slot_payloadless_useful_runtime_gate",
     "runtime_gate_name": "premap_future_wna16_typed_slot_payloadless_useful_runtime_gate_v1",
@@ -260,6 +261,30 @@ def run_payloadless_useful_benchmark_harness(
         failures.append("runtime_gate_row_ok_count_mismatch")
     if row_count is not None and rows_consumed != row_count:
         failures.append("runtime_gate_rows_consumed_mismatch")
+    field_count = _int_metric(runtime_gate, "field_count")
+    fields_per_row = _int_metric(runtime_gate, "fields_per_row")
+    useful_work_units = _int_metric(runtime_gate, "useful_work_units")
+    expected_useful_work_units = _int_metric(
+        runtime_gate,
+        "expected_useful_work_units",
+    )
+    expected_units = int(row_count or 0) * len(FIELDS)
+    if field_count != len(FIELDS):
+        failures.append("runtime_gate_field_count_mismatch")
+    if fields_per_row != len(FIELDS):
+        failures.append("runtime_gate_fields_per_row_mismatch")
+    if expected_useful_work_units != expected_units:
+        failures.append("runtime_gate_expected_useful_work_units_mismatch")
+    if useful_work_units != expected_useful_work_units:
+        failures.append("runtime_gate_useful_work_units_mismatch")
+    if useful_work_units is None or useful_work_units <= 0:
+        failures.append("runtime_gate_useful_work_units_not_positive")
+    if runtime_gate.get("useful_work_coverage") != 1.0:
+        failures.append("runtime_gate_useful_work_coverage_mismatch")
+    if runtime_gate.get("useful_work_kind") != USEFUL_WORK_KIND:
+        failures.append("runtime_gate_useful_work_kind_mismatch")
+    if runtime_gate.get("native_consumer_has_useful_work") is not True:
+        failures.append("runtime_gate_native_consumer_has_useful_work_mismatch")
     runtime_field_hashes = _check_field_coverage(
         runtime_gate,
         failures,
@@ -364,6 +389,15 @@ def run_payloadless_useful_benchmark_harness(
         "row_count": row_count,
         "row_ok_count": row_ok_count,
         "rows_consumed": rows_consumed,
+        "field_count": field_count,
+        "fields_per_row": fields_per_row,
+        "useful_work_units": useful_work_units,
+        "expected_useful_work_units": expected_useful_work_units,
+        "useful_work_coverage": runtime_gate.get("useful_work_coverage"),
+        "useful_work_kind": runtime_gate.get("useful_work_kind"),
+        "native_consumer_has_useful_work": runtime_gate.get(
+            "native_consumer_has_useful_work",
+        ),
         "field_names": list(FIELDS),
         "field_read_hashes": runtime_field_hashes,
         "native_stub_host_wall_ms": timing_host_wall_ms,

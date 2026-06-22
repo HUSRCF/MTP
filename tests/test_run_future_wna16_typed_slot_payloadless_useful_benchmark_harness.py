@@ -84,6 +84,13 @@ def _runtime_payload(
             "row_count": row_count,
             "row_ok_count": row_count,
             "rows_consumed": row_count,
+            "field_count": len(module.FIELDS),
+            "fields_per_row": len(module.FIELDS),
+            "useful_work_units": row_count * len(module.FIELDS),
+            "expected_useful_work_units": row_count * len(module.FIELDS),
+            "useful_work_coverage": 1.0,
+            "useful_work_kind": module.USEFUL_WORK_KIND,
+            "native_consumer_has_useful_work": True,
             "field_names": list(module.FIELDS),
             "field_read_hashes": dict(U64_HASHES),
             "native_timing_json": str(timing_path),
@@ -134,6 +141,13 @@ def test_payloadless_useful_benchmark_harness_accepts_runtime_gate(
     assert result["native_stub_host_wall_ms"] == 12.5
     assert result["source_count"] == 128
     assert result["row_count"] == 513
+    assert result["field_count"] == 4
+    assert result["fields_per_row"] == 4
+    assert result["useful_work_units"] == 513 * 4
+    assert result["expected_useful_work_units"] == 513 * 4
+    assert result["useful_work_coverage"] == 1.0
+    assert result["useful_work_kind"] == module.USEFUL_WORK_KIND
+    assert result["native_consumer_has_useful_work"] is True
     assert result["field_read_hashes"] == U64_HASHES
     assert result["measures_native_stub_host_wall_time"] is True
     assert result["benchmark_is_current_wna16_fused_moe"] is False
@@ -169,6 +183,30 @@ def test_payloadless_useful_benchmark_harness_rejects_failed_runtime_gate(
     assert "runtime_gate_passed_mismatch" in result["failures"]
     assert "runtime_gate_runtime_gate_ready_mismatch" in result["failures"]
     assert "runtime_gate_failures_not_empty" in result["failures"]
+
+
+def test_payloadless_useful_benchmark_harness_rejects_incomplete_useful_work(
+    tmp_path: Path,
+):
+    module = _load_module()
+    runtime_path, _, _ = _materialize_inputs(tmp_path, module)
+    runtime = json.loads(runtime_path.read_text(encoding="utf-8"))
+    runtime["fields_per_row"] = 3
+    runtime["useful_work_units"] = 513 * 3
+    runtime["useful_work_coverage"] = 0.75
+    runtime["native_consumer_has_useful_work"] = False
+    _write_json(runtime_path, runtime)
+
+    result = _run(module, runtime_path, tmp_path / "out.json")
+
+    assert result["passed"] is False
+    assert "runtime_gate_fields_per_row_mismatch" in result["failures"]
+    assert "runtime_gate_useful_work_units_mismatch" in result["failures"]
+    assert "runtime_gate_useful_work_coverage_mismatch" in result["failures"]
+    assert (
+        "runtime_gate_native_consumer_has_useful_work_mismatch"
+        in result["failures"]
+    )
 
 
 def test_payloadless_useful_benchmark_harness_rejects_timing_sha_mismatch(

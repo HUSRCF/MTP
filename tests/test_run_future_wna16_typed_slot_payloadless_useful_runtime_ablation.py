@@ -104,6 +104,13 @@ def _repeat_payload(
             "row_count": row_count,
             "row_ok_count": row_count,
             "rows_consumed": row_count,
+            "field_count": len(module.FIELDS),
+            "fields_per_row": len(module.FIELDS),
+            "useful_work_units": row_count * len(module.FIELDS),
+            "expected_useful_work_units": row_count * len(module.FIELDS),
+            "useful_work_coverage": 1.0,
+            "useful_work_kind": module.USEFUL_WORK_KIND,
+            "native_consumer_has_useful_work": True,
             "field_names": list(module.FIELDS),
             "field_read_hashes": dict(U64_HASHES),
             "native_stub_host_wall_ms": 9.9,
@@ -137,6 +144,13 @@ def _repeat_payload(
             "row_count": row_count,
             "row_ok_count": row_count,
             "rows_consumed": row_count,
+            "field_count": len(module.FIELDS),
+            "fields_per_row": len(module.FIELDS),
+            "useful_work_units": row_count * len(module.FIELDS),
+            "expected_useful_work_units": row_count * len(module.FIELDS),
+            "useful_work_coverage": 1.0,
+            "useful_work_kind": module.USEFUL_WORK_KIND,
+            "native_consumer_has_useful_work": True,
             "field_names": list(module.FIELDS),
             "field_read_hashes": dict(U64_HASHES),
             "repeat_count_requested": len(values),
@@ -180,6 +194,13 @@ def test_payloadless_useful_runtime_ablation_accepts_repeat3(tmp_path: Path):
     assert result["passed"] is True
     assert result["runtime_ablation_ready"] is True
     assert result["payloadless_useful_runtime_ablation_ready"] is True
+    assert result["field_count"] == 4
+    assert result["fields_per_row"] == 4
+    assert result["useful_work_units"] == 513 * 4
+    assert result["expected_useful_work_units"] == 513 * 4
+    assert result["useful_work_coverage"] == 1.0
+    assert result["useful_work_kind"] == module.USEFUL_WORK_KIND
+    assert result["native_consumer_has_useful_work"] is True
     assert result["repeat_count_measured"] == 3
     assert result["native_stub_host_wall_ms_stats"]["relative_range"] < 0.05
     assert result["next_runtime_stage"] == (
@@ -204,6 +225,52 @@ def test_payloadless_useful_runtime_ablation_rejects_seed_only(tmp_path: Path):
 
     assert result["passed"] is False
     assert "repeat_benchmark_seed_only_mismatch" in result["failures"]
+
+
+def test_payloadless_useful_runtime_ablation_rejects_incomplete_useful_work(
+    tmp_path: Path,
+):
+    module = _load_module()
+    repeat_path, payload = _repeat_payload(module, tmp_path=tmp_path)
+    payload["fields_per_row"] = 3
+    payload["useful_work_units"] = 513 * 3
+    payload["useful_work_coverage"] = 0.75
+    payload["native_consumer_has_useful_work"] = False
+    _write_json(repeat_path, payload)
+
+    result = _run(module, repeat_path, tmp_path / "out.json")
+
+    assert result["passed"] is False
+    assert "fields_per_row_mismatch" in result["failures"]
+    assert "useful_work_units_mismatch" in result["failures"]
+    assert "useful_work_coverage_mismatch" in result["failures"]
+    assert "native_consumer_has_useful_work_mismatch" in result["failures"]
+
+
+def test_payloadless_useful_runtime_ablation_rejects_incomplete_harness_useful_work(
+    tmp_path: Path,
+):
+    module = _load_module()
+    repeat_path, payload = _repeat_payload(module, tmp_path=tmp_path)
+    harness_path = Path(payload["harness_json"])
+    harness = json.loads(harness_path.read_text(encoding="utf-8"))
+    harness["fields_per_row"] = 3
+    harness["useful_work_units"] = 513 * 3
+    harness["useful_work_coverage"] = 0.75
+    harness["native_consumer_has_useful_work"] = False
+    _write_json(harness_path, harness)
+    payload["harness_sha256"] = module._sha256(harness_path)  # noqa: SLF001
+    _write_json(repeat_path, payload)
+
+    result = _run(module, repeat_path, tmp_path / "out.json")
+
+    assert result["passed"] is False
+    assert "harness_fields_per_row_mismatch" in result["failures"]
+    assert "harness_useful_work_units_mismatch" in result["failures"]
+    assert "harness_useful_work_coverage_mismatch" in result["failures"]
+    assert (
+        "harness_native_consumer_has_useful_work_mismatch" in result["failures"]
+    )
 
 
 def test_payloadless_useful_runtime_ablation_rejects_unstable_repeat(tmp_path: Path):

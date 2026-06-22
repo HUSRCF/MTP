@@ -51,6 +51,13 @@ def _harness_payload(
             "row_count": row_count,
             "row_ok_count": row_count,
             "rows_consumed": row_count,
+            "field_count": len(module.FIELDS),
+            "fields_per_row": len(module.FIELDS),
+            "useful_work_units": row_count * len(module.FIELDS),
+            "expected_useful_work_units": row_count * len(module.FIELDS),
+            "useful_work_coverage": 1.0,
+            "useful_work_kind": module.USEFUL_WORK_KIND,
+            "native_consumer_has_useful_work": True,
             "field_names": list(module.FIELDS),
             "field_read_hashes": dict(U64_HASHES),
             "native_stub_host_wall_ms": 12.5,
@@ -137,6 +144,13 @@ def test_payloadless_useful_repeat_benchmark_accepts_seed_only(
     assert result["repeat_count_measured"] == 1
     assert result["seed_only"] is True
     assert result["measurement_source"] == "validated_harness_seed_native_stub_host_wall"
+    assert result["field_count"] == 4
+    assert result["fields_per_row"] == 4
+    assert result["useful_work_units"] == 513 * 4
+    assert result["expected_useful_work_units"] == 513 * 4
+    assert result["useful_work_coverage"] == 1.0
+    assert result["useful_work_kind"] == module.USEFUL_WORK_KIND
+    assert result["native_consumer_has_useful_work"] is True
     assert result["native_stub_host_wall_ms_values"] == [12.5]
     assert result["native_stub_host_wall_ms_stats"]["median_ms"] == 12.5
     assert result["benchmark_is_current_wna16_fused_moe"] is False
@@ -174,6 +188,27 @@ def test_payloadless_useful_repeat_benchmark_rejects_failed_harness(
         "failures"
     ]
     assert "harness_failures_not_empty" in result["failures"]
+
+
+def test_payloadless_useful_repeat_benchmark_rejects_incomplete_useful_work(
+    tmp_path: Path,
+):
+    module = _load_module()
+    harness_path, _ = _materialize_inputs(tmp_path, module)
+    harness = json.loads(harness_path.read_text(encoding="utf-8"))
+    harness["fields_per_row"] = 3
+    harness["useful_work_units"] = 513 * 3
+    harness["useful_work_coverage"] = 0.75
+    harness["native_consumer_has_useful_work"] = False
+    _write_json(harness_path, harness)
+
+    result = _run(module, harness_path, tmp_path / "out.json")
+
+    assert result["passed"] is False
+    assert "harness_fields_per_row_mismatch" in result["failures"]
+    assert "harness_useful_work_units_mismatch" in result["failures"]
+    assert "harness_useful_work_coverage_mismatch" in result["failures"]
+    assert "harness_native_consumer_has_useful_work_mismatch" in result["failures"]
 
 
 def test_payloadless_useful_repeat_benchmark_rejects_timing_sha_mismatch(
