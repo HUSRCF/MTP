@@ -5012,6 +5012,172 @@ class PayloadCacheLiveRuntimeAdapterPayloadIssueExecutorDryRun:
         return asdict(self)
 
 
+@dataclass(frozen=True)
+class PayloadCacheLiveRuntimeAdapterPayloadIssueQueueEntryDryRun:
+    """Future queue-entry shape object that does not enqueue or issue payloads."""
+
+    present: bool
+    stage: str
+    status: str
+    consumes_payload_issue_executor_dry_run: bool
+    payload_issue_executor_status: str
+    payload_issue_queue_entry_schema: str
+    payload_issue_queue_entry_created: bool
+    payload_issue_executor_consumed: bool
+    queue_entry_shape_checked: bool
+    queue_entry_enqueued: bool
+    queue_submit_allowed: bool
+    request_source: str
+    request_layer_idx: int
+    request_expert_idx: int
+    requested_payload_bytes: int
+    source_issue_packet_count: int
+    source_issue_unique_key_count: int
+    source_queue_budget_capacity: int
+    source_issue_lead_tokens: int
+    source_queue_deadline_us: float
+    planned_issue_count: int = 0
+    scheduled_issue_count: int = 0
+    queued_issue_count: int = 0
+    issued_payload_count: int = 0
+    payload_bytes: int = 0
+    decision: str = "blocked"
+    block_reason: str = "payload_transfer_disabled"
+    execution_mode: str = "payload_cache_live_runtime_adapter_payload_issue_queue_entry_dry_run"
+    live_payload_runtime_enabled: bool = False
+    payload_transfer_runtime_enabled: bool = False
+    payload_deref_allowed: bool = False
+    payload_deref_runtime_allowed: bool = False
+    ready_credit: bool = False
+    ready_before_demand_credit: bool = False
+    real_ready_credit_granted: bool = False
+    kernel_arg_pass_allowed: bool = False
+    passed_to_kernel: bool = False
+    changes_kernel_launch_args: bool = False
+    full_fetch_runtime_allowed: bool = False
+    uses_current_wna16_args: bool = False
+    passes_current_wna16_args: bool = False
+    measures_tpot: bool = False
+    measures_vllm_latency: bool = False
+    live_runtime_instantiated: bool = False
+
+    def __post_init__(self) -> None:
+        if self.present is not True:
+            raise ValueError("payload issue queue-entry dry-run must be present")
+        if self.stage != "payload_cache_live_runtime_adapter_payload_issue_queue_entry_dry_run":
+            raise ValueError("payload issue queue-entry dry-run stage mismatch")
+        if self.consumes_payload_issue_executor_dry_run is not True:
+            raise ValueError("payload issue queue-entry must consume executor dry-run")
+        if (
+            not isinstance(self.payload_issue_executor_status, str)
+            or not self.payload_issue_executor_status
+        ):
+            raise TypeError("payload_issue_executor_status must be nonempty")
+        if (
+            self.payload_issue_executor_status
+            != _SOURCE_BOUND_PAYLOAD_ISSUE_EXECUTOR_DRY_RUN_STATUS
+        ):
+            raise ValueError("payload issue queue-entry upstream ancestry status mismatch")
+        expected_status = (
+            "blocked_by_payload_issue_executor_dry_run:"
+            f"{self.payload_issue_executor_status}"
+        )
+        if self.status != expected_status:
+            raise ValueError("payload issue queue-entry dry-run status mismatch")
+        if (
+            self.payload_issue_queue_entry_schema
+            != "payload_cache_runtime_payload_issue_queue_entry_v1"
+        ):
+            raise ValueError("payload issue queue-entry schema mismatch")
+        for field_name in (
+            "payload_issue_queue_entry_created",
+            "payload_issue_executor_consumed",
+            "queue_entry_shape_checked",
+        ):
+            if getattr(self, field_name) is not True:
+                raise ValueError(f"{field_name} must be true")
+        for field_name in ("queue_entry_enqueued", "queue_submit_allowed"):
+            if getattr(self, field_name) is not False:
+                raise ValueError(f"{field_name} must remain disabled")
+        if self.request_source != "queue_budget_first_model_passing_cell":
+            raise ValueError("payload issue queue-entry requires a source-bound request")
+        for field_name in (
+            "request_layer_idx",
+            "request_expert_idx",
+            "requested_payload_bytes",
+            "source_issue_packet_count",
+            "source_issue_unique_key_count",
+            "source_queue_budget_capacity",
+            "source_issue_lead_tokens",
+        ):
+            value = getattr(self, field_name)
+            if not isinstance(value, int) or isinstance(value, bool):
+                raise TypeError(f"{field_name} must be an integer")
+            if value < 0:
+                raise ValueError(f"{field_name} must be non-negative")
+        if self.requested_payload_bytes <= 0:
+            raise ValueError("requested_payload_bytes must be positive")
+        if self.source_issue_packet_count <= 0:
+            raise ValueError("source_issue_packet_count must be positive")
+        if self.source_issue_unique_key_count <= 0:
+            raise ValueError("source_issue_unique_key_count must be positive")
+        if self.source_queue_budget_capacity <= 0:
+            raise ValueError("source_queue_budget_capacity must be positive")
+        if self.source_issue_lead_tokens <= 0:
+            raise ValueError("source_issue_lead_tokens must be positive")
+        if not isinstance(self.source_queue_deadline_us, (int, float)) or isinstance(
+            self.source_queue_deadline_us,
+            bool,
+        ):
+            raise TypeError("source_queue_deadline_us must be numeric")
+        if self.source_queue_deadline_us <= 0.0:
+            raise ValueError("source_queue_deadline_us must be positive")
+        for field_name in (
+            "planned_issue_count",
+            "scheduled_issue_count",
+            "queued_issue_count",
+            "issued_payload_count",
+            "payload_bytes",
+        ):
+            value = getattr(self, field_name)
+            if not isinstance(value, int) or isinstance(value, bool):
+                raise TypeError(f"{field_name} must be an integer")
+            if value != 0:
+                raise ValueError(f"{field_name} must remain zero")
+        if self.decision != "blocked":
+            raise ValueError("payload issue queue-entry dry-run decision must stay blocked")
+        if self.block_reason != "payload_transfer_disabled":
+            raise ValueError("payload issue queue-entry dry-run block reason mismatch")
+        if (
+            self.execution_mode
+            != "payload_cache_live_runtime_adapter_payload_issue_queue_entry_dry_run"
+        ):
+            raise ValueError("payload issue queue-entry dry-run execution mode mismatch")
+        for field_name in (
+            "live_payload_runtime_enabled",
+            "payload_transfer_runtime_enabled",
+            "payload_deref_allowed",
+            "payload_deref_runtime_allowed",
+            "ready_credit",
+            "ready_before_demand_credit",
+            "real_ready_credit_granted",
+            "kernel_arg_pass_allowed",
+            "passed_to_kernel",
+            "changes_kernel_launch_args",
+            "full_fetch_runtime_allowed",
+            "uses_current_wna16_args",
+            "passes_current_wna16_args",
+            "measures_tpot",
+            "measures_vllm_latency",
+            "live_runtime_instantiated",
+        ):
+            if getattr(self, field_name) is not False:
+                raise ValueError(f"{field_name} must remain disabled")
+
+    def as_dict(self) -> dict[str, bool | float | int | str]:
+        return asdict(self)
+
+
 def select_cache_lab_prefetch_gate(
     signals: CacheLabRuntimeSignals,
     *,
@@ -8433,6 +8599,16 @@ _SOURCE_BOUND_PAYLOAD_ISSUE_REQUEST_BLOCKED_STATUS = (
     f"{_SOURCE_BOUND_PAYLOAD_TRANSFER_DISABLED_QUEUE_BUDGET_STATUS}"
 )
 
+_SOURCE_BOUND_PAYLOAD_ISSUE_PLAN_DRY_RUN_STATUS = (
+    "blocked_by_payload_issue_request_blocked_canary:"
+    f"{_SOURCE_BOUND_PAYLOAD_ISSUE_REQUEST_BLOCKED_STATUS}"
+)
+
+_SOURCE_BOUND_PAYLOAD_ISSUE_EXECUTOR_DRY_RUN_STATUS = (
+    "blocked_by_payload_issue_plan_dry_run:"
+    f"{_SOURCE_BOUND_PAYLOAD_ISSUE_PLAN_DRY_RUN_STATUS}"
+)
+
 
 def build_payload_cache_live_runtime_adapter_payload_issue_plan_dry_run(
     canary: PayloadCacheLiveRuntimeAdapterPayloadIssueRequestBlockedCanary,
@@ -8680,6 +8856,134 @@ def build_payload_cache_live_runtime_adapter_payload_issue_executor_dry_run(
         source_queue_budget_capacity=int(plan.source_queue_budget_capacity),
         source_issue_lead_tokens=int(plan.source_issue_lead_tokens),
         source_queue_deadline_us=float(plan.source_queue_deadline_us),
+    )
+
+
+def build_payload_cache_live_runtime_adapter_payload_issue_queue_entry_dry_run(
+    executor: PayloadCacheLiveRuntimeAdapterPayloadIssueExecutorDryRun,
+) -> PayloadCacheLiveRuntimeAdapterPayloadIssueQueueEntryDryRun:
+    """Build a payload issue queue-entry shape without enqueueing payload work."""
+
+    if not isinstance(executor, PayloadCacheLiveRuntimeAdapterPayloadIssueExecutorDryRun):
+        raise TypeError(
+            "executor must be a PayloadCacheLiveRuntimeAdapterPayloadIssueExecutorDryRun",
+        )
+    if executor.present is not True:
+        raise ValueError("payload issue executor dry-run must be present")
+    if (
+        executor.stage
+        != "payload_cache_live_runtime_adapter_payload_issue_executor_dry_run"
+    ):
+        raise ValueError("payload issue executor dry-run stage mismatch")
+    if executor.consumes_payload_issue_plan_dry_run is not True:
+        raise ValueError("payload issue executor must consume plan dry-run")
+    if (
+        executor.payload_issue_plan_status
+        != _SOURCE_BOUND_PAYLOAD_ISSUE_PLAN_DRY_RUN_STATUS
+    ):
+        raise ValueError("payload issue executor upstream ancestry status chain mismatch")
+    if executor.status != _SOURCE_BOUND_PAYLOAD_ISSUE_EXECUTOR_DRY_RUN_STATUS:
+        raise ValueError("payload issue executor dry-run status mismatch")
+    if executor.payload_issue_executor_schema != "payload_cache_runtime_payload_issue_executor_v1":
+        raise ValueError("payload issue executor schema mismatch")
+    if executor.payload_issue_executor_created is not True:
+        raise ValueError("payload issue executor must be created")
+    if executor.payload_issue_plan_consumed is not True:
+        raise ValueError("payload issue executor must consume plan")
+    if executor.request_source != "queue_budget_first_model_passing_cell":
+        raise ValueError("payload issue queue-entry requires a source-bound executor")
+    for field_name in (
+        "request_layer_idx",
+        "request_expert_idx",
+        "requested_payload_bytes",
+        "source_issue_packet_count",
+        "source_issue_unique_key_count",
+        "source_queue_budget_capacity",
+        "source_issue_lead_tokens",
+    ):
+        value = getattr(executor, field_name)
+        if not isinstance(value, int) or isinstance(value, bool):
+            raise TypeError(f"{field_name} must be an integer")
+        if value < 0:
+            raise ValueError(f"{field_name} must be non-negative")
+    if executor.requested_payload_bytes <= 0:
+        raise ValueError("requested_payload_bytes must be positive")
+    if executor.source_issue_packet_count <= 0:
+        raise ValueError("source_issue_packet_count must be positive")
+    if executor.source_issue_unique_key_count <= 0:
+        raise ValueError("source_issue_unique_key_count must be positive")
+    if executor.source_queue_budget_capacity <= 0:
+        raise ValueError("source_queue_budget_capacity must be positive")
+    if executor.source_issue_lead_tokens <= 0:
+        raise ValueError("source_issue_lead_tokens must be positive")
+    if not isinstance(executor.source_queue_deadline_us, (int, float)) or isinstance(
+        executor.source_queue_deadline_us,
+        bool,
+    ):
+        raise TypeError("source_queue_deadline_us must be numeric")
+    if executor.source_queue_deadline_us <= 0.0:
+        raise ValueError("source_queue_deadline_us must be positive")
+    for field_name in (
+        "planned_issue_count",
+        "scheduled_issue_count",
+        "issued_payload_count",
+        "payload_bytes",
+    ):
+        if getattr(executor, field_name) != 0:
+            raise ValueError(f"payload issue executor {field_name} must be zero")
+    if executor.decision != "blocked":
+        raise ValueError("payload issue executor dry-run must stay blocked")
+    if executor.block_reason != "payload_transfer_disabled":
+        raise ValueError("payload issue executor dry-run block reason mismatch")
+    if (
+        executor.execution_mode
+        != "payload_cache_live_runtime_adapter_payload_issue_executor_dry_run"
+    ):
+        raise ValueError("payload issue executor dry-run execution mode mismatch")
+    for field_name in (
+        "live_payload_runtime_enabled",
+        "payload_transfer_runtime_enabled",
+        "payload_deref_allowed",
+        "payload_deref_runtime_allowed",
+        "ready_credit",
+        "ready_before_demand_credit",
+        "real_ready_credit_granted",
+        "kernel_arg_pass_allowed",
+        "passed_to_kernel",
+        "changes_kernel_launch_args",
+        "full_fetch_runtime_allowed",
+        "uses_current_wna16_args",
+        "passes_current_wna16_args",
+        "measures_tpot",
+        "measures_vllm_latency",
+        "live_runtime_instantiated",
+    ):
+        if getattr(executor, field_name) is not False:
+            raise ValueError(f"payload issue executor {field_name} enabled")
+
+    return PayloadCacheLiveRuntimeAdapterPayloadIssueQueueEntryDryRun(
+        present=True,
+        stage="payload_cache_live_runtime_adapter_payload_issue_queue_entry_dry_run",
+        status=f"blocked_by_payload_issue_executor_dry_run:{executor.status}",
+        consumes_payload_issue_executor_dry_run=True,
+        payload_issue_executor_status=str(executor.status),
+        payload_issue_queue_entry_schema=(
+            "payload_cache_runtime_payload_issue_queue_entry_v1"
+        ),
+        payload_issue_queue_entry_created=True,
+        payload_issue_executor_consumed=True,
+        queue_entry_shape_checked=True,
+        queue_entry_enqueued=False,
+        queue_submit_allowed=False,
+        request_source=str(executor.request_source),
+        request_layer_idx=int(executor.request_layer_idx),
+        request_expert_idx=int(executor.request_expert_idx),
+        requested_payload_bytes=int(executor.requested_payload_bytes),
+        source_issue_packet_count=int(executor.source_issue_packet_count),
+        source_issue_unique_key_count=int(executor.source_issue_unique_key_count),
+        source_queue_budget_capacity=int(executor.source_queue_budget_capacity),
+        source_issue_lead_tokens=int(executor.source_issue_lead_tokens),
+        source_queue_deadline_us=float(executor.source_queue_deadline_us),
     )
 
 

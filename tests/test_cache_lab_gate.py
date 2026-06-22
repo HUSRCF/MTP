@@ -21,6 +21,7 @@ from mtp_expert_prefetch.runtime import (
     PayloadCacheLiveRuntimeAdapterPayloadIssueRequestBlockedCanary,
     PayloadCacheLiveRuntimeAdapterPayloadIssuePlanDryRun,
     PayloadCacheLiveRuntimeAdapterPayloadIssueExecutorDryRun,
+    PayloadCacheLiveRuntimeAdapterPayloadIssueQueueEntryDryRun,
     PayloadCacheLiveRuntimeAdapterStateObjectPreflight,
     PayloadCacheLiveRuntimeAdapterStateValidationArtifact,
     PayloadCacheLiveRuntimeAdapterStateValidationPreflight,
@@ -62,6 +63,7 @@ from mtp_expert_prefetch.runtime import (
     build_payload_cache_live_runtime_adapter_payload_issue_request_blocked_canary,
     build_payload_cache_live_runtime_adapter_payload_issue_plan_dry_run,
     build_payload_cache_live_runtime_adapter_payload_issue_executor_dry_run,
+    build_payload_cache_live_runtime_adapter_payload_issue_queue_entry_dry_run,
     build_payload_cache_queue_budget_runtime_envelope,
     build_payload_cache_runtime_execution_dry_run,
     build_payload_cache_runtime_participation,
@@ -5934,6 +5936,211 @@ def test_live_runtime_adapter_payload_issue_executor_dry_run_builder_rejects_bad
 
     with pytest.raises(TypeError, match="plan"):
         build_payload_cache_live_runtime_adapter_payload_issue_executor_dry_run(
+            object(),  # type: ignore[arg-type]
+        )
+
+
+def test_live_runtime_adapter_payload_issue_queue_entry_dry_run_consumes_executor() -> None:
+    plan = build_payload_cache_live_runtime_adapter_payload_issue_plan_dry_run(
+        _build_source_bound_payload_issue_request_blocked_canary(),
+    )
+    executor = build_payload_cache_live_runtime_adapter_payload_issue_executor_dry_run(
+        plan,
+    )
+
+    entry = build_payload_cache_live_runtime_adapter_payload_issue_queue_entry_dry_run(
+        executor,
+    )
+
+    assert entry.present is True
+    assert (
+        entry.stage
+        == "payload_cache_live_runtime_adapter_payload_issue_queue_entry_dry_run"
+    )
+    assert entry.status == f"blocked_by_payload_issue_executor_dry_run:{executor.status}"
+    assert entry.consumes_payload_issue_executor_dry_run is True
+    assert entry.payload_issue_executor_status == executor.status
+    assert entry.payload_issue_queue_entry_schema == (
+        "payload_cache_runtime_payload_issue_queue_entry_v1"
+    )
+    assert entry.payload_issue_queue_entry_created is True
+    assert entry.payload_issue_executor_consumed is True
+    assert entry.queue_entry_shape_checked is True
+    assert entry.queue_entry_enqueued is False
+    assert entry.queue_submit_allowed is False
+    assert entry.request_source == "queue_budget_first_model_passing_cell"
+    assert entry.source_issue_packet_count == 28
+    assert entry.source_issue_unique_key_count == 28
+    assert entry.source_queue_budget_capacity == 4096
+    assert entry.source_issue_lead_tokens == 8
+    assert entry.source_queue_deadline_us == 100.0
+    assert entry.planned_issue_count == 0
+    assert entry.scheduled_issue_count == 0
+    assert entry.queued_issue_count == 0
+    assert entry.issued_payload_count == 0
+    assert entry.payload_bytes == 0
+    assert entry.payload_transfer_runtime_enabled is False
+    assert entry.ready_credit is False
+    assert entry.kernel_arg_pass_allowed is False
+    assert entry.passed_to_kernel is False
+
+
+def test_live_runtime_adapter_payload_issue_queue_entry_dry_run_rejects_side_effects() -> None:
+    plan = build_payload_cache_live_runtime_adapter_payload_issue_plan_dry_run(
+        _build_source_bound_payload_issue_request_blocked_canary(),
+    )
+    executor = build_payload_cache_live_runtime_adapter_payload_issue_executor_dry_run(
+        plan,
+    )
+    base_kwargs = {
+        "present": True,
+        "stage": "payload_cache_live_runtime_adapter_payload_issue_queue_entry_dry_run",
+        "status": f"blocked_by_payload_issue_executor_dry_run:{executor.status}",
+        "consumes_payload_issue_executor_dry_run": True,
+        "payload_issue_executor_status": executor.status,
+        "payload_issue_queue_entry_schema": (
+            "payload_cache_runtime_payload_issue_queue_entry_v1"
+        ),
+        "payload_issue_queue_entry_created": True,
+        "payload_issue_executor_consumed": True,
+        "queue_entry_shape_checked": True,
+        "queue_entry_enqueued": False,
+        "queue_submit_allowed": False,
+        "request_source": executor.request_source,
+        "request_layer_idx": executor.request_layer_idx,
+        "request_expert_idx": executor.request_expert_idx,
+        "requested_payload_bytes": executor.requested_payload_bytes,
+        "source_issue_packet_count": executor.source_issue_packet_count,
+        "source_issue_unique_key_count": executor.source_issue_unique_key_count,
+        "source_queue_budget_capacity": executor.source_queue_budget_capacity,
+        "source_issue_lead_tokens": executor.source_issue_lead_tokens,
+        "source_queue_deadline_us": executor.source_queue_deadline_us,
+    }
+
+    for field_name in (
+        "planned_issue_count",
+        "scheduled_issue_count",
+        "queued_issue_count",
+        "issued_payload_count",
+        "payload_bytes",
+    ):
+        with pytest.raises(ValueError, match=field_name):
+            PayloadCacheLiveRuntimeAdapterPayloadIssueQueueEntryDryRun(
+                **{
+                    **base_kwargs,
+                    field_name: 1,
+                },
+            )
+
+    for field_name in ("queue_entry_enqueued", "queue_submit_allowed"):
+        with pytest.raises(ValueError, match=field_name):
+            PayloadCacheLiveRuntimeAdapterPayloadIssueQueueEntryDryRun(
+                **{
+                    **base_kwargs,
+                    field_name: True,
+                },
+            )
+
+    with pytest.raises(ValueError, match="upstream ancestry status"):
+        PayloadCacheLiveRuntimeAdapterPayloadIssueQueueEntryDryRun(
+            **{
+                **base_kwargs,
+                "payload_issue_executor_status": (
+                    "blocked_by_payload_issue_plan_dry_run:"
+                    "blocked_by_payload_issue_request_blocked_canary:"
+                    "blocked_by_payload_transfer_toggle_disabled_canary:stale"
+                ),
+                "status": (
+                    "blocked_by_payload_issue_executor_dry_run:"
+                    "blocked_by_payload_issue_plan_dry_run:"
+                    "blocked_by_payload_issue_request_blocked_canary:"
+                    "blocked_by_payload_transfer_toggle_disabled_canary:stale"
+                ),
+            },
+        )
+
+    for field_name in (
+        "live_payload_runtime_enabled",
+        "payload_transfer_runtime_enabled",
+        "payload_deref_allowed",
+        "payload_deref_runtime_allowed",
+        "ready_credit",
+        "ready_before_demand_credit",
+        "real_ready_credit_granted",
+        "kernel_arg_pass_allowed",
+        "passed_to_kernel",
+        "changes_kernel_launch_args",
+        "full_fetch_runtime_allowed",
+        "uses_current_wna16_args",
+        "passes_current_wna16_args",
+        "measures_tpot",
+        "measures_vllm_latency",
+        "live_runtime_instantiated",
+    ):
+        with pytest.raises(ValueError, match=field_name):
+            PayloadCacheLiveRuntimeAdapterPayloadIssueQueueEntryDryRun(
+                **{
+                    **base_kwargs,
+                    field_name: True,
+                },
+            )
+
+
+def test_live_runtime_adapter_payload_issue_queue_entry_dry_run_builder_rejects_bad_executor() -> None:
+    plan = build_payload_cache_live_runtime_adapter_payload_issue_plan_dry_run(
+        _build_source_bound_payload_issue_request_blocked_canary(),
+    )
+    executor = build_payload_cache_live_runtime_adapter_payload_issue_executor_dry_run(
+        plan,
+    )
+
+    object.__setattr__(executor, "decision", "allow")
+    with pytest.raises(ValueError, match="must stay blocked"):
+        build_payload_cache_live_runtime_adapter_payload_issue_queue_entry_dry_run(
+            executor,
+        )
+
+    executor = build_payload_cache_live_runtime_adapter_payload_issue_executor_dry_run(
+        plan,
+    )
+    object.__setattr__(executor, "scheduled_issue_count", 1)
+    with pytest.raises(ValueError, match="scheduled_issue_count"):
+        build_payload_cache_live_runtime_adapter_payload_issue_queue_entry_dry_run(
+            executor,
+        )
+
+    executor = build_payload_cache_live_runtime_adapter_payload_issue_executor_dry_run(
+        plan,
+    )
+    object.__setattr__(executor, "payload_transfer_runtime_enabled", True)
+    with pytest.raises(ValueError, match="payload_transfer_runtime_enabled"):
+        build_payload_cache_live_runtime_adapter_payload_issue_queue_entry_dry_run(
+            executor,
+        )
+
+    executor = build_payload_cache_live_runtime_adapter_payload_issue_executor_dry_run(
+        plan,
+    )
+    object.__setattr__(
+        executor,
+        "payload_issue_plan_status",
+        "blocked_by_payload_issue_request_blocked_canary:"
+        "blocked_by_payload_transfer_toggle_disabled_canary:stale",
+    )
+    object.__setattr__(
+        executor,
+        "status",
+        "blocked_by_payload_issue_plan_dry_run:"
+        "blocked_by_payload_issue_request_blocked_canary:"
+        "blocked_by_payload_transfer_toggle_disabled_canary:stale",
+    )
+    with pytest.raises(ValueError, match="upstream ancestry status chain"):
+        build_payload_cache_live_runtime_adapter_payload_issue_queue_entry_dry_run(
+            executor,
+        )
+
+    with pytest.raises(TypeError, match="executor"):
+        build_payload_cache_live_runtime_adapter_payload_issue_queue_entry_dry_run(
             object(),  # type: ignore[arg-type]
         )
 
