@@ -1168,6 +1168,78 @@ class PayloadCacheRuntimePayloadTransferToggle:
 
 
 @dataclass(frozen=True)
+class PayloadCacheRuntimePayloadIssueRequest:
+    """Future payload issue request object, not a payload residency record."""
+
+    present: bool
+    request_schema: str
+    layer_idx: int
+    expert_idx: int
+    requested_payload_bytes: int
+    issued_payload_count: int = 0
+    payload_bytes: int = 0
+    live_payload_runtime_enabled: bool = False
+    payload_transfer_runtime_enabled: bool = False
+    payload_deref_allowed: bool = False
+    payload_deref_runtime_allowed: bool = False
+    ready_credit: bool = False
+    ready_before_demand_credit: bool = False
+    real_ready_credit_granted: bool = False
+    kernel_arg_pass_allowed: bool = False
+    passed_to_kernel: bool = False
+    changes_kernel_launch_args: bool = False
+    full_fetch_runtime_allowed: bool = False
+    uses_current_wna16_args: bool = False
+    passes_current_wna16_args: bool = False
+    measures_tpot: bool = False
+    measures_vllm_latency: bool = False
+    live_runtime_instantiated: bool = False
+
+    def __post_init__(self) -> None:
+        if self.present is not True:
+            raise ValueError("payload issue request must be present")
+        if self.request_schema != "payload_cache_runtime_payload_issue_request_v1":
+            raise ValueError("payload issue request schema mismatch")
+        for field_name in ("layer_idx", "expert_idx", "requested_payload_bytes"):
+            value = getattr(self, field_name)
+            if not isinstance(value, int) or isinstance(value, bool):
+                raise TypeError(f"{field_name} must be an integer")
+            if value < 0:
+                raise ValueError(f"{field_name} must be non-negative")
+        if self.requested_payload_bytes <= 0:
+            raise ValueError("requested_payload_bytes must be positive")
+        for field_name in ("issued_payload_count", "payload_bytes"):
+            value = getattr(self, field_name)
+            if not isinstance(value, int) or isinstance(value, bool):
+                raise TypeError(f"{field_name} must be an integer")
+            if value != 0:
+                raise ValueError(f"{field_name} must remain zero")
+        for field_name in (
+            "live_payload_runtime_enabled",
+            "payload_transfer_runtime_enabled",
+            "payload_deref_allowed",
+            "payload_deref_runtime_allowed",
+            "ready_credit",
+            "ready_before_demand_credit",
+            "real_ready_credit_granted",
+            "kernel_arg_pass_allowed",
+            "passed_to_kernel",
+            "changes_kernel_launch_args",
+            "full_fetch_runtime_allowed",
+            "uses_current_wna16_args",
+            "passes_current_wna16_args",
+            "measures_tpot",
+            "measures_vllm_latency",
+            "live_runtime_instantiated",
+        ):
+            if getattr(self, field_name) is not False:
+                raise ValueError(f"{field_name} must remain disabled")
+
+    def as_dict(self) -> dict[str, bool | int | str]:
+        return asdict(self)
+
+
+@dataclass(frozen=True)
 class PremapAddressHandle:
     """Stable descriptor/address object for a prepared expert address key.
 

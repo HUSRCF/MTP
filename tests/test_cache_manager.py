@@ -9,6 +9,7 @@ from mtp_expert_prefetch.runtime import (
     PayloadCacheRuntimeAdapterPayloadlessLive,
     PayloadCacheRuntimePayloadTransferToggle,
     PayloadCacheRuntimePayloadTransferToggleSnapshot,
+    PayloadCacheRuntimePayloadIssueRequest,
     PayloadCacheRuntimeAdapterShell,
     PayloadCacheRuntimeAdapterShellSnapshot,
     ReadyTimeExpertCacheManager,
@@ -525,6 +526,97 @@ def test_payload_cache_runtime_payload_transfer_toggle_snapshot_rejects_side_eff
     ):
         with pytest.raises(ValueError, match=field_name):
             PayloadCacheRuntimePayloadTransferToggleSnapshot(
+                **{
+                    **base_kwargs,
+                    field_name: True,
+                },
+            )
+
+
+def test_payload_cache_runtime_payload_issue_request_records_request_only() -> None:
+    request = PayloadCacheRuntimePayloadIssueRequest(
+        present=True,
+        request_schema="payload_cache_runtime_payload_issue_request_v1",
+        layer_idx=1,
+        expert_idx=2,
+        requested_payload_bytes=64,
+    )
+    payload = request.as_dict()
+
+    assert payload["present"] is True
+    assert payload["request_schema"] == "payload_cache_runtime_payload_issue_request_v1"
+    assert payload["layer_idx"] == 1
+    assert payload["expert_idx"] == 2
+    assert payload["requested_payload_bytes"] == 64
+    assert payload["issued_payload_count"] == 0
+    assert payload["payload_bytes"] == 0
+    for key in (
+        "live_payload_runtime_enabled",
+        "payload_transfer_runtime_enabled",
+        "payload_deref_allowed",
+        "payload_deref_runtime_allowed",
+        "ready_credit",
+        "ready_before_demand_credit",
+        "real_ready_credit_granted",
+        "kernel_arg_pass_allowed",
+        "passed_to_kernel",
+        "changes_kernel_launch_args",
+        "full_fetch_runtime_allowed",
+        "uses_current_wna16_args",
+        "passes_current_wna16_args",
+        "measures_tpot",
+        "measures_vllm_latency",
+        "live_runtime_instantiated",
+    ):
+        assert payload[key] is False
+
+
+def test_payload_cache_runtime_payload_issue_request_rejects_side_effects() -> None:
+    base_kwargs = {
+        "present": True,
+        "request_schema": "payload_cache_runtime_payload_issue_request_v1",
+        "layer_idx": 1,
+        "expert_idx": 2,
+        "requested_payload_bytes": 64,
+    }
+
+    with pytest.raises(ValueError, match="requested_payload_bytes"):
+        PayloadCacheRuntimePayloadIssueRequest(
+            **{
+                **base_kwargs,
+                "requested_payload_bytes": 0,
+            },
+        )
+
+    for field_name in ("issued_payload_count", "payload_bytes"):
+        with pytest.raises(ValueError, match=field_name):
+            PayloadCacheRuntimePayloadIssueRequest(
+                **{
+                    **base_kwargs,
+                    field_name: 1,
+                },
+            )
+
+    for field_name in (
+        "live_payload_runtime_enabled",
+        "payload_transfer_runtime_enabled",
+        "payload_deref_allowed",
+        "payload_deref_runtime_allowed",
+        "ready_credit",
+        "ready_before_demand_credit",
+        "real_ready_credit_granted",
+        "kernel_arg_pass_allowed",
+        "passed_to_kernel",
+        "changes_kernel_launch_args",
+        "full_fetch_runtime_allowed",
+        "uses_current_wna16_args",
+        "passes_current_wna16_args",
+        "measures_tpot",
+        "measures_vllm_latency",
+        "live_runtime_instantiated",
+    ):
+        with pytest.raises(ValueError, match=field_name):
+            PayloadCacheRuntimePayloadIssueRequest(
                 **{
                     **base_kwargs,
                     field_name: True,

@@ -18,6 +18,7 @@ from mtp_expert_prefetch.runtime import (
     PayloadCacheLiveRuntimeAdapterOperationRejectionCanary,
     PayloadCacheLiveRuntimeAdapterPayloadlessInstanceCanary,
     PayloadCacheLiveRuntimeAdapterPayloadTransferToggleDisabledCanary,
+    PayloadCacheLiveRuntimeAdapterPayloadIssueRequestBlockedCanary,
     PayloadCacheLiveRuntimeAdapterStateObjectPreflight,
     PayloadCacheLiveRuntimeAdapterStateValidationArtifact,
     PayloadCacheLiveRuntimeAdapterStateValidationPreflight,
@@ -56,6 +57,7 @@ from mtp_expert_prefetch.runtime import (
     build_payload_cache_live_runtime_adapter_mixed_outcome_dry_run_canary,
     build_payload_cache_live_runtime_adapter_payloadless_instance_canary,
     build_payload_cache_live_runtime_adapter_payload_transfer_toggle_disabled_canary,
+    build_payload_cache_live_runtime_adapter_payload_issue_request_blocked_canary,
     build_payload_cache_queue_budget_runtime_envelope,
     build_payload_cache_runtime_execution_dry_run,
     build_payload_cache_runtime_participation,
@@ -5364,6 +5366,188 @@ def test_live_runtime_adapter_payload_transfer_toggle_disabled_canary_builder_re
 
     with pytest.raises(TypeError, match="canary"):
         build_payload_cache_live_runtime_adapter_payload_transfer_toggle_disabled_canary(
+            object(),  # type: ignore[arg-type]
+        )
+
+
+def _build_live_runtime_adapter_payload_transfer_toggle_disabled_canary() -> (
+    PayloadCacheLiveRuntimeAdapterPayloadTransferToggleDisabledCanary
+):
+    return build_payload_cache_live_runtime_adapter_payload_transfer_toggle_disabled_canary(
+        _build_live_runtime_adapter_payloadless_instance_canary(),
+    )
+
+
+def test_live_runtime_adapter_payload_issue_request_blocked_canary_consumes_disabled_toggle() -> None:
+    toggle = _build_live_runtime_adapter_payload_transfer_toggle_disabled_canary()
+
+    canary = build_payload_cache_live_runtime_adapter_payload_issue_request_blocked_canary(
+        toggle,
+    )
+    payload = canary.as_dict()
+
+    assert payload["present"] is True
+    assert payload["stage"] == (
+        "payload_cache_live_runtime_adapter_payload_issue_request_blocked_canary"
+    )
+    assert payload["status"] == (
+        f"blocked_by_payload_transfer_toggle_disabled_canary:{toggle.status}"
+    )
+    assert payload["consumes_payload_transfer_toggle_disabled_canary"] is True
+    assert payload["payload_transfer_toggle_disabled_canary_status"] == toggle.status
+    assert payload["payload_issue_request_schema"] == (
+        "payload_cache_runtime_payload_issue_request_v1"
+    )
+    assert payload["payload_issue_request_created"] is True
+    assert payload["payload_issue_rejected"] is True
+    assert payload["request_layer_idx"] == 0
+    assert payload["request_expert_idx"] == 0
+    assert payload["requested_payload_bytes"] == 64
+    assert payload["issued_payload_count"] == 0
+    assert payload["payload_bytes"] == 0
+    assert payload["decision"] == "blocked"
+    assert payload["block_reason"] == (
+        "live_runtime_adapter_payload_issue_request_blocked_canary_only"
+    )
+    assert payload["execution_mode"] == (
+        "payload_cache_live_runtime_adapter_payload_issue_request_blocked_canary_payloadless"
+    )
+    for key in (
+        "live_payload_runtime_enabled",
+        "payload_transfer_runtime_enabled",
+        "payload_deref_allowed",
+        "payload_deref_runtime_allowed",
+        "ready_credit",
+        "ready_before_demand_credit",
+        "real_ready_credit_granted",
+        "kernel_arg_pass_allowed",
+        "passed_to_kernel",
+        "changes_kernel_launch_args",
+        "full_fetch_runtime_allowed",
+        "uses_current_wna16_args",
+        "passes_current_wna16_args",
+        "measures_tpot",
+        "measures_vllm_latency",
+        "live_runtime_instantiated",
+    ):
+        assert payload[key] is False
+
+
+def test_live_runtime_adapter_payload_issue_request_blocked_canary_rejects_side_effects() -> None:
+    toggle_status = _build_live_runtime_adapter_payload_transfer_toggle_disabled_canary().status
+    base_kwargs = {
+        "present": True,
+        "stage": "payload_cache_live_runtime_adapter_payload_issue_request_blocked_canary",
+        "status": f"blocked_by_payload_transfer_toggle_disabled_canary:{toggle_status}",
+        "consumes_payload_transfer_toggle_disabled_canary": True,
+        "payload_transfer_toggle_disabled_canary_status": toggle_status,
+        "payload_issue_request_schema": "payload_cache_runtime_payload_issue_request_v1",
+        "payload_issue_request_created": True,
+        "payload_issue_rejected": True,
+        "request_layer_idx": 0,
+        "request_expert_idx": 0,
+        "requested_payload_bytes": 64,
+    }
+
+    for field_name in ("issued_payload_count", "payload_bytes"):
+        with pytest.raises(ValueError, match=field_name):
+            PayloadCacheLiveRuntimeAdapterPayloadIssueRequestBlockedCanary(
+                **{
+                    **base_kwargs,
+                    field_name: 1,
+                },
+            )
+
+    for field_name in (
+        "payload_issue_request_created",
+        "payload_issue_rejected",
+    ):
+        with pytest.raises(ValueError, match=field_name):
+            PayloadCacheLiveRuntimeAdapterPayloadIssueRequestBlockedCanary(
+                **{
+                    **base_kwargs,
+                    field_name: False,
+                },
+            )
+
+    for field_name in (
+        "live_payload_runtime_enabled",
+        "payload_transfer_runtime_enabled",
+        "payload_deref_allowed",
+        "payload_deref_runtime_allowed",
+        "ready_credit",
+        "ready_before_demand_credit",
+        "real_ready_credit_granted",
+        "kernel_arg_pass_allowed",
+        "passed_to_kernel",
+        "changes_kernel_launch_args",
+        "full_fetch_runtime_allowed",
+        "uses_current_wna16_args",
+        "passes_current_wna16_args",
+        "measures_tpot",
+        "measures_vllm_latency",
+        "live_runtime_instantiated",
+    ):
+        with pytest.raises(ValueError, match=field_name):
+            PayloadCacheLiveRuntimeAdapterPayloadIssueRequestBlockedCanary(
+                **{
+                    **base_kwargs,
+                    field_name: True,
+                },
+            )
+
+
+def test_live_runtime_adapter_payload_issue_request_blocked_canary_builder_rejects_bad_toggle() -> None:
+    toggle = _build_live_runtime_adapter_payload_transfer_toggle_disabled_canary()
+
+    object.__setattr__(toggle, "decision", "allow")
+    with pytest.raises(ValueError, match="must stay blocked"):
+        build_payload_cache_live_runtime_adapter_payload_issue_request_blocked_canary(
+            toggle,
+        )
+
+    toggle = _build_live_runtime_adapter_payload_transfer_toggle_disabled_canary()
+    object.__setattr__(toggle, "status", "passed")
+    with pytest.raises(ValueError, match="status mismatch"):
+        build_payload_cache_live_runtime_adapter_payload_issue_request_blocked_canary(
+            toggle,
+        )
+
+    toggle = _build_live_runtime_adapter_payload_transfer_toggle_disabled_canary()
+    object.__setattr__(toggle, "payload_issue_rejected", False)
+    with pytest.raises(ValueError, match="reject issue"):
+        build_payload_cache_live_runtime_adapter_payload_issue_request_blocked_canary(
+            toggle,
+        )
+
+    toggle = _build_live_runtime_adapter_payload_transfer_toggle_disabled_canary()
+    object.__setattr__(toggle, "payload_bytes", 1)
+    with pytest.raises(ValueError, match="payload_bytes"):
+        build_payload_cache_live_runtime_adapter_payload_issue_request_blocked_canary(
+            toggle,
+        )
+
+    toggle = _build_live_runtime_adapter_payload_transfer_toggle_disabled_canary()
+    object.__setattr__(toggle, "consumes_payloadless_instance_canary", False)
+    with pytest.raises(ValueError, match="consume payloadless"):
+        build_payload_cache_live_runtime_adapter_payload_issue_request_blocked_canary(
+            toggle,
+        )
+
+    toggle = _build_live_runtime_adapter_payload_transfer_toggle_disabled_canary()
+    object.__setattr__(toggle, "payloadless_instance_canary_status", "stale")
+    object.__setattr__(
+        toggle,
+        "status",
+        "blocked_by_payloadless_instance_canary:stale",
+    )
+    with pytest.raises(ValueError, match="ancestry status chain"):
+        build_payload_cache_live_runtime_adapter_payload_issue_request_blocked_canary(
+            toggle,
+        )
+
+    with pytest.raises(TypeError, match="canary"):
+        build_payload_cache_live_runtime_adapter_payload_issue_request_blocked_canary(
             object(),  # type: ignore[arg-type]
         )
 
