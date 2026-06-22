@@ -48,6 +48,7 @@ from mtp_expert_prefetch.runtime import (  # noqa: E402
     build_payload_cache_live_runtime_adapter_payload_issue_plan_dry_run,
     build_payload_cache_live_runtime_adapter_payload_issue_executor_dry_run,
     build_payload_cache_live_runtime_adapter_payload_issue_queue_entry_dry_run,
+    build_payload_cache_live_runtime_adapter_payload_issue_queue_submit_blocked_canary,
     build_payload_cache_live_runtime_adapter_instantiation_canary,
     build_payload_cache_manager_implementation_artifact,
     build_payload_cache_manager_runtime_snapshot_artifact,
@@ -1328,6 +1329,7 @@ def _check_optional_stream_queue_budget_sweep(
     live_runtime_adapter_payload_issue_plan_dry_run_payload: dict[str, Any] = {}
     live_runtime_adapter_payload_issue_executor_dry_run_payload: dict[str, Any] = {}
     live_runtime_adapter_payload_issue_queue_entry_dry_run_payload: dict[str, Any] = {}
+    live_runtime_adapter_payload_issue_queue_submit_blocked_canary_payload: dict[str, Any] = {}
     if len(failures) == queue_failure_base:
         try:
             envelope = build_payload_cache_queue_budget_runtime_envelope(
@@ -1562,8 +1564,21 @@ def _check_optional_stream_queue_budget_sweep(
             live_runtime_adapter_payload_issue_queue_entry_dry_run_payload = (
                 live_runtime_adapter_payload_issue_queue_entry_dry_run.as_dict()
             )
+            live_runtime_adapter_payload_issue_queue_submit_blocked_canary = (
+                build_payload_cache_live_runtime_adapter_payload_issue_queue_submit_blocked_canary(
+                    live_runtime_adapter_payload_issue_queue_entry_dry_run,
+                )
+            )
+            live_runtime_adapter_payload_issue_queue_submit_blocked_canary_payload = (
+                live_runtime_adapter_payload_issue_queue_submit_blocked_canary.as_dict()
+            )
         except (TypeError, ValueError) as exc:
-            if live_runtime_adapter_payload_issue_executor_dry_run_payload:
+            if live_runtime_adapter_payload_issue_queue_entry_dry_run_payload:
+                label = (
+                    "stream_queue_budget_live_runtime_adapter_"
+                    "payload_issue_queue_submit_blocked_canary_invalid"
+                )
+            elif live_runtime_adapter_payload_issue_executor_dry_run_payload:
                 label = (
                     "stream_queue_budget_live_runtime_adapter_"
                     "payload_issue_queue_entry_dry_run_invalid"
@@ -2640,6 +2655,10 @@ def _check_optional_stream_queue_budget_sweep(
         **_prefixed_payload(
             "stream_queue_budget_live_runtime_adapter_payload_issue_queue_entry_dry_run",
             live_runtime_adapter_payload_issue_queue_entry_dry_run_payload,
+        ),
+        **_prefixed_payload(
+            "stream_queue_budget_live_runtime_adapter_payload_issue_queue_submit_blocked_canary",
+            live_runtime_adapter_payload_issue_queue_submit_blocked_canary_payload,
         ),
         "stream_queue_budget_issued_payload_count": _optional_int(
             report,

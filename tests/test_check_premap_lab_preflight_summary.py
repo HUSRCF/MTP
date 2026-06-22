@@ -3479,6 +3479,99 @@ def _summary() -> dict[str, object]:
         "live_runtime_instantiated",
     ):
         summary[f"{payload_issue_queue_entry_prefix}_{key}"] = False
+    payload_issue_queue_submit_prefix = (
+        "prefetch_lab_default_stream_queue_budget_"
+        "live_runtime_adapter_payload_issue_queue_submit_blocked_canary"
+    )
+    payload_issue_queue_entry_status = str(
+        summary[f"{payload_issue_queue_entry_prefix}_status"],
+    )
+    summary.update(
+        {
+            f"{payload_issue_queue_submit_prefix}_present": True,
+            f"{payload_issue_queue_submit_prefix}_stage": (
+                "payload_cache_live_runtime_adapter_"
+                "payload_issue_queue_submit_blocked_canary"
+            ),
+            f"{payload_issue_queue_submit_prefix}_status": (
+                "blocked_by_payload_issue_queue_entry_dry_run:"
+                f"{payload_issue_queue_entry_status}"
+            ),
+            f"{payload_issue_queue_submit_prefix}_consumes_payload_issue_queue_entry_dry_run": True,
+            f"{payload_issue_queue_submit_prefix}_payload_issue_queue_entry_status": (
+                payload_issue_queue_entry_status
+            ),
+            f"{payload_issue_queue_submit_prefix}_payload_issue_queue_submit_schema": (
+                "payload_cache_runtime_payload_issue_queue_submit_v1"
+            ),
+            f"{payload_issue_queue_submit_prefix}_payload_issue_queue_submit_canary_created": True,
+            f"{payload_issue_queue_submit_prefix}_payload_issue_queue_entry_consumed": True,
+            f"{payload_issue_queue_submit_prefix}_queue_submit_checked": True,
+            f"{payload_issue_queue_submit_prefix}_queue_submit_rejected": True,
+            f"{payload_issue_queue_submit_prefix}_queue_submit_allowed": False,
+            f"{payload_issue_queue_submit_prefix}_queue_entry_enqueued": False,
+            f"{payload_issue_queue_submit_prefix}_request_source": summary[
+                f"{payload_issue_queue_entry_prefix}_request_source"
+            ],
+            f"{payload_issue_queue_submit_prefix}_request_layer_idx": summary[
+                f"{payload_issue_queue_entry_prefix}_request_layer_idx"
+            ],
+            f"{payload_issue_queue_submit_prefix}_request_expert_idx": summary[
+                f"{payload_issue_queue_entry_prefix}_request_expert_idx"
+            ],
+            f"{payload_issue_queue_submit_prefix}_requested_payload_bytes": summary[
+                f"{payload_issue_queue_entry_prefix}_requested_payload_bytes"
+            ],
+            f"{payload_issue_queue_submit_prefix}_source_issue_packet_count": summary[
+                f"{payload_issue_queue_entry_prefix}_source_issue_packet_count"
+            ],
+            f"{payload_issue_queue_submit_prefix}_source_issue_unique_key_count": summary[
+                f"{payload_issue_queue_entry_prefix}_source_issue_unique_key_count"
+            ],
+            f"{payload_issue_queue_submit_prefix}_source_queue_budget_capacity": summary[
+                f"{payload_issue_queue_entry_prefix}_source_queue_budget_capacity"
+            ],
+            f"{payload_issue_queue_submit_prefix}_source_issue_lead_tokens": summary[
+                f"{payload_issue_queue_entry_prefix}_source_issue_lead_tokens"
+            ],
+            f"{payload_issue_queue_submit_prefix}_source_queue_deadline_us": summary[
+                f"{payload_issue_queue_entry_prefix}_source_queue_deadline_us"
+            ],
+            f"{payload_issue_queue_submit_prefix}_planned_issue_count": 0,
+            f"{payload_issue_queue_submit_prefix}_scheduled_issue_count": 0,
+            f"{payload_issue_queue_submit_prefix}_queued_issue_count": 0,
+            f"{payload_issue_queue_submit_prefix}_submitted_issue_count": 0,
+            f"{payload_issue_queue_submit_prefix}_issued_payload_count": 0,
+            f"{payload_issue_queue_submit_prefix}_payload_bytes": 0,
+            f"{payload_issue_queue_submit_prefix}_decision": "blocked",
+            f"{payload_issue_queue_submit_prefix}_block_reason": (
+                "payload_transfer_disabled"
+            ),
+            f"{payload_issue_queue_submit_prefix}_execution_mode": (
+                "payload_cache_live_runtime_adapter_"
+                "payload_issue_queue_submit_blocked_canary"
+            ),
+        },
+    )
+    for key in (
+        "live_payload_runtime_enabled",
+        "payload_transfer_runtime_enabled",
+        "payload_deref_allowed",
+        "payload_deref_runtime_allowed",
+        "ready_credit",
+        "ready_before_demand_credit",
+        "real_ready_credit_granted",
+        "kernel_arg_pass_allowed",
+        "passed_to_kernel",
+        "changes_kernel_launch_args",
+        "full_fetch_runtime_allowed",
+        "uses_current_wna16_args",
+        "passes_current_wna16_args",
+        "measures_tpot",
+        "measures_vllm_latency",
+        "live_runtime_instantiated",
+    ):
+        summary[f"{payload_issue_queue_submit_prefix}_{key}"] = False
     return summary
 
 
@@ -5934,6 +6027,106 @@ def test_check_premap_lab_preflight_summary_rejects_payload_issue_queue_entry_es
     assert f"{prefix}_payload_bytes_mismatch" in result["failures"]
     assert f"{prefix}_decision_mismatch" in result["failures"]
     assert f"{prefix}_block_reason_mismatch" in result["failures"]
+    assert f"{prefix}_live_payload_runtime_enabled_mismatch" in result["failures"]
+    assert f"{prefix}_payload_transfer_runtime_enabled_mismatch" in result["failures"]
+    assert f"{prefix}_payload_deref_allowed_mismatch" in result["failures"]
+    assert f"{prefix}_payload_deref_runtime_allowed_mismatch" in result["failures"]
+    assert f"{prefix}_ready_credit_mismatch" in result["failures"]
+    assert f"{prefix}_ready_before_demand_credit_mismatch" in result["failures"]
+    assert f"{prefix}_real_ready_credit_granted_mismatch" in result["failures"]
+    assert f"{prefix}_kernel_arg_pass_allowed_mismatch" in result["failures"]
+    assert f"{prefix}_passed_to_kernel_mismatch" in result["failures"]
+    assert f"{prefix}_changes_kernel_launch_args_mismatch" in result["failures"]
+    assert f"{prefix}_full_fetch_runtime_allowed_mismatch" in result["failures"]
+    assert f"{prefix}_uses_current_wna16_args_mismatch" in result["failures"]
+    assert f"{prefix}_passes_current_wna16_args_mismatch" in result["failures"]
+    assert f"{prefix}_measures_tpot_mismatch" in result["failures"]
+    assert f"{prefix}_measures_vllm_latency_mismatch" in result["failures"]
+    assert f"{prefix}_live_runtime_instantiated_mismatch" in result["failures"]
+
+
+def test_check_premap_lab_preflight_summary_rejects_payload_issue_queue_submit_escape() -> None:
+    summary = _summary()
+    prefix = (
+        "prefetch_lab_default_stream_queue_budget_"
+        "live_runtime_adapter_payload_issue_queue_submit_blocked_canary"
+    )
+    summary[f"{prefix}_status"] = "passed"
+    summary[f"{prefix}_consumes_payload_issue_queue_entry_dry_run"] = False
+    summary[f"{prefix}_payload_issue_queue_entry_status"] = "stale"
+    summary[f"{prefix}_payload_issue_queue_submit_schema"] = "payload_submit_v0"
+    summary[f"{prefix}_payload_issue_queue_submit_canary_created"] = False
+    summary[f"{prefix}_payload_issue_queue_entry_consumed"] = False
+    summary[f"{prefix}_queue_submit_checked"] = False
+    summary[f"{prefix}_queue_submit_rejected"] = False
+    summary[f"{prefix}_queue_submit_allowed"] = True
+    summary[f"{prefix}_queue_entry_enqueued"] = True
+    summary[f"{prefix}_request_source"] = "synthetic_payload_issue_request"
+    summary[f"{prefix}_source_issue_packet_count"] = 0
+    summary[f"{prefix}_source_issue_unique_key_count"] = 0
+    summary[f"{prefix}_source_queue_budget_capacity"] = 0
+    summary[f"{prefix}_source_issue_lead_tokens"] = 0
+    summary[f"{prefix}_source_queue_deadline_us"] = 0.0
+    summary[f"{prefix}_planned_issue_count"] = 1
+    summary[f"{prefix}_scheduled_issue_count"] = 1
+    summary[f"{prefix}_queued_issue_count"] = 1
+    summary[f"{prefix}_submitted_issue_count"] = 1
+    summary[f"{prefix}_issued_payload_count"] = 1
+    summary[f"{prefix}_payload_bytes"] = 64
+    summary[f"{prefix}_decision"] = "allow"
+    summary[f"{prefix}_block_reason"] = "payload_transfer_enabled"
+    summary[f"{prefix}_execution_mode"] = "payload_submit_live"
+    summary[f"{prefix}_live_payload_runtime_enabled"] = True
+    summary[f"{prefix}_payload_transfer_runtime_enabled"] = True
+    summary[f"{prefix}_payload_deref_allowed"] = True
+    summary[f"{prefix}_payload_deref_runtime_allowed"] = True
+    summary[f"{prefix}_ready_credit"] = True
+    summary[f"{prefix}_ready_before_demand_credit"] = True
+    summary[f"{prefix}_real_ready_credit_granted"] = True
+    summary[f"{prefix}_kernel_arg_pass_allowed"] = True
+    summary[f"{prefix}_passed_to_kernel"] = True
+    summary[f"{prefix}_changes_kernel_launch_args"] = True
+    summary[f"{prefix}_full_fetch_runtime_allowed"] = True
+    summary[f"{prefix}_uses_current_wna16_args"] = True
+    summary[f"{prefix}_passes_current_wna16_args"] = True
+    summary[f"{prefix}_measures_tpot"] = True
+    summary[f"{prefix}_measures_vllm_latency"] = True
+    summary[f"{prefix}_live_runtime_instantiated"] = True
+
+    result = check_premap_lab_preflight_summary(summary)
+
+    assert result["passed"] is False
+    assert f"{prefix}_status_mismatch" in result["failures"]
+    assert (
+        f"{prefix}_consumes_payload_issue_queue_entry_dry_run_mismatch"
+        in result["failures"]
+    )
+    assert f"{prefix}_payload_issue_queue_entry_status_mismatch" in result["failures"]
+    assert f"{prefix}_payload_issue_queue_submit_schema_mismatch" in result["failures"]
+    assert (
+        f"{prefix}_payload_issue_queue_submit_canary_created_mismatch"
+        in result["failures"]
+    )
+    assert f"{prefix}_payload_issue_queue_entry_consumed_mismatch" in result["failures"]
+    assert f"{prefix}_queue_submit_checked_mismatch" in result["failures"]
+    assert f"{prefix}_queue_submit_rejected_mismatch" in result["failures"]
+    assert f"{prefix}_queue_submit_allowed_mismatch" in result["failures"]
+    assert f"{prefix}_queue_entry_enqueued_mismatch" in result["failures"]
+    assert f"{prefix}_request_source_mismatch" in result["failures"]
+    assert f"{prefix}_source_issue_packet_count_mismatch" in result["failures"]
+    assert f"{prefix}_source_issue_unique_key_count_mismatch" in result["failures"]
+    assert f"{prefix}_source_queue_budget_capacity_mismatch" in result["failures"]
+    assert f"{prefix}_source_issue_lead_tokens_mismatch" in result["failures"]
+    assert f"{prefix}_source_queue_deadline_us_mismatch" in result["failures"]
+    assert f"{prefix}_planned_issue_count_mismatch" in result["failures"]
+    assert f"{prefix}_scheduled_issue_count_mismatch" in result["failures"]
+    assert f"{prefix}_queued_issue_count_mismatch" in result["failures"]
+    assert f"{prefix}_submitted_issue_count_mismatch" in result["failures"]
+    assert f"{prefix}_issued_payload_count_mismatch" in result["failures"]
+    assert f"{prefix}_payload_bytes_mismatch" in result["failures"]
+    assert f"{prefix}_decision_mismatch" in result["failures"]
+    assert f"{prefix}_block_reason_mismatch" in result["failures"]
+    assert f"{prefix}_execution_mode_mismatch" in result["failures"]
     assert f"{prefix}_live_payload_runtime_enabled_mismatch" in result["failures"]
     assert f"{prefix}_payload_transfer_runtime_enabled_mismatch" in result["failures"]
     assert f"{prefix}_payload_deref_allowed_mismatch" in result["failures"]
