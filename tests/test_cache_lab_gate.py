@@ -9,6 +9,7 @@ from mtp_expert_prefetch.runtime import (
     PayloadCacheLivePayloadRuntimeDisabledCanary,
     PayloadCacheLivePayloadStagePreflight,
     PayloadCacheLiveRuntimeAdapterAccountingDryRunCanary,
+    PayloadCacheLiveRuntimeAdapterMixedOutcomeDryRunCanary,
     PayloadCacheLiveRuntimeAdapterMaterializationPreflight,
     PayloadCacheLiveRuntimeAdapterInstantiationCanary,
     PayloadCacheLiveRuntimeAdapterConstructorBindingPreflight,
@@ -50,6 +51,7 @@ from mtp_expert_prefetch.runtime import (
     build_payload_cache_live_payload_runtime_disabled_canary,
     build_payload_cache_live_payload_stage_preflight,
     build_payload_cache_live_runtime_adapter_accounting_dry_run_canary,
+    build_payload_cache_live_runtime_adapter_mixed_outcome_dry_run_canary,
     build_payload_cache_queue_budget_runtime_envelope,
     build_payload_cache_runtime_execution_dry_run,
     build_payload_cache_runtime_participation,
@@ -1803,8 +1805,12 @@ def test_live_runtime_state_shape_check_rejects_side_effects() -> None:
     for field_name in (
         "ready_credit",
         "kernel_arg_pass_allowed",
+        "passed_to_kernel",
+        "changes_kernel_launch_args",
         "uses_current_wna16_args",
+        "passes_current_wna16_args",
         "measures_tpot",
+        "measures_vllm_latency",
     ):
         with pytest.raises(ValueError, match=field_name):
             PayloadCacheLiveRuntimeStateShapeCheck(
@@ -4626,6 +4632,270 @@ def test_live_runtime_adapter_accounting_dry_run_canary_builder_rejects_bad_reje
     object.__setattr__(rejection, "payload_bytes", 1)
     with pytest.raises(ValueError, match="payload_bytes"):
         build_payload_cache_live_runtime_adapter_accounting_dry_run_canary(rejection)
+
+
+def _build_live_runtime_adapter_accounting_dry_run_canary() -> (
+    PayloadCacheLiveRuntimeAdapterAccountingDryRunCanary
+):
+    return build_payload_cache_live_runtime_adapter_accounting_dry_run_canary(
+        _build_live_runtime_adapter_operation_rejection_canary(),
+    )
+
+
+def test_live_runtime_adapter_mixed_outcome_dry_run_canary_consumes_accounting_canary() -> None:
+    accounting = _build_live_runtime_adapter_accounting_dry_run_canary()
+
+    canary = build_payload_cache_live_runtime_adapter_mixed_outcome_dry_run_canary(
+        accounting,
+    )
+    payload = canary.as_dict()
+
+    assert payload["present"] is True
+    assert (
+        payload["stage"]
+        == "payload_cache_live_runtime_adapter_mixed_outcome_dry_run_canary"
+    )
+    assert payload["status"] == (
+        f"blocked_by_accounting_dry_run_canary:{accounting.status}"
+    )
+    assert payload["consumes_accounting_dry_run_canary"] is True
+    assert payload["accounting_dry_run_canary_status"] == accounting.status
+    assert payload["manager_backend"] == "ReadyTimeExpertCacheManager"
+    assert payload["manager_runtime_contract"] == "ready_time_issue_demand_skeleton_v1"
+    assert payload["manager_runtime_mode"] == "ready_time_payload_cache_skeleton"
+    assert (
+        payload["mixed_outcome_schema"]
+        == "ready_time_payload_cache_runtime_adapter_mixed_outcome_dry_run_canary_v1"
+    )
+    assert payload["mixed_outcome_adapter_created"] is True
+    assert payload["mixed_outcome_operations_ran"] is True
+    assert payload["accounting_dry_run_enabled"] is True
+    assert payload["issue_prefetch_accepted"] is True
+    assert payload["duplicate_issue_suppressed"] is True
+    assert payload["prefetched_demand_hit"] is True
+    assert payload["unprefetched_demand_hit"] is False
+    assert payload["unprefetched_demand_missed"] is True
+    assert payload["live_adapter_instance_created"] is False
+    assert payload["live_runtime_instantiated"] is False
+    assert payload["capacity_entries"] == 4096
+    assert payload["issue_lead_tokens"] == 32
+    assert payload["queue_deadline_us"] == 100.0
+    assert payload["lookahead_us"] == 2_400_000.0
+    assert payload["queue_batch_size"] == 1
+    assert payload["resident_count"] == 2
+    assert payload["issued_fetch_count"] == 1
+    assert payload["used_fetch_count"] == 1
+    assert payload["unused_fetch_count"] == 0
+    assert payload["demand_count"] == 2
+    assert payload["demand_hit_count"] == 1
+    assert payload["demand_miss_count"] == 1
+    assert payload["evicted_before_use_count"] == 0
+    assert payload["ready_late_miss_count"] == 0
+    assert payload["late_completion_unused_count"] == 0
+    assert payload["queue_batch_count"] == 1
+    for key in (
+        "queue_service_us",
+        "queue_total_span_us",
+        "queue_wait_us",
+        "queue_max_delay_us",
+    ):
+        assert payload[key] == 0.0
+    assert payload["shifted_issue_accounting_enabled"] is True
+    assert payload["shifted_issue_accounted_packet_count"] == 28
+    assert payload["shifted_issue_unique_issue_key_count"] == 16
+    assert payload["decision"] == "blocked"
+    assert (
+        payload["block_reason"]
+        == "live_runtime_adapter_mixed_outcome_dry_run_canary_only"
+    )
+    assert (
+        payload["execution_mode"]
+        == "payload_cache_live_runtime_adapter_mixed_outcome_dry_run_canary_payloadless"
+    )
+    assert payload["issued_payload_count"] == 0
+    assert payload["payload_bytes"] == 0
+    for key in (
+        "live_payload_runtime_enabled",
+        "payload_transfer_runtime_enabled",
+        "payload_deref_allowed",
+        "payload_deref_runtime_allowed",
+        "ready_credit",
+        "ready_before_demand_credit",
+        "real_ready_credit_granted",
+        "kernel_arg_pass_allowed",
+        "passed_to_kernel",
+        "changes_kernel_launch_args",
+        "full_fetch_runtime_allowed",
+        "uses_current_wna16_args",
+        "passes_current_wna16_args",
+        "measures_tpot",
+        "measures_vllm_latency",
+    ):
+        assert payload[key] is False
+
+
+def test_live_runtime_adapter_mixed_outcome_dry_run_canary_rejects_side_effects() -> None:
+    accounting_status = (
+        "blocked_by_operation_rejection_canary:"
+        "blocked_by_object_shell_evidence:"
+        "blocked_by_instance_construction_plan:"
+        "blocked_by_constructor_binding_preflight:"
+        "blocked_by_instantiation_canary:"
+        "blocked_by_state_validation_artifact:"
+        "blocked_by_adapter_state_validation_preflight:"
+        "blocked_by_adapter_state_object_preflight:"
+        "blocked_by_adapter_materialization_preflight:"
+        "blocked_by_object_adapter_preflight:"
+        "blocked_by_object_construction_preflight:"
+        "blocked_by_state_shape_check:"
+        "blocked_by_live_runtime_canary:"
+        "blocked_by_live_runtime_preflight:"
+        "blocked_by_runtime_snapshot:"
+        "blocked_by_runtime_skeleton:"
+        "blocked_by_manager_artifact:"
+        "blocked_by_live_payload_runtime:"
+        "blocked_by_live_payload_stage:"
+        "blocked_by_queue_budget_runtime_envelope:"
+        "model_queue_budget_satisfied_runtime_disabled"
+    )
+    base_kwargs = {
+        "present": True,
+        "stage": "payload_cache_live_runtime_adapter_mixed_outcome_dry_run_canary",
+        "status": f"blocked_by_accounting_dry_run_canary:{accounting_status}",
+        "consumes_accounting_dry_run_canary": True,
+        "accounting_dry_run_canary_status": accounting_status,
+        "manager_backend": "ReadyTimeExpertCacheManager",
+        "manager_runtime_contract": "ready_time_issue_demand_skeleton_v1",
+        "manager_runtime_mode": "ready_time_payload_cache_skeleton",
+        "mixed_outcome_schema": (
+            "ready_time_payload_cache_runtime_adapter_mixed_outcome_dry_run_canary_v1"
+        ),
+        "mixed_outcome_adapter_created": True,
+        "mixed_outcome_operations_ran": True,
+        "accounting_dry_run_enabled": True,
+        "issue_prefetch_accepted": True,
+        "duplicate_issue_suppressed": True,
+        "prefetched_demand_hit": True,
+        "unprefetched_demand_hit": False,
+        "unprefetched_demand_missed": True,
+        "live_adapter_instance_created": False,
+        "live_runtime_instantiated": False,
+        "capacity_entries": 4096,
+        "issue_lead_tokens": 32,
+        "queue_deadline_us": 100.0,
+        "lookahead_us": 2_400_000.0,
+        "queue_batch_size": 1,
+        "resident_count": 2,
+        "issued_fetch_count": 1,
+        "used_fetch_count": 1,
+        "unused_fetch_count": 0,
+        "demand_count": 2,
+        "demand_hit_count": 1,
+        "demand_miss_count": 1,
+        "evicted_before_use_count": 0,
+        "ready_late_miss_count": 0,
+        "late_completion_unused_count": 0,
+        "queue_batch_count": 1,
+        "queue_service_us": 0.0,
+        "queue_total_span_us": 0.0,
+        "queue_wait_us": 0.0,
+        "queue_max_delay_us": 0.0,
+        "shifted_issue_accounting_enabled": True,
+        "shifted_issue_accounted_packet_count": 28,
+        "shifted_issue_unique_issue_key_count": 16,
+    }
+
+    with pytest.raises(ValueError, match="unprefetched demand"):
+        PayloadCacheLiveRuntimeAdapterMixedOutcomeDryRunCanary(
+            **{
+                **base_kwargs,
+                "unprefetched_demand_hit": True,
+            },
+        )
+
+    with pytest.raises(ValueError, match="unprefetched_demand_missed"):
+        PayloadCacheLiveRuntimeAdapterMixedOutcomeDryRunCanary(
+            **{
+                **base_kwargs,
+                "unprefetched_demand_missed": False,
+            },
+        )
+
+    with pytest.raises(ValueError, match="demand_miss_count"):
+        PayloadCacheLiveRuntimeAdapterMixedOutcomeDryRunCanary(
+            **{
+                **base_kwargs,
+                "demand_miss_count": 0,
+            },
+        )
+
+    with pytest.raises(ValueError, match="live adapter instance"):
+        PayloadCacheLiveRuntimeAdapterMixedOutcomeDryRunCanary(
+            **{
+                **base_kwargs,
+                "live_adapter_instance_created": True,
+            },
+        )
+
+    with pytest.raises(ValueError, match="payload_bytes"):
+        PayloadCacheLiveRuntimeAdapterMixedOutcomeDryRunCanary(
+            **{
+                **base_kwargs,
+                "payload_bytes": 1,
+            },
+        )
+
+    for field_name in (
+        "ready_credit",
+        "kernel_arg_pass_allowed",
+        "uses_current_wna16_args",
+        "measures_tpot",
+    ):
+        with pytest.raises(ValueError, match=field_name):
+            PayloadCacheLiveRuntimeAdapterMixedOutcomeDryRunCanary(
+                **{
+                    **base_kwargs,
+                    field_name: True,
+                },
+            )
+
+    with pytest.raises(TypeError, match="canary"):
+        build_payload_cache_live_runtime_adapter_mixed_outcome_dry_run_canary(
+            object(),  # type: ignore[arg-type]
+        )
+
+
+def test_live_runtime_adapter_mixed_outcome_dry_run_canary_builder_rejects_bad_accounting_canary() -> None:
+    accounting = _build_live_runtime_adapter_accounting_dry_run_canary()
+
+    object.__setattr__(accounting, "decision", "allow")
+    with pytest.raises(ValueError, match="must stay blocked"):
+        build_payload_cache_live_runtime_adapter_mixed_outcome_dry_run_canary(accounting)
+
+    accounting = _build_live_runtime_adapter_accounting_dry_run_canary()
+    object.__setattr__(accounting, "status", "passed")
+    with pytest.raises(ValueError, match="status mismatch"):
+        build_payload_cache_live_runtime_adapter_mixed_outcome_dry_run_canary(accounting)
+
+    accounting = _build_live_runtime_adapter_accounting_dry_run_canary()
+    object.__setattr__(accounting, "operation_rejection_canary_status", "stale")
+    object.__setattr__(
+        accounting,
+        "status",
+        "blocked_by_operation_rejection_canary:stale",
+    )
+    with pytest.raises(ValueError, match="rejection status chain"):
+        build_payload_cache_live_runtime_adapter_mixed_outcome_dry_run_canary(accounting)
+
+    accounting = _build_live_runtime_adapter_accounting_dry_run_canary()
+    object.__setattr__(accounting, "resident_count", 0)
+    with pytest.raises(ValueError, match="resident_count"):
+        build_payload_cache_live_runtime_adapter_mixed_outcome_dry_run_canary(accounting)
+
+    accounting = _build_live_runtime_adapter_accounting_dry_run_canary()
+    object.__setattr__(accounting, "payload_bytes", 1)
+    with pytest.raises(ValueError, match="payload_bytes"):
+        build_payload_cache_live_runtime_adapter_mixed_outcome_dry_run_canary(accounting)
 
 
 def test_payload_cache_runtime_execution_dry_run_consumes_plan() -> None:
