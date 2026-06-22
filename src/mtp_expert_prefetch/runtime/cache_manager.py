@@ -1066,6 +1066,108 @@ class PayloadCacheRuntimeAdapterPayloadlessLive:
 
 
 @dataclass(frozen=True)
+class PayloadCacheRuntimePayloadTransferToggleSnapshot:
+    """Disabled payload-transfer toggle snapshot for live-runtime bring-up."""
+
+    present: bool
+    payload_transfer_toggle_created: bool
+    payload_transfer_runtime_enabled: bool
+    payload_deref_allowed: bool
+    payload_deref_runtime_allowed: bool
+    payload_issue_rejected: bool
+    issued_payload_count: int
+    payload_bytes: int
+    ready_credit: bool = False
+    ready_before_demand_credit: bool = False
+    real_ready_credit_granted: bool = False
+    kernel_arg_pass_allowed: bool = False
+    passed_to_kernel: bool = False
+    changes_kernel_launch_args: bool = False
+    full_fetch_runtime_allowed: bool = False
+    uses_current_wna16_args: bool = False
+    passes_current_wna16_args: bool = False
+    measures_tpot: bool = False
+    measures_vllm_latency: bool = False
+    live_runtime_instantiated: bool = False
+
+    def __post_init__(self) -> None:
+        if self.present is not True:
+            raise ValueError("payload transfer toggle snapshot must be present")
+        if self.payload_transfer_toggle_created is not True:
+            raise ValueError("payload transfer toggle must be created")
+        if self.payload_transfer_runtime_enabled is not False:
+            raise ValueError("payload_transfer_runtime_enabled must remain disabled")
+        if self.payload_deref_allowed is not False:
+            raise ValueError("payload_deref_allowed must remain disabled")
+        if self.payload_deref_runtime_allowed is not False:
+            raise ValueError("payload_deref_runtime_allowed must remain disabled")
+        if self.payload_issue_rejected is not True:
+            raise ValueError("payload issue must be rejected")
+        for field_name in ("issued_payload_count", "payload_bytes"):
+            value = getattr(self, field_name)
+            if not isinstance(value, int) or isinstance(value, bool):
+                raise TypeError(f"{field_name} must be an integer")
+            if value != 0:
+                raise ValueError(f"{field_name} must remain zero")
+        for field_name in (
+            "ready_credit",
+            "ready_before_demand_credit",
+            "real_ready_credit_granted",
+            "kernel_arg_pass_allowed",
+            "passed_to_kernel",
+            "changes_kernel_launch_args",
+            "full_fetch_runtime_allowed",
+            "uses_current_wna16_args",
+            "passes_current_wna16_args",
+            "measures_tpot",
+            "measures_vllm_latency",
+            "live_runtime_instantiated",
+        ):
+            if getattr(self, field_name) is not False:
+                raise ValueError(f"{field_name} must remain disabled")
+
+    def as_dict(self) -> dict[str, bool | int]:
+        return asdict(self)
+
+
+class PayloadCacheRuntimePayloadTransferToggle:
+    """Future payload transfer toggle, default-disabled by construction."""
+
+    def __init__(self, *, enabled: bool = False) -> None:
+        if bool(enabled):
+            raise ValueError("payload transfer runtime is disabled by default")
+        self._enabled = False
+        self._payload_issue_rejected = False
+
+    @property
+    def enabled(self) -> bool:
+        return self._enabled
+
+    def issue_payload(
+        self,
+        layer_idx: int,
+        expert_idx: int,
+        *,
+        payload_bytes: int,
+    ) -> bool:
+        _ = (int(layer_idx), int(expert_idx), int(payload_bytes))
+        self._payload_issue_rejected = True
+        raise RuntimeError("payload transfer runtime is disabled")
+
+    def snapshot(self) -> PayloadCacheRuntimePayloadTransferToggleSnapshot:
+        return PayloadCacheRuntimePayloadTransferToggleSnapshot(
+            present=True,
+            payload_transfer_toggle_created=True,
+            payload_transfer_runtime_enabled=False,
+            payload_deref_allowed=False,
+            payload_deref_runtime_allowed=False,
+            payload_issue_rejected=bool(self._payload_issue_rejected),
+            issued_payload_count=0,
+            payload_bytes=0,
+        )
+
+
+@dataclass(frozen=True)
 class PremapAddressHandle:
     """Stable descriptor/address object for a prepared expert address key.
 

@@ -7,6 +7,8 @@ from mtp_expert_prefetch.runtime import (
     PayloadCacheRuntimeAdapterAccountingDryRun,
     PayloadCacheRuntimeAdapterAccountingDryRunSnapshot,
     PayloadCacheRuntimeAdapterPayloadlessLive,
+    PayloadCacheRuntimePayloadTransferToggle,
+    PayloadCacheRuntimePayloadTransferToggleSnapshot,
     PayloadCacheRuntimeAdapterShell,
     PayloadCacheRuntimeAdapterShellSnapshot,
     ReadyTimeExpertCacheManager,
@@ -433,3 +435,98 @@ def test_payload_cache_runtime_adapter_payloadless_live_rejects_payload_or_kerne
             capacity=4096,
             kernel_arg_pass_allowed=True,
         )
+
+
+def test_payload_cache_runtime_payload_transfer_toggle_rejects_payload_issue() -> None:
+    toggle = PayloadCacheRuntimePayloadTransferToggle()
+
+    assert toggle.enabled is False
+    with pytest.raises(RuntimeError, match="disabled"):
+        toggle.issue_payload(0, 0, payload_bytes=64)
+
+    snapshot = toggle.snapshot()
+    payload = snapshot.as_dict()
+
+    assert payload["present"] is True
+    assert payload["payload_transfer_toggle_created"] is True
+    assert payload["payload_transfer_runtime_enabled"] is False
+    assert payload["payload_deref_allowed"] is False
+    assert payload["payload_deref_runtime_allowed"] is False
+    assert payload["payload_issue_rejected"] is True
+    assert payload["issued_payload_count"] == 0
+    assert payload["payload_bytes"] == 0
+    for key in (
+        "ready_credit",
+        "ready_before_demand_credit",
+        "real_ready_credit_granted",
+        "kernel_arg_pass_allowed",
+        "passed_to_kernel",
+        "changes_kernel_launch_args",
+        "full_fetch_runtime_allowed",
+        "uses_current_wna16_args",
+        "passes_current_wna16_args",
+        "measures_tpot",
+        "measures_vllm_latency",
+        "live_runtime_instantiated",
+    ):
+        assert payload[key] is False
+
+
+def test_payload_cache_runtime_payload_transfer_toggle_rejects_enabled_runtime() -> None:
+    with pytest.raises(ValueError, match="disabled"):
+        PayloadCacheRuntimePayloadTransferToggle(enabled=True)
+
+
+def test_payload_cache_runtime_payload_transfer_toggle_snapshot_rejects_side_effects() -> None:
+    base_kwargs = {
+        "present": True,
+        "payload_transfer_toggle_created": True,
+        "payload_transfer_runtime_enabled": False,
+        "payload_deref_allowed": False,
+        "payload_deref_runtime_allowed": False,
+        "payload_issue_rejected": True,
+        "issued_payload_count": 0,
+        "payload_bytes": 0,
+    }
+
+    with pytest.raises(ValueError, match="payload issue"):
+        PayloadCacheRuntimePayloadTransferToggleSnapshot(
+            **{
+                **base_kwargs,
+                "payload_issue_rejected": False,
+            },
+        )
+
+    for field_name in ("issued_payload_count", "payload_bytes"):
+        with pytest.raises(ValueError, match=field_name):
+            PayloadCacheRuntimePayloadTransferToggleSnapshot(
+                **{
+                    **base_kwargs,
+                    field_name: 1,
+                },
+            )
+
+    for field_name in (
+        "payload_transfer_runtime_enabled",
+        "payload_deref_allowed",
+        "payload_deref_runtime_allowed",
+        "ready_credit",
+        "ready_before_demand_credit",
+        "real_ready_credit_granted",
+        "kernel_arg_pass_allowed",
+        "passed_to_kernel",
+        "changes_kernel_launch_args",
+        "full_fetch_runtime_allowed",
+        "uses_current_wna16_args",
+        "passes_current_wna16_args",
+        "measures_tpot",
+        "measures_vllm_latency",
+        "live_runtime_instantiated",
+    ):
+        with pytest.raises(ValueError, match=field_name):
+            PayloadCacheRuntimePayloadTransferToggleSnapshot(
+                **{
+                    **base_kwargs,
+                    field_name: True,
+                },
+            )

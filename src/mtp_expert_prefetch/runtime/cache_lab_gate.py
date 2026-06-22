@@ -7,6 +7,7 @@ from typing import Sequence
 from mtp_expert_prefetch.runtime.cache_manager import (
     PayloadCacheRuntimeAdapterAccountingDryRun,
     PayloadCacheRuntimeAdapterPayloadlessLive,
+    PayloadCacheRuntimePayloadTransferToggle,
     PayloadCacheRuntimeAdapterShell,
     ReadyTimeExpertCacheManager,
 )
@@ -4387,6 +4388,213 @@ class PayloadCacheLiveRuntimeAdapterPayloadlessInstanceCanary:
         return asdict(self)
 
 
+@dataclass(frozen=True)
+class PayloadCacheLiveRuntimeAdapterPayloadTransferToggleDisabledCanary:
+    """Disabled payload-transfer toggle canary after payloadless adapter creation.
+
+    This is the first contract object that exposes a future payload-transfer
+    toggle.  The toggle is constructed but remains disabled; issuing a payload
+    must be rejected and must not grant ready credit, pass kernel args, use the
+    current WNA16 launch ABI, or measure vLLM latency.
+    """
+
+    present: bool
+    stage: str
+    status: str
+    consumes_payloadless_instance_canary: bool
+    payloadless_instance_canary_status: str
+    manager_backend: str
+    manager_runtime_contract: str
+    manager_runtime_mode: str
+    payload_transfer_toggle_schema: str
+    payload_transfer_toggle_created: bool
+    payload_issue_rejected: bool
+    payloadless_live_adapter_created: bool
+    payloadless_live_operations_ran: bool
+    live_adapter_instance_created: bool
+    live_runtime_instantiated: bool
+    capacity_entries: int
+    issue_lead_tokens: int
+    queue_deadline_us: float
+    lookahead_us: float
+    queue_batch_size: int
+    resident_count: int
+    issued_fetch_count: int
+    used_fetch_count: int
+    unused_fetch_count: int
+    demand_count: int
+    demand_hit_count: int
+    demand_miss_count: int
+    evicted_before_use_count: int
+    ready_late_miss_count: int
+    late_completion_unused_count: int
+    queue_batch_count: int
+    queue_service_us: float
+    queue_total_span_us: float
+    queue_wait_us: float
+    queue_max_delay_us: float
+    shifted_issue_accounting_enabled: bool
+    shifted_issue_accounted_packet_count: int
+    shifted_issue_unique_issue_key_count: int
+    decision: str = "blocked"
+    block_reason: str = "live_runtime_adapter_payload_transfer_toggle_disabled_canary_only"
+    execution_mode: str = (
+        "payload_cache_live_runtime_adapter_payload_transfer_toggle_disabled_canary_payloadless"
+    )
+    live_payload_runtime_enabled: bool = False
+    payload_transfer_runtime_enabled: bool = False
+    payload_deref_allowed: bool = False
+    payload_deref_runtime_allowed: bool = False
+    issued_payload_count: int = 0
+    payload_bytes: int = 0
+    ready_credit: bool = False
+    ready_before_demand_credit: bool = False
+    real_ready_credit_granted: bool = False
+    kernel_arg_pass_allowed: bool = False
+    passed_to_kernel: bool = False
+    changes_kernel_launch_args: bool = False
+    full_fetch_runtime_allowed: bool = False
+    uses_current_wna16_args: bool = False
+    passes_current_wna16_args: bool = False
+    measures_tpot: bool = False
+    measures_vllm_latency: bool = False
+
+    def __post_init__(self) -> None:
+        if self.present is not True:
+            raise ValueError("payload-transfer toggle canary must be present")
+        if (
+            self.stage
+            != "payload_cache_live_runtime_adapter_payload_transfer_toggle_disabled_canary"
+        ):
+            raise ValueError("payload-transfer toggle canary stage mismatch")
+        if self.consumes_payloadless_instance_canary is not True:
+            raise ValueError("payload-transfer toggle must consume payloadless instance canary")
+        if (
+            not isinstance(self.payloadless_instance_canary_status, str)
+            or not self.payloadless_instance_canary_status
+        ):
+            raise TypeError("payloadless_instance_canary_status must be nonempty")
+        expected_status = (
+            "blocked_by_payloadless_instance_canary:"
+            f"{self.payloadless_instance_canary_status}"
+        )
+        if self.status != expected_status:
+            raise ValueError("payload-transfer toggle canary status mismatch")
+        if self.manager_backend != "ReadyTimeExpertCacheManager":
+            raise ValueError("payload-transfer toggle backend mismatch")
+        if self.manager_runtime_contract != "ready_time_issue_demand_skeleton_v1":
+            raise ValueError("payload-transfer toggle contract mismatch")
+        if self.manager_runtime_mode != "ready_time_payload_cache_skeleton":
+            raise ValueError("payload-transfer toggle mode mismatch")
+        if (
+            self.payload_transfer_toggle_schema
+            != "ready_time_payload_cache_runtime_payload_transfer_toggle_disabled_canary_v1"
+        ):
+            raise ValueError("payload_transfer_toggle_schema mismatch")
+        for field_name in (
+            "payload_transfer_toggle_created",
+            "payload_issue_rejected",
+            "payloadless_live_adapter_created",
+            "payloadless_live_operations_ran",
+            "live_adapter_instance_created",
+        ):
+            if getattr(self, field_name) is not True:
+                raise ValueError(f"{field_name} must be true")
+        if self.live_runtime_instantiated is not False:
+            raise ValueError("live_runtime_instantiated must remain false")
+        if self.decision != "blocked":
+            raise ValueError("payload-transfer toggle canary decision must stay blocked")
+        if (
+            self.block_reason
+            != "live_runtime_adapter_payload_transfer_toggle_disabled_canary_only"
+        ):
+            raise ValueError("payload-transfer toggle block reason mismatch")
+        if (
+            self.execution_mode
+            != "payload_cache_live_runtime_adapter_payload_transfer_toggle_disabled_canary_payloadless"
+        ):
+            raise ValueError("payload-transfer toggle execution mode mismatch")
+        expected_counts = {
+            "resident_count": 2,
+            "issued_fetch_count": 1,
+            "used_fetch_count": 1,
+            "unused_fetch_count": 0,
+            "demand_count": 2,
+            "demand_hit_count": 1,
+            "demand_miss_count": 1,
+            "evicted_before_use_count": 0,
+            "ready_late_miss_count": 0,
+            "late_completion_unused_count": 0,
+            "queue_batch_count": 1,
+        }
+        for field_name, expected in expected_counts.items():
+            value = getattr(self, field_name)
+            if not isinstance(value, int) or isinstance(value, bool):
+                raise TypeError(f"{field_name} must be an integer")
+            if value != expected:
+                raise ValueError(f"{field_name} mismatch")
+        for field_name in (
+            "capacity_entries",
+            "issue_lead_tokens",
+            "queue_batch_size",
+            "shifted_issue_accounted_packet_count",
+            "shifted_issue_unique_issue_key_count",
+        ):
+            value = getattr(self, field_name)
+            if not isinstance(value, int) or isinstance(value, bool):
+                raise TypeError(f"{field_name} must be an integer")
+            if value <= 0:
+                raise ValueError(f"{field_name} must be positive")
+        for field_name in (
+            "queue_deadline_us",
+            "lookahead_us",
+            "queue_service_us",
+            "queue_total_span_us",
+            "queue_wait_us",
+            "queue_max_delay_us",
+        ):
+            value = getattr(self, field_name)
+            if not isinstance(value, (int, float)) or isinstance(value, bool):
+                raise TypeError(f"{field_name} must be numeric")
+            numeric = float(value)
+            if not math.isfinite(numeric):
+                raise ValueError(f"{field_name} must be finite")
+            if field_name in ("queue_deadline_us", "lookahead_us") and numeric <= 0.0:
+                raise ValueError(f"{field_name} must be positive")
+            if field_name not in ("queue_deadline_us", "lookahead_us") and numeric != 0.0:
+                raise ValueError(f"{field_name} must remain zero")
+        if self.shifted_issue_accounting_enabled is not True:
+            raise ValueError("shifted issue accounting must be enabled")
+        for field_name in ("issued_payload_count", "payload_bytes"):
+            value = getattr(self, field_name)
+            if not isinstance(value, int) or isinstance(value, bool):
+                raise TypeError(f"{field_name} must be an integer")
+            if value != 0:
+                raise ValueError(f"{field_name} must remain zero")
+        for field_name in (
+            "live_payload_runtime_enabled",
+            "payload_transfer_runtime_enabled",
+            "payload_deref_allowed",
+            "payload_deref_runtime_allowed",
+            "ready_credit",
+            "ready_before_demand_credit",
+            "real_ready_credit_granted",
+            "kernel_arg_pass_allowed",
+            "passed_to_kernel",
+            "changes_kernel_launch_args",
+            "full_fetch_runtime_allowed",
+            "uses_current_wna16_args",
+            "passes_current_wna16_args",
+            "measures_tpot",
+            "measures_vllm_latency",
+        ):
+            if getattr(self, field_name) is not False:
+                raise ValueError(f"{field_name} must remain disabled")
+
+    def as_dict(self) -> dict[str, bool | float | int | str]:
+        return asdict(self)
+
+
 def select_cache_lab_prefetch_gate(
     signals: CacheLabRuntimeSignals,
     *,
@@ -7404,6 +7612,198 @@ def build_payload_cache_live_runtime_adapter_payloadless_instance_canary(
         shifted_issue_unique_issue_key_count=int(
             canary.shifted_issue_unique_issue_key_count,
         ),
+    )
+
+
+def build_payload_cache_live_runtime_adapter_payload_transfer_toggle_disabled_canary(
+    canary: PayloadCacheLiveRuntimeAdapterPayloadlessInstanceCanary,
+) -> PayloadCacheLiveRuntimeAdapterPayloadTransferToggleDisabledCanary:
+    """Construct a disabled payload-transfer toggle after payloadless adapter gate."""
+
+    if not isinstance(canary, PayloadCacheLiveRuntimeAdapterPayloadlessInstanceCanary):
+        raise TypeError(
+            "canary must be a PayloadCacheLiveRuntimeAdapterPayloadlessInstanceCanary",
+        )
+    if canary.present is not True:
+        raise ValueError("payloadless instance canary must be present")
+    if canary.stage != "payload_cache_live_runtime_adapter_payloadless_instance_canary":
+        raise ValueError("payloadless instance canary stage mismatch")
+    if canary.consumes_mixed_outcome_dry_run_canary is not True:
+        raise ValueError("payloadless instance must consume mixed-outcome canary")
+    if (
+        not isinstance(canary.mixed_outcome_dry_run_canary_status, str)
+        or not canary.mixed_outcome_dry_run_canary_status
+    ):
+        raise TypeError("payloadless instance mixed-outcome status invalid")
+    if not canary.mixed_outcome_dry_run_canary_status.startswith(
+        "blocked_by_accounting_dry_run_canary:"
+        "blocked_by_operation_rejection_canary:"
+        "blocked_by_object_shell_evidence:"
+        "blocked_by_instance_construction_plan:"
+        "blocked_by_constructor_binding_preflight:"
+        "blocked_by_instantiation_canary:"
+        "blocked_by_state_validation_artifact:"
+        "blocked_by_adapter_state_validation_preflight:"
+        "blocked_by_adapter_state_object_preflight:"
+        "blocked_by_adapter_materialization_preflight:"
+        "blocked_by_object_adapter_preflight:",
+    ):
+        raise ValueError("payloadless instance ancestry status chain mismatch")
+    expected_status = (
+        "blocked_by_mixed_outcome_dry_run_canary:"
+        f"{canary.mixed_outcome_dry_run_canary_status}"
+    )
+    if canary.status != expected_status:
+        raise ValueError("payloadless instance canary status mismatch")
+    if canary.decision != "blocked":
+        raise ValueError("payloadless instance canary must stay blocked")
+    if canary.block_reason != "live_runtime_adapter_payloadless_instance_canary_only":
+        raise ValueError("payloadless instance block reason mismatch")
+    if (
+        canary.execution_mode
+        != "payload_cache_live_runtime_adapter_payloadless_instance_canary_payloadless"
+    ):
+        raise ValueError("payloadless instance execution mode mismatch")
+    for field_name in (
+        "payloadless_live_adapter_created",
+        "payloadless_live_operations_ran",
+        "accounting_dry_run_enabled",
+        "issue_prefetch_accepted",
+        "duplicate_issue_suppressed",
+        "prefetched_demand_hit",
+        "unprefetched_demand_missed",
+        "live_adapter_instance_created",
+        "shifted_issue_accounting_enabled",
+    ):
+        if getattr(canary, field_name) is not True:
+            raise ValueError(f"payloadless instance {field_name} invalid")
+    for field_name in (
+        "unprefetched_demand_hit",
+        "live_runtime_instantiated",
+    ):
+        if getattr(canary, field_name) is not False:
+            raise ValueError(f"payloadless instance {field_name} invalid")
+    expected_counts = {
+        "resident_count": 2,
+        "issued_fetch_count": 1,
+        "used_fetch_count": 1,
+        "unused_fetch_count": 0,
+        "demand_count": 2,
+        "demand_hit_count": 1,
+        "demand_miss_count": 1,
+        "evicted_before_use_count": 0,
+        "ready_late_miss_count": 0,
+        "late_completion_unused_count": 0,
+        "queue_batch_count": 1,
+    }
+    for field_name, expected in expected_counts.items():
+        if getattr(canary, field_name) != expected:
+            raise ValueError(f"payloadless instance {field_name} mismatch")
+    for field_name in (
+        "live_payload_runtime_enabled",
+        "payload_transfer_runtime_enabled",
+        "payload_deref_allowed",
+        "payload_deref_runtime_allowed",
+        "ready_credit",
+        "ready_before_demand_credit",
+        "real_ready_credit_granted",
+        "kernel_arg_pass_allowed",
+        "passed_to_kernel",
+        "changes_kernel_launch_args",
+        "full_fetch_runtime_allowed",
+        "uses_current_wna16_args",
+        "passes_current_wna16_args",
+        "measures_tpot",
+        "measures_vllm_latency",
+    ):
+        if getattr(canary, field_name) is not False:
+            raise ValueError(f"payloadless instance {field_name} enabled")
+    for field_name in ("issued_payload_count", "payload_bytes"):
+        if getattr(canary, field_name) != 0:
+            raise ValueError(f"payloadless instance {field_name} must be zero")
+
+    toggle = PayloadCacheRuntimePayloadTransferToggle(enabled=False)
+    payload_issue_rejected = False
+    try:
+        toggle.issue_payload(0, 0, payload_bytes=64)
+    except RuntimeError:
+        payload_issue_rejected = True
+    snapshot = toggle.snapshot()
+    snapshot_payload = snapshot.as_dict()
+    if payload_issue_rejected is not True:
+        raise ValueError("disabled payload transfer toggle did not reject issue")
+
+    return PayloadCacheLiveRuntimeAdapterPayloadTransferToggleDisabledCanary(
+        present=True,
+        stage="payload_cache_live_runtime_adapter_payload_transfer_toggle_disabled_canary",
+        status=f"blocked_by_payloadless_instance_canary:{canary.status}",
+        consumes_payloadless_instance_canary=True,
+        payloadless_instance_canary_status=str(canary.status),
+        manager_backend=str(canary.manager_backend),
+        manager_runtime_contract=str(canary.manager_runtime_contract),
+        manager_runtime_mode=str(canary.manager_runtime_mode),
+        payload_transfer_toggle_schema=(
+            "ready_time_payload_cache_runtime_payload_transfer_toggle_disabled_canary_v1"
+        ),
+        payload_transfer_toggle_created=bool(
+            snapshot_payload["payload_transfer_toggle_created"],
+        ),
+        payload_issue_rejected=bool(snapshot_payload["payload_issue_rejected"]),
+        payloadless_live_adapter_created=bool(canary.payloadless_live_adapter_created),
+        payloadless_live_operations_ran=bool(canary.payloadless_live_operations_ran),
+        live_adapter_instance_created=bool(canary.live_adapter_instance_created),
+        live_runtime_instantiated=bool(snapshot_payload["live_runtime_instantiated"]),
+        capacity_entries=int(canary.capacity_entries),
+        issue_lead_tokens=int(canary.issue_lead_tokens),
+        queue_deadline_us=float(canary.queue_deadline_us),
+        lookahead_us=float(canary.lookahead_us),
+        queue_batch_size=int(canary.queue_batch_size),
+        resident_count=int(canary.resident_count),
+        issued_fetch_count=int(canary.issued_fetch_count),
+        used_fetch_count=int(canary.used_fetch_count),
+        unused_fetch_count=int(canary.unused_fetch_count),
+        demand_count=int(canary.demand_count),
+        demand_hit_count=int(canary.demand_hit_count),
+        demand_miss_count=int(canary.demand_miss_count),
+        evicted_before_use_count=int(canary.evicted_before_use_count),
+        ready_late_miss_count=int(canary.ready_late_miss_count),
+        late_completion_unused_count=int(canary.late_completion_unused_count),
+        queue_batch_count=int(canary.queue_batch_count),
+        queue_service_us=float(canary.queue_service_us),
+        queue_total_span_us=float(canary.queue_total_span_us),
+        queue_wait_us=float(canary.queue_wait_us),
+        queue_max_delay_us=float(canary.queue_max_delay_us),
+        shifted_issue_accounting_enabled=bool(canary.shifted_issue_accounting_enabled),
+        shifted_issue_accounted_packet_count=int(
+            canary.shifted_issue_accounted_packet_count,
+        ),
+        shifted_issue_unique_issue_key_count=int(
+            canary.shifted_issue_unique_issue_key_count,
+        ),
+        issued_payload_count=int(snapshot_payload["issued_payload_count"]),
+        payload_bytes=int(snapshot_payload["payload_bytes"]),
+        payload_transfer_runtime_enabled=bool(
+            snapshot_payload["payload_transfer_runtime_enabled"],
+        ),
+        payload_deref_allowed=bool(snapshot_payload["payload_deref_allowed"]),
+        payload_deref_runtime_allowed=bool(
+            snapshot_payload["payload_deref_runtime_allowed"],
+        ),
+        ready_credit=bool(snapshot_payload["ready_credit"]),
+        ready_before_demand_credit=bool(
+            snapshot_payload["ready_before_demand_credit"],
+        ),
+        real_ready_credit_granted=bool(
+            snapshot_payload["real_ready_credit_granted"],
+        ),
+        kernel_arg_pass_allowed=bool(snapshot_payload["kernel_arg_pass_allowed"]),
+        passed_to_kernel=bool(snapshot_payload["passed_to_kernel"]),
+        changes_kernel_launch_args=bool(snapshot_payload["changes_kernel_launch_args"]),
+        full_fetch_runtime_allowed=bool(snapshot_payload["full_fetch_runtime_allowed"]),
+        uses_current_wna16_args=bool(snapshot_payload["uses_current_wna16_args"]),
+        passes_current_wna16_args=bool(snapshot_payload["passes_current_wna16_args"]),
+        measures_tpot=bool(snapshot_payload["measures_tpot"]),
+        measures_vllm_latency=bool(snapshot_payload["measures_vllm_latency"]),
     )
 
 
