@@ -2,10 +2,71 @@
 
 ## Progress Version
 
-- Version: `v1.45-payload-issue-copy-descriptor-dry-run-gate`
+- Version: `v1.46-payload-issue-copy-descriptor-submit-blocked-canary`
 - Updated: 2026-06-22
 
-## Latest Update: Payload Issue Copy-Descriptor Dry-Run Gate
+## Latest Update: Payload Issue Copy-Descriptor Submit-Blocked Canary
+
+The payload/cache lab chain now reaches the copy-descriptor submit boundary:
+
+```text
+PayloadCacheLiveRuntimeAdapterPayloadIssueCopyDescriptorSubmitBlockedCanary
+```
+
+This stage consumes `PayloadCacheLiveRuntimeAdapterPayloadIssueCopyDescriptorDryRun`
+and validates the future descriptor submission envelope while rejecting the
+submit operation:
+
+```text
+request -> plan -> executor -> queue_entry -> queue_submit(blocked)
+        -> inflight_admission(blocked) -> scheduler_dispatch(blocked)
+        -> command_packet(dry-run) -> transport_enqueue(blocked)
+        -> transport_worker_dispatch(blocked) -> copy_descriptor(dry-run)
+        -> copy_descriptor_submit(blocked)
+```
+
+Required submit-boundary evidence:
+
+```text
+payload_issue_copy_descriptor_submit_schema = payload_cache_runtime_payload_issue_copy_descriptor_submit_v1
+payload_issue_copy_descriptor_submit_canary_created = true
+payload_issue_copy_descriptor_consumed = true
+copy_descriptor_submit_checked = true
+copy_descriptor_submit_rejected = true
+copy_descriptor_submit_allowed = false
+copy_descriptor_submitted = false
+copy_descriptor_executed = false
+```
+
+It remains a strict non-runtime gate:
+
+```text
+copy_descriptor_count = 0
+issued_payload_count = 0
+payload_bytes = 0
+ready_credit = false
+real_ready_credit_granted = false
+kernel_arg_pass_allowed = false
+passed_to_kernel = false
+changes_kernel_launch_args = false
+uses_current_wna16_args = false
+passes_current_wna16_args = false
+measures_tpot = false
+measures_vllm_latency = false
+```
+
+Validation:
+
+```text
+py_compile touched runtime/scripts/tests: pass
+pytest tests/test_cache_lab_gate.py tests/test_check_prefetch_lab_default_gate.py tests/test_run_premap_lab_preflight.py tests/test_check_premap_lab_preflight_summary.py -q: 471 passed
+prefetch lab default gate artifact: passed
+strict preflight summary/check artifacts: passed
+wide focused preflight/cache suite: 664 passed
+git diff --check: pass
+```
+
+## Previous Update: Payload Issue Copy-Descriptor Dry-Run Gate
 
 The payload/cache lab chain now reaches a copy-descriptor dry-run stage:
 
