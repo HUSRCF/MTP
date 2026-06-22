@@ -3666,6 +3666,101 @@ def _summary() -> dict[str, object]:
         "live_runtime_instantiated",
     ):
         summary[f"{payload_issue_inflight_admission_prefix}_{key}"] = False
+    payload_issue_scheduler_dispatch_prefix = (
+        "prefetch_lab_default_stream_queue_budget_"
+        "live_runtime_adapter_payload_issue_scheduler_dispatch_blocked_canary"
+    )
+    payload_issue_inflight_admission_status = str(
+        summary[f"{payload_issue_inflight_admission_prefix}_status"],
+    )
+    summary.update(
+        {
+            f"{payload_issue_scheduler_dispatch_prefix}_present": True,
+            f"{payload_issue_scheduler_dispatch_prefix}_stage": (
+                "payload_cache_live_runtime_adapter_"
+                "payload_issue_scheduler_dispatch_blocked_canary"
+            ),
+            f"{payload_issue_scheduler_dispatch_prefix}_status": (
+                "blocked_by_payload_issue_inflight_admission_blocked_canary:"
+                f"{payload_issue_inflight_admission_status}"
+            ),
+            f"{payload_issue_scheduler_dispatch_prefix}_consumes_payload_issue_inflight_admission_blocked_canary": True,
+            f"{payload_issue_scheduler_dispatch_prefix}_payload_issue_inflight_admission_status": (
+                payload_issue_inflight_admission_status
+            ),
+            f"{payload_issue_scheduler_dispatch_prefix}_payload_issue_scheduler_dispatch_schema": (
+                "payload_cache_runtime_payload_issue_scheduler_dispatch_v1"
+            ),
+            f"{payload_issue_scheduler_dispatch_prefix}_payload_issue_scheduler_dispatch_canary_created": True,
+            f"{payload_issue_scheduler_dispatch_prefix}_payload_issue_inflight_admission_consumed": True,
+            f"{payload_issue_scheduler_dispatch_prefix}_scheduler_dispatch_checked": True,
+            f"{payload_issue_scheduler_dispatch_prefix}_scheduler_dispatch_rejected": True,
+            f"{payload_issue_scheduler_dispatch_prefix}_scheduler_dispatch_allowed": False,
+            f"{payload_issue_scheduler_dispatch_prefix}_scheduler_dispatch_enqueued": False,
+            f"{payload_issue_scheduler_dispatch_prefix}_request_source": summary[
+                f"{payload_issue_inflight_admission_prefix}_request_source"
+            ],
+            f"{payload_issue_scheduler_dispatch_prefix}_request_layer_idx": summary[
+                f"{payload_issue_inflight_admission_prefix}_request_layer_idx"
+            ],
+            f"{payload_issue_scheduler_dispatch_prefix}_request_expert_idx": summary[
+                f"{payload_issue_inflight_admission_prefix}_request_expert_idx"
+            ],
+            f"{payload_issue_scheduler_dispatch_prefix}_requested_payload_bytes": summary[
+                f"{payload_issue_inflight_admission_prefix}_requested_payload_bytes"
+            ],
+            f"{payload_issue_scheduler_dispatch_prefix}_source_issue_packet_count": summary[
+                f"{payload_issue_inflight_admission_prefix}_source_issue_packet_count"
+            ],
+            f"{payload_issue_scheduler_dispatch_prefix}_source_issue_unique_key_count": summary[
+                f"{payload_issue_inflight_admission_prefix}_source_issue_unique_key_count"
+            ],
+            f"{payload_issue_scheduler_dispatch_prefix}_source_queue_budget_capacity": summary[
+                f"{payload_issue_inflight_admission_prefix}_source_queue_budget_capacity"
+            ],
+            f"{payload_issue_scheduler_dispatch_prefix}_source_issue_lead_tokens": summary[
+                f"{payload_issue_inflight_admission_prefix}_source_issue_lead_tokens"
+            ],
+            f"{payload_issue_scheduler_dispatch_prefix}_source_queue_deadline_us": summary[
+                f"{payload_issue_inflight_admission_prefix}_source_queue_deadline_us"
+            ],
+            f"{payload_issue_scheduler_dispatch_prefix}_planned_issue_count": 0,
+            f"{payload_issue_scheduler_dispatch_prefix}_scheduled_issue_count": 0,
+            f"{payload_issue_scheduler_dispatch_prefix}_queued_issue_count": 0,
+            f"{payload_issue_scheduler_dispatch_prefix}_submitted_issue_count": 0,
+            f"{payload_issue_scheduler_dispatch_prefix}_inflight_issue_count": 0,
+            f"{payload_issue_scheduler_dispatch_prefix}_dispatched_issue_count": 0,
+            f"{payload_issue_scheduler_dispatch_prefix}_issued_payload_count": 0,
+            f"{payload_issue_scheduler_dispatch_prefix}_payload_bytes": 0,
+            f"{payload_issue_scheduler_dispatch_prefix}_decision": "blocked",
+            f"{payload_issue_scheduler_dispatch_prefix}_block_reason": (
+                "payload_transfer_disabled"
+            ),
+            f"{payload_issue_scheduler_dispatch_prefix}_execution_mode": (
+                "payload_cache_live_runtime_adapter_"
+                "payload_issue_scheduler_dispatch_blocked_canary"
+            ),
+        },
+    )
+    for key in (
+        "live_payload_runtime_enabled",
+        "payload_transfer_runtime_enabled",
+        "payload_deref_allowed",
+        "payload_deref_runtime_allowed",
+        "ready_credit",
+        "ready_before_demand_credit",
+        "real_ready_credit_granted",
+        "kernel_arg_pass_allowed",
+        "passed_to_kernel",
+        "changes_kernel_launch_args",
+        "full_fetch_runtime_allowed",
+        "uses_current_wna16_args",
+        "passes_current_wna16_args",
+        "measures_tpot",
+        "measures_vllm_latency",
+        "live_runtime_instantiated",
+    ):
+        summary[f"{payload_issue_scheduler_dispatch_prefix}_{key}"] = False
     return summary
 
 

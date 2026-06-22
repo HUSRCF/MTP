@@ -24,6 +24,7 @@ from mtp_expert_prefetch.runtime import (
     PayloadCacheLiveRuntimeAdapterPayloadIssueQueueEntryDryRun,
     PayloadCacheLiveRuntimeAdapterPayloadIssueQueueSubmitBlockedCanary,
     PayloadCacheLiveRuntimeAdapterPayloadIssueInflightAdmissionBlockedCanary,
+    PayloadCacheLiveRuntimeAdapterPayloadIssueSchedulerDispatchBlockedCanary,
     PayloadCacheLiveRuntimeAdapterStateObjectPreflight,
     PayloadCacheLiveRuntimeAdapterStateValidationArtifact,
     PayloadCacheLiveRuntimeAdapterStateValidationPreflight,
@@ -68,6 +69,7 @@ from mtp_expert_prefetch.runtime import (
     build_payload_cache_live_runtime_adapter_payload_issue_queue_entry_dry_run,
     build_payload_cache_live_runtime_adapter_payload_issue_queue_submit_blocked_canary,
     build_payload_cache_live_runtime_adapter_payload_issue_inflight_admission_blocked_canary,
+    build_payload_cache_live_runtime_adapter_payload_issue_scheduler_dispatch_blocked_canary,
     build_payload_cache_queue_budget_runtime_envelope,
     build_payload_cache_runtime_execution_dry_run,
     build_payload_cache_runtime_participation,
@@ -6584,6 +6586,182 @@ def test_live_runtime_adapter_payload_issue_inflight_admission_blocked_canary_bu
 
     with pytest.raises(TypeError, match="submit"):
         build_payload_cache_live_runtime_adapter_payload_issue_inflight_admission_blocked_canary(
+            object(),  # type: ignore[arg-type]
+        )
+
+
+def test_live_runtime_adapter_payload_issue_scheduler_dispatch_blocked_canary_consumes_admission() -> None:
+    plan = build_payload_cache_live_runtime_adapter_payload_issue_plan_dry_run(
+        _build_source_bound_payload_issue_request_blocked_canary(),
+    )
+    executor = build_payload_cache_live_runtime_adapter_payload_issue_executor_dry_run(
+        plan,
+    )
+    entry = build_payload_cache_live_runtime_adapter_payload_issue_queue_entry_dry_run(
+        executor,
+    )
+    submit = (
+        build_payload_cache_live_runtime_adapter_payload_issue_queue_submit_blocked_canary(
+            entry,
+        )
+    )
+    admission = (
+        build_payload_cache_live_runtime_adapter_payload_issue_inflight_admission_blocked_canary(
+            submit,
+        )
+    )
+
+    dispatch = (
+        build_payload_cache_live_runtime_adapter_payload_issue_scheduler_dispatch_blocked_canary(
+            admission,
+        )
+    )
+
+    assert dispatch.present is True
+    assert dispatch.stage == (
+        "payload_cache_live_runtime_adapter_"
+        "payload_issue_scheduler_dispatch_blocked_canary"
+    )
+    assert dispatch.status == (
+        f"blocked_by_payload_issue_inflight_admission_blocked_canary:{admission.status}"
+    )
+    assert dispatch.consumes_payload_issue_inflight_admission_blocked_canary is True
+    assert dispatch.payload_issue_inflight_admission_status == admission.status
+    assert dispatch.payload_issue_scheduler_dispatch_schema == (
+        "payload_cache_runtime_payload_issue_scheduler_dispatch_v1"
+    )
+    assert dispatch.payload_issue_scheduler_dispatch_canary_created is True
+    assert dispatch.payload_issue_inflight_admission_consumed is True
+    assert dispatch.scheduler_dispatch_checked is True
+    assert dispatch.scheduler_dispatch_rejected is True
+    assert dispatch.scheduler_dispatch_allowed is False
+    assert dispatch.scheduler_dispatch_enqueued is False
+    assert dispatch.request_source == "queue_budget_first_model_passing_cell"
+    assert dispatch.source_issue_packet_count == 28
+    assert dispatch.source_issue_unique_key_count == 28
+    assert dispatch.source_queue_budget_capacity == 4096
+    assert dispatch.source_issue_lead_tokens == 8
+    assert dispatch.source_queue_deadline_us == 100.0
+    assert dispatch.planned_issue_count == 0
+    assert dispatch.scheduled_issue_count == 0
+    assert dispatch.queued_issue_count == 0
+    assert dispatch.submitted_issue_count == 0
+    assert dispatch.inflight_issue_count == 0
+    assert dispatch.dispatched_issue_count == 0
+    assert dispatch.issued_payload_count == 0
+    assert dispatch.payload_bytes == 0
+    assert dispatch.ready_credit is False
+    assert dispatch.kernel_arg_pass_allowed is False
+    assert dispatch.passed_to_kernel is False
+
+
+def test_live_runtime_adapter_payload_issue_scheduler_dispatch_blocked_canary_rejects_side_effects() -> None:
+    plan = build_payload_cache_live_runtime_adapter_payload_issue_plan_dry_run(
+        _build_source_bound_payload_issue_request_blocked_canary(),
+    )
+    executor = build_payload_cache_live_runtime_adapter_payload_issue_executor_dry_run(
+        plan,
+    )
+    entry = build_payload_cache_live_runtime_adapter_payload_issue_queue_entry_dry_run(
+        executor,
+    )
+    submit = (
+        build_payload_cache_live_runtime_adapter_payload_issue_queue_submit_blocked_canary(
+            entry,
+        )
+    )
+    admission = (
+        build_payload_cache_live_runtime_adapter_payload_issue_inflight_admission_blocked_canary(
+            submit,
+        )
+    )
+    base_kwargs = {
+        "present": True,
+        "stage": (
+            "payload_cache_live_runtime_adapter_"
+            "payload_issue_scheduler_dispatch_blocked_canary"
+        ),
+        "status": (
+            "blocked_by_payload_issue_inflight_admission_blocked_canary:"
+            f"{admission.status}"
+        ),
+        "consumes_payload_issue_inflight_admission_blocked_canary": True,
+        "payload_issue_inflight_admission_status": admission.status,
+        "payload_issue_scheduler_dispatch_schema": (
+            "payload_cache_runtime_payload_issue_scheduler_dispatch_v1"
+        ),
+        "payload_issue_scheduler_dispatch_canary_created": True,
+        "payload_issue_inflight_admission_consumed": True,
+        "scheduler_dispatch_checked": True,
+        "scheduler_dispatch_rejected": True,
+        "scheduler_dispatch_allowed": False,
+        "scheduler_dispatch_enqueued": False,
+        "request_source": admission.request_source,
+        "request_layer_idx": admission.request_layer_idx,
+        "request_expert_idx": admission.request_expert_idx,
+        "requested_payload_bytes": admission.requested_payload_bytes,
+        "source_issue_packet_count": admission.source_issue_packet_count,
+        "source_issue_unique_key_count": admission.source_issue_unique_key_count,
+        "source_queue_budget_capacity": admission.source_queue_budget_capacity,
+        "source_issue_lead_tokens": admission.source_issue_lead_tokens,
+        "source_queue_deadline_us": admission.source_queue_deadline_us,
+    }
+
+    for field_name in (
+        "planned_issue_count",
+        "scheduled_issue_count",
+        "queued_issue_count",
+        "submitted_issue_count",
+        "inflight_issue_count",
+        "dispatched_issue_count",
+        "issued_payload_count",
+        "payload_bytes",
+    ):
+        with pytest.raises(ValueError, match=field_name):
+            PayloadCacheLiveRuntimeAdapterPayloadIssueSchedulerDispatchBlockedCanary(
+                **{
+                    **base_kwargs,
+                    field_name: 1,
+                },
+            )
+
+    for field_name in ("scheduler_dispatch_allowed", "scheduler_dispatch_enqueued"):
+        with pytest.raises(ValueError, match=field_name):
+            PayloadCacheLiveRuntimeAdapterPayloadIssueSchedulerDispatchBlockedCanary(
+                **{
+                    **base_kwargs,
+                    field_name: True,
+                },
+            )
+
+    for field_name in (
+        "live_payload_runtime_enabled",
+        "payload_transfer_runtime_enabled",
+        "payload_deref_allowed",
+        "payload_deref_runtime_allowed",
+        "ready_credit",
+        "ready_before_demand_credit",
+        "real_ready_credit_granted",
+        "kernel_arg_pass_allowed",
+        "passed_to_kernel",
+        "changes_kernel_launch_args",
+        "full_fetch_runtime_allowed",
+        "uses_current_wna16_args",
+        "passes_current_wna16_args",
+        "measures_tpot",
+        "measures_vllm_latency",
+        "live_runtime_instantiated",
+    ):
+        with pytest.raises(ValueError, match=field_name):
+            PayloadCacheLiveRuntimeAdapterPayloadIssueSchedulerDispatchBlockedCanary(
+                **{
+                    **base_kwargs,
+                    field_name: True,
+                },
+            )
+
+    with pytest.raises(TypeError, match="admission"):
+        build_payload_cache_live_runtime_adapter_payload_issue_scheduler_dispatch_blocked_canary(
             object(),  # type: ignore[arg-type]
         )
 
