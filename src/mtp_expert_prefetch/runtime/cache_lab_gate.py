@@ -7227,6 +7227,212 @@ class PayloadCacheLiveRuntimeAdapterPayloadIssueCopyCompletionBlockedCanary:
         return asdict(self)
 
 
+@dataclass(frozen=True)
+class PayloadCacheLiveRuntimeAdapterPayloadIssueReadyCreditBlockedCanary:
+    """Ready-credit canary that rejects payload readiness publication."""
+
+    present: bool
+    stage: str
+    status: str
+    consumes_payload_issue_copy_completion_blocked_canary: bool
+    payload_issue_copy_completion_status: str
+    payload_issue_ready_credit_schema: str
+    payload_issue_ready_credit_canary_created: bool
+    payload_issue_copy_completion_consumed: bool
+    ready_credit_checked: bool
+    ready_credit_rejected: bool
+    ready_credit_allowed: bool
+    ready_credit_granted: bool
+    ready_before_demand_credit_granted: bool
+    real_payload_ready: bool
+    copy_completed: bool
+    copy_descriptor_dispatched: bool
+    copy_descriptor_submitted: bool
+    copy_descriptor_executed: bool
+    request_source: str
+    request_layer_idx: int
+    request_expert_idx: int
+    requested_payload_bytes: int
+    source_issue_packet_count: int
+    source_issue_unique_key_count: int
+    source_queue_budget_capacity: int
+    source_issue_lead_tokens: int
+    source_queue_deadline_us: float
+    planned_issue_count: int = 0
+    scheduled_issue_count: int = 0
+    queued_issue_count: int = 0
+    submitted_issue_count: int = 0
+    inflight_issue_count: int = 0
+    dispatched_issue_count: int = 0
+    command_packet_count: int = 0
+    transport_work_count: int = 0
+    transport_worker_dispatch_count: int = 0
+    copy_descriptor_count: int = 0
+    copy_completion_count: int = 0
+    ready_credit_count: int = 0
+    issued_payload_count: int = 0
+    payload_bytes: int = 0
+    decision: str = "blocked"
+    block_reason: str = "payload_transfer_disabled"
+    execution_mode: str = (
+        "payload_cache_live_runtime_adapter_payload_issue_ready_credit_blocked_canary"
+    )
+    live_payload_runtime_enabled: bool = False
+    payload_transfer_runtime_enabled: bool = False
+    payload_deref_allowed: bool = False
+    payload_deref_runtime_allowed: bool = False
+    ready_credit: bool = False
+    ready_before_demand_credit: bool = False
+    real_ready_credit_granted: bool = False
+    kernel_arg_pass_allowed: bool = False
+    passed_to_kernel: bool = False
+    changes_kernel_launch_args: bool = False
+    full_fetch_runtime_allowed: bool = False
+    uses_current_wna16_args: bool = False
+    passes_current_wna16_args: bool = False
+    measures_tpot: bool = False
+    measures_vllm_latency: bool = False
+    live_runtime_instantiated: bool = False
+
+    def __post_init__(self) -> None:
+        if self.present is not True:
+            raise ValueError("payload issue ready-credit canary must be present")
+        if (
+            self.stage
+            != "payload_cache_live_runtime_adapter_payload_issue_ready_credit_blocked_canary"
+        ):
+            raise ValueError("payload issue ready-credit canary stage mismatch")
+        if self.consumes_payload_issue_copy_completion_blocked_canary is not True:
+            raise ValueError("ready credit must consume copy-completion blocked canary")
+        if (
+            not isinstance(self.payload_issue_copy_completion_status, str)
+            or not self.payload_issue_copy_completion_status
+        ):
+            raise TypeError("payload_issue_copy_completion_status must be nonempty")
+        if (
+            self.payload_issue_copy_completion_status
+            != _SOURCE_BOUND_PAYLOAD_ISSUE_COPY_COMPLETION_BLOCKED_CANARY_STATUS
+        ):
+            raise ValueError("payload issue ready-credit upstream ancestry status mismatch")
+        expected_status = (
+            "blocked_by_payload_issue_copy_completion_blocked_canary:"
+            f"{self.payload_issue_copy_completion_status}"
+        )
+        if self.status != expected_status:
+            raise ValueError("payload issue ready-credit status mismatch")
+        if (
+            self.payload_issue_ready_credit_schema
+            != "payload_cache_runtime_payload_issue_ready_credit_v1"
+        ):
+            raise ValueError("payload issue ready-credit schema mismatch")
+        for field_name in (
+            "payload_issue_ready_credit_canary_created",
+            "payload_issue_copy_completion_consumed",
+            "ready_credit_checked",
+            "ready_credit_rejected",
+        ):
+            if getattr(self, field_name) is not True:
+                raise ValueError(f"{field_name} must be true")
+        for field_name in (
+            "ready_credit_allowed",
+            "ready_credit_granted",
+            "ready_before_demand_credit_granted",
+            "real_payload_ready",
+            "copy_completed",
+            "copy_descriptor_dispatched",
+            "copy_descriptor_submitted",
+            "copy_descriptor_executed",
+        ):
+            if getattr(self, field_name) is not False:
+                raise ValueError(f"{field_name} must remain disabled")
+        if self.request_source != "queue_budget_first_model_passing_cell":
+            raise ValueError("payload issue ready credit requires a source-bound request")
+        for field_name in (
+            "request_layer_idx",
+            "request_expert_idx",
+            "requested_payload_bytes",
+            "source_issue_packet_count",
+            "source_issue_unique_key_count",
+            "source_queue_budget_capacity",
+            "source_issue_lead_tokens",
+        ):
+            value = getattr(self, field_name)
+            if not isinstance(value, int) or isinstance(value, bool):
+                raise TypeError(f"{field_name} must be an integer")
+            if value < 0:
+                raise ValueError(f"{field_name} must be non-negative")
+        if self.requested_payload_bytes <= 0:
+            raise ValueError("requested_payload_bytes must be positive")
+        if self.source_issue_packet_count <= 0:
+            raise ValueError("source_issue_packet_count must be positive")
+        if self.source_issue_unique_key_count <= 0:
+            raise ValueError("source_issue_unique_key_count must be positive")
+        if self.source_queue_budget_capacity <= 0:
+            raise ValueError("source_queue_budget_capacity must be positive")
+        if self.source_issue_lead_tokens <= 0:
+            raise ValueError("source_issue_lead_tokens must be positive")
+        if not isinstance(self.source_queue_deadline_us, (int, float)) or isinstance(
+            self.source_queue_deadline_us,
+            bool,
+        ):
+            raise TypeError("source_queue_deadline_us must be numeric")
+        if self.source_queue_deadline_us <= 0.0:
+            raise ValueError("source_queue_deadline_us must be positive")
+        for field_name in (
+            "planned_issue_count",
+            "scheduled_issue_count",
+            "queued_issue_count",
+            "submitted_issue_count",
+            "inflight_issue_count",
+            "dispatched_issue_count",
+            "command_packet_count",
+            "transport_work_count",
+            "transport_worker_dispatch_count",
+            "copy_descriptor_count",
+            "copy_completion_count",
+            "ready_credit_count",
+            "issued_payload_count",
+            "payload_bytes",
+        ):
+            value = getattr(self, field_name)
+            if not isinstance(value, int) or isinstance(value, bool):
+                raise TypeError(f"{field_name} must be an integer")
+            if value != 0:
+                raise ValueError(f"{field_name} must remain zero")
+        if self.decision != "blocked":
+            raise ValueError("payload issue ready-credit decision must stay blocked")
+        if self.block_reason != "payload_transfer_disabled":
+            raise ValueError("payload issue ready-credit block reason mismatch")
+        if (
+            self.execution_mode
+            != "payload_cache_live_runtime_adapter_payload_issue_ready_credit_blocked_canary"
+        ):
+            raise ValueError("payload issue ready-credit mode mismatch")
+        for field_name in (
+            "live_payload_runtime_enabled",
+            "payload_transfer_runtime_enabled",
+            "payload_deref_allowed",
+            "payload_deref_runtime_allowed",
+            "ready_credit",
+            "ready_before_demand_credit",
+            "real_ready_credit_granted",
+            "kernel_arg_pass_allowed",
+            "passed_to_kernel",
+            "changes_kernel_launch_args",
+            "full_fetch_runtime_allowed",
+            "uses_current_wna16_args",
+            "passes_current_wna16_args",
+            "measures_tpot",
+            "measures_vllm_latency",
+            "live_runtime_instantiated",
+        ):
+            if getattr(self, field_name) is not False:
+                raise ValueError(f"{field_name} must remain disabled")
+
+    def as_dict(self) -> dict[str, bool | float | int | str]:
+        return asdict(self)
+
+
 def select_cache_lab_prefetch_gate(
     signals: CacheLabRuntimeSignals,
     *,
@@ -10711,6 +10917,10 @@ _SOURCE_BOUND_PAYLOAD_ISSUE_COPY_DESCRIPTOR_EXECUTION_BLOCKED_CANARY_STATUS = (
     "blocked_by_payload_issue_copy_descriptor_dispatch_blocked_canary:"
     f"{_SOURCE_BOUND_PAYLOAD_ISSUE_COPY_DESCRIPTOR_DISPATCH_BLOCKED_CANARY_STATUS}"
 )
+_SOURCE_BOUND_PAYLOAD_ISSUE_COPY_COMPLETION_BLOCKED_CANARY_STATUS = (
+    "blocked_by_payload_issue_copy_descriptor_execution_blocked_canary:"
+    f"{_SOURCE_BOUND_PAYLOAD_ISSUE_COPY_DESCRIPTOR_EXECUTION_BLOCKED_CANARY_STATUS}"
+)
 
 
 def build_payload_cache_live_runtime_adapter_payload_issue_plan_dry_run(
@@ -12780,6 +12990,173 @@ def build_payload_cache_live_runtime_adapter_payload_issue_copy_completion_block
         source_queue_budget_capacity=int(execution.source_queue_budget_capacity),
         source_issue_lead_tokens=int(execution.source_issue_lead_tokens),
         source_queue_deadline_us=float(execution.source_queue_deadline_us),
+    )
+
+
+def build_payload_cache_live_runtime_adapter_payload_issue_ready_credit_blocked_canary(
+    completion: PayloadCacheLiveRuntimeAdapterPayloadIssueCopyCompletionBlockedCanary,
+) -> PayloadCacheLiveRuntimeAdapterPayloadIssueReadyCreditBlockedCanary:
+    """Build a blocked ready-credit canary from copy-completion rejection."""
+
+    if not isinstance(
+        completion,
+        PayloadCacheLiveRuntimeAdapterPayloadIssueCopyCompletionBlockedCanary,
+    ):
+        raise TypeError(
+            "completion must be a "
+            "PayloadCacheLiveRuntimeAdapterPayloadIssueCopyCompletionBlockedCanary",
+        )
+    if completion.present is not True:
+        raise ValueError("payload issue copy completion canary must be present")
+    if (
+        completion.stage
+        != "payload_cache_live_runtime_adapter_payload_issue_copy_completion_blocked_canary"
+    ):
+        raise ValueError("payload issue copy completion canary stage mismatch")
+    if completion.consumes_payload_issue_copy_descriptor_execution_blocked_canary is not True:
+        raise ValueError("copy completion must consume execution-blocked canary")
+    if (
+        completion.payload_issue_copy_descriptor_execution_status
+        != _SOURCE_BOUND_PAYLOAD_ISSUE_COPY_DESCRIPTOR_EXECUTION_BLOCKED_CANARY_STATUS
+    ):
+        raise ValueError("payload issue copy completion upstream ancestry status chain mismatch")
+    if completion.status != _SOURCE_BOUND_PAYLOAD_ISSUE_COPY_COMPLETION_BLOCKED_CANARY_STATUS:
+        raise ValueError("payload issue copy completion status mismatch")
+    if (
+        completion.payload_issue_copy_completion_schema
+        != "payload_cache_runtime_payload_issue_copy_completion_v1"
+    ):
+        raise ValueError("payload issue copy completion schema mismatch")
+    for field_name in (
+        "payload_issue_copy_completion_canary_created",
+        "payload_issue_copy_descriptor_execution_consumed",
+        "copy_completion_checked",
+        "copy_completion_rejected",
+    ):
+        if getattr(completion, field_name) is not True:
+            raise ValueError(f"payload issue copy completion {field_name} must be true")
+    for field_name in (
+        "copy_completion_allowed",
+        "copy_completed",
+        "copy_descriptor_dispatched",
+        "copy_descriptor_submitted",
+        "copy_descriptor_executed",
+    ):
+        if getattr(completion, field_name) is not False:
+            raise ValueError(f"payload issue copy completion {field_name} enabled")
+    if completion.request_source != "queue_budget_first_model_passing_cell":
+        raise ValueError("payload issue ready credit requires a source-bound completion")
+    for field_name in (
+        "request_layer_idx",
+        "request_expert_idx",
+        "requested_payload_bytes",
+        "source_issue_packet_count",
+        "source_issue_unique_key_count",
+        "source_queue_budget_capacity",
+        "source_issue_lead_tokens",
+    ):
+        value = getattr(completion, field_name)
+        if not isinstance(value, int) or isinstance(value, bool):
+            raise TypeError(f"{field_name} must be an integer")
+        if value < 0:
+            raise ValueError(f"{field_name} must be non-negative")
+    if completion.requested_payload_bytes <= 0:
+        raise ValueError("requested_payload_bytes must be positive")
+    if completion.source_issue_packet_count <= 0:
+        raise ValueError("source_issue_packet_count must be positive")
+    if completion.source_issue_unique_key_count <= 0:
+        raise ValueError("source_issue_unique_key_count must be positive")
+    if completion.source_queue_budget_capacity <= 0:
+        raise ValueError("source_queue_budget_capacity must be positive")
+    if completion.source_issue_lead_tokens <= 0:
+        raise ValueError("source_issue_lead_tokens must be positive")
+    if not isinstance(completion.source_queue_deadline_us, (int, float)) or isinstance(
+        completion.source_queue_deadline_us,
+        bool,
+    ):
+        raise TypeError("source_queue_deadline_us must be numeric")
+    if completion.source_queue_deadline_us <= 0.0:
+        raise ValueError("source_queue_deadline_us must be positive")
+    for field_name in (
+        "planned_issue_count",
+        "scheduled_issue_count",
+        "queued_issue_count",
+        "submitted_issue_count",
+        "inflight_issue_count",
+        "dispatched_issue_count",
+        "command_packet_count",
+        "transport_work_count",
+        "transport_worker_dispatch_count",
+        "copy_descriptor_count",
+        "copy_completion_count",
+        "issued_payload_count",
+        "payload_bytes",
+    ):
+        if getattr(completion, field_name) != 0:
+            raise ValueError(f"payload issue copy completion {field_name} must be zero")
+    if completion.decision != "blocked":
+        raise ValueError("payload issue copy completion must stay blocked")
+    if completion.block_reason != "payload_transfer_disabled":
+        raise ValueError("payload issue copy completion block reason mismatch")
+    if (
+        completion.execution_mode
+        != "payload_cache_live_runtime_adapter_payload_issue_copy_completion_blocked_canary"
+    ):
+        raise ValueError("payload issue copy completion mode mismatch")
+    for field_name in (
+        "live_payload_runtime_enabled",
+        "payload_transfer_runtime_enabled",
+        "payload_deref_allowed",
+        "payload_deref_runtime_allowed",
+        "ready_credit",
+        "ready_before_demand_credit",
+        "real_ready_credit_granted",
+        "kernel_arg_pass_allowed",
+        "passed_to_kernel",
+        "changes_kernel_launch_args",
+        "full_fetch_runtime_allowed",
+        "uses_current_wna16_args",
+        "passes_current_wna16_args",
+        "measures_tpot",
+        "measures_vllm_latency",
+        "live_runtime_instantiated",
+    ):
+        if getattr(completion, field_name) is not False:
+            raise ValueError(f"payload issue copy completion {field_name} enabled")
+
+    return PayloadCacheLiveRuntimeAdapterPayloadIssueReadyCreditBlockedCanary(
+        present=True,
+        stage=(
+            "payload_cache_live_runtime_adapter_"
+            "payload_issue_ready_credit_blocked_canary"
+        ),
+        status=f"blocked_by_payload_issue_copy_completion_blocked_canary:{completion.status}",
+        consumes_payload_issue_copy_completion_blocked_canary=True,
+        payload_issue_copy_completion_status=str(completion.status),
+        payload_issue_ready_credit_schema=(
+            "payload_cache_runtime_payload_issue_ready_credit_v1"
+        ),
+        payload_issue_ready_credit_canary_created=True,
+        payload_issue_copy_completion_consumed=True,
+        ready_credit_checked=True,
+        ready_credit_rejected=True,
+        ready_credit_allowed=False,
+        ready_credit_granted=False,
+        ready_before_demand_credit_granted=False,
+        real_payload_ready=False,
+        copy_completed=False,
+        copy_descriptor_dispatched=False,
+        copy_descriptor_submitted=False,
+        copy_descriptor_executed=False,
+        request_source=str(completion.request_source),
+        request_layer_idx=int(completion.request_layer_idx),
+        request_expert_idx=int(completion.request_expert_idx),
+        requested_payload_bytes=int(completion.requested_payload_bytes),
+        source_issue_packet_count=int(completion.source_issue_packet_count),
+        source_issue_unique_key_count=int(completion.source_issue_unique_key_count),
+        source_queue_budget_capacity=int(completion.source_queue_budget_capacity),
+        source_issue_lead_tokens=int(completion.source_issue_lead_tokens),
+        source_queue_deadline_us=float(completion.source_queue_deadline_us),
     )
 
 

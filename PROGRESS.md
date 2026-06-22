@@ -2,10 +2,79 @@
 
 ## Progress Version
 
-- Version: `v1.49-payload-issue-copy-completion-blocked-canary`
+- Version: `v1.50-payload-issue-ready-credit-blocked-canary`
 - Updated: 2026-06-22
 
-## Latest Update: Payload Issue Copy Completion-Blocked Canary
+## Latest Update: Payload Issue Ready-Credit Blocked Canary
+
+The payload/cache lab chain now reaches the future ready-credit publication
+boundary:
+
+```text
+PayloadCacheLiveRuntimeAdapterPayloadIssueReadyCreditBlockedCanary
+```
+
+This stage consumes `PayloadCacheLiveRuntimeAdapterPayloadIssueCopyCompletionBlockedCanary`
+and validates the future payload-ready / ready-before-demand envelope while
+rejecting ready-credit publication:
+
+```text
+request -> plan -> executor -> queue_entry -> queue_submit(blocked)
+        -> inflight_admission(blocked) -> scheduler_dispatch(blocked)
+        -> command_packet(dry-run) -> transport_enqueue(blocked)
+        -> transport_worker_dispatch(blocked) -> copy_descriptor(dry-run)
+        -> copy_descriptor_submit(blocked) -> copy_descriptor_dispatch(blocked)
+        -> copy_descriptor_execution(blocked) -> copy_completion(blocked)
+        -> ready_credit(blocked)
+```
+
+Required ready-credit-boundary evidence:
+
+```text
+payload_issue_ready_credit_schema = payload_cache_runtime_payload_issue_ready_credit_v1
+payload_issue_ready_credit_canary_created = true
+payload_issue_copy_completion_consumed = true
+ready_credit_checked = true
+ready_credit_rejected = true
+ready_credit_allowed = false
+ready_credit_granted = false
+ready_before_demand_credit_granted = false
+real_payload_ready = false
+copy_completed = false
+```
+
+It remains a strict non-runtime gate:
+
+```text
+copy_descriptor_count = 0
+copy_completion_count = 0
+ready_credit_count = 0
+issued_payload_count = 0
+payload_bytes = 0
+ready_credit = false
+ready_before_demand_credit = false
+real_ready_credit_granted = false
+kernel_arg_pass_allowed = false
+passed_to_kernel = false
+changes_kernel_launch_args = false
+uses_current_wna16_args = false
+passes_current_wna16_args = false
+measures_tpot = false
+measures_vllm_latency = false
+```
+
+Validation:
+
+```text
+py_compile touched runtime/scripts/tests: pass
+pytest tests/test_cache_lab_gate.py tests/test_check_prefetch_lab_default_gate.py tests/test_run_premap_lab_preflight.py tests/test_check_premap_lab_preflight_summary.py -q: 487 passed
+prefetch lab default gate artifact: passed
+strict preflight summary/check artifacts: passed
+wide focused preflight/cache suite: 680 passed
+git diff --check: pass
+```
+
+## Previous Update: Payload Issue Copy Completion-Blocked Canary
 
 The payload/cache lab chain now reaches the future copy-completion boundary:
 
