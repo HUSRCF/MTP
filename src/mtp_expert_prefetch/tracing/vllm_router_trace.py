@@ -3396,6 +3396,18 @@ class VllmRouterRecorder:
     shadow_premap_kernel_arg_handoff_prepared_table_materialization_mode: str = (
         "off"
     )
+    shadow_premap_kernel_arg_handoff_typed_slot_content_cache_max_entries: int = (
+        4096
+    )
+    shadow_premap_kernel_arg_handoff_typed_slot_content_cache_max_seen_entries: int = (
+        16384
+    )
+    shadow_premap_kernel_arg_handoff_typed_slot_content_cache_max_rows: int = (
+        256
+    )
+    shadow_premap_kernel_arg_handoff_typed_slot_content_cache_store_after_seen: int = (
+        2
+    )
     shadow_premap_single_field_handle_handoff_canary_field: str = (
         "scale_metadata_handle"
     )
@@ -12319,6 +12331,7 @@ _PREMAP_KERNEL_ARG_LIVE_MUTATION_COUNTERS: dict[str, int] = {
     "future_wna16_typed_slot_content_cache_store_count": 0,
     "future_wna16_typed_slot_content_cache_store_row_count": 0,
     "future_wna16_typed_slot_content_cache_cold_skip_count": 0,
+    "future_wna16_typed_slot_content_cache_disabled_count": 0,
     "future_wna16_typed_slot_content_cache_row_limit_skip_count": 0,
     "future_wna16_typed_slot_content_cache_eviction_count": 0,
     "future_wna16_typed_slot_content_cache_seen_eviction_count": 0,
@@ -12772,6 +12785,16 @@ def _premap_future_wna16_typed_slot_content_cache_lookup(
 ) -> dict[str, Any] | None:
     if key is None:
         return None
+    if (
+        int(
+            recorder.shadow_premap_kernel_arg_handoff_typed_slot_content_cache_max_entries
+        )
+        <= 0
+    ):
+        _increment_premap_kernel_arg_live_mutation_counter(
+            "future_wna16_typed_slot_content_cache_disabled_count"
+        )
+        return None
     cache = recorder._premap_future_wna16_typed_slot_content_cache
     entry = cache.get(key)
     if entry is None:
@@ -12795,24 +12818,41 @@ def _premap_future_wna16_typed_slot_content_cache_maybe_store(
     normalized_rows = int(row_count)
     if normalized_rows <= 0:
         return
-    if normalized_rows > _PREMAP_FUTURE_WNA16_TYPED_SLOT_CONTENT_CACHE_MAX_ROWS:
+    max_entries = int(
+        recorder.shadow_premap_kernel_arg_handoff_typed_slot_content_cache_max_entries
+    )
+    if max_entries <= 0:
+        _increment_premap_kernel_arg_live_mutation_counter(
+            "future_wna16_typed_slot_content_cache_disabled_count"
+        )
+        return
+    max_rows = int(
+        recorder.shadow_premap_kernel_arg_handoff_typed_slot_content_cache_max_rows
+    )
+    if max_rows <= 0 or normalized_rows > max_rows:
         _increment_premap_kernel_arg_live_mutation_counter(
             "future_wna16_typed_slot_content_cache_row_limit_skip_count"
         )
         return
+    store_after_seen = max(
+        1,
+        int(
+            recorder.shadow_premap_kernel_arg_handoff_typed_slot_content_cache_store_after_seen
+        ),
+    )
+    max_seen_entries = int(
+        recorder.shadow_premap_kernel_arg_handoff_typed_slot_content_cache_max_seen_entries
+    )
     seen_counts = recorder._premap_future_wna16_typed_slot_content_seen_counts
     seen = int(seen_counts.get(key, 0) or 0) + 1
     seen_counts[key] = seen
     seen_counts.move_to_end(key)
-    while (
-        len(seen_counts)
-        > _PREMAP_FUTURE_WNA16_TYPED_SLOT_CONTENT_CACHE_MAX_SEEN_ENTRIES
-    ):
+    while max_seen_entries > 0 and len(seen_counts) > max_seen_entries:
         seen_counts.popitem(last=False)
         _increment_premap_kernel_arg_live_mutation_counter(
             "future_wna16_typed_slot_content_cache_seen_eviction_count"
         )
-    if seen < _PREMAP_FUTURE_WNA16_TYPED_SLOT_CONTENT_CACHE_STORE_AFTER_SEEN:
+    if seen < store_after_seen:
         _increment_premap_kernel_arg_live_mutation_counter(
             "future_wna16_typed_slot_content_cache_cold_skip_count"
         )
@@ -12835,10 +12875,7 @@ def _premap_future_wna16_typed_slot_content_cache_maybe_store(
         "future_wna16_typed_slot_content_cache_store_row_count",
         normalized_rows,
     )
-    while (
-        len(cache)
-        > _PREMAP_FUTURE_WNA16_TYPED_SLOT_CONTENT_CACHE_MAX_ENTRIES
-    ):
+    while len(cache) > max_entries:
         evicted_key, _evicted_entry = cache.popitem(last=False)
         recorder._premap_future_wna16_typed_slot_content_seen_counts.pop(
             evicted_key,
@@ -20665,6 +20702,42 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
                     "off",
                 )
             ),
+            shadow_premap_kernel_arg_handoff_typed_slot_content_cache_max_entries=max(
+                0,
+                int(
+                    runtime_shadow_options.get(
+                        "premap_kernel_arg_handoff_typed_slot_content_cache_max_entries",
+                        _PREMAP_FUTURE_WNA16_TYPED_SLOT_CONTENT_CACHE_MAX_ENTRIES,
+                    )
+                ),
+            ),
+            shadow_premap_kernel_arg_handoff_typed_slot_content_cache_max_seen_entries=max(
+                0,
+                int(
+                    runtime_shadow_options.get(
+                        "premap_kernel_arg_handoff_typed_slot_content_cache_max_seen_entries",
+                        _PREMAP_FUTURE_WNA16_TYPED_SLOT_CONTENT_CACHE_MAX_SEEN_ENTRIES,
+                    )
+                ),
+            ),
+            shadow_premap_kernel_arg_handoff_typed_slot_content_cache_max_rows=max(
+                0,
+                int(
+                    runtime_shadow_options.get(
+                        "premap_kernel_arg_handoff_typed_slot_content_cache_max_rows",
+                        _PREMAP_FUTURE_WNA16_TYPED_SLOT_CONTENT_CACHE_MAX_ROWS,
+                    )
+                ),
+            ),
+            shadow_premap_kernel_arg_handoff_typed_slot_content_cache_store_after_seen=max(
+                1,
+                int(
+                    runtime_shadow_options.get(
+                        "premap_kernel_arg_handoff_typed_slot_content_cache_store_after_seen",
+                        _PREMAP_FUTURE_WNA16_TYPED_SLOT_CONTENT_CACHE_STORE_AFTER_SEEN,
+                    )
+                ),
+            ),
             shadow_premap_single_field_handle_handoff_canary_field=str(
                 runtime_shadow_options.get(
                     "premap_single_field_handle_handoff_canary_field",
@@ -21511,6 +21584,50 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
                 "off",
             )
         ),
+        "runtime_shadow_premap_kernel_arg_handoff_typed_slot_content_cache_max_entries": int(
+            max(
+                0,
+                int(
+                    runtime_shadow_options.get(
+                        "premap_kernel_arg_handoff_typed_slot_content_cache_max_entries",
+                        _PREMAP_FUTURE_WNA16_TYPED_SLOT_CONTENT_CACHE_MAX_ENTRIES,
+                    )
+                ),
+            )
+        ),
+        "runtime_shadow_premap_kernel_arg_handoff_typed_slot_content_cache_max_seen_entries": int(
+            max(
+                0,
+                int(
+                    runtime_shadow_options.get(
+                        "premap_kernel_arg_handoff_typed_slot_content_cache_max_seen_entries",
+                        _PREMAP_FUTURE_WNA16_TYPED_SLOT_CONTENT_CACHE_MAX_SEEN_ENTRIES,
+                    )
+                ),
+            )
+        ),
+        "runtime_shadow_premap_kernel_arg_handoff_typed_slot_content_cache_max_rows": int(
+            max(
+                0,
+                int(
+                    runtime_shadow_options.get(
+                        "premap_kernel_arg_handoff_typed_slot_content_cache_max_rows",
+                        _PREMAP_FUTURE_WNA16_TYPED_SLOT_CONTENT_CACHE_MAX_ROWS,
+                    )
+                ),
+            )
+        ),
+        "runtime_shadow_premap_kernel_arg_handoff_typed_slot_content_cache_store_after_seen": int(
+            max(
+                1,
+                int(
+                    runtime_shadow_options.get(
+                        "premap_kernel_arg_handoff_typed_slot_content_cache_store_after_seen",
+                        _PREMAP_FUTURE_WNA16_TYPED_SLOT_CONTENT_CACHE_STORE_AFTER_SEEN,
+                    )
+                ),
+            )
+        ),
         "runtime_shadow_premap_kernel_arg_handoff_single_field_replacement_field": str(
             runtime_shadow_options.get(
                 "premap_kernel_arg_handoff_single_field_replacement_field",
@@ -22242,6 +22359,42 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
                                     "premap_kernel_arg_handoff_prepared_table_materialization_mode",
                                     "off",
                                 )
+                            ),
+                            shadow_premap_kernel_arg_handoff_typed_slot_content_cache_max_entries=max(
+                                0,
+                                int(
+                                    runtime_shadow_options.get(
+                                        "premap_kernel_arg_handoff_typed_slot_content_cache_max_entries",
+                                        _PREMAP_FUTURE_WNA16_TYPED_SLOT_CONTENT_CACHE_MAX_ENTRIES,
+                                    )
+                                ),
+                            ),
+                            shadow_premap_kernel_arg_handoff_typed_slot_content_cache_max_seen_entries=max(
+                                0,
+                                int(
+                                    runtime_shadow_options.get(
+                                        "premap_kernel_arg_handoff_typed_slot_content_cache_max_seen_entries",
+                                        _PREMAP_FUTURE_WNA16_TYPED_SLOT_CONTENT_CACHE_MAX_SEEN_ENTRIES,
+                                    )
+                                ),
+                            ),
+                            shadow_premap_kernel_arg_handoff_typed_slot_content_cache_max_rows=max(
+                                0,
+                                int(
+                                    runtime_shadow_options.get(
+                                        "premap_kernel_arg_handoff_typed_slot_content_cache_max_rows",
+                                        _PREMAP_FUTURE_WNA16_TYPED_SLOT_CONTENT_CACHE_MAX_ROWS,
+                                    )
+                                ),
+                            ),
+                            shadow_premap_kernel_arg_handoff_typed_slot_content_cache_store_after_seen=max(
+                                1,
+                                int(
+                                    runtime_shadow_options.get(
+                                        "premap_kernel_arg_handoff_typed_slot_content_cache_store_after_seen",
+                                        _PREMAP_FUTURE_WNA16_TYPED_SLOT_CONTENT_CACHE_STORE_AFTER_SEEN,
+                                    )
+                                ),
                             ),
                             shadow_premap_kernel_arg_handoff_single_field_replacement_field=str(
                                 runtime_shadow_options.get(
