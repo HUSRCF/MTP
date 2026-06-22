@@ -970,6 +970,42 @@ def test_prefetch_lab_default_gate_passes_low_risk_premap_path(tmp_path: Path):
     assert full_fetch[f"{residency_prefix}_ready_credit"] is False
     assert full_fetch[f"{residency_prefix}_real_ready_credit_granted"] is False
     assert full_fetch[f"{residency_prefix}_passed_to_kernel"] is False
+    deref_prefix = (
+        "stream_queue_budget_live_runtime_adapter_"
+        "payload_issue_payload_deref_blocked_canary"
+    )
+    assert full_fetch[f"{deref_prefix}_request_source"] == (
+        "queue_budget_first_model_passing_cell"
+    )
+    assert full_fetch[f"{deref_prefix}_source_issue_packet_count"] == 28
+    assert full_fetch[f"{deref_prefix}_source_issue_unique_key_count"] == 16
+    assert full_fetch[f"{deref_prefix}_source_queue_budget_capacity"] == 4096
+    assert full_fetch[f"{deref_prefix}_source_issue_lead_tokens"] == 32
+    assert full_fetch[f"{deref_prefix}_source_queue_deadline_us"] == 100.0
+    assert full_fetch[f"{deref_prefix}_copy_descriptor_count"] == 0
+    assert full_fetch[f"{deref_prefix}_copy_completion_count"] == 0
+    assert full_fetch[f"{deref_prefix}_ready_credit_count"] == 0
+    assert full_fetch[f"{deref_prefix}_residency_update_count"] == 0
+    assert full_fetch[f"{deref_prefix}_resident_payload_count"] == 0
+    assert full_fetch[f"{deref_prefix}_payload_handle_deref_count"] == 0
+    assert full_fetch[f"{deref_prefix}_issued_payload_count"] == 0
+    assert full_fetch[f"{deref_prefix}_payload_bytes"] == 0
+    assert full_fetch[f"{deref_prefix}_resident_payload_bytes"] == 0
+    assert full_fetch[f"{deref_prefix}_dereferenced_payload_bytes"] == 0
+    assert full_fetch[f"{deref_prefix}_payload_deref_checked"] is True
+    assert full_fetch[f"{deref_prefix}_payload_deref_rejected"] is True
+    assert full_fetch[f"{deref_prefix}_payload_handle_deref_checked"] is True
+    assert full_fetch[f"{deref_prefix}_payload_handle_deref_rejected"] is True
+    assert full_fetch[f"{deref_prefix}_payload_deref_allowed_for_resident_payload"] is False
+    assert full_fetch[f"{deref_prefix}_payload_deref_attempted"] is False
+    assert full_fetch[f"{deref_prefix}_payload_handle_deref_attempted"] is False
+    assert full_fetch[f"{deref_prefix}_payload_marked_resident"] is False
+    assert full_fetch[f"{deref_prefix}_resident_payload_ready"] is False
+    assert full_fetch[f"{deref_prefix}_payload_deref_allowed"] is False
+    assert full_fetch[f"{deref_prefix}_payload_deref_runtime_allowed"] is False
+    assert full_fetch[f"{deref_prefix}_ready_credit"] is False
+    assert full_fetch[f"{deref_prefix}_real_ready_credit_granted"] is False
+    assert full_fetch[f"{deref_prefix}_passed_to_kernel"] is False
     assert full_fetch["stream_queue_budget_runtime_envelope_present"] is True
     assert (
         full_fetch["stream_queue_budget_runtime_envelope_stage"]
@@ -1497,6 +1533,38 @@ def test_prefetch_lab_default_gate_accepts_queue_budget_early_first_lead(
     assert full_fetch[f"{residency_prefix}_resident_payload_ready"] is False
     assert full_fetch[f"{residency_prefix}_ready_credit"] is False
     assert full_fetch[f"{residency_prefix}_real_ready_credit_granted"] is False
+    deref_prefix = (
+        "stream_queue_budget_live_runtime_adapter_"
+        "payload_issue_payload_deref_blocked_canary"
+    )
+    assert full_fetch[f"{deref_prefix}_source_issue_packet_count"] == 28
+    assert full_fetch[f"{deref_prefix}_source_issue_unique_key_count"] == 28
+    assert full_fetch[f"{deref_prefix}_source_queue_budget_capacity"] == 4096
+    assert full_fetch[f"{deref_prefix}_source_issue_lead_tokens"] == 8
+    assert full_fetch[f"{deref_prefix}_source_queue_deadline_us"] == 100.0
+    assert full_fetch[f"{deref_prefix}_copy_descriptor_count"] == 0
+    assert full_fetch[f"{deref_prefix}_copy_completion_count"] == 0
+    assert full_fetch[f"{deref_prefix}_ready_credit_count"] == 0
+    assert full_fetch[f"{deref_prefix}_residency_update_count"] == 0
+    assert full_fetch[f"{deref_prefix}_resident_payload_count"] == 0
+    assert full_fetch[f"{deref_prefix}_payload_handle_deref_count"] == 0
+    assert full_fetch[f"{deref_prefix}_issued_payload_count"] == 0
+    assert full_fetch[f"{deref_prefix}_payload_bytes"] == 0
+    assert full_fetch[f"{deref_prefix}_resident_payload_bytes"] == 0
+    assert full_fetch[f"{deref_prefix}_dereferenced_payload_bytes"] == 0
+    assert full_fetch[f"{deref_prefix}_payload_deref_checked"] is True
+    assert full_fetch[f"{deref_prefix}_payload_deref_rejected"] is True
+    assert full_fetch[f"{deref_prefix}_payload_handle_deref_checked"] is True
+    assert full_fetch[f"{deref_prefix}_payload_handle_deref_rejected"] is True
+    assert full_fetch[f"{deref_prefix}_payload_deref_allowed_for_resident_payload"] is False
+    assert full_fetch[f"{deref_prefix}_payload_deref_attempted"] is False
+    assert full_fetch[f"{deref_prefix}_payload_handle_deref_attempted"] is False
+    assert full_fetch[f"{deref_prefix}_payload_marked_resident"] is False
+    assert full_fetch[f"{deref_prefix}_resident_payload_ready"] is False
+    assert full_fetch[f"{deref_prefix}_payload_deref_allowed"] is False
+    assert full_fetch[f"{deref_prefix}_payload_deref_runtime_allowed"] is False
+    assert full_fetch[f"{deref_prefix}_ready_credit"] is False
+    assert full_fetch[f"{deref_prefix}_real_ready_credit_granted"] is False
 
 
 def test_prefetch_lab_default_gate_rejects_queue_budget_string_cell_index(

@@ -2,10 +2,92 @@
 
 ## Progress Version
 
-- Version: `v1.51-payload-issue-residency-update-blocked-canary`
+- Version: `v1.52-payload-issue-payload-deref-blocked-canary`
 - Updated: 2026-06-22
 
-## Latest Update: Payload Issue Residency-Update Blocked Canary
+## Latest Update: Payload Issue Payload-Deref Blocked Canary
+
+The payload/cache lab chain now reaches the future consumer-visible payload
+dereference boundary:
+
+```text
+PayloadCacheLiveRuntimeAdapterPayloadIssuePayloadDerefBlockedCanary
+```
+
+This stage consumes
+`PayloadCacheLiveRuntimeAdapterPayloadIssueResidencyUpdateBlockedCanary` and
+validates that even after residency-update checking, no runtime consumer is
+allowed to dereference payload handles or expose resident payload bytes:
+
+```text
+request -> plan -> executor -> queue_entry -> queue_submit(blocked)
+        -> inflight_admission(blocked) -> scheduler_dispatch(blocked)
+        -> command_packet(dry-run) -> transport_enqueue(blocked)
+        -> transport_worker_dispatch(blocked) -> copy_descriptor(dry-run)
+        -> copy_descriptor_submit(blocked) -> copy_descriptor_dispatch(blocked)
+        -> copy_descriptor_execution(blocked) -> copy_completion(blocked)
+        -> ready_credit(blocked) -> residency_update(blocked)
+        -> payload_deref(blocked)
+```
+
+Required payload-deref-boundary evidence:
+
+```text
+payload_issue_payload_deref_schema = payload_cache_runtime_payload_issue_payload_deref_v1
+payload_issue_payload_deref_canary_created = true
+payload_issue_residency_update_consumed = true
+payload_deref_checked = true
+payload_deref_rejected = true
+payload_deref_allowed_for_resident_payload = false
+payload_deref_attempted = false
+payload_handle_deref_checked = true
+payload_handle_deref_rejected = true
+payload_handle_deref_attempted = false
+payload_marked_resident = false
+resident_payload_ready = false
+real_payload_ready = false
+copy_completed = false
+```
+
+It remains a strict non-runtime gate:
+
+```text
+copy_descriptor_count = 0
+copy_completion_count = 0
+ready_credit_count = 0
+residency_update_count = 0
+resident_payload_count = 0
+payload_handle_deref_count = 0
+issued_payload_count = 0
+payload_bytes = 0
+resident_payload_bytes = 0
+dereferenced_payload_bytes = 0
+payload_deref_allowed = false
+payload_deref_runtime_allowed = false
+ready_credit = false
+ready_before_demand_credit = false
+real_ready_credit_granted = false
+kernel_arg_pass_allowed = false
+passed_to_kernel = false
+changes_kernel_launch_args = false
+uses_current_wna16_args = false
+passes_current_wna16_args = false
+measures_tpot = false
+measures_vllm_latency = false
+```
+
+Validation:
+
+```text
+py_compile touched runtime/scripts/tests: pass
+pytest tests/test_cache_lab_gate.py tests/test_check_prefetch_lab_default_gate.py tests/test_run_premap_lab_preflight.py tests/test_check_premap_lab_preflight_summary.py -q: 495 passed
+prefetch lab default gate artifact: passed
+strict preflight summary/check artifacts: passed
+wide focused preflight/cache suite: 688 passed
+git diff --check: pass
+```
+
+## Previous Update: Payload Issue Residency-Update Blocked Canary
 
 The payload/cache lab chain now reaches the future payload residency update
 boundary:

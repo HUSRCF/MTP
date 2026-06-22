@@ -7211,6 +7211,38 @@ def test_premap_lab_preflight_accepts_default_readonly_wiring(tmp_path: Path):
         summary["prefetch_lab_default_stream_queue_budget_live_runtime_instantiated"]
         is False
     )
+    payload_deref_prefix = (
+        "prefetch_lab_default_stream_queue_budget_"
+        "live_runtime_adapter_payload_issue_payload_deref_blocked_canary"
+    )
+    assert summary[f"{payload_deref_prefix}_present"] is True
+    assert summary[f"{payload_deref_prefix}_stage"] == (
+        "payload_cache_live_runtime_adapter_payload_issue_payload_deref_blocked_canary"
+    )
+    assert summary[f"{payload_deref_prefix}_payload_issue_payload_deref_schema"] == (
+        "payload_cache_runtime_payload_issue_payload_deref_v1"
+    )
+    assert summary[f"{payload_deref_prefix}_payload_deref_checked"] is True
+    assert summary[f"{payload_deref_prefix}_payload_deref_rejected"] is True
+    assert summary[f"{payload_deref_prefix}_payload_handle_deref_checked"] is True
+    assert summary[f"{payload_deref_prefix}_payload_handle_deref_rejected"] is True
+    assert summary[f"{payload_deref_prefix}_payload_deref_attempted"] is False
+    assert summary[f"{payload_deref_prefix}_payload_handle_deref_attempted"] is False
+    assert summary[f"{payload_deref_prefix}_copy_descriptor_count"] == 0
+    assert summary[f"{payload_deref_prefix}_copy_completion_count"] == 0
+    assert summary[f"{payload_deref_prefix}_ready_credit_count"] == 0
+    assert summary[f"{payload_deref_prefix}_residency_update_count"] == 0
+    assert summary[f"{payload_deref_prefix}_resident_payload_count"] == 0
+    assert summary[f"{payload_deref_prefix}_payload_handle_deref_count"] == 0
+    assert summary[f"{payload_deref_prefix}_issued_payload_count"] == 0
+    assert summary[f"{payload_deref_prefix}_payload_bytes"] == 0
+    assert summary[f"{payload_deref_prefix}_resident_payload_bytes"] == 0
+    assert summary[f"{payload_deref_prefix}_dereferenced_payload_bytes"] == 0
+    assert summary[f"{payload_deref_prefix}_payload_deref_allowed"] is False
+    assert summary[f"{payload_deref_prefix}_payload_deref_runtime_allowed"] is False
+    assert summary[f"{payload_deref_prefix}_ready_credit"] is False
+    assert summary[f"{payload_deref_prefix}_passed_to_kernel"] is False
+    assert summary[f"{payload_deref_prefix}_changes_kernel_launch_args"] is False
     assert (
         summary[
             "prefetch_lab_default_stream_shifted_issue_replay_contract_required_lead_tokens"
