@@ -7323,6 +7323,161 @@ def _check_stream_queue_budget(summary: dict[str, Any], failures: list[str]) -> 
         if summary.get(f"{payload_issue_payload_deref_prefix}_{key}") is not False:
             failures.append(f"{payload_issue_payload_deref_prefix}_{key}_mismatch")
 
+    payload_issue_demand_hit_publication_prefix = (
+        f"{prefix}_live_runtime_adapter_payload_issue_demand_hit_publication_blocked_canary"
+    )
+    expected_payload_issue_demand_hit_publication_status = (
+        "blocked_by_payload_issue_payload_deref_blocked_canary:"
+        f"{expected_payload_issue_payload_deref_status}"
+    )
+    if summary.get(f"{payload_issue_demand_hit_publication_prefix}_present") is not True:
+        failures.append(f"{payload_issue_demand_hit_publication_prefix}_present_mismatch")
+    if (
+        summary.get(f"{payload_issue_demand_hit_publication_prefix}_stage")
+        != "payload_cache_live_runtime_adapter_payload_issue_demand_hit_publication_blocked_canary"
+    ):
+        failures.append(f"{payload_issue_demand_hit_publication_prefix}_stage_mismatch")
+    if (
+        summary.get(f"{payload_issue_demand_hit_publication_prefix}_status")
+        != expected_payload_issue_demand_hit_publication_status
+    ):
+        failures.append(f"{payload_issue_demand_hit_publication_prefix}_status_mismatch")
+    if (
+        summary.get(
+            f"{payload_issue_demand_hit_publication_prefix}_consumes_payload_issue_payload_deref_blocked_canary",
+        )
+        is not True
+    ):
+        failures.append(
+            f"{payload_issue_demand_hit_publication_prefix}_consumes_payload_issue_payload_deref_blocked_canary_mismatch",
+        )
+    if (
+        summary.get(
+            f"{payload_issue_demand_hit_publication_prefix}_payload_issue_payload_deref_status",
+        )
+        != expected_payload_issue_payload_deref_status
+    ):
+        failures.append(
+            f"{payload_issue_demand_hit_publication_prefix}_payload_issue_payload_deref_status_mismatch",
+        )
+    if (
+        summary.get(
+            f"{payload_issue_demand_hit_publication_prefix}_payload_issue_demand_hit_publication_schema",
+        )
+        != "payload_cache_runtime_payload_issue_demand_hit_publication_v1"
+    ):
+        failures.append(
+            f"{payload_issue_demand_hit_publication_prefix}_payload_issue_demand_hit_publication_schema_mismatch",
+        )
+    for key in (
+        "payload_issue_demand_hit_publication_canary_created",
+        "payload_issue_payload_deref_consumed",
+        "demand_hit_publication_checked",
+        "demand_hit_publication_rejected",
+    ):
+        if summary.get(f"{payload_issue_demand_hit_publication_prefix}_{key}") is not True:
+            failures.append(f"{payload_issue_demand_hit_publication_prefix}_{key}_mismatch")
+    for key in (
+        "demand_hit_publication_allowed",
+        "demand_hit_published",
+        "consumer_visible_payload_hit",
+        "prefetched_demand_hit",
+        "payload_deref_attempted",
+        "payload_handle_deref_attempted",
+        "payload_marked_resident",
+        "resident_payload_ready",
+        "ready_credit_granted",
+        "ready_before_demand_credit_granted",
+        "real_payload_ready",
+        "copy_completed",
+    ):
+        if summary.get(f"{payload_issue_demand_hit_publication_prefix}_{key}") is not False:
+            failures.append(f"{payload_issue_demand_hit_publication_prefix}_{key}_mismatch")
+    for key, expected in {
+        "request_layer_idx": 0,
+        "request_expert_idx": 0,
+        "requested_payload_bytes": 64,
+        "source_issue_packet_count": first_shifted_packet_count,
+        "source_issue_unique_key_count": first_shifted_unique_count,
+        "source_queue_budget_capacity": first_capacity,
+        "source_issue_lead_tokens": first_lead,
+        "planned_issue_count": 0,
+        "scheduled_issue_count": 0,
+        "queued_issue_count": 0,
+        "submitted_issue_count": 0,
+        "inflight_issue_count": 0,
+        "dispatched_issue_count": 0,
+        "command_packet_count": 0,
+        "transport_work_count": 0,
+        "transport_worker_dispatch_count": 0,
+        "copy_descriptor_count": 0,
+        "copy_completion_count": 0,
+        "ready_credit_count": 0,
+        "residency_update_count": 0,
+        "resident_payload_count": 0,
+        "payload_handle_deref_count": 0,
+        "demand_hit_publication_count": 0,
+        "consumer_visible_payload_hit_count": 0,
+        "demand_hit_count": 0,
+        "issued_payload_count": 0,
+        "payload_bytes": 0,
+        "resident_payload_bytes": 0,
+        "dereferenced_payload_bytes": 0,
+        "demand_hit_payload_bytes": 0,
+    }.items():
+        if (
+            _int_metric(summary, f"{payload_issue_demand_hit_publication_prefix}_{key}")
+            != expected
+        ):
+            failures.append(f"{payload_issue_demand_hit_publication_prefix}_{key}_mismatch")
+    if (
+        summary.get(f"{payload_issue_demand_hit_publication_prefix}_request_source")
+        != "queue_budget_first_model_passing_cell"
+    ):
+        failures.append(f"{payload_issue_demand_hit_publication_prefix}_request_source_mismatch")
+    if (
+        _float_metric(
+            summary,
+            f"{payload_issue_demand_hit_publication_prefix}_source_queue_deadline_us",
+        )
+        != first_deadline
+    ):
+        failures.append(
+            f"{payload_issue_demand_hit_publication_prefix}_source_queue_deadline_us_mismatch",
+        )
+    if summary.get(f"{payload_issue_demand_hit_publication_prefix}_decision") != "blocked":
+        failures.append(f"{payload_issue_demand_hit_publication_prefix}_decision_mismatch")
+    if (
+        summary.get(f"{payload_issue_demand_hit_publication_prefix}_block_reason")
+        != "payload_transfer_disabled"
+    ):
+        failures.append(f"{payload_issue_demand_hit_publication_prefix}_block_reason_mismatch")
+    if (
+        summary.get(f"{payload_issue_demand_hit_publication_prefix}_execution_mode")
+        != "payload_cache_live_runtime_adapter_payload_issue_demand_hit_publication_blocked_canary"
+    ):
+        failures.append(f"{payload_issue_demand_hit_publication_prefix}_execution_mode_mismatch")
+    for key in (
+        "live_payload_runtime_enabled",
+        "payload_transfer_runtime_enabled",
+        "payload_deref_allowed",
+        "payload_deref_runtime_allowed",
+        "ready_credit",
+        "ready_before_demand_credit",
+        "real_ready_credit_granted",
+        "kernel_arg_pass_allowed",
+        "passed_to_kernel",
+        "changes_kernel_launch_args",
+        "full_fetch_runtime_allowed",
+        "uses_current_wna16_args",
+        "passes_current_wna16_args",
+        "measures_tpot",
+        "measures_vllm_latency",
+        "live_runtime_instantiated",
+    ):
+        if summary.get(f"{payload_issue_demand_hit_publication_prefix}_{key}") is not False:
+            failures.append(f"{payload_issue_demand_hit_publication_prefix}_{key}_mismatch")
+
     if first_shifted_enabled is not True:
         failures.append(f"{prefix}_first_shifted_issue_accounting_enabled_mismatch")
     if first_shifted_packet_count != 28:

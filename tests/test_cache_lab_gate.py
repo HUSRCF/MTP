@@ -36,6 +36,7 @@ from mtp_expert_prefetch.runtime import (
     PayloadCacheLiveRuntimeAdapterPayloadIssueReadyCreditBlockedCanary,
     PayloadCacheLiveRuntimeAdapterPayloadIssueResidencyUpdateBlockedCanary,
     PayloadCacheLiveRuntimeAdapterPayloadIssuePayloadDerefBlockedCanary,
+    PayloadCacheLiveRuntimeAdapterPayloadIssueDemandHitPublicationBlockedCanary,
     PayloadCacheLiveRuntimeAdapterStateObjectPreflight,
     PayloadCacheLiveRuntimeAdapterStateValidationArtifact,
     PayloadCacheLiveRuntimeAdapterStateValidationPreflight,
@@ -92,6 +93,7 @@ from mtp_expert_prefetch.runtime import (
     build_payload_cache_live_runtime_adapter_payload_issue_ready_credit_blocked_canary,
     build_payload_cache_live_runtime_adapter_payload_issue_residency_update_blocked_canary,
     build_payload_cache_live_runtime_adapter_payload_issue_payload_deref_blocked_canary,
+    build_payload_cache_live_runtime_adapter_payload_issue_demand_hit_publication_blocked_canary,
     build_payload_cache_queue_budget_runtime_envelope,
     build_payload_cache_runtime_execution_dry_run,
     build_payload_cache_runtime_participation,
@@ -5533,6 +5535,14 @@ def _build_payload_issue_residency_update_blocked_canary() -> (
     )
 
 
+def _build_payload_issue_payload_deref_blocked_canary() -> (
+    PayloadCacheLiveRuntimeAdapterPayloadIssuePayloadDerefBlockedCanary
+):
+    return build_payload_cache_live_runtime_adapter_payload_issue_payload_deref_blocked_canary(
+        _build_payload_issue_residency_update_blocked_canary(),
+    )
+
+
 def test_live_runtime_adapter_payload_issue_request_blocked_canary_consumes_disabled_toggle() -> None:
     toggle = _build_live_runtime_adapter_payload_transfer_toggle_disabled_canary()
 
@@ -8684,6 +8694,210 @@ def test_live_runtime_adapter_payload_issue_payload_deref_builder_rejects_mutate
     with pytest.raises(ValueError, match="ancestry"):
         build_payload_cache_live_runtime_adapter_payload_issue_payload_deref_blocked_canary(
             residency,
+        )
+
+
+def test_live_runtime_adapter_payload_issue_demand_hit_publication_blocked_canary_consumes_payload_deref() -> None:
+    deref = _build_payload_issue_payload_deref_blocked_canary()
+
+    canary = build_payload_cache_live_runtime_adapter_payload_issue_demand_hit_publication_blocked_canary(
+        deref,
+    )
+
+    assert canary.present is True
+    assert canary.stage == (
+        "payload_cache_live_runtime_adapter_payload_issue_demand_hit_publication_blocked_canary"
+    )
+    assert canary.status == (
+        f"blocked_by_payload_issue_payload_deref_blocked_canary:{deref.status}"
+    )
+    assert canary.consumes_payload_issue_payload_deref_blocked_canary is True
+    assert canary.payload_issue_payload_deref_status == deref.status
+    assert canary.payload_issue_demand_hit_publication_schema == (
+        "payload_cache_runtime_payload_issue_demand_hit_publication_v1"
+    )
+    assert canary.payload_issue_demand_hit_publication_canary_created is True
+    assert canary.payload_issue_payload_deref_consumed is True
+    assert canary.demand_hit_publication_checked is True
+    assert canary.demand_hit_publication_rejected is True
+    assert canary.demand_hit_publication_allowed is False
+    assert canary.demand_hit_published is False
+    assert canary.consumer_visible_payload_hit is False
+    assert canary.prefetched_demand_hit is False
+    assert canary.payload_deref_attempted is False
+    assert canary.payload_handle_deref_attempted is False
+    assert canary.payload_marked_resident is False
+    assert canary.resident_payload_ready is False
+    assert canary.ready_credit_granted is False
+    assert canary.real_payload_ready is False
+    assert canary.copy_completed is False
+    assert canary.request_source == "queue_budget_first_model_passing_cell"
+    assert canary.source_issue_packet_count == 28
+    assert canary.source_issue_unique_key_count == 28
+    assert canary.source_queue_budget_capacity == 4096
+    assert canary.source_issue_lead_tokens == 8
+    assert canary.source_queue_deadline_us == 100.0
+    assert canary.residency_update_count == 0
+    assert canary.resident_payload_count == 0
+    assert canary.payload_handle_deref_count == 0
+    assert canary.demand_hit_publication_count == 0
+    assert canary.consumer_visible_payload_hit_count == 0
+    assert canary.demand_hit_count == 0
+    assert canary.payload_bytes == 0
+    assert canary.resident_payload_bytes == 0
+    assert canary.dereferenced_payload_bytes == 0
+    assert canary.demand_hit_payload_bytes == 0
+    assert canary.payload_deref_allowed is False
+    assert canary.payload_deref_runtime_allowed is False
+    assert canary.ready_credit is False
+    assert canary.ready_before_demand_credit is False
+    assert canary.real_ready_credit_granted is False
+    assert canary.passed_to_kernel is False
+
+
+def test_live_runtime_adapter_payload_issue_demand_hit_publication_blocked_canary_rejects_side_effects() -> None:
+    deref = _build_payload_issue_payload_deref_blocked_canary()
+    base_kwargs = {
+        "present": True,
+        "stage": (
+            "payload_cache_live_runtime_adapter_payload_issue_demand_hit_publication_blocked_canary"
+        ),
+        "status": f"blocked_by_payload_issue_payload_deref_blocked_canary:{deref.status}",
+        "consumes_payload_issue_payload_deref_blocked_canary": True,
+        "payload_issue_payload_deref_status": deref.status,
+        "payload_issue_demand_hit_publication_schema": (
+            "payload_cache_runtime_payload_issue_demand_hit_publication_v1"
+        ),
+        "payload_issue_demand_hit_publication_canary_created": True,
+        "payload_issue_payload_deref_consumed": True,
+        "demand_hit_publication_checked": True,
+        "demand_hit_publication_rejected": True,
+        "demand_hit_publication_allowed": False,
+        "demand_hit_published": False,
+        "consumer_visible_payload_hit": False,
+        "prefetched_demand_hit": False,
+        "payload_deref_attempted": False,
+        "payload_handle_deref_attempted": False,
+        "payload_marked_resident": False,
+        "resident_payload_ready": False,
+        "ready_credit_granted": False,
+        "ready_before_demand_credit_granted": False,
+        "real_payload_ready": False,
+        "copy_completed": False,
+        "request_source": deref.request_source,
+        "request_layer_idx": deref.request_layer_idx,
+        "request_expert_idx": deref.request_expert_idx,
+        "requested_payload_bytes": deref.requested_payload_bytes,
+        "source_issue_packet_count": deref.source_issue_packet_count,
+        "source_issue_unique_key_count": deref.source_issue_unique_key_count,
+        "source_queue_budget_capacity": deref.source_queue_budget_capacity,
+        "source_issue_lead_tokens": deref.source_issue_lead_tokens,
+        "source_queue_deadline_us": deref.source_queue_deadline_us,
+    }
+
+    for field_name in (
+        "planned_issue_count",
+        "scheduled_issue_count",
+        "queued_issue_count",
+        "submitted_issue_count",
+        "inflight_issue_count",
+        "dispatched_issue_count",
+        "command_packet_count",
+        "transport_work_count",
+        "transport_worker_dispatch_count",
+        "copy_descriptor_count",
+        "copy_completion_count",
+        "ready_credit_count",
+        "residency_update_count",
+        "resident_payload_count",
+        "payload_handle_deref_count",
+        "demand_hit_publication_count",
+        "consumer_visible_payload_hit_count",
+        "demand_hit_count",
+        "issued_payload_count",
+        "payload_bytes",
+        "resident_payload_bytes",
+        "dereferenced_payload_bytes",
+        "demand_hit_payload_bytes",
+    ):
+        with pytest.raises(ValueError, match=field_name):
+            PayloadCacheLiveRuntimeAdapterPayloadIssueDemandHitPublicationBlockedCanary(
+                **{
+                    **base_kwargs,
+                    field_name: 1,
+                },
+            )
+
+    for field_name in (
+        "demand_hit_publication_allowed",
+        "demand_hit_published",
+        "consumer_visible_payload_hit",
+        "prefetched_demand_hit",
+        "payload_deref_attempted",
+        "payload_handle_deref_attempted",
+        "payload_marked_resident",
+        "resident_payload_ready",
+        "ready_credit_granted",
+        "ready_before_demand_credit_granted",
+        "real_payload_ready",
+        "copy_completed",
+    ):
+        with pytest.raises(ValueError, match=field_name):
+            PayloadCacheLiveRuntimeAdapterPayloadIssueDemandHitPublicationBlockedCanary(
+                **{
+                    **base_kwargs,
+                    field_name: True,
+                },
+            )
+
+    for field_name in (
+        "live_payload_runtime_enabled",
+        "payload_transfer_runtime_enabled",
+        "payload_deref_allowed",
+        "payload_deref_runtime_allowed",
+        "ready_credit",
+        "ready_before_demand_credit",
+        "real_ready_credit_granted",
+        "kernel_arg_pass_allowed",
+        "passed_to_kernel",
+        "changes_kernel_launch_args",
+        "full_fetch_runtime_allowed",
+        "uses_current_wna16_args",
+        "passes_current_wna16_args",
+        "measures_tpot",
+        "measures_vllm_latency",
+        "live_runtime_instantiated",
+    ):
+        with pytest.raises(ValueError, match=field_name):
+            PayloadCacheLiveRuntimeAdapterPayloadIssueDemandHitPublicationBlockedCanary(
+                **{
+                    **base_kwargs,
+                    field_name: True,
+                },
+            )
+
+    with pytest.raises(TypeError, match="deref"):
+        build_payload_cache_live_runtime_adapter_payload_issue_demand_hit_publication_blocked_canary(
+            object(),  # type: ignore[arg-type]
+        )
+
+
+def test_live_runtime_adapter_payload_issue_demand_hit_publication_builder_rejects_mutated_payload_deref() -> None:
+    deref = _build_payload_issue_payload_deref_blocked_canary()
+
+    object.__setattr__(deref, "payload_deref_attempted", True)
+
+    with pytest.raises(ValueError, match="payload_deref_attempted"):
+        build_payload_cache_live_runtime_adapter_payload_issue_demand_hit_publication_blocked_canary(
+            deref,
+        )
+
+    deref = _build_payload_issue_payload_deref_blocked_canary()
+    object.__setattr__(deref, "payload_issue_residency_update_status", "stale")
+
+    with pytest.raises(ValueError, match="ancestry"):
+        build_payload_cache_live_runtime_adapter_payload_issue_demand_hit_publication_blocked_canary(
+            deref,
         )
 
 

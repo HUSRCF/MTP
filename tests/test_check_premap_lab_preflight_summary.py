@@ -4875,6 +4875,125 @@ def _summary() -> dict[str, object]:
         "live_runtime_instantiated",
     ):
         summary[f"{payload_issue_payload_deref_prefix}_{key}"] = False
+    payload_issue_demand_hit_publication_prefix = (
+        "prefetch_lab_default_stream_queue_budget_"
+        "live_runtime_adapter_payload_issue_demand_hit_publication_blocked_canary"
+    )
+    payload_issue_payload_deref_status = str(
+        summary[f"{payload_issue_payload_deref_prefix}_status"],
+    )
+    summary.update(
+        {
+            f"{payload_issue_demand_hit_publication_prefix}_present": True,
+            f"{payload_issue_demand_hit_publication_prefix}_stage": (
+                "payload_cache_live_runtime_adapter_payload_issue_demand_hit_publication_blocked_canary"
+            ),
+            f"{payload_issue_demand_hit_publication_prefix}_status": (
+                "blocked_by_payload_issue_payload_deref_blocked_canary:"
+                f"{payload_issue_payload_deref_status}"
+            ),
+            f"{payload_issue_demand_hit_publication_prefix}_consumes_payload_issue_payload_deref_blocked_canary": True,
+            f"{payload_issue_demand_hit_publication_prefix}_payload_issue_payload_deref_status": (
+                payload_issue_payload_deref_status
+            ),
+            f"{payload_issue_demand_hit_publication_prefix}_payload_issue_demand_hit_publication_schema": (
+                "payload_cache_runtime_payload_issue_demand_hit_publication_v1"
+            ),
+            f"{payload_issue_demand_hit_publication_prefix}_payload_issue_demand_hit_publication_canary_created": True,
+            f"{payload_issue_demand_hit_publication_prefix}_payload_issue_payload_deref_consumed": True,
+            f"{payload_issue_demand_hit_publication_prefix}_demand_hit_publication_checked": True,
+            f"{payload_issue_demand_hit_publication_prefix}_demand_hit_publication_rejected": True,
+            f"{payload_issue_demand_hit_publication_prefix}_demand_hit_publication_allowed": False,
+            f"{payload_issue_demand_hit_publication_prefix}_demand_hit_published": False,
+            f"{payload_issue_demand_hit_publication_prefix}_consumer_visible_payload_hit": False,
+            f"{payload_issue_demand_hit_publication_prefix}_prefetched_demand_hit": False,
+            f"{payload_issue_demand_hit_publication_prefix}_payload_deref_attempted": False,
+            f"{payload_issue_demand_hit_publication_prefix}_payload_handle_deref_attempted": False,
+            f"{payload_issue_demand_hit_publication_prefix}_payload_marked_resident": False,
+            f"{payload_issue_demand_hit_publication_prefix}_resident_payload_ready": False,
+            f"{payload_issue_demand_hit_publication_prefix}_ready_credit_granted": False,
+            f"{payload_issue_demand_hit_publication_prefix}_ready_before_demand_credit_granted": False,
+            f"{payload_issue_demand_hit_publication_prefix}_real_payload_ready": False,
+            f"{payload_issue_demand_hit_publication_prefix}_copy_completed": False,
+            f"{payload_issue_demand_hit_publication_prefix}_request_source": summary[
+                f"{payload_issue_payload_deref_prefix}_request_source"
+            ],
+            f"{payload_issue_demand_hit_publication_prefix}_request_layer_idx": summary[
+                f"{payload_issue_payload_deref_prefix}_request_layer_idx"
+            ],
+            f"{payload_issue_demand_hit_publication_prefix}_request_expert_idx": summary[
+                f"{payload_issue_payload_deref_prefix}_request_expert_idx"
+            ],
+            f"{payload_issue_demand_hit_publication_prefix}_requested_payload_bytes": summary[
+                f"{payload_issue_payload_deref_prefix}_requested_payload_bytes"
+            ],
+            f"{payload_issue_demand_hit_publication_prefix}_source_issue_packet_count": summary[
+                f"{payload_issue_payload_deref_prefix}_source_issue_packet_count"
+            ],
+            f"{payload_issue_demand_hit_publication_prefix}_source_issue_unique_key_count": summary[
+                f"{payload_issue_payload_deref_prefix}_source_issue_unique_key_count"
+            ],
+            f"{payload_issue_demand_hit_publication_prefix}_source_queue_budget_capacity": summary[
+                f"{payload_issue_payload_deref_prefix}_source_queue_budget_capacity"
+            ],
+            f"{payload_issue_demand_hit_publication_prefix}_source_issue_lead_tokens": summary[
+                f"{payload_issue_payload_deref_prefix}_source_issue_lead_tokens"
+            ],
+            f"{payload_issue_demand_hit_publication_prefix}_source_queue_deadline_us": summary[
+                f"{payload_issue_payload_deref_prefix}_source_queue_deadline_us"
+            ],
+            f"{payload_issue_demand_hit_publication_prefix}_planned_issue_count": 0,
+            f"{payload_issue_demand_hit_publication_prefix}_scheduled_issue_count": 0,
+            f"{payload_issue_demand_hit_publication_prefix}_queued_issue_count": 0,
+            f"{payload_issue_demand_hit_publication_prefix}_submitted_issue_count": 0,
+            f"{payload_issue_demand_hit_publication_prefix}_inflight_issue_count": 0,
+            f"{payload_issue_demand_hit_publication_prefix}_dispatched_issue_count": 0,
+            f"{payload_issue_demand_hit_publication_prefix}_command_packet_count": 0,
+            f"{payload_issue_demand_hit_publication_prefix}_transport_work_count": 0,
+            f"{payload_issue_demand_hit_publication_prefix}_transport_worker_dispatch_count": 0,
+            f"{payload_issue_demand_hit_publication_prefix}_copy_descriptor_count": 0,
+            f"{payload_issue_demand_hit_publication_prefix}_copy_completion_count": 0,
+            f"{payload_issue_demand_hit_publication_prefix}_ready_credit_count": 0,
+            f"{payload_issue_demand_hit_publication_prefix}_residency_update_count": 0,
+            f"{payload_issue_demand_hit_publication_prefix}_resident_payload_count": 0,
+            f"{payload_issue_demand_hit_publication_prefix}_payload_handle_deref_count": 0,
+            f"{payload_issue_demand_hit_publication_prefix}_demand_hit_publication_count": 0,
+            f"{payload_issue_demand_hit_publication_prefix}_consumer_visible_payload_hit_count": 0,
+            f"{payload_issue_demand_hit_publication_prefix}_demand_hit_count": 0,
+            f"{payload_issue_demand_hit_publication_prefix}_issued_payload_count": 0,
+            f"{payload_issue_demand_hit_publication_prefix}_payload_bytes": 0,
+            f"{payload_issue_demand_hit_publication_prefix}_resident_payload_bytes": 0,
+            f"{payload_issue_demand_hit_publication_prefix}_dereferenced_payload_bytes": 0,
+            f"{payload_issue_demand_hit_publication_prefix}_demand_hit_payload_bytes": 0,
+            f"{payload_issue_demand_hit_publication_prefix}_decision": "blocked",
+            f"{payload_issue_demand_hit_publication_prefix}_block_reason": (
+                "payload_transfer_disabled"
+            ),
+            f"{payload_issue_demand_hit_publication_prefix}_execution_mode": (
+                "payload_cache_live_runtime_adapter_"
+                "payload_issue_demand_hit_publication_blocked_canary"
+            ),
+        },
+    )
+    for key in (
+        "live_payload_runtime_enabled",
+        "payload_transfer_runtime_enabled",
+        "payload_deref_allowed",
+        "payload_deref_runtime_allowed",
+        "ready_credit",
+        "ready_before_demand_credit",
+        "real_ready_credit_granted",
+        "kernel_arg_pass_allowed",
+        "passed_to_kernel",
+        "changes_kernel_launch_args",
+        "full_fetch_runtime_allowed",
+        "uses_current_wna16_args",
+        "passes_current_wna16_args",
+        "measures_tpot",
+        "measures_vllm_latency",
+        "live_runtime_instantiated",
+    ):
+        summary[f"{payload_issue_demand_hit_publication_prefix}_{key}"] = False
     return summary
 
 
@@ -8944,6 +9063,129 @@ def test_check_premap_lab_preflight_summary_rejects_payload_issue_payload_deref_
     assert f"{prefix}_measures_tpot_mismatch" in result["failures"]
     assert f"{prefix}_measures_vllm_latency_mismatch" in result["failures"]
     assert f"{prefix}_live_runtime_instantiated_mismatch" in result["failures"]
+
+
+def test_check_premap_lab_preflight_summary_rejects_payload_issue_demand_hit_publication_escape() -> None:
+    summary = _summary()
+    prefix = (
+        "prefetch_lab_default_stream_queue_budget_"
+        "live_runtime_adapter_payload_issue_demand_hit_publication_blocked_canary"
+    )
+    summary[f"{prefix}_status"] = "passed"
+    summary[f"{prefix}_consumes_payload_issue_payload_deref_blocked_canary"] = False
+    summary[f"{prefix}_payload_issue_payload_deref_status"] = "stale"
+    summary[f"{prefix}_payload_issue_demand_hit_publication_schema"] = (
+        "payload_demand_hit_publication_v0"
+    )
+    for key in (
+        "payload_issue_demand_hit_publication_canary_created",
+        "payload_issue_payload_deref_consumed",
+        "demand_hit_publication_checked",
+        "demand_hit_publication_rejected",
+    ):
+        summary[f"{prefix}_{key}"] = False
+    for key in (
+        "demand_hit_publication_allowed",
+        "demand_hit_published",
+        "consumer_visible_payload_hit",
+        "prefetched_demand_hit",
+        "payload_deref_attempted",
+        "payload_handle_deref_attempted",
+        "payload_marked_resident",
+        "resident_payload_ready",
+        "ready_credit_granted",
+        "ready_before_demand_credit_granted",
+        "real_payload_ready",
+        "copy_completed",
+    ):
+        summary[f"{prefix}_{key}"] = True
+    summary[f"{prefix}_request_source"] = "synthetic_payload_issue_request"
+    summary[f"{prefix}_request_layer_idx"] = 1
+    summary[f"{prefix}_request_expert_idx"] = 1
+    summary[f"{prefix}_requested_payload_bytes"] = 128
+    summary[f"{prefix}_source_issue_packet_count"] = 0
+    summary[f"{prefix}_source_issue_unique_key_count"] = 0
+    summary[f"{prefix}_source_queue_budget_capacity"] = 0
+    summary[f"{prefix}_source_issue_lead_tokens"] = 0
+    summary[f"{prefix}_source_queue_deadline_us"] = 0.0
+    for key in (
+        "planned_issue_count",
+        "scheduled_issue_count",
+        "queued_issue_count",
+        "submitted_issue_count",
+        "inflight_issue_count",
+        "dispatched_issue_count",
+        "command_packet_count",
+        "transport_work_count",
+        "transport_worker_dispatch_count",
+        "copy_descriptor_count",
+        "copy_completion_count",
+        "ready_credit_count",
+        "residency_update_count",
+        "resident_payload_count",
+        "payload_handle_deref_count",
+        "demand_hit_publication_count",
+        "consumer_visible_payload_hit_count",
+        "demand_hit_count",
+        "issued_payload_count",
+        "payload_bytes",
+        "resident_payload_bytes",
+        "dereferenced_payload_bytes",
+        "demand_hit_payload_bytes",
+    ):
+        summary[f"{prefix}_{key}"] = 1
+    summary[f"{prefix}_decision"] = "allow"
+    summary[f"{prefix}_block_reason"] = "payload_transfer_enabled"
+    summary[f"{prefix}_execution_mode"] = "payload_issue_demand_hit_publication_live"
+    for key in (
+        "live_payload_runtime_enabled",
+        "payload_transfer_runtime_enabled",
+        "payload_deref_allowed",
+        "payload_deref_runtime_allowed",
+        "ready_credit",
+        "ready_before_demand_credit",
+        "real_ready_credit_granted",
+        "kernel_arg_pass_allowed",
+        "passed_to_kernel",
+        "changes_kernel_launch_args",
+        "full_fetch_runtime_allowed",
+        "uses_current_wna16_args",
+        "passes_current_wna16_args",
+        "measures_tpot",
+        "measures_vllm_latency",
+        "live_runtime_instantiated",
+    ):
+        summary[f"{prefix}_{key}"] = True
+
+    result = check_premap_lab_preflight_summary(summary)
+
+    assert result["passed"] is False
+    for suffix in (
+        "status_mismatch",
+        "consumes_payload_issue_payload_deref_blocked_canary_mismatch",
+        "payload_issue_payload_deref_status_mismatch",
+        "payload_issue_demand_hit_publication_schema_mismatch",
+        "payload_issue_demand_hit_publication_canary_created_mismatch",
+        "payload_issue_payload_deref_consumed_mismatch",
+        "demand_hit_publication_checked_mismatch",
+        "demand_hit_publication_rejected_mismatch",
+        "demand_hit_publication_allowed_mismatch",
+        "demand_hit_published_mismatch",
+        "consumer_visible_payload_hit_mismatch",
+        "prefetched_demand_hit_mismatch",
+        "demand_hit_publication_count_mismatch",
+        "consumer_visible_payload_hit_count_mismatch",
+        "demand_hit_count_mismatch",
+        "demand_hit_payload_bytes_mismatch",
+        "decision_mismatch",
+        "block_reason_mismatch",
+        "execution_mode_mismatch",
+        "payload_transfer_runtime_enabled_mismatch",
+        "ready_credit_mismatch",
+        "passed_to_kernel_mismatch",
+        "changes_kernel_launch_args_mismatch",
+    ):
+        assert f"{prefix}_{suffix}" in result["failures"]
 
 
 def test_check_premap_lab_preflight_summary_rejects_queue_budget_summary_mixing() -> None:

@@ -2542,6 +2542,81 @@ STREAM_QUEUE_BUDGET_LIVE_RUNTIME_ADAPTER_PAYLOAD_ISSUE_PAYLOAD_DEREF_BLOCKED_CAN
     "measures_vllm_latency",
     "live_runtime_instantiated",
 )
+STREAM_QUEUE_BUDGET_LIVE_RUNTIME_ADAPTER_PAYLOAD_ISSUE_DEMAND_HIT_PUBLICATION_BLOCKED_CANARY_FIELDS = (
+    "present",
+    "stage",
+    "status",
+    "consumes_payload_issue_payload_deref_blocked_canary",
+    "payload_issue_payload_deref_status",
+    "payload_issue_demand_hit_publication_schema",
+    "payload_issue_demand_hit_publication_canary_created",
+    "payload_issue_payload_deref_consumed",
+    "demand_hit_publication_checked",
+    "demand_hit_publication_rejected",
+    "demand_hit_publication_allowed",
+    "demand_hit_published",
+    "consumer_visible_payload_hit",
+    "prefetched_demand_hit",
+    "payload_deref_attempted",
+    "payload_handle_deref_attempted",
+    "payload_marked_resident",
+    "resident_payload_ready",
+    "ready_credit_granted",
+    "ready_before_demand_credit_granted",
+    "real_payload_ready",
+    "copy_completed",
+    "request_source",
+    "request_layer_idx",
+    "request_expert_idx",
+    "requested_payload_bytes",
+    "source_issue_packet_count",
+    "source_issue_unique_key_count",
+    "source_queue_budget_capacity",
+    "source_issue_lead_tokens",
+    "source_queue_deadline_us",
+    "planned_issue_count",
+    "scheduled_issue_count",
+    "queued_issue_count",
+    "submitted_issue_count",
+    "inflight_issue_count",
+    "dispatched_issue_count",
+    "command_packet_count",
+    "transport_work_count",
+    "transport_worker_dispatch_count",
+    "copy_descriptor_count",
+    "copy_completion_count",
+    "ready_credit_count",
+    "residency_update_count",
+    "resident_payload_count",
+    "payload_handle_deref_count",
+    "demand_hit_publication_count",
+    "consumer_visible_payload_hit_count",
+    "demand_hit_count",
+    "issued_payload_count",
+    "payload_bytes",
+    "resident_payload_bytes",
+    "dereferenced_payload_bytes",
+    "demand_hit_payload_bytes",
+    "decision",
+    "block_reason",
+    "execution_mode",
+    "live_payload_runtime_enabled",
+    "payload_transfer_runtime_enabled",
+    "payload_deref_allowed",
+    "payload_deref_runtime_allowed",
+    "ready_credit",
+    "ready_before_demand_credit",
+    "real_ready_credit_granted",
+    "kernel_arg_pass_allowed",
+    "passed_to_kernel",
+    "changes_kernel_launch_args",
+    "full_fetch_runtime_allowed",
+    "uses_current_wna16_args",
+    "passes_current_wna16_args",
+    "measures_tpot",
+    "measures_vllm_latency",
+    "live_runtime_instantiated",
+)
 
 
 def _copy_metric_block(
@@ -16700,6 +16775,20 @@ def run_premap_lab_preflight(
             ),
             fields=(
                 STREAM_QUEUE_BUDGET_LIVE_RUNTIME_ADAPTER_PAYLOAD_ISSUE_PAYLOAD_DEREF_BLOCKED_CANARY_FIELDS
+            ),
+        ),
+        **_copy_metric_block(
+            prefetch_lab_default_full_fetch,
+            input_prefix=(
+                "stream_queue_budget_live_runtime_adapter_"
+                "payload_issue_demand_hit_publication_blocked_canary"
+            ),
+            output_prefix=(
+                "prefetch_lab_default_stream_queue_budget_"
+                "live_runtime_adapter_payload_issue_demand_hit_publication_blocked_canary"
+            ),
+            fields=(
+                STREAM_QUEUE_BUDGET_LIVE_RUNTIME_ADAPTER_PAYLOAD_ISSUE_DEMAND_HIT_PUBLICATION_BLOCKED_CANARY_FIELDS
             ),
         ),
         "prefetch_lab_default_stream_queue_budget_payload_bytes": _int_metric(
