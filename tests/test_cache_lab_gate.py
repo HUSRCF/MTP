@@ -32,6 +32,7 @@ from mtp_expert_prefetch.runtime import (
     PayloadCacheLiveRuntimeAdapterPayloadIssueCopyDescriptorSubmitBlockedCanary,
     PayloadCacheLiveRuntimeAdapterPayloadIssueCopyDescriptorDispatchBlockedCanary,
     PayloadCacheLiveRuntimeAdapterPayloadIssueCopyDescriptorExecutionBlockedCanary,
+    PayloadCacheLiveRuntimeAdapterPayloadIssueCopyCompletionBlockedCanary,
     PayloadCacheLiveRuntimeAdapterStateObjectPreflight,
     PayloadCacheLiveRuntimeAdapterStateValidationArtifact,
     PayloadCacheLiveRuntimeAdapterStateValidationPreflight,
@@ -84,6 +85,7 @@ from mtp_expert_prefetch.runtime import (
     build_payload_cache_live_runtime_adapter_payload_issue_copy_descriptor_submit_blocked_canary,
     build_payload_cache_live_runtime_adapter_payload_issue_copy_descriptor_dispatch_blocked_canary,
     build_payload_cache_live_runtime_adapter_payload_issue_copy_descriptor_execution_blocked_canary,
+    build_payload_cache_live_runtime_adapter_payload_issue_copy_completion_blocked_canary,
     build_payload_cache_queue_budget_runtime_envelope,
     build_payload_cache_runtime_execution_dry_run,
     build_payload_cache_runtime_participation,
@@ -5493,6 +5495,14 @@ def _build_payload_issue_copy_descriptor_dispatch_blocked_canary() -> (
     )
 
 
+def _build_payload_issue_copy_descriptor_execution_blocked_canary() -> (
+    PayloadCacheLiveRuntimeAdapterPayloadIssueCopyDescriptorExecutionBlockedCanary
+):
+    return build_payload_cache_live_runtime_adapter_payload_issue_copy_descriptor_execution_blocked_canary(
+        _build_payload_issue_copy_descriptor_dispatch_blocked_canary(),
+    )
+
+
 def test_live_runtime_adapter_payload_issue_request_blocked_canary_consumes_disabled_toggle() -> None:
     toggle = _build_live_runtime_adapter_payload_transfer_toggle_disabled_canary()
 
@@ -7963,6 +7973,165 @@ def test_live_runtime_adapter_payload_issue_copy_descriptor_execution_builder_re
     with pytest.raises(ValueError, match="ancestry"):
         build_payload_cache_live_runtime_adapter_payload_issue_copy_descriptor_execution_blocked_canary(
             dispatch,
+        )
+
+
+def test_live_runtime_adapter_payload_issue_copy_completion_blocked_canary_consumes_execution() -> None:
+    execution = _build_payload_issue_copy_descriptor_execution_blocked_canary()
+
+    canary = build_payload_cache_live_runtime_adapter_payload_issue_copy_completion_blocked_canary(
+        execution,
+    )
+
+    assert canary.present is True
+    assert canary.stage == (
+        "payload_cache_live_runtime_adapter_payload_issue_copy_completion_blocked_canary"
+    )
+    assert canary.status == (
+        f"blocked_by_payload_issue_copy_descriptor_execution_blocked_canary:{execution.status}"
+    )
+    assert canary.consumes_payload_issue_copy_descriptor_execution_blocked_canary is True
+    assert canary.payload_issue_copy_descriptor_execution_status == execution.status
+    assert canary.payload_issue_copy_completion_schema == (
+        "payload_cache_runtime_payload_issue_copy_completion_v1"
+    )
+    assert canary.payload_issue_copy_completion_canary_created is True
+    assert canary.payload_issue_copy_descriptor_execution_consumed is True
+    assert canary.copy_completion_checked is True
+    assert canary.copy_completion_rejected is True
+    assert canary.copy_completion_allowed is False
+    assert canary.copy_completed is False
+    assert canary.copy_descriptor_dispatched is False
+    assert canary.copy_descriptor_submitted is False
+    assert canary.copy_descriptor_executed is False
+    assert canary.copy_descriptor_count == 0
+    assert canary.copy_completion_count == 0
+    assert canary.issued_payload_count == 0
+    assert canary.payload_bytes == 0
+    assert canary.ready_credit is False
+    assert canary.real_ready_credit_granted is False
+    assert canary.passed_to_kernel is False
+
+
+def test_live_runtime_adapter_payload_issue_copy_completion_blocked_canary_rejects_side_effects() -> None:
+    execution = _build_payload_issue_copy_descriptor_execution_blocked_canary()
+    base_kwargs = {
+        "present": True,
+        "stage": "payload_cache_live_runtime_adapter_payload_issue_copy_completion_blocked_canary",
+        "status": (
+            f"blocked_by_payload_issue_copy_descriptor_execution_blocked_canary:{execution.status}"
+        ),
+        "consumes_payload_issue_copy_descriptor_execution_blocked_canary": True,
+        "payload_issue_copy_descriptor_execution_status": execution.status,
+        "payload_issue_copy_completion_schema": (
+            "payload_cache_runtime_payload_issue_copy_completion_v1"
+        ),
+        "payload_issue_copy_completion_canary_created": True,
+        "payload_issue_copy_descriptor_execution_consumed": True,
+        "copy_completion_checked": True,
+        "copy_completion_rejected": True,
+        "copy_completion_allowed": False,
+        "copy_completed": False,
+        "copy_descriptor_dispatched": False,
+        "copy_descriptor_submitted": False,
+        "copy_descriptor_executed": False,
+        "request_source": execution.request_source,
+        "request_layer_idx": execution.request_layer_idx,
+        "request_expert_idx": execution.request_expert_idx,
+        "requested_payload_bytes": execution.requested_payload_bytes,
+        "source_issue_packet_count": execution.source_issue_packet_count,
+        "source_issue_unique_key_count": execution.source_issue_unique_key_count,
+        "source_queue_budget_capacity": execution.source_queue_budget_capacity,
+        "source_issue_lead_tokens": execution.source_issue_lead_tokens,
+        "source_queue_deadline_us": execution.source_queue_deadline_us,
+    }
+
+    for field_name in (
+        "planned_issue_count",
+        "scheduled_issue_count",
+        "queued_issue_count",
+        "submitted_issue_count",
+        "inflight_issue_count",
+        "dispatched_issue_count",
+        "command_packet_count",
+        "transport_work_count",
+        "transport_worker_dispatch_count",
+        "copy_descriptor_count",
+        "copy_completion_count",
+        "issued_payload_count",
+        "payload_bytes",
+    ):
+        with pytest.raises(ValueError, match=field_name):
+            PayloadCacheLiveRuntimeAdapterPayloadIssueCopyCompletionBlockedCanary(
+                **{
+                    **base_kwargs,
+                    field_name: 1,
+                },
+            )
+
+    for field_name in (
+        "copy_completion_allowed",
+        "copy_completed",
+        "copy_descriptor_dispatched",
+        "copy_descriptor_submitted",
+        "copy_descriptor_executed",
+    ):
+        with pytest.raises(ValueError, match=field_name):
+            PayloadCacheLiveRuntimeAdapterPayloadIssueCopyCompletionBlockedCanary(
+                **{
+                    **base_kwargs,
+                    field_name: True,
+                },
+            )
+
+    for field_name in (
+        "live_payload_runtime_enabled",
+        "payload_transfer_runtime_enabled",
+        "payload_deref_allowed",
+        "payload_deref_runtime_allowed",
+        "ready_credit",
+        "ready_before_demand_credit",
+        "real_ready_credit_granted",
+        "kernel_arg_pass_allowed",
+        "passed_to_kernel",
+        "changes_kernel_launch_args",
+        "full_fetch_runtime_allowed",
+        "uses_current_wna16_args",
+        "passes_current_wna16_args",
+        "measures_tpot",
+        "measures_vllm_latency",
+        "live_runtime_instantiated",
+    ):
+        with pytest.raises(ValueError, match=field_name):
+            PayloadCacheLiveRuntimeAdapterPayloadIssueCopyCompletionBlockedCanary(
+                **{
+                    **base_kwargs,
+                    field_name: True,
+                },
+            )
+
+    with pytest.raises(TypeError, match="execution"):
+        build_payload_cache_live_runtime_adapter_payload_issue_copy_completion_blocked_canary(
+            object(),  # type: ignore[arg-type]
+        )
+
+
+def test_live_runtime_adapter_payload_issue_copy_completion_builder_rejects_mutated_execution() -> None:
+    execution = _build_payload_issue_copy_descriptor_execution_blocked_canary()
+
+    object.__setattr__(execution, "copy_descriptor_executed", True)
+
+    with pytest.raises(ValueError, match="copy_descriptor_executed"):
+        build_payload_cache_live_runtime_adapter_payload_issue_copy_completion_blocked_canary(
+            execution,
+        )
+
+    execution = _build_payload_issue_copy_descriptor_execution_blocked_canary()
+    object.__setattr__(execution, "payload_issue_copy_descriptor_dispatch_status", "stale")
+
+    with pytest.raises(ValueError, match="ancestry"):
+        build_payload_cache_live_runtime_adapter_payload_issue_copy_completion_blocked_canary(
+            execution,
         )
 
 

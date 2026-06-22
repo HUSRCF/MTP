@@ -2,10 +2,76 @@
 
 ## Progress Version
 
-- Version: `v1.48-payload-issue-copy-descriptor-execution-blocked-canary`
+- Version: `v1.49-payload-issue-copy-completion-blocked-canary`
 - Updated: 2026-06-22
 
-## Latest Update: Payload Issue Copy-Descriptor Execution-Blocked Canary
+## Latest Update: Payload Issue Copy Completion-Blocked Canary
+
+The payload/cache lab chain now reaches the future copy-completion boundary:
+
+```text
+PayloadCacheLiveRuntimeAdapterPayloadIssueCopyCompletionBlockedCanary
+```
+
+This stage consumes
+`PayloadCacheLiveRuntimeAdapterPayloadIssueCopyDescriptorExecutionBlockedCanary`
+and validates the future copy completion / ready-credit envelope while rejecting
+completion:
+
+```text
+request -> plan -> executor -> queue_entry -> queue_submit(blocked)
+        -> inflight_admission(blocked) -> scheduler_dispatch(blocked)
+        -> command_packet(dry-run) -> transport_enqueue(blocked)
+        -> transport_worker_dispatch(blocked) -> copy_descriptor(dry-run)
+        -> copy_descriptor_submit(blocked) -> copy_descriptor_dispatch(blocked)
+        -> copy_descriptor_execution(blocked) -> copy_completion(blocked)
+```
+
+Required completion-boundary evidence:
+
+```text
+payload_issue_copy_completion_schema = payload_cache_runtime_payload_issue_copy_completion_v1
+payload_issue_copy_completion_canary_created = true
+payload_issue_copy_descriptor_execution_consumed = true
+copy_completion_checked = true
+copy_completion_rejected = true
+copy_completion_allowed = false
+copy_completed = false
+copy_descriptor_dispatched = false
+copy_descriptor_submitted = false
+copy_descriptor_executed = false
+```
+
+It remains a strict non-runtime gate:
+
+```text
+copy_descriptor_count = 0
+copy_completion_count = 0
+issued_payload_count = 0
+payload_bytes = 0
+ready_credit = false
+real_ready_credit_granted = false
+kernel_arg_pass_allowed = false
+passed_to_kernel = false
+changes_kernel_launch_args = false
+uses_current_wna16_args = false
+passes_current_wna16_args = false
+measures_tpot = false
+measures_vllm_latency = false
+```
+
+Validation:
+
+```text
+py_compile touched runtime/scripts/tests: pass
+pytest tests/test_cache_lab_gate.py tests/test_check_prefetch_lab_default_gate.py tests/test_run_premap_lab_preflight.py tests/test_check_premap_lab_preflight_summary.py -q: 483 passed
+prefetch lab default gate artifact: passed
+strict preflight summary/check artifacts: passed
+wide focused preflight/cache suite: 676 passed
+git diff --check: pass
+```
+
+## Previous Update: Payload Issue Copy-Descriptor Execution-Blocked Canary
 
 The payload/cache lab chain now reaches the future copy-descriptor execution
 boundary:
