@@ -4571,6 +4571,173 @@ def _check_stream_queue_budget(summary: dict[str, Any], failures: list[str]) -> 
         if summary.get(f"{accounting_dry_run_prefix}_{key}") is not False:
             failures.append(f"{accounting_dry_run_prefix}_{key}_mismatch")
 
+    mixed_outcome_prefix = (
+        f"{prefix}_live_runtime_adapter_mixed_outcome_dry_run_canary"
+    )
+    expected_mixed_outcome_status = (
+        f"blocked_by_accounting_dry_run_canary:{expected_accounting_dry_run_status}"
+    )
+    if summary.get(f"{mixed_outcome_prefix}_present") is not True:
+        failures.append(f"{mixed_outcome_prefix}_present_mismatch")
+    if (
+        summary.get(f"{mixed_outcome_prefix}_stage")
+        != "payload_cache_live_runtime_adapter_mixed_outcome_dry_run_canary"
+    ):
+        failures.append(f"{mixed_outcome_prefix}_stage_mismatch")
+    if summary.get(f"{mixed_outcome_prefix}_status") != expected_mixed_outcome_status:
+        failures.append(f"{mixed_outcome_prefix}_status_mismatch")
+    if (
+        summary.get(f"{mixed_outcome_prefix}_consumes_accounting_dry_run_canary")
+        is not True
+    ):
+        failures.append(
+            f"{mixed_outcome_prefix}_consumes_accounting_dry_run_canary_mismatch",
+        )
+    if (
+        summary.get(f"{mixed_outcome_prefix}_accounting_dry_run_canary_status")
+        != expected_accounting_dry_run_status
+    ):
+        failures.append(
+            f"{mixed_outcome_prefix}_accounting_dry_run_canary_status_mismatch",
+        )
+    if (
+        summary.get(f"{mixed_outcome_prefix}_manager_backend")
+        != "ReadyTimeExpertCacheManager"
+    ):
+        failures.append(f"{mixed_outcome_prefix}_manager_backend_mismatch")
+    if (
+        summary.get(f"{mixed_outcome_prefix}_manager_runtime_contract")
+        != "ready_time_issue_demand_skeleton_v1"
+    ):
+        failures.append(f"{mixed_outcome_prefix}_manager_runtime_contract_mismatch")
+    if (
+        summary.get(f"{mixed_outcome_prefix}_manager_runtime_mode")
+        != "ready_time_payload_cache_skeleton"
+    ):
+        failures.append(f"{mixed_outcome_prefix}_manager_runtime_mode_mismatch")
+    if (
+        summary.get(f"{mixed_outcome_prefix}_mixed_outcome_schema")
+        != "ready_time_payload_cache_runtime_adapter_mixed_outcome_dry_run_canary_v1"
+    ):
+        failures.append(f"{mixed_outcome_prefix}_mixed_outcome_schema_mismatch")
+    for key in (
+        "mixed_outcome_adapter_created",
+        "mixed_outcome_operations_ran",
+        "accounting_dry_run_enabled",
+        "issue_prefetch_accepted",
+        "duplicate_issue_suppressed",
+        "prefetched_demand_hit",
+        "unprefetched_demand_missed",
+    ):
+        if summary.get(f"{mixed_outcome_prefix}_{key}") is not True:
+            failures.append(f"{mixed_outcome_prefix}_{key}_mismatch")
+    for key in (
+        "unprefetched_demand_hit",
+        "live_adapter_instance_created",
+        "live_runtime_instantiated",
+    ):
+        if summary.get(f"{mixed_outcome_prefix}_{key}") is not False:
+            failures.append(f"{mixed_outcome_prefix}_{key}_mismatch")
+    if _int_metric(summary, f"{mixed_outcome_prefix}_capacity_entries") != first_capacity:
+        failures.append(f"{mixed_outcome_prefix}_capacity_entries_mismatch")
+    if _int_metric(summary, f"{mixed_outcome_prefix}_issue_lead_tokens") != first_lead:
+        failures.append(f"{mixed_outcome_prefix}_issue_lead_tokens_mismatch")
+    if (
+        _float_metric(summary, f"{mixed_outcome_prefix}_queue_deadline_us")
+        != first_deadline
+    ):
+        failures.append(f"{mixed_outcome_prefix}_queue_deadline_us_mismatch")
+    if (
+        _float_metric(summary, f"{mixed_outcome_prefix}_lookahead_us")
+        != first_lookahead
+    ):
+        failures.append(f"{mixed_outcome_prefix}_lookahead_us_mismatch")
+    if _int_metric(summary, f"{mixed_outcome_prefix}_queue_batch_size") != 1:
+        failures.append(f"{mixed_outcome_prefix}_queue_batch_size_mismatch")
+    for key, expected in {
+        "resident_count": 2,
+        "issued_fetch_count": 1,
+        "used_fetch_count": 1,
+        "unused_fetch_count": 0,
+        "demand_count": 2,
+        "demand_hit_count": 1,
+        "demand_miss_count": 1,
+        "evicted_before_use_count": 0,
+        "ready_late_miss_count": 0,
+        "late_completion_unused_count": 0,
+        "queue_batch_count": 1,
+        "issued_payload_count": 0,
+        "payload_bytes": 0,
+    }.items():
+        if _int_metric(summary, f"{mixed_outcome_prefix}_{key}") != expected:
+            failures.append(f"{mixed_outcome_prefix}_{key}_mismatch")
+    for key in (
+        "queue_service_us",
+        "queue_total_span_us",
+        "queue_wait_us",
+        "queue_max_delay_us",
+    ):
+        if _float_metric(summary, f"{mixed_outcome_prefix}_{key}") != 0.0:
+            failures.append(f"{mixed_outcome_prefix}_{key}_mismatch")
+    if (
+        summary.get(f"{mixed_outcome_prefix}_shifted_issue_accounting_enabled")
+        is not first_shifted_enabled
+    ):
+        failures.append(
+            f"{mixed_outcome_prefix}_shifted_issue_accounting_enabled_mismatch",
+        )
+    if (
+        _int_metric(
+            summary,
+            f"{mixed_outcome_prefix}_shifted_issue_accounted_packet_count",
+        )
+        != first_shifted_packet_count
+    ):
+        failures.append(
+            f"{mixed_outcome_prefix}_shifted_issue_accounted_packet_count_mismatch",
+        )
+    if (
+        _int_metric(
+            summary,
+            f"{mixed_outcome_prefix}_shifted_issue_unique_issue_key_count",
+        )
+        != first_shifted_unique_count
+    ):
+        failures.append(
+            f"{mixed_outcome_prefix}_shifted_issue_unique_issue_key_count_mismatch",
+        )
+    if summary.get(f"{mixed_outcome_prefix}_decision") != "blocked":
+        failures.append(f"{mixed_outcome_prefix}_decision_mismatch")
+    if (
+        summary.get(f"{mixed_outcome_prefix}_block_reason")
+        != "live_runtime_adapter_mixed_outcome_dry_run_canary_only"
+    ):
+        failures.append(f"{mixed_outcome_prefix}_block_reason_mismatch")
+    if (
+        summary.get(f"{mixed_outcome_prefix}_execution_mode")
+        != "payload_cache_live_runtime_adapter_mixed_outcome_dry_run_canary_payloadless"
+    ):
+        failures.append(f"{mixed_outcome_prefix}_execution_mode_mismatch")
+    for key in (
+        "live_payload_runtime_enabled",
+        "payload_transfer_runtime_enabled",
+        "payload_deref_allowed",
+        "payload_deref_runtime_allowed",
+        "ready_credit",
+        "ready_before_demand_credit",
+        "real_ready_credit_granted",
+        "kernel_arg_pass_allowed",
+        "passed_to_kernel",
+        "changes_kernel_launch_args",
+        "full_fetch_runtime_allowed",
+        "uses_current_wna16_args",
+        "passes_current_wna16_args",
+        "measures_tpot",
+        "measures_vllm_latency",
+    ):
+        if summary.get(f"{mixed_outcome_prefix}_{key}") is not False:
+            failures.append(f"{mixed_outcome_prefix}_{key}_mismatch")
+
     if first_shifted_enabled is not True:
         failures.append(f"{prefix}_first_shifted_issue_accounting_enabled_mismatch")
     if first_shifted_packet_count != 28:
