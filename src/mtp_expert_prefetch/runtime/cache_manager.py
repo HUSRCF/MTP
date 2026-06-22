@@ -967,6 +967,104 @@ class PayloadCacheRuntimeAdapterAccountingDryRun:
         )
 
 
+class PayloadCacheRuntimeAdapterPayloadlessLive:
+    """Live-style payload-cache adapter with payload movement disabled.
+
+    This adapter intentionally has the same issue/demand surface as the future
+    live runtime, but delegates only to the ready-time manager.  It does not
+    move payload bytes, grant real ready credit, or mutate kernel arguments.
+    """
+
+    def __init__(
+        self,
+        *,
+        capacity: int,
+        service_us_per_issue: float = 0.0,
+        service_us_per_batch: float = 0.0,
+        queue_batch_size: int = 1,
+        queue_deadline_us: float = 0.0,
+        payload_transfer_enabled: bool = False,
+        kernel_arg_pass_allowed: bool = False,
+    ) -> None:
+        if bool(payload_transfer_enabled):
+            raise ValueError("payload transfer must remain disabled")
+        if bool(kernel_arg_pass_allowed):
+            raise ValueError("kernel arg pass must remain disabled")
+        self.payloadless_live_enabled = True
+        self._payload_transfer_enabled = False
+        self._kernel_arg_pass_allowed = False
+        self._manager = ReadyTimeExpertCacheManager(
+            capacity=int(capacity),
+            service_us_per_issue=float(service_us_per_issue),
+            service_us_per_batch=float(service_us_per_batch),
+            queue_batch_size=int(queue_batch_size),
+            queue_deadline_us=float(queue_deadline_us),
+        )
+
+    @property
+    def payload_transfer_enabled(self) -> bool:
+        return self._payload_transfer_enabled
+
+    @property
+    def kernel_arg_pass_allowed(self) -> bool:
+        return self._kernel_arg_pass_allowed
+
+    def issue_prefetch(
+        self,
+        layer_idx: int,
+        expert_idx: int,
+        *,
+        arrival_us: float,
+    ) -> bool:
+        return self._manager.issue_prefetch(
+            int(layer_idx),
+            int(expert_idx),
+            arrival_us=float(arrival_us),
+        )
+
+    def demand(
+        self,
+        layer_idx: int,
+        expert_idx: int,
+        *,
+        arrival_us: float,
+    ) -> bool:
+        return self._manager.demand(
+            int(layer_idx),
+            int(expert_idx),
+            arrival_us=float(arrival_us),
+        )
+
+    def snapshot(self) -> PayloadCacheRuntimeAdapterAccountingDryRunSnapshot:
+        snapshot = self._manager.snapshot()
+        return PayloadCacheRuntimeAdapterAccountingDryRunSnapshot(
+            present=True,
+            accounting_dry_run_enabled=True,
+            manager_backend="ReadyTimeExpertCacheManager",
+            manager_contract="ready_time_issue_demand_skeleton_v1",
+            capacity=int(snapshot.capacity),
+            queue_batch_size=int(snapshot.queue_batch_size),
+            queue_deadline_us=float(snapshot.queue_deadline_us),
+            service_us_per_issue=float(self._manager.service_us_per_issue),
+            service_us_per_batch=float(self._manager.service_us_per_batch),
+            resident_count=int(snapshot.resident_count),
+            issued_fetch_count=int(snapshot.issued_fetch_count),
+            used_fetch_count=int(snapshot.used_fetch_count),
+            unused_fetch_count=int(snapshot.unused_fetch_count),
+            demand_count=int(snapshot.demand_count),
+            demand_hit_count=int(snapshot.demand_hit_count),
+            demand_miss_count=int(snapshot.demand_miss_count),
+            evicted_before_use_count=int(snapshot.evicted_before_use_count),
+            ready_late_miss_count=int(snapshot.ready_late_miss_count),
+            late_completion_unused_count=int(snapshot.late_completion_unused_count),
+            queue_batch_count=int(snapshot.queue_batch_count),
+            queue_service_us=float(snapshot.queue_service_us),
+            queue_total_span_us=float(snapshot.queue_total_span_us),
+            queue_wait_us=float(snapshot.queue_wait_us),
+            queue_max_delay_us=float(snapshot.queue_max_delay_us),
+        )
+
+
 @dataclass(frozen=True)
 class PremapAddressHandle:
     """Stable descriptor/address object for a prepared expert address key.

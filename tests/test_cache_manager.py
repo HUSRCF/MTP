@@ -6,6 +6,7 @@ from mtp_expert_prefetch.runtime import (
     ControlledExpertCacheManager,
     PayloadCacheRuntimeAdapterAccountingDryRun,
     PayloadCacheRuntimeAdapterAccountingDryRunSnapshot,
+    PayloadCacheRuntimeAdapterPayloadlessLive,
     PayloadCacheRuntimeAdapterShell,
     PayloadCacheRuntimeAdapterShellSnapshot,
     ReadyTimeExpertCacheManager,
@@ -370,3 +371,65 @@ def test_payload_cache_runtime_adapter_accounting_dry_run_snapshot_rejects_side_
                     field_name: True,
                 },
             )
+
+
+def test_payload_cache_runtime_adapter_payloadless_live_tracks_hit_and_miss() -> None:
+    adapter = PayloadCacheRuntimeAdapterPayloadlessLive(
+        capacity=4096,
+        queue_batch_size=1,
+        queue_deadline_us=100.0,
+    )
+
+    assert adapter.payloadless_live_enabled is True
+    assert adapter.payload_transfer_enabled is False
+    assert adapter.kernel_arg_pass_allowed is False
+    assert adapter.issue_prefetch(0, 0, arrival_us=0.0) is True
+    assert adapter.issue_prefetch(0, 0, arrival_us=1.0) is False
+    assert adapter.demand(0, 0, arrival_us=2.0) is True
+    assert adapter.demand(0, 1, arrival_us=3.0) is False
+
+    snapshot = adapter.snapshot()
+    payload = snapshot.as_dict()
+
+    assert payload["accounting_dry_run_enabled"] is True
+    assert payload["resident_count"] == 2
+    assert payload["issued_fetch_count"] == 1
+    assert payload["used_fetch_count"] == 1
+    assert payload["unused_fetch_count"] == 0
+    assert payload["demand_count"] == 2
+    assert payload["demand_hit_count"] == 1
+    assert payload["demand_miss_count"] == 1
+    assert payload["queue_batch_count"] == 1
+    assert payload["payload_bytes"] == 0
+    assert payload["issued_payload_count"] == 0
+    for key in (
+        "payload_transfer_runtime_enabled",
+        "payload_deref_allowed",
+        "payload_deref_runtime_allowed",
+        "ready_credit",
+        "ready_before_demand_credit",
+        "real_ready_credit_granted",
+        "kernel_arg_pass_allowed",
+        "passed_to_kernel",
+        "changes_kernel_launch_args",
+        "full_fetch_runtime_allowed",
+        "uses_current_wna16_args",
+        "passes_current_wna16_args",
+        "measures_tpot",
+        "measures_vllm_latency",
+        "live_runtime_instantiated",
+    ):
+        assert payload[key] is False
+
+
+def test_payload_cache_runtime_adapter_payloadless_live_rejects_payload_or_kernel_args() -> None:
+    with pytest.raises(ValueError, match="payload transfer"):
+        PayloadCacheRuntimeAdapterPayloadlessLive(
+            capacity=4096,
+            payload_transfer_enabled=True,
+        )
+    with pytest.raises(ValueError, match="kernel arg"):
+        PayloadCacheRuntimeAdapterPayloadlessLive(
+            capacity=4096,
+            kernel_arg_pass_allowed=True,
+        )
