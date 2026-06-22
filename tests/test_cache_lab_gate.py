@@ -27,6 +27,7 @@ from mtp_expert_prefetch.runtime import (
     PayloadCacheLiveRuntimeAdapterPayloadIssueSchedulerDispatchBlockedCanary,
     PayloadCacheLiveRuntimeAdapterPayloadIssueCommandPacketDryRun,
     PayloadCacheLiveRuntimeAdapterPayloadIssueTransportEnqueueBlockedCanary,
+    PayloadCacheLiveRuntimeAdapterPayloadIssueTransportWorkerDispatchBlockedCanary,
     PayloadCacheLiveRuntimeAdapterStateObjectPreflight,
     PayloadCacheLiveRuntimeAdapterStateValidationArtifact,
     PayloadCacheLiveRuntimeAdapterStateValidationPreflight,
@@ -74,6 +75,7 @@ from mtp_expert_prefetch.runtime import (
     build_payload_cache_live_runtime_adapter_payload_issue_scheduler_dispatch_blocked_canary,
     build_payload_cache_live_runtime_adapter_payload_issue_command_packet_dry_run,
     build_payload_cache_live_runtime_adapter_payload_issue_transport_enqueue_blocked_canary,
+    build_payload_cache_live_runtime_adapter_payload_issue_transport_worker_dispatch_blocked_canary,
     build_payload_cache_queue_budget_runtime_envelope,
     build_payload_cache_runtime_execution_dry_run,
     build_payload_cache_runtime_participation,
@@ -5443,6 +5445,14 @@ def _build_payload_issue_command_packet_dry_run() -> (
     )
 
 
+def _build_payload_issue_transport_enqueue_blocked_canary() -> (
+    PayloadCacheLiveRuntimeAdapterPayloadIssueTransportEnqueueBlockedCanary
+):
+    return build_payload_cache_live_runtime_adapter_payload_issue_transport_enqueue_blocked_canary(
+        _build_payload_issue_command_packet_dry_run(),
+    )
+
+
 def test_live_runtime_adapter_payload_issue_request_blocked_canary_consumes_disabled_toggle() -> None:
     toggle = _build_live_runtime_adapter_payload_transfer_toggle_disabled_canary()
 
@@ -7135,6 +7145,158 @@ def test_live_runtime_adapter_payload_issue_transport_enqueue_builder_rejects_mu
     with pytest.raises(ValueError, match="ancestry"):
         build_payload_cache_live_runtime_adapter_payload_issue_transport_enqueue_blocked_canary(
             packet,
+        )
+
+
+def test_live_runtime_adapter_payload_issue_transport_worker_dispatch_blocked_canary_consumes_enqueue() -> None:
+    enqueue = _build_payload_issue_transport_enqueue_blocked_canary()
+
+    canary = build_payload_cache_live_runtime_adapter_payload_issue_transport_worker_dispatch_blocked_canary(
+        enqueue,
+    )
+
+    assert canary.present is True
+    assert canary.stage == (
+        "payload_cache_live_runtime_adapter_"
+        "payload_issue_transport_worker_dispatch_blocked_canary"
+    )
+    assert canary.status == (
+        f"blocked_by_payload_issue_transport_enqueue_blocked_canary:{enqueue.status}"
+    )
+    assert canary.consumes_payload_issue_transport_enqueue_blocked_canary is True
+    assert canary.payload_issue_transport_enqueue_status == enqueue.status
+    assert canary.payload_issue_transport_worker_dispatch_schema == (
+        "payload_cache_runtime_payload_issue_transport_worker_dispatch_v1"
+    )
+    assert canary.payload_issue_transport_worker_dispatch_canary_created is True
+    assert canary.payload_issue_transport_enqueue_consumed is True
+    assert canary.transport_worker_dispatch_checked is True
+    assert canary.transport_worker_dispatch_rejected is True
+    assert canary.transport_worker_dispatch_allowed is False
+    assert canary.transport_worker_dispatched is False
+    assert canary.source_issue_packet_count == 28
+    assert canary.source_issue_unique_key_count == 28
+    assert canary.source_queue_budget_capacity == 4096
+    assert canary.source_issue_lead_tokens == 8
+    assert canary.command_packet_count == 0
+    assert canary.transport_work_count == 0
+    assert canary.transport_worker_dispatch_count == 0
+    assert canary.issued_payload_count == 0
+    assert canary.payload_bytes == 0
+    assert canary.ready_credit is False
+    assert canary.kernel_arg_pass_allowed is False
+    assert canary.passed_to_kernel is False
+
+
+def test_live_runtime_adapter_payload_issue_transport_worker_dispatch_blocked_canary_rejects_side_effects() -> None:
+    enqueue = _build_payload_issue_transport_enqueue_blocked_canary()
+    base_kwargs = {
+        "present": True,
+        "stage": (
+            "payload_cache_live_runtime_adapter_"
+            "payload_issue_transport_worker_dispatch_blocked_canary"
+        ),
+        "status": f"blocked_by_payload_issue_transport_enqueue_blocked_canary:{enqueue.status}",
+        "consumes_payload_issue_transport_enqueue_blocked_canary": True,
+        "payload_issue_transport_enqueue_status": enqueue.status,
+        "payload_issue_transport_worker_dispatch_schema": (
+            "payload_cache_runtime_payload_issue_transport_worker_dispatch_v1"
+        ),
+        "payload_issue_transport_worker_dispatch_canary_created": True,
+        "payload_issue_transport_enqueue_consumed": True,
+        "transport_worker_dispatch_checked": True,
+        "transport_worker_dispatch_rejected": True,
+        "transport_worker_dispatch_allowed": False,
+        "transport_worker_dispatched": False,
+        "request_source": enqueue.request_source,
+        "request_layer_idx": enqueue.request_layer_idx,
+        "request_expert_idx": enqueue.request_expert_idx,
+        "requested_payload_bytes": enqueue.requested_payload_bytes,
+        "source_issue_packet_count": enqueue.source_issue_packet_count,
+        "source_issue_unique_key_count": enqueue.source_issue_unique_key_count,
+        "source_queue_budget_capacity": enqueue.source_queue_budget_capacity,
+        "source_issue_lead_tokens": enqueue.source_issue_lead_tokens,
+        "source_queue_deadline_us": enqueue.source_queue_deadline_us,
+    }
+
+    for field_name in (
+        "planned_issue_count",
+        "scheduled_issue_count",
+        "queued_issue_count",
+        "submitted_issue_count",
+        "inflight_issue_count",
+        "dispatched_issue_count",
+        "command_packet_count",
+        "transport_work_count",
+        "transport_worker_dispatch_count",
+        "issued_payload_count",
+        "payload_bytes",
+    ):
+        with pytest.raises(ValueError, match=field_name):
+            PayloadCacheLiveRuntimeAdapterPayloadIssueTransportWorkerDispatchBlockedCanary(
+                **{
+                    **base_kwargs,
+                    field_name: 1,
+                },
+            )
+
+    for field_name in ("transport_worker_dispatch_allowed", "transport_worker_dispatched"):
+        with pytest.raises(ValueError, match=field_name):
+            PayloadCacheLiveRuntimeAdapterPayloadIssueTransportWorkerDispatchBlockedCanary(
+                **{
+                    **base_kwargs,
+                    field_name: True,
+                },
+            )
+
+    for field_name in (
+        "live_payload_runtime_enabled",
+        "payload_transfer_runtime_enabled",
+        "payload_deref_allowed",
+        "payload_deref_runtime_allowed",
+        "ready_credit",
+        "ready_before_demand_credit",
+        "real_ready_credit_granted",
+        "kernel_arg_pass_allowed",
+        "passed_to_kernel",
+        "changes_kernel_launch_args",
+        "full_fetch_runtime_allowed",
+        "uses_current_wna16_args",
+        "passes_current_wna16_args",
+        "measures_tpot",
+        "measures_vllm_latency",
+        "live_runtime_instantiated",
+    ):
+        with pytest.raises(ValueError, match=field_name):
+            PayloadCacheLiveRuntimeAdapterPayloadIssueTransportWorkerDispatchBlockedCanary(
+                **{
+                    **base_kwargs,
+                    field_name: True,
+                },
+            )
+
+    with pytest.raises(TypeError, match="enqueue"):
+        build_payload_cache_live_runtime_adapter_payload_issue_transport_worker_dispatch_blocked_canary(
+            object(),  # type: ignore[arg-type]
+        )
+
+
+def test_live_runtime_adapter_payload_issue_transport_worker_dispatch_builder_rejects_mutated_enqueue() -> None:
+    enqueue = _build_payload_issue_transport_enqueue_blocked_canary()
+
+    object.__setattr__(enqueue, "transport_enqueue_allowed", True)
+
+    with pytest.raises(ValueError, match="transport_enqueue_allowed"):
+        build_payload_cache_live_runtime_adapter_payload_issue_transport_worker_dispatch_blocked_canary(
+            enqueue,
+        )
+
+    enqueue = _build_payload_issue_transport_enqueue_blocked_canary()
+    object.__setattr__(enqueue, "payload_issue_command_packet_status", "stale")
+
+    with pytest.raises(ValueError, match="ancestry"):
+        build_payload_cache_live_runtime_adapter_payload_issue_transport_worker_dispatch_blocked_canary(
+            enqueue,
         )
 
 

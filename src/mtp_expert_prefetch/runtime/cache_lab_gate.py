@@ -6072,6 +6072,193 @@ class PayloadCacheLiveRuntimeAdapterPayloadIssueTransportEnqueueBlockedCanary:
         return asdict(self)
 
 
+@dataclass(frozen=True)
+class PayloadCacheLiveRuntimeAdapterPayloadIssueTransportWorkerDispatchBlockedCanary:
+    """Transport worker-dispatch canary that rejects copy worker execution."""
+
+    present: bool
+    stage: str
+    status: str
+    consumes_payload_issue_transport_enqueue_blocked_canary: bool
+    payload_issue_transport_enqueue_status: str
+    payload_issue_transport_worker_dispatch_schema: str
+    payload_issue_transport_worker_dispatch_canary_created: bool
+    payload_issue_transport_enqueue_consumed: bool
+    transport_worker_dispatch_checked: bool
+    transport_worker_dispatch_rejected: bool
+    transport_worker_dispatch_allowed: bool
+    transport_worker_dispatched: bool
+    request_source: str
+    request_layer_idx: int
+    request_expert_idx: int
+    requested_payload_bytes: int
+    source_issue_packet_count: int
+    source_issue_unique_key_count: int
+    source_queue_budget_capacity: int
+    source_issue_lead_tokens: int
+    source_queue_deadline_us: float
+    planned_issue_count: int = 0
+    scheduled_issue_count: int = 0
+    queued_issue_count: int = 0
+    submitted_issue_count: int = 0
+    inflight_issue_count: int = 0
+    dispatched_issue_count: int = 0
+    command_packet_count: int = 0
+    transport_work_count: int = 0
+    transport_worker_dispatch_count: int = 0
+    issued_payload_count: int = 0
+    payload_bytes: int = 0
+    decision: str = "blocked"
+    block_reason: str = "payload_transfer_disabled"
+    execution_mode: str = (
+        "payload_cache_live_runtime_adapter_payload_issue_transport_worker_dispatch_blocked_canary"
+    )
+    live_payload_runtime_enabled: bool = False
+    payload_transfer_runtime_enabled: bool = False
+    payload_deref_allowed: bool = False
+    payload_deref_runtime_allowed: bool = False
+    ready_credit: bool = False
+    ready_before_demand_credit: bool = False
+    real_ready_credit_granted: bool = False
+    kernel_arg_pass_allowed: bool = False
+    passed_to_kernel: bool = False
+    changes_kernel_launch_args: bool = False
+    full_fetch_runtime_allowed: bool = False
+    uses_current_wna16_args: bool = False
+    passes_current_wna16_args: bool = False
+    measures_tpot: bool = False
+    measures_vllm_latency: bool = False
+    live_runtime_instantiated: bool = False
+
+    def __post_init__(self) -> None:
+        if self.present is not True:
+            raise ValueError("payload issue transport-worker canary must be present")
+        if (
+            self.stage
+            != "payload_cache_live_runtime_adapter_payload_issue_transport_worker_dispatch_blocked_canary"
+        ):
+            raise ValueError("payload issue transport-worker canary stage mismatch")
+        if self.consumes_payload_issue_transport_enqueue_blocked_canary is not True:
+            raise ValueError("transport worker dispatch must consume transport-enqueue canary")
+        if (
+            not isinstance(self.payload_issue_transport_enqueue_status, str)
+            or not self.payload_issue_transport_enqueue_status
+        ):
+            raise TypeError("payload_issue_transport_enqueue_status must be nonempty")
+        if (
+            self.payload_issue_transport_enqueue_status
+            != _SOURCE_BOUND_PAYLOAD_ISSUE_TRANSPORT_ENQUEUE_BLOCKED_CANARY_STATUS
+        ):
+            raise ValueError(
+                "payload issue transport-worker upstream ancestry status mismatch",
+            )
+        expected_status = (
+            "blocked_by_payload_issue_transport_enqueue_blocked_canary:"
+            f"{self.payload_issue_transport_enqueue_status}"
+        )
+        if self.status != expected_status:
+            raise ValueError("payload issue transport-worker canary status mismatch")
+        if (
+            self.payload_issue_transport_worker_dispatch_schema
+            != "payload_cache_runtime_payload_issue_transport_worker_dispatch_v1"
+        ):
+            raise ValueError("payload issue transport-worker schema mismatch")
+        for field_name in (
+            "payload_issue_transport_worker_dispatch_canary_created",
+            "payload_issue_transport_enqueue_consumed",
+            "transport_worker_dispatch_checked",
+            "transport_worker_dispatch_rejected",
+        ):
+            if getattr(self, field_name) is not True:
+                raise ValueError(f"{field_name} must be true")
+        for field_name in ("transport_worker_dispatch_allowed", "transport_worker_dispatched"):
+            if getattr(self, field_name) is not False:
+                raise ValueError(f"{field_name} must remain disabled")
+        if self.request_source != "queue_budget_first_model_passing_cell":
+            raise ValueError("payload issue transport worker requires a source-bound request")
+        for field_name in (
+            "request_layer_idx",
+            "request_expert_idx",
+            "requested_payload_bytes",
+            "source_issue_packet_count",
+            "source_issue_unique_key_count",
+            "source_queue_budget_capacity",
+            "source_issue_lead_tokens",
+        ):
+            value = getattr(self, field_name)
+            if not isinstance(value, int) or isinstance(value, bool):
+                raise TypeError(f"{field_name} must be an integer")
+            if value < 0:
+                raise ValueError(f"{field_name} must be non-negative")
+        if self.requested_payload_bytes <= 0:
+            raise ValueError("requested_payload_bytes must be positive")
+        if self.source_issue_packet_count <= 0:
+            raise ValueError("source_issue_packet_count must be positive")
+        if self.source_issue_unique_key_count <= 0:
+            raise ValueError("source_issue_unique_key_count must be positive")
+        if self.source_queue_budget_capacity <= 0:
+            raise ValueError("source_queue_budget_capacity must be positive")
+        if self.source_issue_lead_tokens <= 0:
+            raise ValueError("source_issue_lead_tokens must be positive")
+        if not isinstance(self.source_queue_deadline_us, (int, float)) or isinstance(
+            self.source_queue_deadline_us,
+            bool,
+        ):
+            raise TypeError("source_queue_deadline_us must be numeric")
+        if self.source_queue_deadline_us <= 0.0:
+            raise ValueError("source_queue_deadline_us must be positive")
+        for field_name in (
+            "planned_issue_count",
+            "scheduled_issue_count",
+            "queued_issue_count",
+            "submitted_issue_count",
+            "inflight_issue_count",
+            "dispatched_issue_count",
+            "command_packet_count",
+            "transport_work_count",
+            "transport_worker_dispatch_count",
+            "issued_payload_count",
+            "payload_bytes",
+        ):
+            value = getattr(self, field_name)
+            if not isinstance(value, int) or isinstance(value, bool):
+                raise TypeError(f"{field_name} must be an integer")
+            if value != 0:
+                raise ValueError(f"{field_name} must remain zero")
+        if self.decision != "blocked":
+            raise ValueError("payload issue transport-worker decision must stay blocked")
+        if self.block_reason != "payload_transfer_disabled":
+            raise ValueError("payload issue transport-worker block reason mismatch")
+        if (
+            self.execution_mode
+            != "payload_cache_live_runtime_adapter_payload_issue_transport_worker_dispatch_blocked_canary"
+        ):
+            raise ValueError("payload issue transport-worker execution mode mismatch")
+        for field_name in (
+            "live_payload_runtime_enabled",
+            "payload_transfer_runtime_enabled",
+            "payload_deref_allowed",
+            "payload_deref_runtime_allowed",
+            "ready_credit",
+            "ready_before_demand_credit",
+            "real_ready_credit_granted",
+            "kernel_arg_pass_allowed",
+            "passed_to_kernel",
+            "changes_kernel_launch_args",
+            "full_fetch_runtime_allowed",
+            "uses_current_wna16_args",
+            "passes_current_wna16_args",
+            "measures_tpot",
+            "measures_vllm_latency",
+            "live_runtime_instantiated",
+        ):
+            if getattr(self, field_name) is not False:
+                raise ValueError(f"{field_name} must remain disabled")
+
+    def as_dict(self) -> dict[str, bool | float | int | str]:
+        return asdict(self)
+
+
 def select_cache_lab_prefetch_gate(
     signals: CacheLabRuntimeSignals,
     *,
@@ -9528,6 +9715,11 @@ _SOURCE_BOUND_PAYLOAD_ISSUE_COMMAND_PACKET_DRY_RUN_STATUS = (
     f"{_SOURCE_BOUND_PAYLOAD_ISSUE_SCHEDULER_DISPATCH_BLOCKED_CANARY_STATUS}"
 )
 
+_SOURCE_BOUND_PAYLOAD_ISSUE_TRANSPORT_ENQUEUE_BLOCKED_CANARY_STATUS = (
+    "blocked_by_payload_issue_command_packet_dry_run:"
+    f"{_SOURCE_BOUND_PAYLOAD_ISSUE_COMMAND_PACKET_DRY_RUN_STATUS}"
+)
+
 
 def build_payload_cache_live_runtime_adapter_payload_issue_plan_dry_run(
     canary: PayloadCacheLiveRuntimeAdapterPayloadIssueRequestBlockedCanary,
@@ -10636,6 +10828,160 @@ def build_payload_cache_live_runtime_adapter_payload_issue_transport_enqueue_blo
         source_queue_budget_capacity=int(packet.source_queue_budget_capacity),
         source_issue_lead_tokens=int(packet.source_issue_lead_tokens),
         source_queue_deadline_us=float(packet.source_queue_deadline_us),
+    )
+
+
+def build_payload_cache_live_runtime_adapter_payload_issue_transport_worker_dispatch_blocked_canary(
+    enqueue: PayloadCacheLiveRuntimeAdapterPayloadIssueTransportEnqueueBlockedCanary,
+) -> PayloadCacheLiveRuntimeAdapterPayloadIssueTransportWorkerDispatchBlockedCanary:
+    """Build a blocked transport-worker dispatch canary from enqueue rejection."""
+
+    if not isinstance(
+        enqueue,
+        PayloadCacheLiveRuntimeAdapterPayloadIssueTransportEnqueueBlockedCanary,
+    ):
+        raise TypeError(
+            "enqueue must be a "
+            "PayloadCacheLiveRuntimeAdapterPayloadIssueTransportEnqueueBlockedCanary",
+        )
+    if enqueue.present is not True:
+        raise ValueError("payload issue transport-enqueue canary must be present")
+    if (
+        enqueue.stage
+        != "payload_cache_live_runtime_adapter_payload_issue_transport_enqueue_blocked_canary"
+    ):
+        raise ValueError("payload issue transport-enqueue canary stage mismatch")
+    if enqueue.consumes_payload_issue_command_packet_dry_run is not True:
+        raise ValueError("transport enqueue must consume command-packet dry-run")
+    if (
+        enqueue.payload_issue_command_packet_status
+        != _SOURCE_BOUND_PAYLOAD_ISSUE_COMMAND_PACKET_DRY_RUN_STATUS
+    ):
+        raise ValueError(
+            "payload issue transport-enqueue upstream ancestry status chain mismatch",
+        )
+    if enqueue.status != _SOURCE_BOUND_PAYLOAD_ISSUE_TRANSPORT_ENQUEUE_BLOCKED_CANARY_STATUS:
+        raise ValueError("payload issue transport-enqueue status mismatch")
+    if (
+        enqueue.payload_issue_transport_enqueue_schema
+        != "payload_cache_runtime_payload_issue_transport_enqueue_v1"
+    ):
+        raise ValueError("payload issue transport-enqueue schema mismatch")
+    for field_name in (
+        "payload_issue_transport_enqueue_canary_created",
+        "payload_issue_command_packet_consumed",
+        "transport_enqueue_checked",
+        "transport_enqueue_rejected",
+    ):
+        if getattr(enqueue, field_name) is not True:
+            raise ValueError(f"payload issue transport-enqueue {field_name} must be true")
+    for field_name in ("transport_enqueue_allowed", "transport_work_enqueued"):
+        if getattr(enqueue, field_name) is not False:
+            raise ValueError(f"payload issue transport-enqueue {field_name} enabled")
+    if enqueue.request_source != "queue_budget_first_model_passing_cell":
+        raise ValueError("payload issue transport worker requires a source-bound enqueue")
+    for field_name in (
+        "request_layer_idx",
+        "request_expert_idx",
+        "requested_payload_bytes",
+        "source_issue_packet_count",
+        "source_issue_unique_key_count",
+        "source_queue_budget_capacity",
+        "source_issue_lead_tokens",
+    ):
+        value = getattr(enqueue, field_name)
+        if not isinstance(value, int) or isinstance(value, bool):
+            raise TypeError(f"{field_name} must be an integer")
+        if value < 0:
+            raise ValueError(f"{field_name} must be non-negative")
+    if enqueue.requested_payload_bytes <= 0:
+        raise ValueError("requested_payload_bytes must be positive")
+    if enqueue.source_issue_packet_count <= 0:
+        raise ValueError("source_issue_packet_count must be positive")
+    if enqueue.source_issue_unique_key_count <= 0:
+        raise ValueError("source_issue_unique_key_count must be positive")
+    if enqueue.source_queue_budget_capacity <= 0:
+        raise ValueError("source_queue_budget_capacity must be positive")
+    if enqueue.source_issue_lead_tokens <= 0:
+        raise ValueError("source_issue_lead_tokens must be positive")
+    if not isinstance(enqueue.source_queue_deadline_us, (int, float)) or isinstance(
+        enqueue.source_queue_deadline_us,
+        bool,
+    ):
+        raise TypeError("source_queue_deadline_us must be numeric")
+    if enqueue.source_queue_deadline_us <= 0.0:
+        raise ValueError("source_queue_deadline_us must be positive")
+    for field_name in (
+        "planned_issue_count",
+        "scheduled_issue_count",
+        "queued_issue_count",
+        "submitted_issue_count",
+        "inflight_issue_count",
+        "dispatched_issue_count",
+        "command_packet_count",
+        "transport_work_count",
+        "issued_payload_count",
+        "payload_bytes",
+    ):
+        if getattr(enqueue, field_name) != 0:
+            raise ValueError(f"payload issue transport-enqueue {field_name} must be zero")
+    if enqueue.decision != "blocked":
+        raise ValueError("payload issue transport-enqueue must stay blocked")
+    if enqueue.block_reason != "payload_transfer_disabled":
+        raise ValueError("payload issue transport-enqueue block reason mismatch")
+    if (
+        enqueue.execution_mode
+        != "payload_cache_live_runtime_adapter_payload_issue_transport_enqueue_blocked_canary"
+    ):
+        raise ValueError("payload issue transport-enqueue execution mode mismatch")
+    for field_name in (
+        "live_payload_runtime_enabled",
+        "payload_transfer_runtime_enabled",
+        "payload_deref_allowed",
+        "payload_deref_runtime_allowed",
+        "ready_credit",
+        "ready_before_demand_credit",
+        "real_ready_credit_granted",
+        "kernel_arg_pass_allowed",
+        "passed_to_kernel",
+        "changes_kernel_launch_args",
+        "full_fetch_runtime_allowed",
+        "uses_current_wna16_args",
+        "passes_current_wna16_args",
+        "measures_tpot",
+        "measures_vllm_latency",
+        "live_runtime_instantiated",
+    ):
+        if getattr(enqueue, field_name) is not False:
+            raise ValueError(f"payload issue transport-enqueue {field_name} enabled")
+
+    return PayloadCacheLiveRuntimeAdapterPayloadIssueTransportWorkerDispatchBlockedCanary(
+        present=True,
+        stage=(
+            "payload_cache_live_runtime_adapter_"
+            "payload_issue_transport_worker_dispatch_blocked_canary"
+        ),
+        status=f"blocked_by_payload_issue_transport_enqueue_blocked_canary:{enqueue.status}",
+        consumes_payload_issue_transport_enqueue_blocked_canary=True,
+        payload_issue_transport_enqueue_status=str(enqueue.status),
+        payload_issue_transport_worker_dispatch_schema=(
+            "payload_cache_runtime_payload_issue_transport_worker_dispatch_v1"
+        ),
+        payload_issue_transport_worker_dispatch_canary_created=True,
+        payload_issue_transport_enqueue_consumed=True,
+        transport_worker_dispatch_checked=True,
+        transport_worker_dispatch_rejected=True,
+        transport_worker_dispatch_allowed=False,
+        transport_worker_dispatched=False,
+        request_source=str(enqueue.request_source),
+        request_layer_idx=int(enqueue.request_layer_idx),
+        request_expert_idx=int(enqueue.request_expert_idx),
+        requested_payload_bytes=int(enqueue.requested_payload_bytes),
+        source_issue_packet_count=int(enqueue.source_issue_packet_count),
+        source_issue_unique_key_count=int(enqueue.source_issue_unique_key_count),
+        source_queue_budget_capacity=int(enqueue.source_queue_budget_capacity),
+        source_issue_lead_tokens=int(enqueue.source_issue_lead_tokens),
+        source_queue_deadline_us=float(enqueue.source_queue_deadline_us),
     )
 
 
