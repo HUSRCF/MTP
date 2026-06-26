@@ -2602,6 +2602,8 @@ def _payload_cache_producer_state_inprocess_native_online_contract_payload() -> 
         "failures": [],
         "inprocess_native_op": True,
         "issue_generation_on_device": True,
+        "kernel_arg_pass": False,
+        "kernel_arg_pass_allowed": False,
         "measures_tpot": False,
         "measures_vllm_latency": False,
         "mode": "payload_cache_producer_state_inprocess_native_online_contract",
@@ -2788,6 +2790,8 @@ def _payload_cache_producer_state_inprocess_native_session_online_contract_paylo
         "graph_visible": False,
         "inprocess_native_op": True,
         "issue_generation_on_device": True,
+        "kernel_arg_pass": False,
+        "kernel_arg_pass_allowed": False,
         "measures_tpot": False,
         "measures_vllm_latency": False,
         "mode": "payload_cache_producer_state_inprocess_native_session_online_contract",
@@ -3033,9 +3037,15 @@ def _payload_cache_producer_state_stream_online_contract_payload() -> dict[str, 
         "native_stream_gpu_elapsed_ms": 12.0,
         "payload_bytes": 0,
         "ready_credit": False,
+        "ready_before_demand_credit": False,
+        "real_ready_credit_granted": False,
+        "payload_transfer_enabled": False,
+        "payload_deref_allowed": False,
         "kernel_arg_pass": False,
+        "kernel_arg_pass_allowed": False,
         "passed_to_kernel": False,
         "changes_kernel_launch_args": False,
+        "current_wna16_arg_compatible": False,
         "uses_current_wna16_args": False,
         "passes_current_wna16_args": False,
         "production_like_ab_ready": True,
@@ -3082,10 +3092,16 @@ def _payload_cache_online_inside_graph_producer_boundary_contract_payload() -> (
         "inprocess_native_op": False,
         "post_export_native_replay": False,
         "payload_bytes": 0,
+        "payload_transfer_enabled": False,
+        "payload_deref_allowed": False,
         "ready_credit": False,
+        "ready_before_demand_credit": False,
+        "real_ready_credit_granted": False,
         "kernel_arg_pass": False,
+        "kernel_arg_pass_allowed": False,
         "passed_to_kernel": False,
         "changes_kernel_launch_args": False,
+        "current_wna16_arg_compatible": False,
         "uses_current_wna16_args": False,
         "passes_current_wna16_args": False,
         "measures_tpot": False,
@@ -3115,10 +3131,16 @@ def _payload_cache_online_native_producer_boundary_gap_payload() -> dict[str, ob
         "lab_gate_passed": False,
         "next_required_boundary": "inprocess_vllm_replay_visible_native_producer_op",
         "payload_bytes": 0,
+        "payload_transfer_enabled": False,
+        "payload_deref_allowed": False,
         "ready_credit": False,
+        "ready_before_demand_credit": False,
+        "real_ready_credit_granted": False,
         "kernel_arg_pass": False,
+        "kernel_arg_pass_allowed": False,
         "passed_to_kernel": False,
         "changes_kernel_launch_args": False,
+        "current_wna16_arg_compatible": False,
         "uses_current_wna16_args": False,
         "passes_current_wna16_args": False,
         "measures_tpot": False,
@@ -7679,6 +7701,8 @@ def _write_gate(
             f"{payload_cache_producer_state_packet_stream_native_canary_path}\n"
             "  payload_cache_producer_state_packet_stream_native_canary_check_json: "
             f"{payload_cache_producer_state_packet_stream_native_canary_check_path}\n"
+            "  payload_cache_producer_state_inprocess_native_session_online_contract_json: "
+            f"{payload_cache_producer_state_inprocess_native_session_online_contract_path}\n"
             "  payload_cache_online_native_producer_boundary_gap_json: "
             f"{payload_cache_online_native_producer_boundary_gap_path}\n"
             "  future_kernel_wna16_adjacent_typed_slot_standalone_canary_json: "
@@ -7695,8 +7719,6 @@ def _write_gate(
             "  payload_cache_stream_producer_production_ab_bridge_check_json: "
             f"{payload_cache_stream_producer_production_ab_bridge_check_path}\n"
             "optional_evidence_paths:\n"
-            "  payload_cache_producer_state_inprocess_native_session_online_contract_json: "
-            f"{payload_cache_producer_state_inprocess_native_session_online_contract_path}\n"
             "  future_kernel_args_aux_metadata_mirror_canary_json: "
             f"{future_kernel_args_aux_metadata_canary_path}\n"
             "  future_kernel_args_compatible_path_16_128export_artifact_check_json: "
@@ -7789,7 +7811,7 @@ def test_premap_lab_preflight_accepts_default_readonly_wiring(tmp_path: Path):
     assert result["passed"] is True
     assert result["failures"] == []
     assert result["runtime_gate_evidence_scan"]["gate_count"] == 5
-    assert result["runtime_gate_evidence_scan"]["evidence_path_count"] == 146
+    assert result["runtime_gate_evidence_scan"]["evidence_path_count"] == 148
     assert result["default_readonly_gate_required_evidence_check"]["passed"] is True
     summary = result["lab_gate_status_summary"]
     assert summary["passed"] is True
@@ -10003,12 +10025,12 @@ def test_premap_lab_preflight_accepts_default_readonly_wiring(tmp_path: Path):
     assert summary["payload_bytes_required"] == 0
     assert summary["passed_to_kernel_required"] is False
     assert summary["changes_kernel_launch_args_required"] is False
-    assert summary["required_evidence"]["required_count"] == 63
-    assert summary["required_evidence"]["present_count"] == 63
-    assert summary["required_evidence"]["passed_count"] == 63
-    assert summary["optional_evidence"]["required_count"] == 16
-    assert summary["optional_evidence"]["present_count"] == 14
-    assert summary["optional_evidence"]["passed_count"] == 14
+    assert summary["required_evidence"]["required_count"] == 64
+    assert summary["required_evidence"]["present_count"] == 64
+    assert summary["required_evidence"]["passed_count"] == 64
+    assert summary["optional_evidence"]["required_count"] == 15
+    assert summary["optional_evidence"]["present_count"] == 13
+    assert summary["optional_evidence"]["passed_count"] == 13
     assert summary["payload_cache_online_native_producer_boundary_gap_required"] is True
     assert (
         summary["payload_cache_online_native_producer_boundary_gap_acknowledged"]
@@ -10061,6 +10083,12 @@ def test_premap_lab_preflight_accepts_default_readonly_wiring(tmp_path: Path):
     assert (
         summary["required_evidence"]["evidence"][
             "payload_cache_online_native_producer_boundary_gap_json"
+        ]["passed"]
+        is True
+    )
+    assert (
+        summary["required_evidence"]["evidence"][
+            "payload_cache_producer_state_inprocess_native_session_online_contract_json"
         ]["passed"]
         is True
     )
@@ -11385,7 +11413,7 @@ def test_premap_lab_preflight_rejects_missing_optional_future_args_coverage(
         "default_kernel_consumer_future_kernel_args_total_mirror_coverage_incomplete"
         in result["failures"]
     )
-    assert summary["required_evidence"]["passed_count"] == 63
+    assert summary["required_evidence"]["passed_count"] == 64
     assert summary["default_optional_evidence_passed"] is True
     assert (
         summary[
@@ -13489,6 +13517,7 @@ def test_premap_lab_preflight_rejects_default_gate_without_typed_evidence(
         "payload_cache_producer_state_stream_native_canary_json:missing_evidence_path",
         "payload_cache_producer_state_packet_stream_native_canary_json:missing_evidence_path",
         "payload_cache_producer_state_packet_stream_native_canary_check_json:missing_evidence_path",
+        "payload_cache_producer_state_inprocess_native_session_online_contract_json:missing_evidence_path",
         "payload_cache_online_native_producer_boundary_gap_json:missing_evidence_path",
         "strict_live_connected_readonly_128_gate_json:missing_evidence_path",
         "strict_native_typed_consumer_bridge_128_gate_json:missing_evidence_path",
@@ -17080,6 +17109,48 @@ def test_premap_lab_preflight_dispatch_accepts_payload_cache_producer_state_inpr
     assert failures == []
 
 
+def test_premap_lab_preflight_rejects_payload_cache_producer_state_inprocess_session_online_contract_kernel_arg_pass():
+    payload = (
+        _payload_cache_producer_state_inprocess_native_session_online_contract_payload()
+    )
+    payload["kernel_arg_pass"] = True
+    payload["kernel_arg_pass_allowed"] = True
+
+    failures = _validate_required_evidence_payload(
+        "payload_cache_producer_state_inprocess_native_session_online_contract_json",
+        payload,
+    )
+
+    assert (
+        "payload_cache_producer_state_inprocess_native_session_online_contract_json:"
+        "payload_cache_producer_state_inprocess_native_session_online_contract_"
+        "kernel_arg_pass_mismatch"
+    ) in failures
+    assert (
+        "payload_cache_producer_state_inprocess_native_session_online_contract_json:"
+        "payload_cache_producer_state_inprocess_native_session_online_contract_"
+        "kernel_arg_pass_allowed_mismatch"
+    ) in failures
+
+
+def test_premap_lab_preflight_rejects_payload_cache_producer_state_inprocess_session_online_contract_missing_kernel_arg_pass_allowed():
+    payload = (
+        _payload_cache_producer_state_inprocess_native_session_online_contract_payload()
+    )
+    payload.pop("kernel_arg_pass_allowed")
+
+    failures = _validate_required_evidence_payload(
+        "payload_cache_producer_state_inprocess_native_session_online_contract_json",
+        payload,
+    )
+
+    assert (
+        "payload_cache_producer_state_inprocess_native_session_online_contract_json:"
+        "payload_cache_producer_state_inprocess_native_session_online_contract_"
+        "kernel_arg_pass_allowed_mismatch"
+    ) in failures
+
+
 def test_premap_lab_preflight_rejects_payload_cache_producer_state_inprocess_session_online_contract_raw_summary_source():
     payload = (
         _payload_cache_producer_state_inprocess_native_session_online_contract_payload()
@@ -17599,6 +17670,28 @@ def test_premap_lab_preflight_rejects_payload_cache_online_contract_native_strea
         "payload_cache_producer_state_stream_online_contract_json:"
         "payload_cache_producer_state_stream_online_contract_"
         "native_stream_measures_tpot_mismatch"
+    ) in failures
+
+
+def test_premap_lab_preflight_rejects_payload_cache_online_contract_kernel_arg_pass():
+    payload = _payload_cache_producer_state_stream_online_contract_payload()
+    payload["kernel_arg_pass"] = True
+    payload["kernel_arg_pass_allowed"] = True
+
+    failures = _validate_required_evidence_payload(
+        "payload_cache_producer_state_stream_online_contract_json",
+        payload,
+    )
+
+    assert (
+        "payload_cache_producer_state_stream_online_contract_json:"
+        "payload_cache_producer_state_stream_online_contract_"
+        "kernel_arg_pass_mismatch"
+    ) in failures
+    assert (
+        "payload_cache_producer_state_stream_online_contract_json:"
+        "payload_cache_producer_state_stream_online_contract_"
+        "kernel_arg_pass_allowed_mismatch"
     ) in failures
 
 
@@ -18778,10 +18871,10 @@ def test_premap_lab_preflight_can_defer_self_referential_runner_evidence(
     assert summary["deferred_online_prelaunch_artifact_evidence"] is False
     assert summary["runtime_gate_evidence_deferred_count"] == 10
     assert summary["strict_default_gate_evidence_deferred_count"] == 5
-    assert summary["required_evidence"]["required_count"] == 63
-    assert summary["required_evidence"]["present_count"] == 61
-    assert summary["required_evidence"]["passed_count"] == 61
-    assert summary["optional_evidence"]["passed_count"] == 14
+    assert summary["required_evidence"]["required_count"] == 64
+    assert summary["required_evidence"]["present_count"] == 62
+    assert summary["required_evidence"]["passed_count"] == 62
+    assert summary["optional_evidence"]["passed_count"] == 13
     for label in (
         "future_kernel_args_compatible_path_16_128export_artifact_check_json",
         "future_kernel_args_field_refresh_16_128export_artifact_check_json",
@@ -19355,7 +19448,7 @@ def test_premap_lab_preflight_cli_writes_summary(tmp_path: Path):
     assert result["runtime_gate_evidence_scan"]["passed"] is True
     assert result["lab_gate_status_summary"]["passed"] is True
     assert (
-        result["lab_gate_status_summary"]["required_evidence"]["passed_count"] == 63
+        result["lab_gate_status_summary"]["required_evidence"]["passed_count"] == 64
     )
 
 
@@ -19391,8 +19484,8 @@ def test_premap_lab_preflight_cli_summary_only_writes_status_block(tmp_path: Pat
     assert exit_code == 0
     assert result["passed"] is True
     assert result["default_readonly_gate_path"] == default_gate
-    assert result["required_evidence"]["passed_count"] == 63
-    assert result["optional_evidence"]["passed_count"] == 14
+    assert result["required_evidence"]["passed_count"] == 64
+    assert result["optional_evidence"]["passed_count"] == 13
     assert "lab_gate_status_summary" not in result
 
 

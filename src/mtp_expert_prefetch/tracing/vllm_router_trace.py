@@ -274,6 +274,7 @@ _PREMAP_PAYLOAD_CACHE_SHIFTED_ISSUE_SAFE_FALSE_FLAGS = (
     "ready_before_demand_credit",
     "payload_transfer_enabled",
     "payload_deref_allowed",
+    "kernel_arg_pass",
     "kernel_arg_pass_allowed",
     "real_ready_credit_granted",
     "passed_to_kernel",
@@ -371,6 +372,7 @@ def _premap_payload_cache_shifted_issue_runtime_shadow_summary(
         "real_ready_credit_granted": False,
         "payload_transfer_enabled": False,
         "payload_deref_allowed": False,
+        "kernel_arg_pass": False,
         "kernel_arg_pass_allowed": False,
         "passed_to_kernel": False,
         "changes_kernel_launch_args": False,
@@ -2500,6 +2502,463 @@ def _add_runtime_shadow_aggregate_to_performance(
             performance[f"runtime_shadow_aggregate_{key}"] = aggregate[key]
 
 
+def _add_premap_payload_cache_online_stream_contract_to_performance(
+    performance: dict[str, Any],
+    recorder: VllmRouterRecorder,
+    *,
+    prefix: str,
+) -> None:
+    failures: list[str] = []
+    sample_count = int(performance.get("sample_count", 0) or 0)
+    requested_output_token_count = int(
+        performance.get("requested_output_token_count", 0) or 0
+    )
+    if sample_count <= 0:
+        failures.append("sample_count_nonpositive")
+        steps = 0
+    elif requested_output_token_count <= 0:
+        failures.append("requested_output_token_count_nonpositive")
+        steps = 0
+    elif requested_output_token_count % sample_count != 0:
+        failures.append("requested_output_token_count_not_divisible_by_sample_count")
+        steps = 0
+    else:
+        steps = requested_output_token_count // sample_count
+
+    native_packet_count = int(
+        recorder._premap_payload_cache_transition_native_packet_count
+    )
+    producer_update_count = int(
+        recorder._premap_payload_cache_transition_producer_update_count
+    )
+    layers = len(recorder._premap_payload_cache_transition_native_packet_layer_ids)
+    if native_packet_count <= 0:
+        failures.append("transition_native_packet_count_nonpositive")
+    if layers <= 0:
+        failures.append("transition_native_packet_layer_count_nonpositive")
+    if producer_update_count <= 0:
+        failures.append("transition_producer_update_count_nonpositive")
+    elif native_packet_count > 0 and producer_update_count != native_packet_count:
+        failures.append("transition_producer_update_count_mismatch")
+
+    experts_per_layer = int(
+        recorder._premap_payload_cache_transition_native_packet_last_current_count
+    )
+    if experts_per_layer <= 0:
+        failures.append("transition_native_packet_last_current_count_nonpositive")
+
+    transition_topk_count = int(
+        recorder.shadow_transition_topk_count
+        if recorder.shadow_transition_topk_count is not None
+        else 0
+    )
+    if transition_topk_count < 0:
+        failures.append("transition_topk_count_negative")
+        issue_per_packet = 0
+    elif experts_per_layer <= 0:
+        issue_per_packet = 0
+    elif transition_topk_count == 0:
+        issue_per_packet = experts_per_layer
+    else:
+        issue_per_packet = min(experts_per_layer, transition_topk_count)
+
+    observed_packet_count = max(0, native_packet_count)
+    expected_packet_count = max(0, steps) * max(0, layers)
+    expected_previous_nonempty_packet_count = max(0, steps - 1) * max(0, layers)
+    observed_previous_nonempty_packet_count = int(
+        recorder._premap_payload_cache_transition_native_packet_previous_nonempty_count
+    )
+    expected_issue_candidate_count = expected_previous_nonempty_packet_count * max(
+        0, issue_per_packet
+    )
+    observed_issue_candidate_count = int(
+        recorder._premap_payload_cache_transition_native_packet_issue_candidate_count
+    )
+    if expected_packet_count <= 0:
+        failures.append("expected_packet_count_nonpositive")
+    elif observed_packet_count != expected_packet_count:
+        failures.append("observed_packet_count_mismatch")
+    if observed_previous_nonempty_packet_count != expected_previous_nonempty_packet_count:
+        failures.append("observed_previous_nonempty_packet_count_mismatch")
+    if observed_issue_candidate_count != expected_issue_candidate_count:
+        failures.append("observed_issue_candidate_count_mismatch")
+    passed = not failures
+    contract_prefix = f"{prefix}online_stream_contract_"
+    performance[f"{contract_prefix}present"] = bool(native_packet_count > 0)
+    performance[f"{contract_prefix}passed"] = bool(passed)
+    performance[f"{contract_prefix}failures"] = failures
+    performance[f"{contract_prefix}mode"] = (
+        "payload_cache_producer_state_stream_online_contract"
+    )
+    performance[f"{contract_prefix}source"] = "online_producer_performance_summary"
+    performance[f"{contract_prefix}sample_count"] = int(sample_count)
+    performance[f"{contract_prefix}requested_output_token_count"] = int(
+        requested_output_token_count
+    )
+    performance[f"{contract_prefix}steps"] = int(steps)
+    performance[f"{contract_prefix}layers"] = int(layers)
+    performance[f"{contract_prefix}experts_per_layer"] = int(experts_per_layer)
+    performance[f"{contract_prefix}transition_topk_count"] = int(
+        transition_topk_count
+    )
+    performance[f"{contract_prefix}issue_candidates_per_packet"] = int(
+        issue_per_packet
+    )
+    performance[f"{contract_prefix}packet_count"] = int(observed_packet_count)
+    performance[f"{contract_prefix}observed_packet_count"] = int(
+        observed_packet_count
+    )
+    performance[f"{contract_prefix}expected_packet_count"] = int(
+        expected_packet_count
+    )
+    performance[f"{contract_prefix}packet_count_matches_expected"] = bool(
+        observed_packet_count == expected_packet_count
+    )
+    performance[f"{contract_prefix}previous_nonempty_packet_count"] = int(
+        observed_previous_nonempty_packet_count
+    )
+    performance[f"{contract_prefix}observed_previous_nonempty_packet_count"] = int(
+        observed_previous_nonempty_packet_count
+    )
+    performance[f"{contract_prefix}expected_previous_nonempty_packet_count"] = int(
+        expected_previous_nonempty_packet_count
+    )
+    performance[f"{contract_prefix}issue_candidate_count"] = int(
+        observed_issue_candidate_count
+    )
+    performance[f"{contract_prefix}observed_issue_candidate_count"] = int(
+        observed_issue_candidate_count
+    )
+    performance[f"{contract_prefix}expected_issue_candidate_count"] = int(
+        expected_issue_candidate_count
+    )
+    issue_last_candidate_count = int(
+        recorder._premap_payload_cache_transition_native_packet_last_issue_candidate_count
+    )
+    performance[f"{contract_prefix}issue_last_candidate_present"] = bool(
+        issue_last_candidate_count > 0
+        and recorder._premap_payload_cache_transition_native_packet_last_issue_candidate_hash
+        is not None
+    )
+    performance[f"{contract_prefix}issue_last_candidate_count"] = int(
+        issue_last_candidate_count
+    )
+    performance[f"{contract_prefix}issue_last_candidate_first_expert"] = int(
+        recorder._premap_payload_cache_transition_native_packet_last_issue_candidate_first_expert
+    )
+    performance[f"{contract_prefix}issue_last_candidate_last_expert"] = int(
+        recorder._premap_payload_cache_transition_native_packet_last_issue_candidate_last_expert
+    )
+    performance[f"{contract_prefix}issue_last_candidate_hash"] = (
+        recorder._premap_payload_cache_transition_native_packet_last_issue_candidate_hash
+    )
+    performance[f"{contract_prefix}state_owner"] = str(
+        recorder.shadow_premap_payload_cache_transition_state_owner
+    )
+    performance[f"{contract_prefix}python_prelaunch_state_empty"] = bool(
+        recorder._premap_payload_cache_transition_issue_previous_nonempty_count == 0
+        and recorder._premap_payload_cache_transition_issue_descriptor_count == 0
+    )
+    performance[f"{contract_prefix}payload_bytes"] = 0
+    performance[f"{contract_prefix}ready_credit"] = False
+    performance[f"{contract_prefix}ready_before_demand_credit"] = False
+    performance[f"{contract_prefix}real_ready_credit_granted"] = False
+    performance[f"{contract_prefix}payload_transfer_enabled"] = False
+    performance[f"{contract_prefix}payload_deref_allowed"] = False
+    performance[f"{contract_prefix}kernel_arg_pass"] = False
+    performance[f"{contract_prefix}kernel_arg_pass_allowed"] = False
+    performance[f"{contract_prefix}passed_to_kernel"] = False
+    performance[f"{contract_prefix}changes_kernel_launch_args"] = False
+    performance[f"{contract_prefix}current_wna16_arg_compatible"] = False
+    performance[f"{contract_prefix}uses_current_wna16_args"] = False
+    performance[f"{contract_prefix}passes_current_wna16_args"] = False
+    performance[f"{contract_prefix}measures_tpot"] = False
+    performance[f"{contract_prefix}measures_vllm_latency"] = False
+
+
+def _add_premap_payload_cache_graph_visible_producer_contract_to_performance(
+    performance: dict[str, Any],
+    recorder: VllmRouterRecorder,
+    *,
+    prefix: str,
+) -> None:
+    contract_prefix = f"{prefix}graph_visible_producer_contract_"
+    snapshot = recorder._snapshot_premap_payload_cache_graph_visible_producer_state()
+    enabled = bool(snapshot.get("enabled", False))
+    present = bool(snapshot.get("present", False))
+    failures: list[str] = []
+    if not enabled:
+        failures.append("graph_visible_producer_disabled")
+    if not present:
+        failures.append("graph_visible_producer_state_missing")
+    if snapshot.get("error"):
+        failures.append(str(snapshot["error"]))
+
+    sample_count = int(performance.get("sample_count", 0) or 0)
+    requested_output_token_count = int(
+        performance.get("requested_output_token_count", 0) or 0
+    )
+    if sample_count <= 0:
+        failures.append("sample_count_nonpositive")
+        steps = 0
+    elif requested_output_token_count <= 0:
+        failures.append("requested_output_token_count_nonpositive")
+        steps = 0
+    elif requested_output_token_count % sample_count != 0:
+        failures.append("requested_output_token_count_not_divisible_by_sample_count")
+        steps = 0
+    else:
+        steps = requested_output_token_count // sample_count
+
+    layers = int(snapshot.get("unique_layer_count", 0) or 0)
+    experts_per_layer = int(snapshot.get("experts_per_layer", 0) or 0)
+    if enabled and layers <= 0:
+        failures.append("graph_visible_unique_layer_count_nonpositive")
+    if enabled and experts_per_layer <= 0:
+        failures.append("graph_visible_experts_per_layer_nonpositive")
+    transition_topk_count = int(
+        recorder.shadow_transition_topk_count
+        if recorder.shadow_transition_topk_count is not None
+        else 0
+    )
+    if transition_topk_count < 0:
+        failures.append("transition_topk_count_negative")
+        issue_per_packet = 0
+    elif experts_per_layer <= 0:
+        issue_per_packet = 0
+    elif transition_topk_count == 0:
+        issue_per_packet = experts_per_layer
+    else:
+        issue_per_packet = min(experts_per_layer, transition_topk_count)
+
+    observed_packet_count = int(snapshot.get("packet_count", 0) or 0)
+    observed_previous_nonempty_packet_count = int(
+        snapshot.get("previous_nonempty_packet_count", 0) or 0
+    )
+    observed_issue_candidate_count = int(
+        snapshot.get("issue_candidate_count", 0) or 0
+    )
+    expected_packet_count = max(0, steps) * max(0, layers)
+    expected_previous_nonempty_packet_count = max(0, steps - 1) * max(0, layers)
+    expected_issue_candidate_count = expected_previous_nonempty_packet_count * max(
+        0,
+        issue_per_packet,
+    )
+    if enabled and expected_packet_count <= 0:
+        failures.append("expected_packet_count_nonpositive")
+    elif enabled and observed_packet_count != expected_packet_count:
+        failures.append("observed_packet_count_mismatch")
+    if enabled and (
+        observed_previous_nonempty_packet_count
+        != expected_previous_nonempty_packet_count
+    ):
+        failures.append("observed_previous_nonempty_packet_count_mismatch")
+    if enabled and observed_issue_candidate_count != expected_issue_candidate_count:
+        failures.append("observed_issue_candidate_count_mismatch")
+
+    passed = bool(enabled and present and not failures)
+    capture_once_per_layer_suspected = bool(
+        enabled
+        and present
+        and layers > 0
+        and observed_packet_count == layers
+        and observed_packet_count < expected_packet_count
+        and expected_previous_nonempty_packet_count > 0
+        and observed_previous_nonempty_packet_count == 0
+    )
+    if passed:
+        replay_update_status = "complete_replay_updates_observed"
+    elif capture_once_per_layer_suspected:
+        replay_update_status = "capture_once_per_layer_no_replay_updates"
+    elif enabled and present:
+        replay_update_status = "contract_failed"
+    elif enabled:
+        replay_update_status = "state_missing"
+    else:
+        replay_update_status = "disabled"
+    performance[f"{contract_prefix}enabled"] = bool(enabled)
+    performance[f"{contract_prefix}present"] = bool(present)
+    performance[f"{contract_prefix}has_packets"] = bool(
+        snapshot.get("has_packets", False)
+    )
+    performance[f"{contract_prefix}passed"] = bool(passed)
+    performance[f"{contract_prefix}failures"] = failures
+    performance[f"{contract_prefix}mode"] = "payload_cache_graph_visible_tensor_producer"
+    performance[f"{contract_prefix}source"] = "captured_torch_tensor_state"
+    performance[f"{contract_prefix}contract_boundary"] = (
+        "captured_torch_tensor_state_visibility_canary"
+    )
+    performance[f"{contract_prefix}captured_replay_required"] = bool(enabled)
+    performance[f"{contract_prefix}captured_replay_passed"] = bool(passed)
+    performance[f"{contract_prefix}transition_state_on_device"] = bool(
+        snapshot.get("transition_state_on_device", False)
+    )
+    performance[f"{contract_prefix}issue_generation_on_device"] = bool(
+        snapshot.get("issue_generation_on_device", False)
+    )
+    performance[f"{contract_prefix}python_transition_skipped"] = bool(
+        snapshot.get("python_transition_skipped", False)
+    )
+    performance[f"{contract_prefix}capture_once_per_layer_suspected"] = bool(
+        capture_once_per_layer_suspected
+    )
+    performance[f"{contract_prefix}replay_update_status"] = replay_update_status
+    performance[f"{contract_prefix}production_candidate"] = bool(passed)
+    performance[f"{contract_prefix}state_owner"] = str(
+        recorder.shadow_premap_payload_cache_transition_state_owner
+    )
+    performance[f"{contract_prefix}device"] = snapshot.get("device")
+    performance[f"{contract_prefix}sample_count"] = int(sample_count)
+    performance[f"{contract_prefix}requested_output_token_count"] = int(
+        requested_output_token_count
+    )
+    performance[f"{contract_prefix}steps"] = int(steps)
+    performance[f"{contract_prefix}layers"] = int(layers)
+    performance[f"{contract_prefix}experts_per_layer"] = int(experts_per_layer)
+    performance[f"{contract_prefix}transition_topk_count"] = int(
+        transition_topk_count
+    )
+    performance[f"{contract_prefix}issue_candidates_per_packet"] = int(
+        issue_per_packet
+    )
+    performance[f"{contract_prefix}packet_count"] = int(observed_packet_count)
+    performance[f"{contract_prefix}observed_packet_count"] = int(
+        observed_packet_count
+    )
+    performance[f"{contract_prefix}expected_packet_count"] = int(
+        expected_packet_count
+    )
+    performance[f"{contract_prefix}packet_count_matches_expected"] = bool(
+        observed_packet_count == expected_packet_count
+    )
+    performance[f"{contract_prefix}previous_nonempty_packet_count"] = int(
+        observed_previous_nonempty_packet_count
+    )
+    performance[f"{contract_prefix}observed_previous_nonempty_packet_count"] = int(
+        observed_previous_nonempty_packet_count
+    )
+    performance[f"{contract_prefix}expected_previous_nonempty_packet_count"] = int(
+        expected_previous_nonempty_packet_count
+    )
+    performance[f"{contract_prefix}issue_candidate_count"] = int(
+        observed_issue_candidate_count
+    )
+    performance[f"{contract_prefix}observed_issue_candidate_count"] = int(
+        observed_issue_candidate_count
+    )
+    performance[f"{contract_prefix}expected_issue_candidate_count"] = int(
+        expected_issue_candidate_count
+    )
+    performance[f"{contract_prefix}last_issue_candidate_count"] = int(
+        snapshot.get("last_issue_candidate_count", 0) or 0
+    )
+    performance[f"{contract_prefix}last_issue_candidate_first_expert"] = int(
+        snapshot.get("last_issue_candidate_first_expert", -1) or -1
+    )
+    performance[f"{contract_prefix}last_issue_candidate_last_expert"] = int(
+        snapshot.get("last_issue_candidate_last_expert", -1) or -1
+    )
+    performance[f"{contract_prefix}issue_candidate_expert_sum"] = int(
+        snapshot.get("issue_candidate_expert_sum", 0) or 0
+    )
+    performance[f"{contract_prefix}last_issue_candidate_expert_sum"] = int(
+        snapshot.get("last_issue_candidate_expert_sum", 0) or 0
+    )
+    performance[f"{contract_prefix}payload_bytes"] = 0
+    performance[f"{contract_prefix}ready_credit"] = False
+    performance[f"{contract_prefix}kernel_arg_pass"] = False
+    performance[f"{contract_prefix}passed_to_kernel"] = False
+    performance[f"{contract_prefix}changes_kernel_launch_args"] = False
+    performance[f"{contract_prefix}uses_current_wna16_args"] = False
+    performance[f"{contract_prefix}passes_current_wna16_args"] = False
+
+
+def _add_premap_payload_cache_online_inside_graph_producer_boundary_contract_to_performance(
+    performance: dict[str, Any],
+    recorder: VllmRouterRecorder,
+    *,
+    prefix: str,
+) -> None:
+    """Gate the actual online producer boundary, not offline native replay.
+
+    This contract is intentionally stricter than the graph-visible visibility
+    canary.  It only passes when transition state and issue-generation summary
+    are produced through persistent device tensors and the Python prelaunch
+    transition extraction is explicitly skipped.  The current implementation is
+    an inside-graph tensor boundary, not an in-process HIP native op.
+    """
+
+    graph_prefix = f"{prefix}graph_visible_producer_contract_"
+    contract_prefix = f"{prefix}online_inside_graph_producer_boundary_contract_"
+    graph_enabled = bool(performance.get(f"{graph_prefix}enabled", False))
+    graph_present = bool(performance.get(f"{graph_prefix}present", False))
+    graph_passed = bool(performance.get(f"{graph_prefix}passed", False))
+    transition_state_on_device = bool(
+        performance.get(f"{graph_prefix}transition_state_on_device", False)
+    )
+    issue_generation_on_device = bool(
+        performance.get(f"{graph_prefix}issue_generation_on_device", False)
+    )
+    python_transition_skipped = bool(
+        performance.get(f"{graph_prefix}python_transition_skipped", False)
+    )
+    failures: list[str] = []
+    if not graph_enabled:
+        failures.append("graph_visible_producer_disabled")
+    if not graph_present:
+        failures.append("graph_visible_producer_state_missing")
+    if not graph_passed:
+        failures.append("graph_visible_producer_contract_not_passed")
+    if not transition_state_on_device:
+        failures.append("transition_state_not_on_device")
+    if not issue_generation_on_device:
+        failures.append("issue_generation_not_on_device")
+    if not python_transition_skipped:
+        failures.append("python_transition_extraction_not_skipped")
+
+    passed = bool(not failures)
+    performance[f"{contract_prefix}enabled"] = bool(graph_enabled)
+    performance[f"{contract_prefix}present"] = bool(graph_present)
+    performance[f"{contract_prefix}passed"] = bool(passed)
+    performance[f"{contract_prefix}failures"] = failures
+    performance[f"{contract_prefix}mode"] = (
+        "payload_cache_online_inside_graph_producer_boundary"
+    )
+    performance[f"{contract_prefix}source"] = (
+        "captured_torch_tensor_issue_generation"
+    )
+    performance[f"{contract_prefix}contract_boundary"] = (
+        "online_inside_graph_tensor_producer"
+    )
+    performance[f"{contract_prefix}transition_state_on_device"] = bool(
+        transition_state_on_device
+    )
+    performance[f"{contract_prefix}issue_generation_on_device"] = bool(
+        issue_generation_on_device
+    )
+    performance[f"{contract_prefix}python_transition_skipped"] = bool(
+        python_transition_skipped
+    )
+    performance[f"{contract_prefix}native_runtime"] = False
+    performance[f"{contract_prefix}inprocess_native_op"] = False
+    performance[f"{contract_prefix}post_export_native_replay"] = False
+    performance[f"{contract_prefix}uses_current_wna16_args"] = False
+    performance[f"{contract_prefix}passes_current_wna16_args"] = False
+    performance[f"{contract_prefix}payload_bytes"] = 0
+    performance[f"{contract_prefix}payload_transfer_enabled"] = False
+    performance[f"{contract_prefix}payload_deref_allowed"] = False
+    performance[f"{contract_prefix}ready_credit"] = False
+    performance[f"{contract_prefix}ready_before_demand_credit"] = False
+    performance[f"{contract_prefix}real_ready_credit_granted"] = False
+    performance[f"{contract_prefix}kernel_arg_pass"] = False
+    performance[f"{contract_prefix}kernel_arg_pass_allowed"] = False
+    performance[f"{contract_prefix}passed_to_kernel"] = False
+    performance[f"{contract_prefix}changes_kernel_launch_args"] = False
+    performance[f"{contract_prefix}current_wna16_arg_compatible"] = False
+    performance[f"{contract_prefix}measures_tpot"] = False
+    performance[f"{contract_prefix}measures_vllm_latency"] = False
+
+
 def _add_premap_payload_cache_manager_snapshot_to_performance(
     performance: dict[str, Any],
     recorder: VllmRouterRecorder | None,
@@ -2521,6 +2980,21 @@ def _add_premap_payload_cache_manager_snapshot_to_performance(
         if bool(recorder.shadow_emit_premap_payload_cache_manager_counters):
             performance[f"{prefix}snapshot_present"] = False
             performance[f"{prefix}snapshot_source"] = str(source)
+            _add_premap_payload_cache_online_stream_contract_to_performance(
+                performance,
+                recorder,
+                prefix=prefix,
+            )
+            _add_premap_payload_cache_graph_visible_producer_contract_to_performance(
+                performance,
+                recorder,
+                prefix=prefix,
+            )
+            _add_premap_payload_cache_online_inside_graph_producer_boundary_contract_to_performance(
+                performance,
+                recorder,
+                prefix=prefix,
+            )
         return
     if hasattr(manager, "finish"):
         manager.finish()
@@ -2630,6 +3104,18 @@ def _add_premap_payload_cache_manager_snapshot_to_performance(
     performance[f"{prefix}transition_issue_descriptor_count"] = int(
         recorder._premap_payload_cache_transition_issue_descriptor_count
     )
+    performance[f"{prefix}transition_issue_last_candidate_count"] = int(
+        recorder._premap_payload_cache_transition_issue_last_candidate_count
+    )
+    performance[f"{prefix}transition_issue_last_candidate_first_expert"] = int(
+        recorder._premap_payload_cache_transition_issue_last_candidate_first_expert
+    )
+    performance[f"{prefix}transition_issue_last_candidate_last_expert"] = int(
+        recorder._premap_payload_cache_transition_issue_last_candidate_last_expert
+    )
+    performance[f"{prefix}transition_issue_last_candidate_hash"] = (
+        recorder._premap_payload_cache_transition_issue_last_candidate_hash
+    )
     performance[f"{prefix}transition_issue_error_count"] = int(
         recorder._premap_payload_cache_transition_issue_error_count
     )
@@ -2648,8 +3134,33 @@ def _add_premap_payload_cache_manager_snapshot_to_performance(
     performance[f"{prefix}transition_native_packet_count"] = int(
         recorder._premap_payload_cache_transition_native_packet_count
     )
+    performance[f"{prefix}transition_native_packet_unique_layer_count"] = int(
+        len(recorder._premap_payload_cache_transition_native_packet_layer_ids)
+    )
     performance[f"{prefix}transition_native_packet_ready_count"] = int(
         recorder._premap_payload_cache_transition_native_packet_ready_count
+    )
+    performance[f"{prefix}transition_native_packet_previous_nonempty_count"] = int(
+        recorder._premap_payload_cache_transition_native_packet_previous_nonempty_count
+    )
+    performance[f"{prefix}transition_native_packet_issue_candidate_count"] = int(
+        recorder._premap_payload_cache_transition_native_packet_issue_candidate_count
+    )
+    performance[f"{prefix}transition_native_packet_last_issue_candidate_count"] = int(
+        recorder._premap_payload_cache_transition_native_packet_last_issue_candidate_count
+    )
+    performance[
+        f"{prefix}transition_native_packet_last_issue_candidate_first_expert"
+    ] = int(
+        recorder._premap_payload_cache_transition_native_packet_last_issue_candidate_first_expert
+    )
+    performance[
+        f"{prefix}transition_native_packet_last_issue_candidate_last_expert"
+    ] = int(
+        recorder._premap_payload_cache_transition_native_packet_last_issue_candidate_last_expert
+    )
+    performance[f"{prefix}transition_native_packet_last_issue_candidate_hash"] = (
+        recorder._premap_payload_cache_transition_native_packet_last_issue_candidate_hash
     )
     performance[f"{prefix}transition_native_packet_last_hash"] = (
         recorder._premap_payload_cache_transition_native_packet_last_hash
@@ -2659,6 +3170,21 @@ def _add_premap_payload_cache_manager_snapshot_to_performance(
     )
     performance[f"{prefix}transition_native_packet_last_current_count"] = int(
         recorder._premap_payload_cache_transition_native_packet_last_current_count
+    )
+    _add_premap_payload_cache_online_stream_contract_to_performance(
+        performance,
+        recorder,
+        prefix=prefix,
+    )
+    _add_premap_payload_cache_graph_visible_producer_contract_to_performance(
+        performance,
+        recorder,
+        prefix=prefix,
+    )
+    _add_premap_payload_cache_online_inside_graph_producer_boundary_contract_to_performance(
+        performance,
+        recorder,
+        prefix=prefix,
     )
     performance[f"{prefix}transition_native_packet_export_count"] = int(
         recorder._premap_payload_cache_producer_state_packet_export_count
@@ -3331,6 +3857,10 @@ class VllmRouterRecorder:
     )
     shadow_premap_payload_cache_transition_issue_strict: bool = False
     shadow_premap_payload_cache_transition_state_owner: str = "consumer"
+    shadow_premap_payload_cache_graph_visible_producer_enabled: bool = False
+    shadow_premap_payload_cache_graph_visible_producer_skip_python_transition: (
+        bool
+    ) = False
     shadow_premap_payload_cache_manager_mode: str = "resident"
     shadow_premap_payload_cache_manager_service_us_per_issue: float = 0.0
     shadow_premap_payload_cache_manager_service_us_per_batch: float = 0.0
@@ -3363,6 +3893,9 @@ class VllmRouterRecorder:
         bool
     ) = False
     shadow_premap_kernel_arg_handoff_producer_gpu_assignment_envelope_enabled: (
+        bool
+    ) = False
+    shadow_premap_kernel_arg_handoff_gpu_assignment_prelaunch_pointer_source_canary_enabled: (
         bool
     ) = False
     shadow_premap_kernel_arg_handoff_gpu_assignment_validation_mode: str = (
@@ -3408,6 +3941,12 @@ class VllmRouterRecorder:
     shadow_premap_kernel_arg_handoff_typed_slot_content_cache_store_after_seen: int = (
         2
     )
+    shadow_premap_kernel_arg_handoff_future_wna16_typed_slot_strict_native_only: (
+        bool
+    ) = False
+    shadow_premap_kernel_arg_handoff_future_wna16_typed_slot_require_prepared_device_source: (
+        bool
+    ) = False
     shadow_premap_single_field_handle_handoff_canary_field: str = (
         "scale_metadata_handle"
     )
@@ -3494,6 +4033,26 @@ class VllmRouterRecorder:
         init=False,
         repr=False,
     )
+    _premap_payload_cache_transition_issue_last_candidate_count: int = field(
+        default=0,
+        init=False,
+        repr=False,
+    )
+    _premap_payload_cache_transition_issue_last_candidate_first_expert: int = field(
+        default=-1,
+        init=False,
+        repr=False,
+    )
+    _premap_payload_cache_transition_issue_last_candidate_last_expert: int = field(
+        default=-1,
+        init=False,
+        repr=False,
+    )
+    _premap_payload_cache_transition_issue_last_candidate_hash: str | None = field(
+        default=None,
+        init=False,
+        repr=False,
+    )
     _premap_payload_cache_transition_issue_error_count: int = field(
         default=0,
         init=False,
@@ -3519,11 +4078,42 @@ class VllmRouterRecorder:
         init=False,
         repr=False,
     )
+    _premap_payload_cache_transition_native_packet_layer_ids: set[int] = field(
+        default_factory=set,
+        init=False,
+        repr=False,
+    )
     _premap_payload_cache_transition_native_packet_ready_count: int = field(
         default=0,
         init=False,
         repr=False,
     )
+    _premap_payload_cache_transition_native_packet_previous_nonempty_count: int = field(
+        default=0,
+        init=False,
+        repr=False,
+    )
+    _premap_payload_cache_transition_native_packet_issue_candidate_count: int = field(
+        default=0,
+        init=False,
+        repr=False,
+    )
+    _premap_payload_cache_transition_native_packet_last_issue_candidate_count: int = (
+        field(default=0, init=False, repr=False)
+    )
+    _premap_payload_cache_transition_native_packet_last_issue_candidate_first_expert: int = field(
+        default=-1,
+        init=False,
+        repr=False,
+    )
+    _premap_payload_cache_transition_native_packet_last_issue_candidate_last_expert: int = field(
+        default=-1,
+        init=False,
+        repr=False,
+    )
+    _premap_payload_cache_transition_native_packet_last_issue_candidate_hash: (
+        str | None
+    ) = field(default=None, init=False, repr=False)
     _premap_payload_cache_transition_native_packet_last_hash: str | None = field(
         default=None,
         init=False,
@@ -3536,6 +4126,11 @@ class VllmRouterRecorder:
     )
     _premap_payload_cache_transition_native_packet_last_current_count: int = field(
         default=0,
+        init=False,
+        repr=False,
+    )
+    _premap_payload_cache_graph_visible_producer_state: dict[str, Any] = field(
+        default_factory=dict,
         init=False,
         repr=False,
     )
@@ -3804,15 +4399,29 @@ class VllmRouterRecorder:
         self._premap_payload_cache_transition_issue_attempt_count = 0
         self._premap_payload_cache_transition_issue_previous_nonempty_count = 0
         self._premap_payload_cache_transition_issue_descriptor_count = 0
+        self._clear_premap_payload_cache_transition_issue_candidate()
         self._premap_payload_cache_transition_issue_error_count = 0
         self._premap_payload_cache_transition_issue_last_error = None
         self._premap_payload_cache_transition_consumer_update_count = 0
         self._premap_payload_cache_transition_producer_update_count = 0
         self._premap_payload_cache_transition_native_packet_count = 0
+        self._premap_payload_cache_transition_native_packet_layer_ids.clear()
         self._premap_payload_cache_transition_native_packet_ready_count = 0
+        self._premap_payload_cache_transition_native_packet_previous_nonempty_count = 0
+        self._premap_payload_cache_transition_native_packet_issue_candidate_count = 0
+        self._premap_payload_cache_transition_native_packet_last_issue_candidate_count = 0
+        self._premap_payload_cache_transition_native_packet_last_issue_candidate_first_expert = -1
+        self._premap_payload_cache_transition_native_packet_last_issue_candidate_last_expert = -1
+        self._premap_payload_cache_transition_native_packet_last_issue_candidate_hash = (
+            None
+        )
         self._premap_payload_cache_transition_native_packet_last_hash = None
         self._premap_payload_cache_transition_native_packet_last_previous_count = 0
         self._premap_payload_cache_transition_native_packet_last_current_count = 0
+        # Do not clear graph-visible producer tensors here.  vLLM may capture
+        # the tensor pointers into a CUDA/HIP graph while clear() only resets
+        # per-sample Python bookkeeping.  Clearing would make the summary read a
+        # fresh state while graph replay keeps updating the old captured buffers.
         self.shadow_premap_event_token_index = int(
             self._configured_shadow_premap_event_token_index
         )
@@ -3824,6 +4433,12 @@ class VllmRouterRecorder:
         self.shadow_premap_event_sample_idx = None
         self.shadow_premap_event_record_id = None
         self._shadow_event_token_index_dynamic = False
+
+    def _clear_premap_payload_cache_transition_issue_candidate(self) -> None:
+        self._premap_payload_cache_transition_issue_last_candidate_count = 0
+        self._premap_payload_cache_transition_issue_last_candidate_first_expert = -1
+        self._premap_payload_cache_transition_issue_last_candidate_last_expert = -1
+        self._premap_payload_cache_transition_issue_last_candidate_hash = None
 
     def _maybe_export_premap_payload_cache_producer_state_packet(
         self,
@@ -3881,6 +4496,12 @@ class VllmRouterRecorder:
             f"_layer{int(layer_id)}.json"
         )
         payload = packet.as_dict()
+        payload.update(
+            {
+                "kernel_arg_pass": False,
+                "kernel_arg_pass_allowed": False,
+            }
+        )
         issue_count = int(packet.issue_candidate_count)
         issue_hash = str(packet.issue_candidate_hash)
         payload["_export_context"] = {
@@ -3923,6 +4544,7 @@ class VllmRouterRecorder:
             "payload_transfer_runtime_enabled": False,
             "payload_deref_allowed": False,
             "payload_deref_runtime_allowed": False,
+            "kernel_arg_pass": False,
             "kernel_arg_pass_allowed": False,
             "full_fetch_runtime_allowed": False,
             "live_runtime_instantiated": False,
@@ -4997,6 +5619,366 @@ class VllmRouterRecorder:
             }
         return False
 
+    def _apply_premap_payload_cache_graph_visible_producer_op(
+        self,
+        *,
+        layer_id: int,
+        expert_ids: torch.Tensor,
+        num_tokens_post_padded: torch.Tensor,
+        block_size: int,
+    ) -> None:
+        """Update producer transition counters through tensor ops.
+
+        The normal producer path extracts expert ids into Python and therefore
+        disappears after CUDA/HIP graph capture.  This path keeps only the
+        coarse transition-state counters in persistent tensors so a captured
+        graph can replay the state update without re-entering Python.  It is a
+        graph-visibility canary, not a payload/cache-manager execution path.
+        """
+
+        if not bool(self.shadow_premap_payload_cache_graph_visible_producer_enabled):
+            return
+        if not bool(self.shadow_emit_premap_payload_cache_manager_counters):
+            return
+        if not self._premap_payload_cache_transition_state_owner_allows("producer"):
+            return
+        if not isinstance(expert_ids, torch.Tensor) or not isinstance(
+            num_tokens_post_padded,
+            torch.Tensor,
+        ):
+            return
+        if int(expert_ids.ndim) != 1:
+            return
+        layer_int = int(layer_id)
+        if layer_int < 0:
+            return
+        block_size_int = max(1, int(block_size))
+        device = num_tokens_post_padded.device
+        dtype = torch.long
+        size = max(1024, layer_int + 1)
+        current_experts_per_layer = max(1, int(expert_ids.numel()))
+        state = self._premap_payload_cache_graph_visible_producer_state
+        existing_size = int(state.get("size", 0) or 0)
+        existing_experts_per_layer = int(state.get("experts_per_layer", 0) or 0)
+        device_changed = bool(state) and str(state.get("device")) != str(device)
+        needs_fresh_init = not state or device_changed
+
+        if needs_fresh_init:
+            state.clear()
+            state["device"] = str(device)
+            state["size"] = int(size)
+            state["experts_per_layer"] = int(current_experts_per_layer)
+            state["packet_count"] = torch.zeros(size, device=device, dtype=dtype)
+            state["previous_count"] = torch.zeros(size, device=device, dtype=dtype)
+            state["previous_expert_state"] = torch.full(
+                (size, current_experts_per_layer),
+                -1,
+                device=device,
+                dtype=dtype,
+            )
+            state["previous_nonempty_count"] = torch.zeros(
+                size,
+                device=device,
+                dtype=dtype,
+            )
+            state["issue_candidate_count"] = torch.zeros(
+                size,
+                device=device,
+                dtype=dtype,
+            )
+            state["layer_seen"] = torch.zeros(size, device=device, dtype=dtype)
+            state["last_current_count"] = torch.zeros(size, device=device, dtype=dtype)
+            state["last_issue_candidate_count"] = torch.zeros(
+                size,
+                device=device,
+                dtype=dtype,
+            )
+            state["last_issue_candidate_first_expert"] = torch.full(
+                (size,),
+                -1,
+                device=device,
+                dtype=dtype,
+            )
+            state["last_issue_candidate_last_expert"] = torch.full(
+                (size,),
+                -1,
+                device=device,
+                dtype=dtype,
+            )
+            state["issue_candidate_expert_sum"] = torch.zeros(
+                size,
+                device=device,
+                dtype=dtype,
+            )
+            state["last_issue_candidate_expert_sum"] = torch.zeros(
+                size,
+                device=device,
+                dtype=dtype,
+            )
+            state["idx_cache"] = {}
+            state["arange_cache"] = {}
+        else:
+            target_size = max(size, existing_size)
+            if target_size <= layer_int:
+                target_size = max(layer_int + 1, existing_size * 2)
+            target_experts_per_layer = max(
+                existing_experts_per_layer,
+                current_experts_per_layer,
+            )
+            resize_size = target_size != existing_size
+            resize_width = target_experts_per_layer != existing_experts_per_layer
+            if resize_size or resize_width:
+                old_size = existing_size
+                old_width = existing_experts_per_layer
+                for key, fill_value in (
+                    ("packet_count", 0),
+                    ("previous_count", 0),
+                    ("previous_nonempty_count", 0),
+                    ("issue_candidate_count", 0),
+                    ("layer_seen", 0),
+                    ("last_current_count", 0),
+                    ("last_issue_candidate_count", 0),
+                    ("last_issue_candidate_first_expert", -1),
+                    ("last_issue_candidate_last_expert", -1),
+                    ("issue_candidate_expert_sum", 0),
+                    ("last_issue_candidate_expert_sum", 0),
+                ):
+                    old_tensor = state.get(key)
+                    if not isinstance(old_tensor, torch.Tensor):
+                        continue
+                    if int(old_tensor.numel()) == target_size:
+                        continue
+                    new_tensor = torch.full(
+                        (target_size,),
+                        int(fill_value),
+                        device=device,
+                        dtype=dtype,
+                    )
+                    if old_size > 0:
+                        new_tensor[:old_size].copy_(old_tensor[:old_size])
+                    state[key] = new_tensor
+
+                old_previous_experts = state.get("previous_expert_state")
+                if isinstance(old_previous_experts, torch.Tensor):
+                    if (
+                        int(old_previous_experts.shape[0]) != target_size
+                        or int(old_previous_experts.shape[1]) != target_experts_per_layer
+                    ):
+                        new_previous_experts = torch.full(
+                            (target_size, target_experts_per_layer),
+                            -1,
+                            device=device,
+                            dtype=dtype,
+                        )
+                        rows = min(old_size, int(old_previous_experts.shape[0]))
+                        cols = min(old_width, int(old_previous_experts.shape[1]))
+                        if rows > 0 and cols > 0:
+                            new_previous_experts[:rows, :cols].copy_(
+                                old_previous_experts[:rows, :cols]
+                            )
+                        state["previous_expert_state"] = new_previous_experts
+                state["size"] = int(target_size)
+                state["experts_per_layer"] = int(target_experts_per_layer)
+                # Cached scalar/range tensors are cheap to rebuild and may carry
+                # stale layer/width keys after a resize.
+                state["idx_cache"] = {}
+                state["arange_cache"] = {}
+
+        experts_per_layer = int(state.get("experts_per_layer", 0) or 0)
+
+        idx_cache = state.setdefault("idx_cache", {})
+        idx_key = (str(device), layer_int)
+        idx = idx_cache.get(idx_key)
+        if idx is None:
+            idx = torch.tensor([layer_int], device=device, dtype=dtype)
+            idx_cache[idx_key] = idx
+
+        arange_cache = state.setdefault("arange_cache", {})
+        arange_key = (str(device), experts_per_layer)
+        expert_offsets = arange_cache.get(arange_key)
+        if expert_offsets is None:
+            expert_offsets = torch.arange(
+                experts_per_layer,
+                device=device,
+                dtype=dtype,
+            )
+            arange_cache[arange_key] = expert_offsets
+
+        previous_count = state["previous_count"]
+        prev = previous_count.index_select(0, idx)
+        one = torch.ones_like(prev)
+        state["packet_count"].index_add_(0, idx, one)
+        state["previous_nonempty_count"].index_add_(
+            0,
+            idx,
+            (prev > 0).to(dtype=dtype),
+        )
+        transition_topk_count = int(
+            self.shadow_transition_topk_count
+            if self.shadow_transition_topk_count is not None
+            else 0
+        )
+        if transition_topk_count <= 0:
+            issue_count = prev
+        else:
+            topk_tensor = torch.full_like(prev, transition_topk_count)
+            issue_count = torch.minimum(prev, topk_tensor)
+        previous_experts = state["previous_expert_state"].index_select(0, idx)
+        previous_row = previous_experts.reshape(-1)
+        issue_mask = expert_offsets < issue_count.reshape(())
+        issue_values = torch.where(
+            issue_mask,
+            previous_row,
+            torch.full_like(previous_row, -1),
+        )
+        valid_issue_values = torch.clamp(issue_values, min=0)
+        issue_expert_sum = valid_issue_values.sum().reshape(1)
+        issue_first = torch.where(
+            issue_count > 0,
+            previous_row.index_select(0, torch.zeros(1, device=device, dtype=dtype)),
+            torch.full_like(issue_count, -1),
+        )
+        issue_last_index = torch.clamp(issue_count - 1, min=0)
+        issue_last = torch.where(
+            issue_count > 0,
+            previous_row.index_select(0, issue_last_index),
+            torch.full_like(issue_count, -1),
+        )
+        state["issue_candidate_count"].index_add_(0, idx, issue_count)
+        state["last_issue_candidate_count"].index_copy_(0, idx, issue_count)
+        state["last_issue_candidate_first_expert"].index_copy_(0, idx, issue_first)
+        state["last_issue_candidate_last_expert"].index_copy_(0, idx, issue_last)
+        state["issue_candidate_expert_sum"].index_add_(0, idx, issue_expert_sum)
+        state["last_issue_candidate_expert_sum"].index_copy_(
+            0,
+            idx,
+            issue_expert_sum,
+        )
+        state["layer_seen"].index_fill_(0, idx, 1)
+
+        padded = num_tokens_post_padded.reshape(-1)[0].to(device=device, dtype=dtype)
+        current_count = torch.div(
+            padded + (block_size_int - 1),
+            block_size_int,
+            rounding_mode="floor",
+        ).reshape(1)
+        max_experts = torch.full_like(current_count, int(expert_ids.numel()))
+        current_count = torch.minimum(torch.clamp(current_count, min=0), max_experts)
+        current_expert_row = expert_ids.reshape(-1).to(device=device, dtype=dtype)
+        if int(current_expert_row.numel()) < experts_per_layer:
+            current_expert_row = torch.nn.functional.pad(
+                current_expert_row,
+                (0, experts_per_layer - int(current_expert_row.numel())),
+                value=-1,
+            )
+        elif int(current_expert_row.numel()) > experts_per_layer:
+            current_expert_row = current_expert_row[:experts_per_layer]
+        current_valid_mask = expert_offsets < current_count.reshape(())
+        current_expert_row = torch.where(
+            current_valid_mask,
+            current_expert_row,
+            torch.full_like(current_expert_row, -1),
+        )
+        state["previous_expert_state"].index_copy_(
+            0,
+            idx,
+            current_expert_row.reshape(1, -1),
+        )
+        previous_count.index_copy_(0, idx, current_count)
+        state["last_current_count"].index_copy_(0, idx, current_count)
+
+    def _snapshot_premap_payload_cache_graph_visible_producer_state(
+        self,
+    ) -> dict[str, Any]:
+        state = self._premap_payload_cache_graph_visible_producer_state
+        if not state:
+            return {
+                "present": False,
+                "enabled": bool(
+                    self.shadow_premap_payload_cache_graph_visible_producer_enabled
+                ),
+            }
+        packet_count = state.get("packet_count")
+        previous_nonempty_count = state.get("previous_nonempty_count")
+        issue_candidate_count = state.get("issue_candidate_count")
+        layer_seen = state.get("layer_seen")
+        last_current_count = state.get("last_current_count")
+        last_issue_candidate_count = state.get("last_issue_candidate_count")
+        last_issue_candidate_first_expert = state.get(
+            "last_issue_candidate_first_expert"
+        )
+        last_issue_candidate_last_expert = state.get(
+            "last_issue_candidate_last_expert"
+        )
+        issue_candidate_expert_sum = state.get("issue_candidate_expert_sum")
+        last_issue_candidate_expert_sum = state.get(
+            "last_issue_candidate_expert_sum"
+        )
+        tensors = (
+            packet_count,
+            previous_nonempty_count,
+            issue_candidate_count,
+            layer_seen,
+            last_current_count,
+            last_issue_candidate_count,
+            last_issue_candidate_first_expert,
+            last_issue_candidate_last_expert,
+            issue_candidate_expert_sum,
+            last_issue_candidate_expert_sum,
+        )
+        if not all(isinstance(item, torch.Tensor) for item in tensors):
+            return {
+                "present": False,
+                "enabled": bool(
+                    self.shadow_premap_payload_cache_graph_visible_producer_enabled
+                ),
+                "error": "state_tensor_missing",
+            }
+        packet_cpu = packet_count.detach().cpu()
+        prev_cpu = previous_nonempty_count.detach().cpu()
+        issue_cpu = issue_candidate_count.detach().cpu()
+        seen_cpu = layer_seen.detach().cpu()
+        current_cpu = last_current_count.detach().cpu()
+        last_issue_cpu = last_issue_candidate_count.detach().cpu()
+        first_cpu = last_issue_candidate_first_expert.detach().cpu()
+        last_cpu = last_issue_candidate_last_expert.detach().cpu()
+        issue_sum_cpu = issue_candidate_expert_sum.detach().cpu()
+        last_issue_sum_cpu = last_issue_candidate_expert_sum.detach().cpu()
+        return {
+            "present": True,
+            "has_packets": bool(int(packet_cpu.sum().item()) > 0),
+            "enabled": bool(
+                self.shadow_premap_payload_cache_graph_visible_producer_enabled
+            ),
+            "device": str(state.get("device")),
+            "size": int(state.get("size", 0) or 0),
+            "packet_count": int(packet_cpu.sum().item()),
+            "previous_nonempty_packet_count": int(prev_cpu.sum().item()),
+            "issue_candidate_count": int(issue_cpu.sum().item()),
+            "unique_layer_count": int(seen_cpu.sum().item()),
+            "experts_per_layer": int(current_cpu.max().item())
+            if int(current_cpu.numel()) > 0
+            else 0,
+            "last_issue_candidate_count": int(last_issue_cpu.max().item())
+            if int(last_issue_cpu.numel()) > 0
+            else 0,
+            "last_issue_candidate_first_expert": int(first_cpu.max().item())
+            if int(first_cpu.numel()) > 0
+            else -1,
+            "last_issue_candidate_last_expert": int(last_cpu.max().item())
+            if int(last_cpu.numel()) > 0
+            else -1,
+            "issue_candidate_expert_sum": int(issue_sum_cpu.sum().item()),
+            "last_issue_candidate_expert_sum": int(last_issue_sum_cpu.max().item())
+            if int(last_issue_sum_cpu.numel()) > 0
+            else 0,
+            "issue_generation_on_device": True,
+            "transition_state_on_device": True,
+            "python_transition_skipped": bool(
+                self.shadow_premap_payload_cache_graph_visible_producer_skip_python_transition
+            ),
+        }
+
     def _apply_premap_payload_cache_transition_and_demand(
         self,
         *,
@@ -5050,8 +6032,32 @@ class VllmRouterRecorder:
                 max_num_experts=int(self.shadow_num_experts),
             )
             self._premap_payload_cache_transition_native_packet_count += 1
+            self._premap_payload_cache_transition_native_packet_layer_ids.add(
+                int(layer_id)
+            )
             if bool(packet.ready):
                 self._premap_payload_cache_transition_native_packet_ready_count += 1
+            if int(packet.previous_expert_count) > 0:
+                self._premap_payload_cache_transition_native_packet_previous_nonempty_count += (
+                    1
+                )
+            packet_issue_count = int(packet.issue_candidate_count)
+            self._premap_payload_cache_transition_native_packet_issue_candidate_count += (
+                packet_issue_count
+            )
+            if packet_issue_count > 0:
+                self._premap_payload_cache_transition_native_packet_last_issue_candidate_count = (
+                    packet_issue_count
+                )
+                self._premap_payload_cache_transition_native_packet_last_issue_candidate_first_expert = int(
+                    packet.issue_candidate_first_expert
+                )
+                self._premap_payload_cache_transition_native_packet_last_issue_candidate_last_expert = int(
+                    packet.issue_candidate_last_expert
+                )
+                self._premap_payload_cache_transition_native_packet_last_issue_candidate_hash = str(
+                    packet.issue_candidate_hash
+                )
             self._premap_payload_cache_transition_native_packet_last_hash = (
                 packet.state_hash
             )
@@ -5086,6 +6092,7 @@ class VllmRouterRecorder:
         *,
         source: str | None,
     ) -> CacheManagerSnapshot | None:
+        self._clear_premap_payload_cache_transition_issue_candidate()
         if not self._premap_payload_cache_issue_source_allowed(source):
             return None
         manager = self._ensure_premap_payload_cache_manager()
@@ -5105,6 +6112,19 @@ class VllmRouterRecorder:
             keys.append(key)
         if not keys:
             return manager.snapshot()
+        issue_experts = tuple(int(expert_id) for _layer_idx, expert_id in keys)
+        self._premap_payload_cache_transition_issue_last_candidate_count = int(
+            len(issue_experts)
+        )
+        self._premap_payload_cache_transition_issue_last_candidate_first_expert = int(
+            issue_experts[0]
+        )
+        self._premap_payload_cache_transition_issue_last_candidate_last_expert = int(
+            issue_experts[-1]
+        )
+        self._premap_payload_cache_transition_issue_last_candidate_hash = (
+            _premap_payload_cache_issue_hash(issue_experts)
+        )
         if isinstance(manager, ReadyTimeExpertCacheManager):
             arrival_us = self._next_premap_payload_cache_arrival_us()
             for layer_idx, expert_id in keys:
@@ -5153,6 +6173,7 @@ class VllmRouterRecorder:
         layer_id: int,
         previous_experts: Iterable[int],
     ) -> CacheManagerSnapshot | None:
+        self._clear_premap_payload_cache_transition_issue_candidate()
         source = str(self.shadow_transition_premap_source)
         if not self._premap_payload_cache_issue_source_allowed(source):
             return None
@@ -5190,6 +6211,7 @@ class VllmRouterRecorder:
                 source=source,
             )
         except Exception as exc:
+            self._clear_premap_payload_cache_transition_issue_candidate()
             self._premap_payload_cache_transition_issue_error_count += 1
             self._premap_payload_cache_transition_issue_last_error = (
                 f"{type(exc).__name__}: {exc}"
@@ -5749,8 +6771,73 @@ class VllmRouterRecorder:
         self._premap_consumer_mapping_call_count += 1
         return (self._premap_consumer_mapping_call_count - 1) % sample_period == 0
 
-    def _premap_producer_minimal_identity_envelope_wanted(self) -> bool:
+    def _premap_producer_readonly_future_wna16_typed_slot_envelope_wanted(
+        self,
+    ) -> bool:
         return (
+            bool(
+                self.shadow_premap_kernel_arg_handoff_producer_future_wna16_typed_slot_envelope_enabled
+            )
+            and bool(
+                self.shadow_premap_kernel_arg_handoff_producer_gpu_assignment_envelope_enabled
+            )
+            and bool(
+                self.shadow_premap_kernel_arg_handoff_minimal_identity_envelope_enabled
+            )
+            and bool(self.shadow_premap_consumer_readonly_gate_required)
+            and self.shadow_premap_consumer_readonly_gate_passed is True
+            and bool(self.shadow_premap_kernel_arg_handoff_live_enabled)
+            and bool(self.shadow_premap_kernel_arg_handoff_live_consumer_connected)
+            and not bool(self.shadow_premap_kernel_arg_handoff_kernel_arg_pass_enabled)
+            and not bool(
+                self.shadow_premap_kernel_arg_handoff_real_kernel_arg_mutation_enabled
+            )
+            and not bool(
+                self.shadow_premap_kernel_arg_handoff_single_field_replacement_dry_run_enabled
+            )
+            and not bool(
+                self.shadow_premap_kernel_arg_handoff_single_field_replacement_live_enabled
+            )
+            and not bool(
+                self.shadow_premap_kernel_arg_handoff_single_field_replacement_allow_signature_mismatch_live
+            )
+            and str(
+                self.shadow_premap_kernel_arg_handoff_single_field_replacement_candidate_source
+            )
+            == "original_kernel_arg_identity"
+            and str(
+                self.shadow_premap_kernel_arg_handoff_prepared_table_materialization_mode
+            )
+            == "off"
+            and str(
+                self.shadow_premap_kernel_arg_handoff_gpu_assignment_validation_mode
+            )
+            == "trusted_refs"
+            and bool(
+                self.shadow_premap_kernel_arg_handoff_gpu_assignment_prelaunch_pointer_source_canary_enabled
+            )
+            and not bool(
+                self.shadow_premap_kernel_arg_handoff_gpu_assignment_kernel_variant_enabled
+            )
+            and not bool(
+                self.shadow_premap_kernel_arg_handoff_gpu_assignment_kernel_variant_trust_producer_refs
+            )
+            and not bool(
+                self.shadow_premap_kernel_arg_handoff_future_wna16_typed_slot_kernel_variant_enabled
+            )
+            and not bool(
+                self.shadow_premap_kernel_arg_handoff_future_wna16_typed_slot_slim_kernel_variant_enabled
+            )
+            and not bool(
+                self.shadow_premap_kernel_arg_handoff_future_wna16_typed_slot_strict_native_only
+            )
+            and not bool(
+                self.shadow_premap_kernel_arg_handoff_future_wna16_typed_slot_require_prepared_device_source
+            )
+        )
+
+    def _premap_producer_minimal_identity_envelope_wanted(self) -> bool:
+        mutation_envelope_wanted = (
             (
                 bool(
                     self.shadow_premap_kernel_arg_handoff_producer_minimal_identity_envelope_enabled
@@ -5787,6 +6874,10 @@ class VllmRouterRecorder:
                 self.shadow_premap_kernel_arg_handoff_future_wna16_typed_slot_slim_kernel_variant_enabled
             )
         )
+        return (
+            mutation_envelope_wanted
+            or self._premap_producer_readonly_future_wna16_typed_slot_envelope_wanted()
+        )
 
     def _install_premap_producer_minimal_identity_envelope(
         self,
@@ -5807,6 +6898,9 @@ class VllmRouterRecorder:
         future_typed_slot_envelope = bool(
             self.shadow_premap_kernel_arg_handoff_producer_future_wna16_typed_slot_envelope_enabled
         )
+        readonly_future_typed_slot_envelope = bool(
+            self._premap_producer_readonly_future_wna16_typed_slot_envelope_wanted()
+        )
         package_flag = (
             "producer_future_wna16_typed_slot_envelope"
             if future_typed_slot_envelope
@@ -5818,21 +6912,31 @@ class VllmRouterRecorder:
             else "producer_minimal_identity_envelope_v1"
         )
         package_source = (
-            "producer_future_wna16_typed_slot_live_kernel_arg_package"
+            "producer_future_wna16_typed_slot_readonly_live_package"
+            if readonly_future_typed_slot_envelope
+            else "producer_future_wna16_typed_slot_live_kernel_arg_package"
             if future_typed_slot_envelope
             else "producer_minimal_identity_live_kernel_arg_package"
         )
         existing_package = context.get("premap_kernel_arg_live_mutation_package")
         if isinstance(existing_package, dict) and bool(existing_package.get(package_flag)):
-            self._attach_premap_producer_gpu_assignment_envelope(
-                existing_package,
-                source=source,
-                available=available,
-                sorted_token_ids=sorted_token_ids,
-                expert_ids=expert_ids,
-                num_tokens_post_padded=num_tokens_post_padded,
-            )
-            return True
+            if readonly_future_typed_slot_envelope and (
+                str(existing_package.get("source") or "")
+                != "producer_future_wna16_typed_slot_readonly_live_package"
+                or str(existing_package.get("block_reason") or "")
+                != "kernel_arg_handoff_readonly_live_consumer"
+            ):
+                existing_package = None
+            else:
+                self._attach_premap_producer_gpu_assignment_envelope(
+                    existing_package,
+                    source=source,
+                    available=available,
+                    sorted_token_ids=sorted_token_ids,
+                    expert_ids=expert_ids,
+                    num_tokens_post_padded=num_tokens_post_padded,
+                )
+                return True
         field_name = str(
             self.shadow_premap_kernel_arg_handoff_single_field_replacement_field
         )
@@ -5853,7 +6957,11 @@ class VllmRouterRecorder:
             "table_object_hash": envelope_id,
             "launch_schema_mirror_hash": envelope_id,
             "adapter_hash": envelope_id,
-            "block_reason": "kernel_arg_handoff_real_kernel_arg_mutation_live",
+            "block_reason": (
+                "kernel_arg_handoff_readonly_live_consumer"
+                if readonly_future_typed_slot_envelope
+                else "kernel_arg_handoff_real_kernel_arg_mutation_live"
+            ),
             "table_object": None,
             "launch_args": None,
             "used": False,
@@ -5883,6 +6991,67 @@ class VllmRouterRecorder:
             )
         )
         return True
+
+    def _gpu_assignment_prelaunch_pointer_source_meta(
+        self,
+        tensor: torch.Tensor | None,
+    ) -> dict[str, Any]:
+        if tensor is None:
+            return {
+                "source_kind": "missing",
+                "ready_for_vllm_prelaunch_canary": False,
+                "meta": None,
+            }
+        meta = {
+            "device": str(tensor.device),
+            "dtype": str(tensor.dtype),
+            "ndim": int(tensor.ndim),
+            "shape": tuple(int(value) for value in tensor.shape),
+            "numel": int(tensor.numel()),
+            "is_cuda": bool(tensor.is_cuda),
+            "data_ptr": int(tensor.data_ptr()),
+        }
+        source_kind = (
+            "vllm_prelaunch_device_tensor"
+            if bool(tensor.is_cuda)
+            else "vllm_prelaunch_host_tensor"
+        )
+        return {
+            "source_kind": source_kind,
+            "ready_for_vllm_prelaunch_canary": bool(tensor.is_cuda),
+            "meta": meta,
+        }
+
+    def _record_gpu_assignment_prelaunch_pointer_source_observer(
+        self,
+        expert_ids: torch.Tensor | None,
+    ) -> None:
+        if not bool(
+            self.shadow_premap_kernel_arg_handoff_gpu_assignment_prelaunch_pointer_source_canary_enabled
+        ):
+            return
+        ptr_source = self._gpu_assignment_prelaunch_pointer_source_meta(expert_ids)
+        ptr_source_kind = str(ptr_source["source_kind"])
+        ptr_ready = bool(ptr_source["ready_for_vllm_prelaunch_canary"])
+        _increment_premap_kernel_arg_live_mutation_counter(
+            "gpu_assignment_prelaunch_current_expert_ptr_observer_seen_count"
+        )
+        if ptr_ready:
+            _increment_premap_kernel_arg_live_mutation_counter(
+                "gpu_assignment_prelaunch_current_expert_ptr_observer_available_count"
+            )
+        else:
+            _increment_premap_kernel_arg_live_mutation_counter(
+                "gpu_assignment_prelaunch_current_expert_ptr_observer_unavailable_count"
+            )
+        if ptr_source_kind == "vllm_prelaunch_device_tensor":
+            _increment_premap_kernel_arg_live_mutation_counter(
+                "gpu_assignment_prelaunch_current_expert_ptr_observer_vllm_device_count"
+            )
+        elif ptr_source_kind != "missing":
+            _increment_premap_kernel_arg_live_mutation_counter(
+                "gpu_assignment_prelaunch_current_expert_ptr_observer_non_device_count"
+            )
 
     def _attach_premap_producer_gpu_assignment_envelope(
         self,
@@ -5933,6 +7102,40 @@ class VllmRouterRecorder:
         package["producer_gpu_assignment_num_tokens_post_padded_meta"] = tensor_meta(
             num_tokens_post_padded
         )
+        if bool(
+            self.shadow_premap_kernel_arg_handoff_gpu_assignment_prelaunch_pointer_source_canary_enabled
+        ):
+            ptr_source = self._gpu_assignment_prelaunch_pointer_source_meta(expert_ids)
+            ptr_source_kind = str(ptr_source["source_kind"])
+            ptr_ready = bool(ptr_source["ready_for_vllm_prelaunch_canary"])
+            package["producer_gpu_assignment_current_expert_ptr_source_kind"] = (
+                ptr_source_kind
+            )
+            package[
+                "producer_gpu_assignment_current_expert_ptr_ready_for_vllm_prelaunch_canary"
+            ] = ptr_ready
+            package["producer_gpu_assignment_current_expert_ptr_meta"] = ptr_source[
+                "meta"
+            ]
+            _increment_premap_kernel_arg_live_mutation_counter(
+                "gpu_assignment_prelaunch_current_expert_ptr_seen_count"
+            )
+            if ptr_ready:
+                _increment_premap_kernel_arg_live_mutation_counter(
+                    "gpu_assignment_prelaunch_current_expert_ptr_available_count"
+                )
+            else:
+                _increment_premap_kernel_arg_live_mutation_counter(
+                    "gpu_assignment_prelaunch_current_expert_ptr_unavailable_count"
+                )
+            if ptr_source_kind == "vllm_prelaunch_device_tensor":
+                _increment_premap_kernel_arg_live_mutation_counter(
+                    "gpu_assignment_prelaunch_current_expert_ptr_vllm_device_count"
+                )
+            elif ptr_source_kind != "missing":
+                _increment_premap_kernel_arg_live_mutation_counter(
+                    "gpu_assignment_prelaunch_current_expert_ptr_non_device_count"
+                )
         _increment_premap_kernel_arg_live_mutation_counter(
             "package_producer_gpu_assignment_envelope_count"
         )
@@ -6421,6 +7624,19 @@ class VllmRouterRecorder:
                             == "producer_native_adapter"
                             and typed_slot_device is not None
                         ):
+                            table_object = package.get("table_object")
+                            source_prepared = (
+                                _premap_future_wna16_typed_slot_prepare_device_source(
+                                    table_object,
+                                    device=typed_slot_device,
+                                    signed_i64=True,
+                                )
+                                if table_object is not None
+                                else False
+                            )
+                            package[
+                                "future_wna16_typed_slot_producer_device_source_prepared"
+                            ] = bool(source_prepared)
                             attached = (
                                 _premap_attach_future_wna16_typed_slot_columns_to_package(
                                     package,
@@ -6613,6 +7829,16 @@ class VllmRouterRecorder:
                                     == "producer_native_adapter"
                                     and typed_slot_device is not None
                                 ):
+                                    source_prepared = (
+                                        _premap_future_wna16_typed_slot_prepare_device_source(
+                                            kernel_arg_shadow_table_object,
+                                            device=typed_slot_device,
+                                            signed_i64=True,
+                                        )
+                                    )
+                                    package[
+                                        "future_wna16_typed_slot_producer_device_source_prepared"
+                                    ] = bool(source_prepared)
                                     attached = (
                                         _premap_attach_future_wna16_typed_slot_columns_to_package(
                                             package,
@@ -10144,6 +11370,7 @@ class VllmRouterRecorder:
             and expert_ids.ndim == 1
             and int(sorted_token_ids.numel()) >= block_size
         )
+        self._record_gpu_assignment_prelaunch_pointer_source_observer(expert_ids)
         self._install_premap_producer_minimal_identity_envelope(
             layer_id=int(layer_id),
             block_size=int(block_size),
@@ -10153,9 +11380,18 @@ class VllmRouterRecorder:
             expert_ids=expert_ids,
             num_tokens_post_padded=num_tokens_post_padded,
         )
+        self._apply_premap_payload_cache_graph_visible_producer_op(
+            layer_id=int(layer_id),
+            expert_ids=expert_ids,
+            num_tokens_post_padded=num_tokens_post_padded,
+            block_size=int(block_size),
+        )
         if (
             wants_premap_payload_cache
             and self._premap_payload_cache_transition_state_owner_allows("producer")
+            and not bool(
+                self.shadow_premap_payload_cache_graph_visible_producer_skip_python_transition
+            )
         ):
             producer_active_experts: list[int] = []
             producer_handle_extracted = False
@@ -12280,6 +13516,22 @@ _PREMAP_KERNEL_ARG_LIVE_MUTATION_COUNTERS: dict[str, int] = {
     "gpu_assignment_trusted_refs_seen_count": 0,
     "gpu_assignment_trusted_refs_available_count": 0,
     "gpu_assignment_trusted_refs_unavailable_count": 0,
+    "gpu_assignment_prelaunch_current_expert_ptr_seen_count": 0,
+    "gpu_assignment_prelaunch_current_expert_ptr_available_count": 0,
+    "gpu_assignment_prelaunch_current_expert_ptr_unavailable_count": 0,
+    "gpu_assignment_prelaunch_current_expert_ptr_vllm_device_count": 0,
+    "gpu_assignment_prelaunch_current_expert_ptr_non_device_count": 0,
+    "gpu_assignment_prelaunch_current_expert_ptr_observer_seen_count": 0,
+    "gpu_assignment_prelaunch_current_expert_ptr_observer_available_count": 0,
+    "gpu_assignment_prelaunch_current_expert_ptr_observer_unavailable_count": 0,
+    "gpu_assignment_prelaunch_current_expert_ptr_observer_vllm_device_count": 0,
+    "gpu_assignment_prelaunch_current_expert_ptr_observer_non_device_count": 0,
+    "gpu_assignment_trusted_refs_prelaunch_current_expert_ptr_seen_count": 0,
+    "gpu_assignment_trusted_refs_prelaunch_current_expert_ptr_available_count": 0,
+    "gpu_assignment_trusted_refs_prelaunch_current_expert_ptr_unavailable_count": 0,
+    "gpu_assignment_trusted_refs_prelaunch_current_expert_ptr_vllm_device_count": 0,
+    "gpu_assignment_trusted_refs_prelaunch_current_expert_ptr_non_device_count": 0,
+    "gpu_assignment_trusted_refs_prelaunch_current_expert_ptr_ready_source_mismatch_count": 0,
     "gpu_assignment_kernel_variant_launch_count": 0,
     "gpu_assignment_kernel_variant_fallback_count": 0,
     "gpu_assignment_kernel_variant_identity_blocked_count": 0,
@@ -12325,6 +13577,15 @@ _PREMAP_KERNEL_ARG_LIVE_MUTATION_COUNTERS: dict[str, int] = {
     "future_wna16_typed_slot_native_row_fill_count": 0,
     "future_wna16_typed_slot_native_row_fill_row_count": 0,
     "future_wna16_typed_slot_fallback_dict_extract_count": 0,
+    "future_wna16_typed_slot_strict_native_only_block_count": 0,
+    "future_wna16_typed_slot_strict_native_only_fallback_block_count": 0,
+    "future_wna16_typed_slot_device_source_cache_hit_count": 0,
+    "future_wna16_typed_slot_device_source_materialization_count": 0,
+    "future_wna16_typed_slot_device_source_materialization_row_count": 0,
+    "future_wna16_typed_slot_producer_device_source_prepare_count": 0,
+    "future_wna16_typed_slot_producer_device_source_prepare_row_count": 0,
+    "future_wna16_typed_slot_producer_device_source_prepare_miss_count": 0,
+    "future_wna16_typed_slot_require_prepared_device_source_block_count": 0,
     "future_wna16_typed_slot_content_cache_hit_count": 0,
     "future_wna16_typed_slot_content_cache_hit_row_count": 0,
     "future_wna16_typed_slot_content_cache_miss_count": 0,
@@ -12577,6 +13838,47 @@ def _add_premap_kernel_arg_live_mutation_counter(key: str, amount: int) -> None:
     _PREMAP_KERNEL_ARG_LIVE_MUTATION_COUNTERS[key] += int(amount)
 
 
+def _record_premap_gpu_assignment_prelaunch_pointer_source_consumer_counters(
+    package: dict[str, Any],
+) -> None:
+    ptr_source_kind = package.get(
+        "producer_gpu_assignment_current_expert_ptr_source_kind"
+    )
+    if ptr_source_kind is None:
+        return
+    ptr_source_kind_str = str(ptr_source_kind)
+    declared_ptr_ready = bool(
+        package.get(
+            "producer_gpu_assignment_current_expert_ptr_ready_for_vllm_prelaunch_canary",
+            False,
+        )
+    )
+    ptr_ready = ptr_source_kind_str == "vllm_prelaunch_device_tensor"
+    _increment_premap_kernel_arg_live_mutation_counter(
+        "gpu_assignment_trusted_refs_prelaunch_current_expert_ptr_seen_count"
+    )
+    if declared_ptr_ready != ptr_ready:
+        _increment_premap_kernel_arg_live_mutation_counter(
+            "gpu_assignment_trusted_refs_prelaunch_current_expert_ptr_ready_source_mismatch_count"
+        )
+    if ptr_ready:
+        _increment_premap_kernel_arg_live_mutation_counter(
+            "gpu_assignment_trusted_refs_prelaunch_current_expert_ptr_available_count"
+        )
+    else:
+        _increment_premap_kernel_arg_live_mutation_counter(
+            "gpu_assignment_trusted_refs_prelaunch_current_expert_ptr_unavailable_count"
+        )
+    if ptr_source_kind_str == "vllm_prelaunch_device_tensor":
+        _increment_premap_kernel_arg_live_mutation_counter(
+            "gpu_assignment_trusted_refs_prelaunch_current_expert_ptr_vllm_device_count"
+        )
+    elif ptr_source_kind_str != "missing":
+        _increment_premap_kernel_arg_live_mutation_counter(
+            "gpu_assignment_trusted_refs_prelaunch_current_expert_ptr_non_device_count"
+        )
+
+
 def _increment_descriptor_order_native_consumer_counter(key: str) -> None:
     if key not in _DESCRIPTOR_ORDER_NATIVE_CONSUMER_COUNTERS:
         _DESCRIPTOR_ORDER_NATIVE_CONSUMER_COUNTERS[key] = 0
@@ -12640,10 +13942,57 @@ def _premap_future_wna16_typed_slot_prepared_columns_from_package(
     cache_key = str(device)
     cache = package.get("future_wna16_typed_slot_device_columns")
     if isinstance(cache, dict):
+        expected_row_count = int(
+            package.get("future_wna16_typed_slot_row_count", 0) or 0
+        )
+        expected_table_hash = str(
+            package.get("future_wna16_typed_slot_table_object_hash", "") or ""
+        )
+        has_identity_metadata = bool(expected_table_hash) and expected_row_count > 0
+        device_matches: list[
+            tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]
+        ] = []
         cached = cache.get(cache_key)
         if isinstance(cached, tuple) and len(cached) == 4:
-            return cached  # type: ignore[return-value]
+            if not has_identity_metadata:
+                return cached  # type: ignore[return-value]
+            device_matches.append(cached)  # type: ignore[arg-type]
+        for key, value in reversed(tuple(cache.items())):
+            if (
+                isinstance(key, tuple)
+                and len(key) == 3
+                and str(key[0]) == cache_key
+                and isinstance(value, tuple)
+                and len(value) == 4
+            ):
+                if (
+                    expected_row_count > 0
+                    and int(key[1]) == expected_row_count
+                    and expected_table_hash
+                    and str(key[2]) == expected_table_hash
+                ):
+                    return value  # type: ignore[return-value]
+                device_matches.append(value)  # type: ignore[arg-type]
+        if not has_identity_metadata and len(device_matches) == 1:
+            return device_matches[0]
     return None
+
+
+def _premap_future_wna16_typed_slot_store_prepared_columns_in_package(
+    package: dict[str, Any],
+    *,
+    device: torch.device,
+    row_count: int,
+    table_hash: str,
+    columns: tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor],
+) -> None:
+    package_device_columns = package.get("future_wna16_typed_slot_device_columns")
+    if not isinstance(package_device_columns, dict):
+        package_device_columns = {}
+        package["future_wna16_typed_slot_device_columns"] = package_device_columns
+    exact_key = (str(device), int(row_count), str(table_hash or ""))
+    package_device_columns[exact_key] = columns
+    package_device_columns[str(device)] = columns
 
 
 def _premap_next_power_of_two(value: int) -> int:
@@ -12668,6 +14017,66 @@ def _premap_future_wna16_typed_slot_values_from_native_input(
     if len(values_by_field) != 4:
         return None
     return tuple(values_by_field)  # type: ignore[return-value]
+
+
+def _premap_future_wna16_typed_slot_has_prepared_device_source(
+    table_object: Any,
+    *,
+    device: torch.device,
+    signed_i64: bool = True,
+) -> bool:
+    checker = getattr(
+        table_object,
+        "has_native_typed_consumer_device_tensor_columns",
+        None,
+    )
+    if checker is None:
+        return False
+    try:
+        return bool(checker(device=device, signed_i64=bool(signed_i64)))
+    except TypeError:
+        return False
+
+
+def _premap_future_wna16_typed_slot_prepare_device_source(
+    table_object: Any,
+    *,
+    device: torch.device,
+    signed_i64: bool = True,
+) -> bool:
+    preparer = getattr(
+        table_object,
+        "prepare_native_typed_consumer_device_tensor_columns",
+        None,
+    )
+    if preparer is None:
+        _increment_premap_kernel_arg_live_mutation_counter(
+            "future_wna16_typed_slot_producer_device_source_prepare_miss_count"
+        )
+        return False
+    row_count = int(getattr(table_object, "row_count", 0) or 0)
+    try:
+        prepared = int(
+            preparer(device=device, signed_i64=bool(signed_i64))
+        )
+    except TypeError:
+        _increment_premap_kernel_arg_live_mutation_counter(
+            "future_wna16_typed_slot_producer_device_source_prepare_miss_count"
+        )
+        return False
+    if prepared != row_count:
+        _increment_premap_kernel_arg_live_mutation_counter(
+            "future_wna16_typed_slot_producer_device_source_prepare_miss_count"
+        )
+        return False
+    _increment_premap_kernel_arg_live_mutation_counter(
+        "future_wna16_typed_slot_producer_device_source_prepare_count"
+    )
+    _add_premap_kernel_arg_live_mutation_counter(
+        "future_wna16_typed_slot_producer_device_source_prepare_row_count",
+        row_count,
+    )
+    return True
 
 
 def _premap_future_wna16_typed_slot_adapter_slot(
@@ -12696,11 +14105,7 @@ def _premap_future_wna16_typed_slot_adapter_slot(
                 torch.empty(capacity, dtype=torch.int64, device=device)
                 for _field_name in _PREMAP_FUTURE_WNA16_TYPED_SLOT_FIELD_NAMES
             )
-            host_columns = tuple(
-                torch.empty(capacity, dtype=torch.int64)
-                for _field_name in _PREMAP_FUTURE_WNA16_TYPED_SLOT_FIELD_NAMES
-            )
-            slots.append({"device_columns": device_columns, "host_columns": host_columns})
+            slots.append({"device_columns": device_columns, "host_columns": None})
         adapter = {
             "device": device_key,
             "capacity": int(capacity),
@@ -12754,11 +14159,13 @@ def _premap_attach_future_wna16_typed_slot_content_cache_hit_to_package(
     row_count = int(entry.get("row_count", 0) or 0)
     if row_count <= 0:
         return False
-    package_device_columns = package.get("future_wna16_typed_slot_device_columns")
-    if not isinstance(package_device_columns, dict):
-        package_device_columns = {}
-        package["future_wna16_typed_slot_device_columns"] = package_device_columns
-    package_device_columns[str(device)] = columns
+    _premap_future_wna16_typed_slot_store_prepared_columns_in_package(
+        package,
+        device=device,
+        row_count=row_count,
+        table_hash=table_hash,
+        columns=columns,
+    )
     package["future_wna16_typed_slot_row_count"] = int(row_count)
     package["future_wna16_typed_slot_source"] = "prepared_descriptor_address_table"
     package["future_wna16_typed_slot_table_object_hash"] = str(table_hash)
@@ -12895,11 +14302,40 @@ def _premap_attach_future_wna16_typed_slot_persistent_buffer_to_package(
     table_object: Any,
     table_hash: str,
 ) -> bool:
+    strict_native_only = bool(
+        getattr(
+            recorder,
+            "shadow_premap_kernel_arg_handoff_future_wna16_typed_slot_strict_native_only",
+            False,
+        )
+    )
+    require_prepared_device_source = bool(
+        getattr(
+            recorder,
+            "shadow_premap_kernel_arg_handoff_future_wna16_typed_slot_require_prepared_device_source",
+            False,
+        )
+    )
+    if require_prepared_device_source:
+        strict_native_only = True
     row_count = int(getattr(table_object, "row_count", 0) or 0)
     if row_count <= 0:
         rows = getattr(table_object, "rows", ())
         row_count = len(rows) if rows is not None else 0
     if row_count <= 0:
+        return False
+    source_ready = _premap_future_wna16_typed_slot_has_prepared_device_source(
+        table_object,
+        device=device,
+        signed_i64=True,
+    )
+    if require_prepared_device_source and not source_ready:
+        _increment_premap_kernel_arg_live_mutation_counter(
+            "future_wna16_typed_slot_require_prepared_device_source_block_count"
+        )
+        package["future_wna16_typed_slot_materialization_adapter"] = (
+            "require_prepared_device_source_blocked"
+        )
         return False
     content_cache_key = _premap_future_wna16_typed_slot_content_cache_key(
         device=device,
@@ -12924,8 +14360,67 @@ def _premap_attach_future_wna16_typed_slot_persistent_buffer_to_package(
         row_count=row_count,
     )
     device_columns = slot["device_columns"]
-    host_columns = slot["host_columns"]
-    if hasattr(table_object, "copy_native_typed_consumer_columns_to"):
+    host_columns = slot.get("host_columns")
+    device_copied = False
+    if hasattr(table_object, "copy_native_typed_consumer_columns_to_device"):
+        copied = int(
+            table_object.copy_native_typed_consumer_columns_to_device(
+                device_columns,
+                signed_i64=True,
+            )
+        )
+        if source_ready:
+            _increment_premap_kernel_arg_live_mutation_counter(
+                "future_wna16_typed_slot_device_source_cache_hit_count"
+            )
+        else:
+            _increment_premap_kernel_arg_live_mutation_counter(
+                "future_wna16_typed_slot_device_source_materialization_count"
+            )
+            _add_premap_kernel_arg_live_mutation_counter(
+                "future_wna16_typed_slot_device_source_materialization_row_count",
+                row_count,
+            )
+        if copied != row_count:
+            if strict_native_only:
+                _increment_premap_kernel_arg_live_mutation_counter(
+                    "future_wna16_typed_slot_strict_native_only_block_count"
+                )
+                _increment_premap_kernel_arg_live_mutation_counter(
+                    "future_wna16_typed_slot_strict_native_only_fallback_block_count"
+                )
+                package["future_wna16_typed_slot_materialization_adapter"] = (
+                    "strict_native_only_blocked_copy_mismatch"
+                )
+            return False
+        device_copied = True
+        _increment_premap_kernel_arg_live_mutation_counter(
+            "future_wna16_typed_slot_native_row_fill_count"
+        )
+        _add_premap_kernel_arg_live_mutation_counter(
+            "future_wna16_typed_slot_native_row_fill_row_count",
+            row_count,
+        )
+    elif hasattr(table_object, "copy_native_typed_consumer_columns_to"):
+        if strict_native_only:
+            _increment_premap_kernel_arg_live_mutation_counter(
+                "future_wna16_typed_slot_strict_native_only_block_count"
+            )
+            _increment_premap_kernel_arg_live_mutation_counter(
+                "future_wna16_typed_slot_strict_native_only_fallback_block_count"
+            )
+            package["future_wna16_typed_slot_materialization_adapter"] = (
+                "strict_native_only_blocked_legacy_column_copy"
+            )
+            return False
+        # Legacy host-staging path kept as hard fallback only; prefer _device path.
+        if host_columns is None:
+            host_capacity = int(slot["device_columns"][0].numel())
+            host_columns = tuple(
+                torch.empty(host_capacity, dtype=torch.int64)
+                for _field_name in _PREMAP_FUTURE_WNA16_TYPED_SLOT_FIELD_NAMES
+            )
+            slot["host_columns"] = host_columns
         copied = int(
             table_object.copy_native_typed_consumer_columns_to(
                 host_columns,
@@ -12942,11 +14437,29 @@ def _premap_attach_future_wna16_typed_slot_persistent_buffer_to_package(
             row_count,
         )
     else:
-        if not hasattr(table_object, "to_native_typed_consumer_input_dict"):
-            return False
         _increment_premap_kernel_arg_live_mutation_counter(
             "future_wna16_typed_slot_fallback_dict_extract_count"
         )
+        if strict_native_only:
+            _increment_premap_kernel_arg_live_mutation_counter(
+                "future_wna16_typed_slot_strict_native_only_block_count"
+            )
+            _increment_premap_kernel_arg_live_mutation_counter(
+                "future_wna16_typed_slot_strict_native_only_fallback_block_count"
+            )
+            package["future_wna16_typed_slot_materialization_adapter"] = (
+                "strict_native_only_blocked_dict_extract"
+            )
+            return False
+        if host_columns is None:
+            host_capacity = int(slot["device_columns"][0].numel())
+            host_columns = tuple(
+                torch.empty(host_capacity, dtype=torch.int64)
+                for _field_name in _PREMAP_FUTURE_WNA16_TYPED_SLOT_FIELD_NAMES
+            )
+            slot["host_columns"] = host_columns
+        if not hasattr(table_object, "to_native_typed_consumer_input_dict"):
+            return False
         native_input = table_object.to_native_typed_consumer_input_dict()
         values_by_field = _premap_future_wna16_typed_slot_values_from_native_input(
             native_input
@@ -12958,18 +14471,22 @@ def _premap_attach_future_wna16_typed_slot_persistent_buffer_to_package(
         for host_column, values in zip(host_columns, values_by_field, strict=True):
             for index, value in enumerate(values):
                 host_column[index] = int(value)
-    for device_column, host_column in zip(
-        device_columns,
-        host_columns,
-        strict=True,
-    ):
-        device_column[:row_count].copy_(host_column[:row_count], non_blocking=False)
+    if not device_copied:
+        # Legacy fallback: host staging + one-time copy into ring buffers.
+        for device_column, host_column in zip(
+            device_columns,
+            host_columns,
+            strict=True,
+        ):
+            device_column[:row_count].copy_(host_column[:row_count], non_blocking=False)
     active_columns = tuple(column[:row_count] for column in device_columns)
-    package_device_columns = package.get("future_wna16_typed_slot_device_columns")
-    if not isinstance(package_device_columns, dict):
-        package_device_columns = {}
-        package["future_wna16_typed_slot_device_columns"] = package_device_columns
-    package_device_columns[str(device)] = active_columns
+    _premap_future_wna16_typed_slot_store_prepared_columns_in_package(
+        package,
+        device=device,
+        row_count=row_count,
+        table_hash=table_hash,
+        columns=active_columns,
+    )
     package["future_wna16_typed_slot_row_count"] = int(row_count)
     package["future_wna16_typed_slot_source"] = "prepared_descriptor_address_table"
     package["future_wna16_typed_slot_table_object_hash"] = str(table_hash)
@@ -13001,33 +14518,116 @@ def _premap_attach_future_wna16_typed_slot_columns_to_package(
     device: torch.device,
     stage: str,
     recorder: VllmRouterRecorder | None = None,
+    strict_native_only: bool = False,
+    require_prepared_device_source: bool = False,
 ) -> bool:
+    strict_native_only = bool(strict_native_only) or bool(
+        getattr(
+            recorder,
+            "shadow_premap_kernel_arg_handoff_future_wna16_typed_slot_strict_native_only",
+            False,
+        )
+        if recorder is not None
+        else False
+    )
+    require_prepared_device_source = bool(require_prepared_device_source) or bool(
+        getattr(
+            recorder,
+            "shadow_premap_kernel_arg_handoff_future_wna16_typed_slot_require_prepared_device_source",
+            False,
+        )
+        if recorder is not None
+        else False
+    )
+    if require_prepared_device_source:
+        strict_native_only = True
     table_object = package.get("table_object")
+    if table_object is None:
+        _increment_premap_kernel_arg_live_mutation_counter(
+            "future_wna16_typed_slot_producer_materialization_miss_count"
+        )
+        return False
+
     rows = getattr(table_object, "rows", ())
-    if table_object is None or not rows:
+    if not rows:
         _increment_premap_kernel_arg_live_mutation_counter(
             "future_wna16_typed_slot_producer_materialization_miss_count"
         )
         return False
-    if not hasattr(table_object, "to_native_typed_consumer_input_dict"):
+
+    row_count = int(getattr(table_object, "row_count", 0) or 0)
+    if row_count <= 0:
+        row_count = len(rows) if rows is not None else 0
+    if row_count <= 0:
         _increment_premap_kernel_arg_live_mutation_counter(
             "future_wna16_typed_slot_producer_materialization_miss_count"
         )
         return False
-    cache_key = str(device)
+
+    table_hash = str(getattr(table_object, "object_hash", "") or "")
+    cache_key = (str(device), int(row_count), str(table_hash or ""))
+    source_ready = _premap_future_wna16_typed_slot_has_prepared_device_source(
+        table_object,
+        device=device,
+        signed_i64=True,
+    )
+    if require_prepared_device_source and not source_ready:
+        _increment_premap_kernel_arg_live_mutation_counter(
+            "future_wna16_typed_slot_require_prepared_device_source_block_count"
+        )
+        package["future_wna16_typed_slot_materialization_adapter"] = (
+            "require_prepared_device_source_blocked"
+        )
+        _increment_premap_kernel_arg_live_mutation_counter(
+            "future_wna16_typed_slot_producer_materialization_miss_count"
+        )
+        return False
+    has_native_api = (
+        hasattr(table_object, "copy_native_typed_consumer_columns_to_device")
+        if strict_native_only
+        else (
+            hasattr(table_object, "copy_native_typed_consumer_columns_to_device")
+            or hasattr(table_object, "copy_native_typed_consumer_columns_to")
+            or hasattr(table_object, "to_native_typed_consumer_input_dict")
+        )
+    )
+    if not has_native_api:
+        if strict_native_only:
+            _increment_premap_kernel_arg_live_mutation_counter(
+                "future_wna16_typed_slot_strict_native_only_block_count"
+            )
+            if hasattr(
+                table_object,
+                "copy_native_typed_consumer_columns_to",
+            ) or hasattr(table_object, "to_native_typed_consumer_input_dict"):
+                _increment_premap_kernel_arg_live_mutation_counter(
+                    "future_wna16_typed_slot_strict_native_only_fallback_block_count"
+                )
+            package["future_wna16_typed_slot_materialization_adapter"] = (
+                "strict_native_only_blocked_missing_device_copy"
+            )
+        _increment_premap_kernel_arg_live_mutation_counter(
+            "future_wna16_typed_slot_producer_materialization_miss_count"
+        )
+        return False
+
     device_columns = package.get("future_wna16_typed_slot_device_columns")
     if not isinstance(device_columns, dict):
         device_columns = {}
         package["future_wna16_typed_slot_device_columns"] = device_columns
+
     cached = device_columns.get(cache_key)
     if isinstance(cached, tuple) and len(cached) == 4:
-        package["future_wna16_typed_slot_materialization_stage"] = str(stage)
-        _increment_premap_kernel_arg_live_mutation_counter(
-            "future_wna16_typed_slot_producer_materialization_cache_hit_count"
-        )
-        return True
+        if len(cached[0]) >= row_count:
+            package["future_wna16_typed_slot_materialization_stage"] = str(stage)
+            package["future_wna16_typed_slot_materialization_adapter"] = (
+                "cache_hit_future_wna16_typed_slot_columns"
+            )
+            _increment_premap_kernel_arg_live_mutation_counter(
+                "future_wna16_typed_slot_producer_materialization_cache_hit_count"
+            )
+            return True
 
-    table_hash = str(getattr(table_object, "object_hash", "") or "")
     if recorder is not None:
         attached = _premap_attach_future_wna16_typed_slot_persistent_buffer_to_package(
             package,
@@ -13047,38 +14647,145 @@ def _premap_attach_future_wna16_typed_slot_columns_to_package(
         )
         return False
 
-    native_input = table_object.to_native_typed_consumer_input_dict()
-    values_by_field = _premap_future_wna16_typed_slot_values_from_native_input(
-        native_input
+    capacity = _premap_next_power_of_two(max(1, row_count))
+    device_columns_local = tuple(
+        torch.empty(int(capacity), dtype=torch.int64, device=device)
+        for _field_name in _PREMAP_FUTURE_WNA16_TYPED_SLOT_FIELD_NAMES
     )
-    if values_by_field is None:
-        _increment_premap_kernel_arg_live_mutation_counter(
-            "future_wna16_typed_slot_producer_materialization_miss_count"
+
+    if hasattr(table_object, "copy_native_typed_consumer_columns_to_device"):
+        copied = int(
+            table_object.copy_native_typed_consumer_columns_to_device(
+                device_columns_local,
+                signed_i64=True,
+            )
         )
-        return False
-    columns: list[torch.Tensor] = []
-    for values in values_by_field:
-        columns.append(torch.tensor(values, dtype=torch.int64, device=device))
-    result = tuple(columns)
-    if len(result) != 4:
-        _increment_premap_kernel_arg_live_mutation_counter(
-            "future_wna16_typed_slot_producer_materialization_miss_count"
+        if source_ready:
+            _increment_premap_kernel_arg_live_mutation_counter(
+                "future_wna16_typed_slot_device_source_cache_hit_count"
+            )
+        else:
+            _increment_premap_kernel_arg_live_mutation_counter(
+                "future_wna16_typed_slot_device_source_materialization_count"
+            )
+            _add_premap_kernel_arg_live_mutation_counter(
+                "future_wna16_typed_slot_device_source_materialization_row_count",
+                row_count,
+            )
+        if copied != row_count:
+            if strict_native_only:
+                _increment_premap_kernel_arg_live_mutation_counter(
+                    "future_wna16_typed_slot_strict_native_only_block_count"
+                )
+                _increment_premap_kernel_arg_live_mutation_counter(
+                    "future_wna16_typed_slot_strict_native_only_fallback_block_count"
+                )
+                package["future_wna16_typed_slot_materialization_adapter"] = (
+                    "strict_native_only_blocked_copy_mismatch"
+                )
+            _increment_premap_kernel_arg_live_mutation_counter(
+                "future_wna16_typed_slot_producer_materialization_miss_count"
+            )
+            return False
+        package["future_wna16_typed_slot_materialization_adapter"] = (
+            "prepared_native_typed_slot_columns"
         )
-        return False
-    device_columns[cache_key] = result
-    package["future_wna16_typed_slot_row_count"] = int(result[0].numel())
+    elif hasattr(table_object, "copy_native_typed_consumer_columns_to"):
+        if strict_native_only:
+            _increment_premap_kernel_arg_live_mutation_counter(
+                "future_wna16_typed_slot_strict_native_only_block_count"
+            )
+            _increment_premap_kernel_arg_live_mutation_counter(
+                "future_wna16_typed_slot_strict_native_only_fallback_block_count"
+            )
+            package["future_wna16_typed_slot_materialization_adapter"] = (
+                "strict_native_only_blocked_legacy_column_copy"
+            )
+            _increment_premap_kernel_arg_live_mutation_counter(
+                "future_wna16_typed_slot_producer_materialization_miss_count"
+            )
+            return False
+        copied = int(
+            table_object.copy_native_typed_consumer_columns_to(
+                device_columns_local,
+                signed_i64=True,
+            )
+        )
+        if copied != row_count:
+            _increment_premap_kernel_arg_live_mutation_counter(
+                "future_wna16_typed_slot_producer_materialization_miss_count"
+            )
+            return False
+        package["future_wna16_typed_slot_materialization_adapter"] = (
+            "prepared_native_typed_slot_columns"
+        )
+    else:
+        if strict_native_only:
+            _increment_premap_kernel_arg_live_mutation_counter(
+                "future_wna16_typed_slot_strict_native_only_block_count"
+            )
+            _increment_premap_kernel_arg_live_mutation_counter(
+                "future_wna16_typed_slot_strict_native_only_fallback_block_count"
+            )
+            package["future_wna16_typed_slot_materialization_adapter"] = (
+                "strict_native_only_blocked_dict_extract"
+            )
+            _increment_premap_kernel_arg_live_mutation_counter(
+                "future_wna16_typed_slot_producer_materialization_miss_count"
+            )
+            return False
+        values_by_field = _premap_future_wna16_typed_slot_values_from_native_input(
+            table_object.to_native_typed_consumer_input_dict()
+        )
+        if values_by_field is None:
+            _increment_premap_kernel_arg_live_mutation_counter(
+                "future_wna16_typed_slot_producer_materialization_miss_count"
+            )
+            return False
+        if len(values_by_field[0]) != row_count:
+            _increment_premap_kernel_arg_live_mutation_counter(
+                "future_wna16_typed_slot_producer_materialization_miss_count"
+            )
+            return False
+        for device_column, values in zip(
+            device_columns_local,
+            values_by_field,
+            strict=True,
+        ):
+            for index, value in enumerate(values[:row_count]):
+                device_column[index] = int(value)
+        package["future_wna16_typed_slot_materialization_adapter"] = (
+            "prepared_native_column_values"
+        )
+        _increment_premap_kernel_arg_live_mutation_counter(
+            "future_wna16_typed_slot_fallback_tensor_materialization_count"
+        )
+
+    _increment_premap_kernel_arg_live_mutation_counter(
+        "future_wna16_typed_slot_native_row_fill_count"
+    )
+    _add_premap_kernel_arg_live_mutation_counter(
+        "future_wna16_typed_slot_native_row_fill_row_count",
+        row_count,
+    )
+
+    result = tuple(column[:row_count] for column in device_columns_local)
+    package["future_wna16_typed_slot_row_count"] = int(row_count)
     package["future_wna16_typed_slot_source"] = "prepared_descriptor_address_table"
     package["future_wna16_typed_slot_table_object_hash"] = table_hash
     package["future_wna16_typed_slot_materialization_stage"] = str(stage)
-    package["future_wna16_typed_slot_materialization_adapter"] = "fallback_torch_tensor"
+    package["future_wna16_typed_slot_buffer_capacity"] = int(capacity)
+    _premap_future_wna16_typed_slot_store_prepared_columns_in_package(
+        package,
+        device=device,
+        row_count=row_count,
+        table_hash=table_hash,
+        columns=result,
+    )
     _increment_premap_kernel_arg_live_mutation_counter(
         "future_wna16_typed_slot_producer_materialization_count"
     )
-    _increment_premap_kernel_arg_live_mutation_counter(
-        "future_wna16_typed_slot_fallback_tensor_materialization_count"
-    )
     return True
-
 
 def _kernel_arg_value_signature(value: Any) -> str:
     """Runtime identity signature for dry-run kernel-arg parity checks."""
@@ -17367,7 +19074,92 @@ def patch_vllm_qwen35_moe_router_trace() -> None:
                     )
                     and layer_id_for_timing is not None
                 )
+                readonly_live_consumer_runtime_enabled = (
+                    recorder_for_config is not None
+                    and layer_id_for_timing is not None
+                    and bool(
+                        recorder_for_config.shadow_premap_kernel_arg_handoff_live_enabled
+                    )
+                    and bool(
+                        recorder_for_config.shadow_premap_kernel_arg_handoff_live_consumer_connected
+                    )
+                    and bool(
+                        recorder_for_config.shadow_premap_kernel_arg_handoff_producer_future_wna16_typed_slot_envelope_enabled
+                    )
+                    and bool(
+                        recorder_for_config.shadow_premap_kernel_arg_handoff_producer_gpu_assignment_envelope_enabled
+                    )
+                    and bool(
+                        recorder_for_config.shadow_premap_kernel_arg_handoff_minimal_identity_envelope_enabled
+                    )
+                    and bool(
+                        recorder_for_config.shadow_premap_consumer_readonly_gate_required
+                    )
+                    and recorder_for_config.shadow_premap_consumer_readonly_gate_passed
+                    is True
+                    and not bool(
+                        recorder_for_config.shadow_premap_kernel_arg_handoff_kernel_arg_pass_enabled
+                    )
+                    and not bool(
+                        recorder_for_config.shadow_premap_kernel_arg_handoff_real_kernel_arg_mutation_enabled
+                    )
+                    and not bool(
+                        recorder_for_config.shadow_premap_kernel_arg_handoff_single_field_replacement_dry_run_enabled
+                    )
+                    and not bool(
+                        recorder_for_config.shadow_premap_kernel_arg_handoff_single_field_replacement_live_enabled
+                    )
+                    and not bool(
+                        recorder_for_config.shadow_premap_kernel_arg_handoff_single_field_replacement_allow_signature_mismatch_live
+                    )
+                    and str(
+                        recorder_for_config.shadow_premap_kernel_arg_handoff_single_field_replacement_candidate_source
+                    )
+                    == "original_kernel_arg_identity"
+                    and str(
+                        recorder_for_config.shadow_premap_kernel_arg_handoff_prepared_table_materialization_mode
+                    )
+                    == "off"
+                    and str(
+                        recorder_for_config.shadow_premap_kernel_arg_handoff_gpu_assignment_validation_mode
+                    ).strip().lower()
+                    == "trusted_refs"
+                    and bool(
+                        recorder_for_config.shadow_premap_kernel_arg_handoff_gpu_assignment_prelaunch_pointer_source_canary_enabled
+                    )
+                    and not bool(
+                        recorder_for_config.shadow_premap_kernel_arg_handoff_gpu_assignment_kernel_variant_enabled
+                    )
+                    and not bool(
+                        recorder_for_config.shadow_premap_kernel_arg_handoff_gpu_assignment_kernel_variant_trust_producer_refs
+                    )
+                    and not bool(
+                        recorder_for_config.shadow_premap_kernel_arg_handoff_future_wna16_typed_slot_kernel_variant_enabled
+                    )
+                    and not bool(
+                        recorder_for_config.shadow_premap_kernel_arg_handoff_future_wna16_typed_slot_slim_kernel_variant_enabled
+                    )
+                    and not bool(
+                        recorder_for_config.shadow_premap_kernel_arg_handoff_future_wna16_typed_slot_strict_native_only
+                    )
+                    and not bool(
+                        recorder_for_config.shadow_premap_kernel_arg_handoff_future_wna16_typed_slot_require_prepared_device_source
+                    )
+                )
+                live_package_runtime_enabled = (
+                    real_mutation_runtime_enabled
+                    or readonly_live_consumer_runtime_enabled
+                )
+                expected_live_package_block_reasons: set[str] = set()
                 if real_mutation_runtime_enabled:
+                    expected_live_package_block_reasons.add(
+                        "kernel_arg_handoff_real_kernel_arg_mutation_live"
+                    )
+                if readonly_live_consumer_runtime_enabled:
+                    expected_live_package_block_reasons.add(
+                        "kernel_arg_handoff_readonly_live_consumer"
+                    )
+                if live_package_runtime_enabled:
                     if not isinstance(live_mutation_package_meta, dict):
                         _increment_premap_kernel_arg_live_mutation_counter(
                             "package_missing_count"
@@ -17387,20 +19179,37 @@ def patch_vllm_qwen35_moe_router_trace() -> None:
                                 live_mutation_package_meta.get("block_reason")
                                 or ""
                             )
-                            != "kernel_arg_handoff_real_kernel_arg_mutation_live"
+                            not in expected_live_package_block_reasons
+                        ):
+                            _increment_premap_kernel_arg_live_mutation_counter(
+                                "package_block_reason_mismatch_count"
+                            )
+                        elif (
+                            readonly_live_consumer_runtime_enabled
+                            and str(live_mutation_package_meta.get("source") or "")
+                            != "producer_future_wna16_typed_slot_readonly_live_package"
                         ):
                             _increment_premap_kernel_arg_live_mutation_counter(
                                 "package_block_reason_mismatch_count"
                             )
                 use_live_mutation_package = (
-                    real_mutation_runtime_enabled
+                    live_package_runtime_enabled
                     and isinstance(live_mutation_package_meta, dict)
                     and int(live_mutation_package_meta.get("layer_id", -1))
                     == int(layer_id_for_timing)
                     and str(live_mutation_package_meta.get("block_reason") or "")
-                    == "kernel_arg_handoff_real_kernel_arg_mutation_live"
+                    in expected_live_package_block_reasons
+                    and (
+                        not readonly_live_consumer_runtime_enabled
+                        or str(live_mutation_package_meta.get("source") or "")
+                        == "producer_future_wna16_typed_slot_readonly_live_package"
+                    )
                 )
                 if use_live_mutation_package:
+                    readonly_live_package = (
+                        str(live_mutation_package_meta.get("block_reason") or "")
+                        == "kernel_arg_handoff_readonly_live_consumer"
+                    )
                     gpu_assignment_identity_ok: bool | None = None
                     if bool(
                         live_mutation_package_meta.get(
@@ -17435,6 +19244,13 @@ def patch_vllm_qwen35_moe_router_trace() -> None:
                             else:
                                 _increment_premap_kernel_arg_live_mutation_counter(
                                     "gpu_assignment_trusted_refs_unavailable_count"
+                                )
+                            if (
+                                "producer_gpu_assignment_current_expert_ptr_source_kind"
+                                in live_mutation_package_meta
+                            ):
+                                _record_premap_gpu_assignment_prelaunch_pointer_source_consumer_counters(
+                                    live_mutation_package_meta
                                 )
                             live_mutation_package_meta[
                                 "producer_gpu_assignment_consumer_identity_ok"
@@ -17804,6 +19620,9 @@ def patch_vllm_qwen35_moe_router_trace() -> None:
                                 )
                         live_mutation_package_meta["used"] = True
                         live_mutation_package_meta["status"] = (
+                            "readonly_live_consumer_pass_through_original_wna16"
+                            if readonly_live_package
+                            else
                             "pass_through_original_wna16_fast_identity"
                             if identity_fast_path
                             else "pass_through_original_wna16_fast"
@@ -17813,6 +19632,9 @@ def patch_vllm_qwen35_moe_router_trace() -> None:
                         )
                         emit_wna16_launch_part(
                             part=(
+                                "kernel_arg_readonly_live_package_pass_through"
+                                if readonly_live_package
+                                else
                                 "kernel_arg_live_package_pass_through_fast_identity"
                                 if identity_fast_path
                                 else "kernel_arg_live_package_pass_through_fast"
@@ -18596,6 +20418,75 @@ def _patch_vllm_warning_once_scope_import_for_trace() -> bool:
     return True
 
 
+def _prewarm_rocm_torch_cuda_for_vllm_import() -> bool:
+    """Initialize ROCm torch.cuda before vLLM's ROCm platform probe.
+
+    Some local ROCm/vLLM builds fail their AMDSMI GCN-arch probe and then query
+    ``torch.cuda`` during ``vllm`` import.  In those builds a direct vLLM import
+    can report no GPUs, while a prior torch CUDA device query succeeds and makes
+    the same import stable.  Keep this as a narrow trace-process prewarm: it does
+    not select devices or alter model execution.
+    """
+
+    debug = str(os.environ.get("MTP_DEBUG_ROCM_PREWARM", "")).lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }
+    if not torch.version.hip:
+        if debug:
+            print("[mtp-rocm-prewarm] skipped: torch.version.hip is false", file=sys.stderr)
+        return False
+    try:
+        device_count = int(torch.cuda.device_count())
+        available = bool(torch.cuda.is_available())
+        if debug:
+            print(
+                "[mtp-rocm-prewarm] "
+                f"device_count={device_count} is_available={available}",
+                file=sys.stderr,
+            )
+        if device_count <= 0:
+            return False
+        _ = torch.cuda.get_device_properties(0)
+    except Exception as exc:
+        if debug:
+            print(
+                f"[mtp-rocm-prewarm] failed: {type(exc).__name__}: {exc}",
+                file=sys.stderr,
+            )
+        return False
+    if debug:
+        print("[mtp-rocm-prewarm] ok", file=sys.stderr)
+    return True
+
+
+def _debug_rocm_torch_cuda_state(label: str) -> None:
+    debug = str(os.environ.get("MTP_DEBUG_ROCM_PREWARM", "")).lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }
+    if not debug or not torch.version.hip:
+        return
+    try:
+        device_count = int(torch.cuda.device_count())
+        available = bool(torch.cuda.is_available())
+    except Exception as exc:
+        print(
+            f"[mtp-rocm-state] {label}: failed {type(exc).__name__}: {exc}",
+            file=sys.stderr,
+        )
+        return
+    print(
+        f"[mtp-rocm-state] {label}: "
+        f"device_count={device_count} is_available={available}",
+        file=sys.stderr,
+    )
+
+
 def _extract_text(record: dict[str, Any]) -> str:
     text = record.get("text")
     if isinstance(text, str) and text:
@@ -18882,6 +20773,12 @@ def _apply_premap_consumer_readonly_gate(
             False,
         )
     )
+    gpu_assignment_prelaunch_pointer_source_canary_enabled = bool(
+        options.get(
+            "premap_kernel_arg_handoff_gpu_assignment_prelaunch_pointer_source_canary_enabled",
+            False,
+        )
+    )
     gpu_assignment_validation_mode = str(
         options.get(
             "premap_kernel_arg_handoff_gpu_assignment_validation_mode",
@@ -18909,6 +20806,18 @@ def _apply_premap_consumer_readonly_gate(
     future_wna16_typed_slot_slim_kernel_variant_enabled = bool(
         options.get(
             "premap_kernel_arg_handoff_future_wna16_typed_slot_slim_kernel_variant_enabled",
+            False,
+        )
+    )
+    future_wna16_typed_slot_strict_native_only = bool(
+        options.get(
+            "premap_kernel_arg_handoff_future_wna16_typed_slot_strict_native_only",
+            False,
+        )
+    )
+    future_wna16_typed_slot_require_prepared_device_source = bool(
+        options.get(
+            "premap_kernel_arg_handoff_future_wna16_typed_slot_require_prepared_device_source",
             False,
         )
     )
@@ -19137,6 +21046,25 @@ def _apply_premap_consumer_readonly_gate(
         )
         raise ValueError(msg)
     if (
+        future_wna16_typed_slot_strict_native_only
+        and not producer_future_wna16_typed_slot_envelope_enabled
+    ):
+        msg = (
+            "premap_kernel_arg_handoff_future_wna16_typed_slot_strict_native_only=True "
+            "requires "
+            "premap_kernel_arg_handoff_producer_future_wna16_typed_slot_envelope_enabled=True."
+        )
+        raise ValueError(msg)
+    if future_wna16_typed_slot_require_prepared_device_source and (
+        not future_wna16_typed_slot_strict_native_only
+    ):
+        msg = (
+            "premap_kernel_arg_handoff_future_wna16_typed_slot_require_prepared_device_source=True "
+            "requires "
+            "premap_kernel_arg_handoff_future_wna16_typed_slot_strict_native_only=True."
+        )
+        raise ValueError(msg)
+    if (
         future_wna16_typed_slot_kernel_variant_enabled
         and future_wna16_typed_slot_slim_kernel_variant_enabled
     ):
@@ -19210,6 +21138,42 @@ def _apply_premap_consumer_readonly_gate(
         producer_minimal_identity_envelope_enabled
         or producer_future_wna16_typed_slot_envelope_enabled
     )
+    readonly_producer_fast_envelope_common = (
+        producer_fast_envelope_enabled
+        and not producer_minimal_identity_envelope_enabled
+        and producer_future_wna16_typed_slot_envelope_enabled
+        and producer_gpu_assignment_envelope_enabled
+        and minimal_identity_envelope_enabled
+        and not kernel_arg_pass_enabled
+        and not real_kernel_arg_mutation_enabled
+        and not single_field_replacement_dry_run_enabled
+        and not single_field_replacement_live_enabled
+        and not single_field_replacement_allow_signature_mismatch_live
+        and single_field_replacement_candidate_source
+        == "original_kernel_arg_identity"
+        and prepared_table_materialization_mode == "off"
+        and gpu_assignment_validation_mode == "trusted_refs"
+        and gpu_assignment_prelaunch_pointer_source_canary_enabled
+        and not gpu_assignment_kernel_variant_enabled
+        and not gpu_assignment_kernel_variant_trust_producer_refs
+        and not future_wna16_typed_slot_kernel_variant_enabled
+        and not future_wna16_typed_slot_slim_kernel_variant_enabled
+        and not future_wna16_typed_slot_strict_native_only
+        and not future_wna16_typed_slot_require_prepared_device_source
+    )
+    readonly_producer_fast_envelope_enabled = (
+        readonly_producer_fast_envelope_common
+        and (
+            (not live_handoff_enabled and not live_consumer_connected)
+            or (live_handoff_enabled and live_consumer_connected)
+        )
+    )
+    if readonly_producer_fast_envelope_enabled and not require_gate:
+        msg = (
+            "readonly producer future_wna16 typed-slot envelope requires "
+            "premap_consumer_require_readonly_gate=True."
+        )
+        raise ValueError(msg)
     live_config_only_no_rows_enabled = bool(
         options.get("premap_consumer_readonly_gate_live_config_only_no_rows", False)
     )
@@ -19239,7 +21203,10 @@ def _apply_premap_consumer_readonly_gate(
                 "requires premap_consumer_resolve_real_handles=False."
             )
             raise ValueError(msg)
-    if producer_fast_envelope_enabled and (
+    if (
+        producer_fast_envelope_enabled
+        and not readonly_producer_fast_envelope_enabled
+        and (
         not minimal_identity_envelope_enabled
         or not live_handoff_enabled
         or not live_consumer_connected
@@ -19249,6 +21216,7 @@ def _apply_premap_consumer_readonly_gate(
         or not single_field_replacement_live_enabled
         or single_field_replacement_candidate_source != "original_kernel_arg_identity"
         or single_field_replacement_allow_signature_mismatch_live
+        )
     ):
         msg = (
             "producer_minimal_identity_envelope_enabled=True or "
@@ -20309,6 +22277,7 @@ def _shadow_sequence_id(record: dict[str, Any], options: dict[str, Any]) -> int:
 def trace_router_mtp_vllm(config_path: str | Path) -> Path:
     trace_wall_start_ns = time.perf_counter_ns()
     config_path = Path(config_path)
+    _debug_rocm_torch_cuda_state("vllm_trace_start")
     project_root = find_project_root(config_path)
     trace_config = load_yaml(config_path)
     model_config = load_yaml(resolve_path(trace_config["model"], base_dir=project_root))
@@ -20335,6 +22304,7 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
     if not texts:
         msg = "Trace config produced no text records."
         raise RuntimeError(msg)
+    _debug_rocm_torch_cuda_state("after_text_load")
 
     use_router_logits_recorder = bool(
         trace_options.get(
@@ -20358,6 +22328,7 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
         runtime_shadow_options,
         project_root=project_root,
     )
+    _debug_rocm_torch_cuda_state("after_runtime_shadow_gates")
     decode_workload_trace_options = trace_options.get("decode_workload_trace", {})
     if decode_workload_trace_options is None:
         decode_workload_trace_options = {}
@@ -20392,12 +22363,19 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
                     False,
                 )
             )
+            or bool(
+                runtime_shadow_options.get(
+                    "premap_kernel_arg_handoff_gpu_assignment_prelaunch_pointer_source_canary_enabled",
+                    False,
+                )
+            )
         ):
             msg = (
                 "trace.allow_premap_live_config_without_router_recorder=True "
                 "requires runtime_shadow.premap_kernel_arg_handoff_live_enabled=True "
                 "or runtime_shadow.emit_premap_consumer_mapping=True "
-                "or runtime_shadow.emit_premap_payload_cache_manager_counters=True."
+                "or runtime_shadow.emit_premap_payload_cache_manager_counters=True "
+                "or runtime_shadow.premap_kernel_arg_handoff_gpu_assignment_prelaunch_pointer_source_canary_enabled=True."
             )
             raise ValueError(msg)
         # This is a lightweight config/producer object, not a router recorder:
@@ -20515,6 +22493,18 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
                 runtime_shadow_options.get(
                     "premap_payload_cache_transition_state_owner",
                     "consumer",
+                )
+            ),
+            shadow_premap_payload_cache_graph_visible_producer_enabled=bool(
+                runtime_shadow_options.get(
+                    "premap_payload_cache_graph_visible_producer_enabled",
+                    False,
+                )
+            ),
+            shadow_premap_payload_cache_graph_visible_producer_skip_python_transition=bool(
+                runtime_shadow_options.get(
+                    "premap_payload_cache_graph_visible_producer_skip_python_transition",
+                    False,
                 )
             ),
             shadow_emit_premap_consumer_mapping=bool(
@@ -20636,6 +22626,12 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
                     False,
                 )
             ),
+            shadow_premap_kernel_arg_handoff_gpu_assignment_prelaunch_pointer_source_canary_enabled=bool(
+                runtime_shadow_options.get(
+                    "premap_kernel_arg_handoff_gpu_assignment_prelaunch_pointer_source_canary_enabled",
+                    False,
+                )
+            ),
             shadow_premap_kernel_arg_handoff_gpu_assignment_validation_mode=str(
                 runtime_shadow_options.get(
                     "premap_kernel_arg_handoff_gpu_assignment_validation_mode",
@@ -20738,6 +22734,18 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
                     )
                 ),
             ),
+            shadow_premap_kernel_arg_handoff_future_wna16_typed_slot_strict_native_only=bool(
+                runtime_shadow_options.get(
+                    "premap_kernel_arg_handoff_future_wna16_typed_slot_strict_native_only",
+                    False,
+                )
+            ),
+            shadow_premap_kernel_arg_handoff_future_wna16_typed_slot_require_prepared_device_source=bool(
+                runtime_shadow_options.get(
+                    "premap_kernel_arg_handoff_future_wna16_typed_slot_require_prepared_device_source",
+                    False,
+                )
+            ),
             shadow_premap_single_field_handle_handoff_canary_field=str(
                 runtime_shadow_options.get(
                     "premap_single_field_handle_handoff_canary_field",
@@ -20779,6 +22787,12 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
     if bool(decode_workload_trace_options.get("enabled", False)):
         os.environ.setdefault("VLLM_ENABLE_V1_MULTIPROCESSING", "0")
 
+    prewarmed_rocm_torch_cuda_for_vllm_import = False
+    if bool(vllm_options.get("prewarm_rocm_torch_cuda_for_vllm_import", True)):
+        prewarmed_rocm_torch_cuda_for_vllm_import = (
+            _prewarm_rocm_torch_cuda_for_vllm_import()
+        )
+    _debug_rocm_torch_cuda_state("before_vllm_import")
     patched_vllm_warning_once_scope_import = (
         _patch_vllm_warning_once_scope_import_for_trace()
     )
@@ -21411,6 +23425,18 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
                 "consumer",
             )
         ),
+        "runtime_shadow_premap_payload_cache_graph_visible_producer_enabled": bool(
+            runtime_shadow_options.get(
+                "premap_payload_cache_graph_visible_producer_enabled",
+                False,
+            )
+        ),
+        "runtime_shadow_premap_payload_cache_graph_visible_producer_skip_python_transition": bool(
+            runtime_shadow_options.get(
+                "premap_payload_cache_graph_visible_producer_skip_python_transition",
+                False,
+            )
+        ),
         "runtime_shadow_premap_summary_sample_period": int(
             runtime_shadow_options.get(
                 "premap_summary_sample_period",
@@ -21524,6 +23550,12 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
                 False,
             )
         ),
+        "runtime_shadow_premap_kernel_arg_handoff_gpu_assignment_prelaunch_pointer_source_canary_enabled": bool(
+            runtime_shadow_options.get(
+                "premap_kernel_arg_handoff_gpu_assignment_prelaunch_pointer_source_canary_enabled",
+                False,
+            )
+        ),
         "runtime_shadow_premap_kernel_arg_handoff_gpu_assignment_validation_mode": str(
             runtime_shadow_options.get(
                 "premap_kernel_arg_handoff_gpu_assignment_validation_mode",
@@ -21626,6 +23658,18 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
                         _PREMAP_FUTURE_WNA16_TYPED_SLOT_CONTENT_CACHE_STORE_AFTER_SEEN,
                     )
                 ),
+            )
+        ),
+        "runtime_shadow_premap_kernel_arg_handoff_future_wna16_typed_slot_strict_native_only": bool(
+            runtime_shadow_options.get(
+                "premap_kernel_arg_handoff_future_wna16_typed_slot_strict_native_only",
+                False,
+            )
+        ),
+        "runtime_shadow_premap_kernel_arg_handoff_future_wna16_typed_slot_require_prepared_device_source": bool(
+            runtime_shadow_options.get(
+                "premap_kernel_arg_handoff_future_wna16_typed_slot_require_prepared_device_source",
+                False,
             )
         ),
         "runtime_shadow_premap_kernel_arg_handoff_single_field_replacement_field": str(
@@ -22153,6 +24197,18 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
                                     "consumer",
                                 )
                             ),
+                            shadow_premap_payload_cache_graph_visible_producer_enabled=bool(
+                                runtime_shadow_options.get(
+                                    "premap_payload_cache_graph_visible_producer_enabled",
+                                    False,
+                                )
+                            ),
+                            shadow_premap_payload_cache_graph_visible_producer_skip_python_transition=bool(
+                                runtime_shadow_options.get(
+                                    "premap_payload_cache_graph_visible_producer_skip_python_transition",
+                                    False,
+                                )
+                            ),
                             shadow_premap_summary_sample_period=max(
                                 1,
                                 int(
@@ -22300,6 +24356,12 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
                                     False,
                                 )
                             ),
+                            shadow_premap_kernel_arg_handoff_gpu_assignment_prelaunch_pointer_source_canary_enabled=bool(
+                                runtime_shadow_options.get(
+                                    "premap_kernel_arg_handoff_gpu_assignment_prelaunch_pointer_source_canary_enabled",
+                                    False,
+                                )
+                            ),
                             shadow_premap_kernel_arg_handoff_gpu_assignment_validation_mode=str(
                                 runtime_shadow_options.get(
                                     "premap_kernel_arg_handoff_gpu_assignment_validation_mode",
@@ -22395,6 +24457,18 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
                                         _PREMAP_FUTURE_WNA16_TYPED_SLOT_CONTENT_CACHE_STORE_AFTER_SEEN,
                                     )
                                 ),
+                            ),
+                            shadow_premap_kernel_arg_handoff_future_wna16_typed_slot_strict_native_only=bool(
+                                runtime_shadow_options.get(
+                                    "premap_kernel_arg_handoff_future_wna16_typed_slot_strict_native_only",
+                                    False,
+                                )
+                            ),
+                            shadow_premap_kernel_arg_handoff_future_wna16_typed_slot_require_prepared_device_source=bool(
+                                runtime_shadow_options.get(
+                                    "premap_kernel_arg_handoff_future_wna16_typed_slot_require_prepared_device_source",
+                                    False,
+                                )
                             ),
                             shadow_premap_kernel_arg_handoff_single_field_replacement_field=str(
                                 runtime_shadow_options.get(

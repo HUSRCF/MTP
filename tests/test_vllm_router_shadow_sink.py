@@ -27,12 +27,17 @@ from mtp_expert_prefetch.tracing.vllm_router_trace import (
     DecodeWorkloadTraceCollector,
     SharedExpertFusedGateUnsupportedError,
     _ACTIVE_DECODE_WORKLOAD_TRACE,
+    _ACTIVE_MOE_ASSIGNMENT_CONTEXT_VAR,
     _add_premap_payload_cache_manager_snapshot_to_performance,
     _add_runtime_shadow_aggregate_to_performance,
     _apply_premap_payload_cache_measured_copy_envelope,
+    _premap_kernel_arg_live_mutation_counters,
     _premap_payload_cache_export_nonempty_issue_summary,
     _premap_payload_cache_issue_hash,
     _premap_payload_cache_shifted_issue_runtime_shadow_summary,
+    _record_premap_gpu_assignment_prelaunch_pointer_source_consumer_counters,
+    _reset_premap_kernel_arg_live_mutation_counters,
+    _set_premap_kernel_arg_live_mutation_counter_mode,
     _load_runtime_shadow_transition_matrix,
     _shared_expert_fused_gate_fallbackable,
     _run_shared_expert_output_gate_default_postprocess,
@@ -1174,6 +1179,13 @@ def test_premap_payload_cache_prelaunch_observed_transition_issues_before_next_d
     assert recorder._premap_payload_cache_transition_issue_attempt_count == 2
     assert recorder._premap_payload_cache_transition_issue_previous_nonempty_count == 1
     assert recorder._premap_payload_cache_transition_issue_descriptor_count == 1
+    assert recorder._premap_payload_cache_transition_issue_last_candidate_count == 1
+    assert recorder._premap_payload_cache_transition_issue_last_candidate_first_expert == 2
+    assert recorder._premap_payload_cache_transition_issue_last_candidate_last_expert == 2
+    assert (
+        recorder._premap_payload_cache_transition_issue_last_candidate_hash
+        == _premap_payload_cache_issue_hash([2])
+    )
     assert recorder._premap_payload_cache_transition_issue_error_count == 0
     assert recorder._premap_payload_cache_transition_issue_last_error is None
     assert recorder._premap_payload_cache_transition_consumer_update_count == 2
@@ -1242,6 +1254,13 @@ def test_premap_payload_cache_producer_transition_owner_issues_before_next_deman
     assert recorder._premap_payload_cache_transition_issue_attempt_count == 2
     assert recorder._premap_payload_cache_transition_issue_previous_nonempty_count == 1
     assert recorder._premap_payload_cache_transition_issue_descriptor_count == 1
+    assert recorder._premap_payload_cache_transition_issue_last_candidate_count == 1
+    assert recorder._premap_payload_cache_transition_issue_last_candidate_first_expert == 2
+    assert recorder._premap_payload_cache_transition_issue_last_candidate_last_expert == 2
+    assert (
+        recorder._premap_payload_cache_transition_issue_last_candidate_hash
+        == _premap_payload_cache_issue_hash([2])
+    )
     assert recorder._premap_payload_cache_transition_issue_error_count == 0
     assert recorder._premap_payload_cache_transition_consumer_update_count == 0
     assert recorder._premap_payload_cache_transition_producer_update_count == 2
@@ -1285,6 +1304,508 @@ def test_premap_payload_cache_producer_transition_owner_issues_before_next_deman
     assert second_payload["_export_context"]["live_runtime_instantiated"] is False
     assert recorder._premap_payload_cache_producer_state_packet_export_count == 2
     assert export_path_list == [str(path) for path in export_paths]
+
+
+def test_premap_payload_cache_snapshot_embeds_online_stream_contract():
+    recorder = VllmRouterRecorder(
+        top_k=2,
+        shadow_outcome_sink=None,
+        shadow_num_experts=8,
+        shadow_emit_premap_payload_cache_manager_counters=True,
+        shadow_premap_payload_cache_manager_capacity=4,
+        shadow_premap_payload_cache_transition_state_owner="producer",
+        shadow_transition_topk_count=2,
+    )
+
+    per_step_experts = (
+        ((1, 2), (3, 4)),
+        ((2, 5), (4, 6)),
+        ((5, 7), (0, 6)),
+        ((1, 7), (0, 3)),
+    )
+    for step_layers in per_step_experts:
+        for layer_id, experts in enumerate(step_layers):
+            recorder.maybe_reorder_prepared_expert_assignment(
+                layer_id=layer_id,
+                sorted_token_ids=torch.tensor([0, 1], dtype=torch.long),
+                expert_ids=torch.tensor(list(experts), dtype=torch.long),
+                num_tokens_post_padded=torch.tensor([2], dtype=torch.long),
+                block_size=1,
+            )
+    performance = {
+        "sample_count": 1,
+        "requested_output_token_count": 4,
+    }
+
+    _add_premap_payload_cache_manager_snapshot_to_performance(
+        performance,
+        recorder,
+        source="unit_test_online_stream_contract",
+    )
+
+    prefix = "runtime_shadow_premap_payload_cache_direct_online_stream_contract_"
+    assert performance[f"{prefix}present"] is True
+    assert performance[f"{prefix}passed"] is True
+    assert performance[f"{prefix}failures"] == []
+    assert performance[f"{prefix}source"] == "online_producer_performance_summary"
+    assert performance[f"{prefix}steps"] == 4
+    assert performance[f"{prefix}layers"] == 2
+    assert performance[f"{prefix}experts_per_layer"] == 2
+    assert performance[f"{prefix}transition_topk_count"] == 2
+    assert performance[f"{prefix}issue_candidates_per_packet"] == 2
+    assert performance[f"{prefix}packet_count"] == 8
+    assert performance[f"{prefix}observed_packet_count"] == 8
+    assert performance[f"{prefix}expected_packet_count"] == 8
+    assert performance[f"{prefix}packet_count_matches_expected"] is True
+    assert performance[f"{prefix}previous_nonempty_packet_count"] == 6
+    assert performance[f"{prefix}observed_previous_nonempty_packet_count"] == 6
+    assert performance[f"{prefix}expected_previous_nonempty_packet_count"] == 6
+    assert performance[f"{prefix}issue_candidate_count"] == 12
+    assert performance[f"{prefix}observed_issue_candidate_count"] == 12
+    assert performance[f"{prefix}expected_issue_candidate_count"] == 12
+    assert performance[f"{prefix}issue_last_candidate_present"] is True
+    assert performance[f"{prefix}issue_last_candidate_count"] == 2
+    assert performance[f"{prefix}issue_last_candidate_first_expert"] == 0
+    assert performance[f"{prefix}issue_last_candidate_last_expert"] == 6
+    assert isinstance(performance[f"{prefix}issue_last_candidate_hash"], str)
+    assert performance[f"{prefix}payload_bytes"] == 0
+    assert performance[f"{prefix}ready_credit"] is False
+    assert performance[f"{prefix}ready_before_demand_credit"] is False
+    assert performance[f"{prefix}real_ready_credit_granted"] is False
+    assert performance[f"{prefix}payload_transfer_enabled"] is False
+    assert performance[f"{prefix}payload_deref_allowed"] is False
+    assert performance[f"{prefix}kernel_arg_pass"] is False
+    assert performance[f"{prefix}kernel_arg_pass_allowed"] is False
+    assert performance[f"{prefix}passed_to_kernel"] is False
+    assert performance[f"{prefix}changes_kernel_launch_args"] is False
+    assert performance[f"{prefix}current_wna16_arg_compatible"] is False
+    assert performance[f"{prefix}uses_current_wna16_args"] is False
+    assert performance[f"{prefix}passes_current_wna16_args"] is False
+    assert performance[f"{prefix}measures_tpot"] is False
+    assert performance[f"{prefix}measures_vllm_latency"] is False
+
+
+def test_premap_payload_cache_graph_visible_producer_contract_counts_stream():
+    recorder = VllmRouterRecorder(
+        top_k=2,
+        shadow_outcome_sink=None,
+        shadow_num_experts=8,
+        shadow_emit_premap_payload_cache_manager_counters=True,
+        shadow_premap_payload_cache_manager_capacity=4,
+        shadow_premap_payload_cache_transition_state_owner="producer",
+        shadow_premap_payload_cache_graph_visible_producer_enabled=True,
+        shadow_transition_topk_count=2,
+    )
+
+    per_step_experts = (
+        ((1, 2), (3, 4)),
+        ((2, 5), (4, 6)),
+        ((5, 7), (0, 6)),
+        ((1, 7), (0, 3)),
+    )
+    for step_layers in per_step_experts:
+        for layer_id, experts in enumerate(step_layers):
+            recorder.maybe_reorder_prepared_expert_assignment(
+                layer_id=layer_id,
+                sorted_token_ids=torch.tensor([0, 1], dtype=torch.long),
+                expert_ids=torch.tensor(list(experts), dtype=torch.long),
+                num_tokens_post_padded=torch.tensor([2], dtype=torch.long),
+                block_size=1,
+            )
+    performance = {
+        "sample_count": 1,
+        "requested_output_token_count": 4,
+    }
+
+    _add_premap_payload_cache_manager_snapshot_to_performance(
+        performance,
+        recorder,
+        source="unit_test_graph_visible_producer_contract",
+    )
+
+    prefix = "runtime_shadow_premap_payload_cache_direct_graph_visible_producer_contract_"
+    assert performance[f"{prefix}enabled"] is True
+    assert performance[f"{prefix}present"] is True
+    assert performance[f"{prefix}passed"] is True
+    assert performance[f"{prefix}failures"] == []
+    assert performance[f"{prefix}source"] == "captured_torch_tensor_state"
+    assert performance[f"{prefix}steps"] == 4
+    assert performance[f"{prefix}layers"] == 2
+    assert performance[f"{prefix}experts_per_layer"] == 2
+    assert performance[f"{prefix}transition_topk_count"] == 2
+    assert performance[f"{prefix}issue_candidates_per_packet"] == 2
+    assert performance[f"{prefix}observed_packet_count"] == 8
+    assert performance[f"{prefix}expected_packet_count"] == 8
+    assert performance[f"{prefix}observed_previous_nonempty_packet_count"] == 6
+    assert performance[f"{prefix}expected_previous_nonempty_packet_count"] == 6
+    assert performance[f"{prefix}observed_issue_candidate_count"] == 12
+    assert performance[f"{prefix}expected_issue_candidate_count"] == 12
+    assert performance[f"{prefix}contract_boundary"] == (
+        "captured_torch_tensor_state_visibility_canary"
+    )
+    assert performance[f"{prefix}captured_replay_required"] is True
+    assert performance[f"{prefix}captured_replay_passed"] is True
+    assert performance[f"{prefix}transition_state_on_device"] is True
+    assert performance[f"{prefix}issue_generation_on_device"] is True
+    assert performance[f"{prefix}python_transition_skipped"] is False
+    assert performance[f"{prefix}capture_once_per_layer_suspected"] is False
+    assert performance[f"{prefix}replay_update_status"] == (
+        "complete_replay_updates_observed"
+    )
+    assert performance[f"{prefix}production_candidate"] is True
+    assert performance[f"{prefix}payload_bytes"] == 0
+    assert performance[f"{prefix}ready_credit"] is False
+    assert performance[f"{prefix}passed_to_kernel"] is False
+    assert performance[f"{prefix}changes_kernel_launch_args"] is False
+
+    boundary_prefix = (
+        "runtime_shadow_premap_payload_cache_direct_"
+        "online_inside_graph_producer_boundary_contract_"
+    )
+    assert performance[f"{boundary_prefix}enabled"] is True
+    assert performance[f"{boundary_prefix}present"] is True
+    assert performance[f"{boundary_prefix}passed"] is False
+    assert performance[f"{boundary_prefix}transition_state_on_device"] is True
+    assert performance[f"{boundary_prefix}issue_generation_on_device"] is True
+    assert performance[f"{boundary_prefix}python_transition_skipped"] is False
+    assert "python_transition_extraction_not_skipped" in performance[
+        f"{boundary_prefix}failures"
+    ]
+    assert performance[f"{boundary_prefix}native_runtime"] is False
+    assert performance[f"{boundary_prefix}inprocess_native_op"] is False
+    assert performance[f"{boundary_prefix}kernel_arg_pass"] is False
+    assert performance[f"{boundary_prefix}passed_to_kernel"] is False
+    assert performance[f"{boundary_prefix}changes_kernel_launch_args"] is False
+
+
+def test_premap_payload_cache_inside_graph_producer_boundary_skips_python_transition():
+    recorder = VllmRouterRecorder(
+        top_k=2,
+        shadow_outcome_sink=None,
+        shadow_num_experts=8,
+        shadow_emit_premap_payload_cache_manager_counters=True,
+        shadow_premap_payload_cache_manager_capacity=4,
+        shadow_premap_payload_cache_transition_state_owner="producer",
+        shadow_premap_payload_cache_graph_visible_producer_enabled=True,
+        shadow_premap_payload_cache_graph_visible_producer_skip_python_transition=True,
+        shadow_transition_topk_count=2,
+    )
+
+    per_step_experts = (
+        ((1, 2), (3, 4)),
+        ((2, 5), (4, 6)),
+        ((5, 7), (0, 6)),
+        ((1, 7), (0, 3)),
+    )
+    for step_layers in per_step_experts:
+        for layer_id, experts in enumerate(step_layers):
+            recorder.maybe_reorder_prepared_expert_assignment(
+                layer_id=layer_id,
+                sorted_token_ids=torch.tensor([0, 1], dtype=torch.long),
+                expert_ids=torch.tensor(list(experts), dtype=torch.long),
+                num_tokens_post_padded=torch.tensor([2], dtype=torch.long),
+                block_size=1,
+            )
+    performance = {
+        "sample_count": 1,
+        "requested_output_token_count": 4,
+    }
+
+    _add_premap_payload_cache_manager_snapshot_to_performance(
+        performance,
+        recorder,
+        source="unit_test_inside_graph_boundary",
+    )
+
+    graph_prefix = (
+        "runtime_shadow_premap_payload_cache_direct_"
+        "graph_visible_producer_contract_"
+    )
+    assert performance[f"{graph_prefix}passed"] is True
+    assert performance[f"{graph_prefix}transition_state_on_device"] is True
+    assert performance[f"{graph_prefix}issue_generation_on_device"] is True
+    assert performance[f"{graph_prefix}python_transition_skipped"] is True
+    assert performance[f"{graph_prefix}observed_packet_count"] == 8
+    assert performance[f"{graph_prefix}expected_packet_count"] == 8
+    assert performance[f"{graph_prefix}observed_issue_candidate_count"] == 12
+    assert performance[f"{graph_prefix}expected_issue_candidate_count"] == 12
+    assert performance[f"{graph_prefix}last_issue_candidate_count"] == 2
+    assert performance[f"{graph_prefix}last_issue_candidate_first_expert"] >= 0
+    assert performance[f"{graph_prefix}last_issue_candidate_last_expert"] >= 0
+    assert performance[f"{graph_prefix}issue_candidate_expert_sum"] > 0
+
+    boundary_prefix = (
+        "runtime_shadow_premap_payload_cache_direct_"
+        "online_inside_graph_producer_boundary_contract_"
+    )
+    assert performance[f"{boundary_prefix}enabled"] is True
+    assert performance[f"{boundary_prefix}present"] is True
+    assert performance[f"{boundary_prefix}passed"] is True
+    assert performance[f"{boundary_prefix}failures"] == []
+    assert performance[f"{boundary_prefix}contract_boundary"] == (
+        "online_inside_graph_tensor_producer"
+    )
+    assert performance[f"{boundary_prefix}transition_state_on_device"] is True
+    assert performance[f"{boundary_prefix}issue_generation_on_device"] is True
+    assert performance[f"{boundary_prefix}python_transition_skipped"] is True
+    assert performance[f"{boundary_prefix}native_runtime"] is False
+    assert performance[f"{boundary_prefix}inprocess_native_op"] is False
+    assert performance[f"{boundary_prefix}payload_bytes"] == 0
+    assert performance[f"{boundary_prefix}ready_credit"] is False
+    assert performance[f"{boundary_prefix}kernel_arg_pass"] is False
+    assert performance[f"{boundary_prefix}passed_to_kernel"] is False
+    assert performance[f"{boundary_prefix}changes_kernel_launch_args"] is False
+
+    online_prefix = (
+        "runtime_shadow_premap_payload_cache_direct_online_stream_contract_"
+    )
+    assert performance[f"{online_prefix}present"] is False
+    assert performance[f"{online_prefix}passed"] is False
+    assert recorder._premap_payload_cache_transition_native_packet_count == 0
+
+
+def test_premap_payload_cache_inside_graph_producer_boundary_accepts_empty_issue_candidates():
+    recorder = VllmRouterRecorder(
+        top_k=2,
+        shadow_outcome_sink=None,
+        shadow_num_experts=8,
+        shadow_emit_premap_payload_cache_manager_counters=True,
+        shadow_premap_payload_cache_manager_capacity=4,
+        shadow_premap_payload_cache_transition_state_owner="producer",
+        shadow_premap_payload_cache_graph_visible_producer_enabled=True,
+        shadow_premap_payload_cache_graph_visible_producer_skip_python_transition=True,
+        shadow_transition_topk_count=2,
+    )
+
+    for layer_id, experts in enumerate(((1, 2), (3, 4))):
+        recorder.maybe_reorder_prepared_expert_assignment(
+            layer_id=layer_id,
+            sorted_token_ids=torch.tensor([0, 1], dtype=torch.long),
+            expert_ids=torch.tensor(list(experts), dtype=torch.long),
+            num_tokens_post_padded=torch.tensor([2], dtype=torch.long),
+            block_size=1,
+        )
+    performance = {
+        "sample_count": 1,
+        "requested_output_token_count": 1,
+    }
+
+    _add_premap_payload_cache_manager_snapshot_to_performance(
+        performance,
+        recorder,
+        source="unit_test_inside_graph_boundary_empty_issue",
+    )
+
+    graph_prefix = (
+        "runtime_shadow_premap_payload_cache_direct_"
+        "graph_visible_producer_contract_"
+    )
+    assert performance[f"{graph_prefix}present"] is True
+    assert performance[f"{graph_prefix}has_packets"] is True
+    assert performance[f"{graph_prefix}passed"] is True
+    assert performance[f"{graph_prefix}observed_packet_count"] == 2
+    assert performance[f"{graph_prefix}expected_packet_count"] == 2
+    assert performance[f"{graph_prefix}observed_previous_nonempty_packet_count"] == 0
+    assert performance[f"{graph_prefix}expected_previous_nonempty_packet_count"] == 0
+    assert performance[f"{graph_prefix}observed_issue_candidate_count"] == 0
+    assert performance[f"{graph_prefix}expected_issue_candidate_count"] == 0
+
+    boundary_prefix = (
+        "runtime_shadow_premap_payload_cache_direct_"
+        "online_inside_graph_producer_boundary_contract_"
+    )
+    assert performance[f"{boundary_prefix}passed"] is True
+    assert performance[f"{boundary_prefix}failures"] == []
+    assert performance[f"{boundary_prefix}python_transition_skipped"] is True
+    assert performance[f"{boundary_prefix}payload_bytes"] == 0
+    assert performance[f"{boundary_prefix}kernel_arg_pass"] is False
+    assert performance[f"{boundary_prefix}passed_to_kernel"] is False
+
+
+def test_premap_payload_cache_graph_visible_producer_resize_preserves_transition_state():
+    recorder = VllmRouterRecorder(
+        top_k=2,
+        shadow_outcome_sink=None,
+        shadow_num_experts=8,
+        shadow_emit_premap_payload_cache_manager_counters=True,
+        shadow_premap_payload_cache_manager_capacity=4,
+        shadow_premap_payload_cache_transition_state_owner="producer",
+        shadow_premap_payload_cache_graph_visible_producer_enabled=True,
+        shadow_premap_payload_cache_graph_visible_producer_skip_python_transition=True,
+        shadow_transition_topk_count=2,
+    )
+
+    recorder.maybe_reorder_prepared_expert_assignment(
+        layer_id=0,
+        sorted_token_ids=torch.tensor([0, 1], dtype=torch.long),
+        expert_ids=torch.tensor([1, 2], dtype=torch.long),
+        num_tokens_post_padded=torch.tensor([2], dtype=torch.long),
+        block_size=1,
+    )
+    recorder.maybe_reorder_prepared_expert_assignment(
+        layer_id=0,
+        sorted_token_ids=torch.tensor([0, 1, 2], dtype=torch.long),
+        expert_ids=torch.tensor([3, 4, 5], dtype=torch.long),
+        num_tokens_post_padded=torch.tensor([3], dtype=torch.long),
+        block_size=1,
+    )
+    performance = {
+        "sample_count": 1,
+        "requested_output_token_count": 2,
+    }
+
+    _add_premap_payload_cache_manager_snapshot_to_performance(
+        performance,
+        recorder,
+        source="unit_test_graph_visible_resize_preserves_state",
+    )
+
+    prefix = "runtime_shadow_premap_payload_cache_direct_graph_visible_producer_contract_"
+    assert performance[f"{prefix}passed"] is True
+    assert performance[f"{prefix}observed_packet_count"] == 2
+    assert performance[f"{prefix}expected_packet_count"] == 2
+    assert performance[f"{prefix}observed_previous_nonempty_packet_count"] == 1
+    assert performance[f"{prefix}expected_previous_nonempty_packet_count"] == 1
+    assert performance[f"{prefix}observed_issue_candidate_count"] == 2
+    assert performance[f"{prefix}expected_issue_candidate_count"] == 2
+    assert performance[f"{prefix}experts_per_layer"] == 3
+    assert performance[f"{prefix}last_issue_candidate_count"] == 2
+    assert performance[f"{prefix}last_issue_candidate_first_expert"] == 1
+    assert performance[f"{prefix}last_issue_candidate_last_expert"] == 2
+
+
+def test_premap_payload_cache_graph_visible_producer_contract_flags_capture_once_per_layer():
+    recorder = VllmRouterRecorder(
+        top_k=2,
+        shadow_outcome_sink=None,
+        shadow_num_experts=8,
+        shadow_emit_premap_payload_cache_manager_counters=True,
+        shadow_premap_payload_cache_manager_capacity=4,
+        shadow_premap_payload_cache_transition_state_owner="producer",
+        shadow_premap_payload_cache_graph_visible_producer_enabled=True,
+        shadow_transition_topk_count=2,
+    )
+
+    for layer_id, experts in enumerate(((1, 2), (3, 4))):
+        recorder.maybe_reorder_prepared_expert_assignment(
+            layer_id=layer_id,
+            sorted_token_ids=torch.tensor([0, 1], dtype=torch.long),
+            expert_ids=torch.tensor(list(experts), dtype=torch.long),
+            num_tokens_post_padded=torch.tensor([2], dtype=torch.long),
+            block_size=1,
+        )
+    performance = {
+        "sample_count": 1,
+        "requested_output_token_count": 4,
+    }
+
+    _add_premap_payload_cache_manager_snapshot_to_performance(
+        performance,
+        recorder,
+        source="unit_test_graph_visible_capture_once",
+    )
+
+    prefix = "runtime_shadow_premap_payload_cache_direct_graph_visible_producer_contract_"
+    assert performance[f"{prefix}enabled"] is True
+    assert performance[f"{prefix}present"] is True
+    assert performance[f"{prefix}passed"] is False
+    assert performance[f"{prefix}observed_packet_count"] == 2
+    assert performance[f"{prefix}expected_packet_count"] == 8
+    assert performance[f"{prefix}observed_issue_candidate_count"] == 0
+    assert performance[f"{prefix}expected_issue_candidate_count"] == 12
+    assert performance[f"{prefix}capture_once_per_layer_suspected"] is True
+    assert performance[f"{prefix}replay_update_status"] == (
+        "capture_once_per_layer_no_replay_updates"
+    )
+    assert performance[f"{prefix}captured_replay_required"] is True
+    assert performance[f"{prefix}captured_replay_passed"] is False
+    assert performance[f"{prefix}production_candidate"] is False
+    assert "observed_packet_count_mismatch" in performance[f"{prefix}failures"]
+    assert "observed_issue_candidate_count_mismatch" in performance[f"{prefix}failures"]
+
+
+def test_premap_payload_cache_graph_visible_producer_contract_disabled_not_required():
+    recorder = VllmRouterRecorder(
+        top_k=2,
+        shadow_outcome_sink=None,
+        shadow_num_experts=8,
+        shadow_emit_premap_payload_cache_manager_counters=True,
+        shadow_premap_payload_cache_manager_capacity=4,
+        shadow_premap_payload_cache_transition_state_owner="producer",
+        shadow_transition_topk_count=2,
+    )
+    recorder.maybe_reorder_prepared_expert_assignment(
+        layer_id=0,
+        sorted_token_ids=torch.tensor([0, 1], dtype=torch.long),
+        expert_ids=torch.tensor([1, 2], dtype=torch.long),
+        num_tokens_post_padded=torch.tensor([2], dtype=torch.long),
+        block_size=1,
+    )
+    performance = {
+        "sample_count": 1,
+        "requested_output_token_count": 4,
+    }
+
+    _add_premap_payload_cache_manager_snapshot_to_performance(
+        performance,
+        recorder,
+        source="unit_test_graph_visible_disabled",
+    )
+
+    prefix = "runtime_shadow_premap_payload_cache_direct_graph_visible_producer_contract_"
+    assert performance[f"{prefix}enabled"] is False
+    assert performance[f"{prefix}present"] is False
+    assert performance[f"{prefix}passed"] is False
+    assert performance[f"{prefix}captured_replay_required"] is False
+    assert performance[f"{prefix}captured_replay_passed"] is False
+    assert performance[f"{prefix}capture_once_per_layer_suspected"] is False
+    assert performance[f"{prefix}replay_update_status"] == "disabled"
+    assert performance[f"{prefix}production_candidate"] is False
+    assert "graph_visible_producer_disabled" in performance[f"{prefix}failures"]
+
+
+def test_premap_payload_cache_online_stream_contract_rejects_graph_once_per_layer():
+    recorder = VllmRouterRecorder(
+        top_k=2,
+        shadow_outcome_sink=None,
+        shadow_num_experts=8,
+        shadow_emit_premap_payload_cache_manager_counters=True,
+        shadow_premap_payload_cache_manager_capacity=4,
+        shadow_premap_payload_cache_transition_state_owner="producer",
+        shadow_transition_topk_count=2,
+    )
+
+    for layer_id, experts in enumerate(((1, 2), (3, 4))):
+        recorder.maybe_reorder_prepared_expert_assignment(
+            layer_id=layer_id,
+            sorted_token_ids=torch.tensor([0, 1], dtype=torch.long),
+            expert_ids=torch.tensor(list(experts), dtype=torch.long),
+            num_tokens_post_padded=torch.tensor([2], dtype=torch.long),
+            block_size=1,
+        )
+    performance = {
+        "sample_count": 1,
+        "requested_output_token_count": 4,
+    }
+
+    _add_premap_payload_cache_manager_snapshot_to_performance(
+        performance,
+        recorder,
+        source="unit_test_online_stream_contract",
+    )
+
+    prefix = "runtime_shadow_premap_payload_cache_direct_online_stream_contract_"
+    assert performance[f"{prefix}present"] is True
+    assert performance[f"{prefix}passed"] is False
+    assert performance[f"{prefix}observed_packet_count"] == 2
+    assert performance[f"{prefix}expected_packet_count"] == 8
+    assert performance[f"{prefix}packet_count_matches_expected"] is False
+    assert "observed_packet_count_mismatch" in performance[f"{prefix}failures"]
+    assert (
+        "observed_previous_nonempty_packet_count_mismatch"
+        in performance[f"{prefix}failures"]
+    )
+    assert "observed_issue_candidate_count_mismatch" in performance[f"{prefix}failures"]
 
 
 def test_premap_payload_cache_producer_transition_owner_skips_consumer_updates():
@@ -1426,6 +1947,10 @@ def test_premap_payload_cache_transition_state_clear_is_sample_scoped():
     assert recorder._premap_payload_cache_transition_issue_attempt_count == 0
     assert recorder._premap_payload_cache_transition_issue_previous_nonempty_count == 0
     assert recorder._premap_payload_cache_transition_issue_descriptor_count == 0
+    assert recorder._premap_payload_cache_transition_issue_last_candidate_count == 0
+    assert recorder._premap_payload_cache_transition_issue_last_candidate_first_expert == -1
+    assert recorder._premap_payload_cache_transition_issue_last_candidate_last_expert == -1
+    assert recorder._premap_payload_cache_transition_issue_last_candidate_hash is None
     assert recorder._premap_payload_cache_transition_issue_error_count == 0
     assert recorder._premap_payload_cache_transition_issue_last_error is None
     assert recorder._premap_payload_cache_transition_consumer_update_count == 0
@@ -1460,6 +1985,126 @@ def test_premap_payload_cache_transition_disallowed_source_does_not_count_attemp
     assert recorder._premap_payload_cache_transition_issue_descriptor_count == 0
     assert recorder._premap_payload_cache_transition_issue_error_count == 0
     assert recorder._premap_payload_cache_transition_issue_last_error is None
+    assert recorder._premap_payload_cache_transition_issue_last_candidate_count == 0
+    assert recorder._premap_payload_cache_transition_issue_last_candidate_hash is None
+
+
+def test_premap_payload_cache_transition_issue_identity_clears_on_non_issue_paths():
+    transition = torch.zeros((1, 1, 4, 4), dtype=torch.float32)
+    transition[0, 0, 1, 2] = 1.0
+    recorder = VllmRouterRecorder(
+        top_k=2,
+        shadow_outcome_sink=None,
+        shadow_num_experts=4,
+        shadow_emit_premap_payload_cache_manager_counters=True,
+        shadow_premap_payload_cache_manager_capacity=4,
+        shadow_premap_payload_cache_manager_issue_sources=(
+            "prelaunch_observed_transition_premap_shadow",
+        ),
+        shadow_transition_premap_source=(
+            "prelaunch_observed_transition_premap_shadow"
+        ),
+        shadow_transition_summary_mode="matrix_topk",
+        shadow_transition_topk_count=1,
+        shadow_transition_matrix=transition,
+    )
+
+    recorder._issue_premap_payload_cache_from_prelaunch_observed_transition(
+        layer_id=0,
+        previous_experts=[1],
+    )
+    assert recorder._premap_payload_cache_transition_issue_last_candidate_count == 1
+    assert (
+        recorder._premap_payload_cache_transition_issue_last_candidate_hash
+        == _premap_payload_cache_issue_hash([2])
+    )
+
+    recorder._issue_premap_payload_cache_from_prelaunch_observed_transition(
+        layer_id=0,
+        previous_experts=[],
+    )
+    assert recorder._premap_payload_cache_transition_issue_last_candidate_count == 0
+    assert recorder._premap_payload_cache_transition_issue_last_candidate_hash is None
+
+    recorder._issue_premap_payload_cache_from_prelaunch_observed_transition(
+        layer_id=0,
+        previous_experts=[1],
+    )
+    assert recorder._premap_payload_cache_transition_issue_last_candidate_count == 1
+    recorder.shadow_premap_payload_cache_manager_issue_sources = ("other_source",)
+    recorder._issue_premap_payload_cache_from_prelaunch_observed_transition(
+        layer_id=0,
+        previous_experts=[1],
+    )
+    assert recorder._premap_payload_cache_transition_issue_last_candidate_count == 0
+    assert recorder._premap_payload_cache_transition_issue_last_candidate_hash is None
+
+    recorder.shadow_premap_payload_cache_manager_issue_sources = (
+        "prelaunch_observed_transition_premap_shadow",
+    )
+    recorder._issue_premap_payload_cache_from_prelaunch_observed_transition(
+        layer_id=0,
+        previous_experts=[1],
+    )
+    assert recorder._premap_payload_cache_transition_issue_last_candidate_count == 1
+    recorder.shadow_transition_matrix = None
+    recorder._issue_premap_payload_cache_from_prelaunch_observed_transition(
+        layer_id=0,
+        previous_experts=[1],
+    )
+    assert recorder._premap_payload_cache_transition_issue_error_count == 1
+    assert recorder._premap_payload_cache_transition_issue_last_candidate_count == 0
+    assert recorder._premap_payload_cache_transition_issue_last_candidate_hash is None
+
+
+def test_premap_payload_cache_transition_issue_identity_clears_on_manager_error(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    class _FailingIssueManager:
+        def issue_prefetch(self, layer_idx: int, expert_idx: int) -> bool:
+            raise RuntimeError("synthetic issue failure")
+
+        def snapshot(self):
+            return None
+
+    transition = torch.zeros((1, 1, 4, 4), dtype=torch.float32)
+    transition[0, 0, 1, 2] = 1.0
+    recorder = VllmRouterRecorder(
+        top_k=2,
+        shadow_outcome_sink=None,
+        shadow_num_experts=4,
+        shadow_emit_premap_payload_cache_manager_counters=True,
+        shadow_premap_payload_cache_manager_capacity=4,
+        shadow_premap_payload_cache_manager_issue_sources=(
+            "prelaunch_observed_transition_premap_shadow",
+        ),
+        shadow_transition_premap_source=(
+            "prelaunch_observed_transition_premap_shadow"
+        ),
+        shadow_transition_summary_mode="matrix_topk",
+        shadow_transition_topk_count=1,
+        shadow_transition_matrix=transition,
+    )
+    failing_manager = _FailingIssueManager()
+    monkeypatch.setattr(
+        recorder,
+        "_ensure_premap_payload_cache_manager",
+        lambda: failing_manager,
+    )
+
+    snapshot = recorder._issue_premap_payload_cache_from_prelaunch_observed_transition(
+        layer_id=0,
+        previous_experts=[1],
+    )
+
+    assert snapshot is None
+    assert recorder._premap_payload_cache_transition_issue_descriptor_count == 1
+    assert recorder._premap_payload_cache_transition_issue_error_count == 1
+    assert "synthetic issue failure" in (
+        recorder._premap_payload_cache_transition_issue_last_error or ""
+    )
+    assert recorder._premap_payload_cache_transition_issue_last_candidate_count == 0
+    assert recorder._premap_payload_cache_transition_issue_last_candidate_hash is None
 
 
 def test_premap_payload_cache_transition_issue_error_is_recorded():
@@ -2126,6 +2771,7 @@ def test_premap_payload_cache_producer_state_packet_export_respects_stride(
     assert payload["payload_transfer_runtime_enabled"] is False
     assert payload["payload_deref_allowed"] is False
     assert payload["payload_deref_runtime_allowed"] is False
+    assert payload["kernel_arg_pass"] is False
     assert payload["kernel_arg_pass_allowed"] is False
     assert payload["full_fetch_runtime_allowed"] is False
     assert payload["live_runtime_instantiated"] is False
@@ -2149,6 +2795,7 @@ def test_premap_payload_cache_producer_state_packet_export_respects_stride(
     assert payload["_export_context"]["payload_transfer_runtime_enabled"] is False
     assert payload["_export_context"]["payload_deref_allowed"] is False
     assert payload["_export_context"]["payload_deref_runtime_allowed"] is False
+    assert payload["_export_context"]["kernel_arg_pass"] is False
     assert payload["_export_context"]["kernel_arg_pass_allowed"] is False
     assert payload["_export_context"]["full_fetch_runtime_allowed"] is False
     assert payload["_export_context"]["live_runtime_instantiated"] is False
@@ -2362,6 +3009,7 @@ def _write_shifted_issue_packet(
         "ready_before_demand_credit": False,
         "payload_transfer_enabled": False,
         "payload_deref_allowed": False,
+        "kernel_arg_pass": False,
         "kernel_arg_pass_allowed": False,
         "real_ready_credit_granted": False,
         "passed_to_kernel": False,
@@ -2390,6 +3038,7 @@ def _write_shifted_issue_packet(
             "ready_before_demand_credit": False,
             "payload_transfer_enabled": False,
             "payload_deref_allowed": False,
+            "kernel_arg_pass": False,
             "kernel_arg_pass_allowed": False,
             "real_ready_credit_granted": False,
             "passed_to_kernel": False,
@@ -5711,3 +6360,301 @@ def test_premap_consumer_mapping_emit_rows_false_does_not_require_row_sink():
     assert out[0] is sorted_token_ids
     assert out[1] is expert_ids
     assert out[2] is num_tokens_post_padded
+
+
+def test_gpu_assignment_prelaunch_pointer_source_canary_is_opt_in():
+    _set_premap_kernel_arg_live_mutation_counter_mode("detailed")
+    _reset_premap_kernel_arg_live_mutation_counters()
+    recorder = VllmRouterRecorder(
+        top_k=2,
+        shadow_premap_kernel_arg_handoff_producer_future_wna16_typed_slot_envelope_enabled=True,
+        shadow_premap_kernel_arg_handoff_producer_gpu_assignment_envelope_enabled=True,
+    )
+    package = {"producer_future_wna16_typed_slot_envelope": True}
+    expert_ids = torch.tensor([1, 2], dtype=torch.int32)
+
+    recorder._attach_premap_producer_gpu_assignment_envelope(
+        package,
+        source="unit",
+        available=True,
+        sorted_token_ids=None,
+        expert_ids=expert_ids,
+        num_tokens_post_padded=torch.tensor([2], dtype=torch.int32),
+    )
+
+    assert package["producer_gpu_assignment_envelope"] is True
+    assert "producer_gpu_assignment_current_expert_ptr_source_kind" not in package
+    counters = _premap_kernel_arg_live_mutation_counters()
+    assert counters["package_producer_gpu_assignment_envelope_count"] == 1
+    assert counters["gpu_assignment_prelaunch_current_expert_ptr_seen_count"] == 0
+
+
+def test_gpu_assignment_prelaunch_pointer_source_canary_marks_cpu_as_host_not_ready():
+    _set_premap_kernel_arg_live_mutation_counter_mode("detailed")
+    _reset_premap_kernel_arg_live_mutation_counters()
+    recorder = VllmRouterRecorder(
+        top_k=2,
+        shadow_premap_kernel_arg_handoff_producer_future_wna16_typed_slot_envelope_enabled=True,
+        shadow_premap_kernel_arg_handoff_producer_gpu_assignment_envelope_enabled=True,
+        shadow_premap_kernel_arg_handoff_gpu_assignment_prelaunch_pointer_source_canary_enabled=True,
+    )
+    package = {"producer_future_wna16_typed_slot_envelope": True}
+    expert_ids = torch.tensor([1, 2], dtype=torch.int32)
+
+    recorder._attach_premap_producer_gpu_assignment_envelope(
+        package,
+        source="unit",
+        available=True,
+        sorted_token_ids=None,
+        expert_ids=expert_ids,
+        num_tokens_post_padded=torch.tensor([2], dtype=torch.int32),
+    )
+
+    assert (
+        package["producer_gpu_assignment_current_expert_ptr_source_kind"]
+        == "vllm_prelaunch_host_tensor"
+    )
+    assert (
+        package[
+            "producer_gpu_assignment_current_expert_ptr_ready_for_vllm_prelaunch_canary"
+        ]
+        is False
+    )
+    ptr_meta = package["producer_gpu_assignment_current_expert_ptr_meta"]
+    assert ptr_meta["device"] == "cpu"
+    assert ptr_meta["dtype"] == "torch.int32"
+    assert ptr_meta["shape"] == (2,)
+    assert ptr_meta["data_ptr"] == int(expert_ids.data_ptr())
+    counters = _premap_kernel_arg_live_mutation_counters()
+    assert counters["gpu_assignment_prelaunch_current_expert_ptr_seen_count"] == 1
+    assert (
+        counters["gpu_assignment_prelaunch_current_expert_ptr_unavailable_count"]
+        == 1
+    )
+    assert counters["gpu_assignment_prelaunch_current_expert_ptr_non_device_count"] == 1
+    assert counters["gpu_assignment_prelaunch_current_expert_ptr_available_count"] == 0
+    assert counters["gpu_assignment_prelaunch_current_expert_ptr_vllm_device_count"] == 0
+
+
+def test_gpu_assignment_prelaunch_pointer_source_observer_does_not_require_live_package():
+    _set_premap_kernel_arg_live_mutation_counter_mode("detailed")
+    _reset_premap_kernel_arg_live_mutation_counters()
+    recorder = VllmRouterRecorder(
+        top_k=2,
+        shadow_premap_kernel_arg_handoff_gpu_assignment_prelaunch_pointer_source_canary_enabled=True,
+    )
+    sorted_token_ids = torch.arange(8, dtype=torch.int32)
+    expert_ids = torch.tensor([1, 2], dtype=torch.int32)
+    num_tokens_post_padded = torch.tensor([8], dtype=torch.int32)
+
+    out = recorder.maybe_reorder_prepared_expert_assignment(
+        layer_id=0,
+        sorted_token_ids=sorted_token_ids,
+        expert_ids=expert_ids,
+        num_tokens_post_padded=num_tokens_post_padded,
+        block_size=4,
+    )
+
+    assert out[0] is sorted_token_ids
+    assert out[1] is expert_ids
+    assert out[2] is num_tokens_post_padded
+    counters = _premap_kernel_arg_live_mutation_counters()
+    assert counters["package_producer_gpu_assignment_envelope_count"] == 0
+    assert (
+        counters[
+            "gpu_assignment_prelaunch_current_expert_ptr_observer_seen_count"
+        ]
+        == 1
+    )
+    assert (
+        counters[
+            "gpu_assignment_prelaunch_current_expert_ptr_observer_unavailable_count"
+        ]
+        == 1
+    )
+    assert (
+        counters[
+            "gpu_assignment_prelaunch_current_expert_ptr_observer_non_device_count"
+        ]
+        == 1
+    )
+    assert (
+        counters[
+            "gpu_assignment_prelaunch_current_expert_ptr_observer_available_count"
+        ]
+        == 0
+    )
+    assert (
+        counters[
+            "gpu_assignment_prelaunch_current_expert_ptr_observer_vllm_device_count"
+        ]
+        == 0
+    )
+
+
+def test_readonly_future_typed_slot_producer_installs_live_package_without_mutation():
+    _set_premap_kernel_arg_live_mutation_counter_mode("detailed")
+    _reset_premap_kernel_arg_live_mutation_counters()
+    recorder = VllmRouterRecorder(
+        top_k=2,
+        shadow_premap_consumer_readonly_gate_required=True,
+        shadow_premap_consumer_readonly_gate_passed=True,
+        shadow_premap_consumer_readonly_gate_id="unit_readonly_gate",
+        shadow_premap_kernel_arg_handoff_minimal_identity_envelope_enabled=True,
+        shadow_premap_kernel_arg_handoff_live_enabled=True,
+        shadow_premap_kernel_arg_handoff_live_consumer_connected=True,
+        shadow_premap_kernel_arg_handoff_kernel_arg_pass_enabled=False,
+        shadow_premap_kernel_arg_handoff_real_kernel_arg_mutation_enabled=False,
+        shadow_premap_kernel_arg_handoff_single_field_replacement_dry_run_enabled=False,
+        shadow_premap_kernel_arg_handoff_single_field_replacement_live_enabled=False,
+        shadow_premap_kernel_arg_handoff_producer_future_wna16_typed_slot_envelope_enabled=True,
+        shadow_premap_kernel_arg_handoff_producer_gpu_assignment_envelope_enabled=True,
+        shadow_premap_kernel_arg_handoff_gpu_assignment_validation_mode="trusted_refs",
+        shadow_premap_kernel_arg_handoff_gpu_assignment_prelaunch_pointer_source_canary_enabled=True,
+    )
+    sorted_token_ids = torch.arange(8, dtype=torch.int32)
+    expert_ids = torch.tensor([1, 2], dtype=torch.int32)
+    num_tokens_post_padded = torch.tensor([8], dtype=torch.int32)
+    context: dict[str, object] = {}
+    token = _ACTIVE_MOE_ASSIGNMENT_CONTEXT_VAR.set(context)
+    try:
+        out = recorder.maybe_reorder_prepared_expert_assignment(
+            layer_id=0,
+            sorted_token_ids=sorted_token_ids,
+            expert_ids=expert_ids,
+            num_tokens_post_padded=num_tokens_post_padded,
+            block_size=4,
+        )
+    finally:
+        _ACTIVE_MOE_ASSIGNMENT_CONTEXT_VAR.reset(token)
+
+    assert out[0] is sorted_token_ids
+    assert out[1] is expert_ids
+    assert out[2] is num_tokens_post_padded
+    package = context["premap_kernel_arg_live_mutation_package"]
+    assert isinstance(package, dict)
+    assert package["source"] == (
+        "producer_future_wna16_typed_slot_readonly_live_package"
+    )
+    assert package["block_reason"] == "kernel_arg_handoff_readonly_live_consumer"
+    assert package["producer_future_wna16_typed_slot_envelope"] is True
+    assert package["producer_gpu_assignment_envelope"] is True
+    assert package["producer_gpu_assignment_expert_ids"] is expert_ids
+    assert package["producer_gpu_assignment_available"] is True
+    assert (
+        package["producer_gpu_assignment_current_expert_ptr_source_kind"]
+        == "vllm_prelaunch_host_tensor"
+    )
+    counters = _premap_kernel_arg_live_mutation_counters()
+    assert counters["package_producer_future_wna16_typed_slot_envelope_count"] == 1
+    assert counters["package_producer_gpu_assignment_envelope_count"] == 1
+    assert counters["single_field_replacement_live_passed_to_kernel_count"] == 0
+    assert counters["single_field_replacement_dry_run_passed_to_kernel_count"] == 0
+
+
+def test_readonly_future_typed_slot_producer_replaces_stale_mutation_package():
+    _set_premap_kernel_arg_live_mutation_counter_mode("detailed")
+    _reset_premap_kernel_arg_live_mutation_counters()
+    recorder = VllmRouterRecorder(
+        top_k=2,
+        shadow_premap_consumer_readonly_gate_required=True,
+        shadow_premap_consumer_readonly_gate_passed=True,
+        shadow_premap_consumer_readonly_gate_id="unit_readonly_gate",
+        shadow_premap_kernel_arg_handoff_minimal_identity_envelope_enabled=True,
+        shadow_premap_kernel_arg_handoff_live_enabled=True,
+        shadow_premap_kernel_arg_handoff_live_consumer_connected=True,
+        shadow_premap_kernel_arg_handoff_kernel_arg_pass_enabled=False,
+        shadow_premap_kernel_arg_handoff_real_kernel_arg_mutation_enabled=False,
+        shadow_premap_kernel_arg_handoff_single_field_replacement_dry_run_enabled=False,
+        shadow_premap_kernel_arg_handoff_single_field_replacement_live_enabled=False,
+        shadow_premap_kernel_arg_handoff_producer_future_wna16_typed_slot_envelope_enabled=True,
+        shadow_premap_kernel_arg_handoff_producer_gpu_assignment_envelope_enabled=True,
+        shadow_premap_kernel_arg_handoff_gpu_assignment_validation_mode="trusted_refs",
+        shadow_premap_kernel_arg_handoff_gpu_assignment_prelaunch_pointer_source_canary_enabled=True,
+    )
+    sorted_token_ids = torch.arange(8, dtype=torch.int32)
+    expert_ids = torch.tensor([1, 2], dtype=torch.int32)
+    num_tokens_post_padded = torch.tensor([8], dtype=torch.int32)
+    stale_package = {
+        "layer_id": 0,
+        "source": "producer_future_wna16_typed_slot_live_kernel_arg_package",
+        "block_reason": "kernel_arg_handoff_real_kernel_arg_mutation_live",
+        "producer_future_wna16_typed_slot_envelope": True,
+    }
+    context: dict[str, object] = {
+        "premap_kernel_arg_live_mutation_package": stale_package
+    }
+    token = _ACTIVE_MOE_ASSIGNMENT_CONTEXT_VAR.set(context)
+    try:
+        recorder.maybe_reorder_prepared_expert_assignment(
+            layer_id=0,
+            sorted_token_ids=sorted_token_ids,
+            expert_ids=expert_ids,
+            num_tokens_post_padded=num_tokens_post_padded,
+            block_size=4,
+        )
+    finally:
+        _ACTIVE_MOE_ASSIGNMENT_CONTEXT_VAR.reset(token)
+
+    package = context["premap_kernel_arg_live_mutation_package"]
+    assert isinstance(package, dict)
+    assert package is not stale_package
+    assert package["source"] == (
+        "producer_future_wna16_typed_slot_readonly_live_package"
+    )
+    assert package["block_reason"] == "kernel_arg_handoff_readonly_live_consumer"
+    assert package["producer_gpu_assignment_expert_ids"] is expert_ids
+
+
+def test_gpu_assignment_trusted_refs_pointer_source_counters_derive_ready_from_source_kind():
+    _set_premap_kernel_arg_live_mutation_counter_mode("detailed")
+    _reset_premap_kernel_arg_live_mutation_counters()
+
+    _record_premap_gpu_assignment_prelaunch_pointer_source_consumer_counters(
+        {
+            "producer_gpu_assignment_current_expert_ptr_source_kind": (
+                "vllm_prelaunch_host_tensor"
+            ),
+            "producer_gpu_assignment_current_expert_ptr_ready_for_vllm_prelaunch_canary": (
+                True
+            ),
+        }
+    )
+
+    counters = _premap_kernel_arg_live_mutation_counters()
+    assert (
+        counters[
+            "gpu_assignment_trusted_refs_prelaunch_current_expert_ptr_seen_count"
+        ]
+        == 1
+    )
+    assert (
+        counters[
+            "gpu_assignment_trusted_refs_prelaunch_current_expert_ptr_unavailable_count"
+        ]
+        == 1
+    )
+    assert (
+        counters[
+            "gpu_assignment_trusted_refs_prelaunch_current_expert_ptr_non_device_count"
+        ]
+        == 1
+    )
+    assert (
+        counters[
+            "gpu_assignment_trusted_refs_prelaunch_current_expert_ptr_ready_source_mismatch_count"
+        ]
+        == 1
+    )
+    assert (
+        counters[
+            "gpu_assignment_trusted_refs_prelaunch_current_expert_ptr_available_count"
+        ]
+        == 0
+    )
+    assert (
+        counters[
+            "gpu_assignment_trusted_refs_prelaunch_current_expert_ptr_vllm_device_count"
+        ]
+        == 0
+    )

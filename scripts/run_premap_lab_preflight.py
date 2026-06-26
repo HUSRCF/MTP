@@ -341,6 +341,7 @@ REQUIRED_DEFAULT_GATE_EVIDENCE_JSON_LABELS = {
     "payload_cache_producer_state_stream_native_canary_json",
     "payload_cache_producer_state_packet_stream_native_canary_json",
     "payload_cache_producer_state_packet_stream_native_canary_check_json",
+    "payload_cache_producer_state_inprocess_native_session_online_contract_json",
     "payload_cache_online_native_producer_boundary_gap_json",
     "future_kernel_native_dispatch_consumer_online_artifact_check_32_128export_json",
     "future_kernel_native_dispatch_consumer_online_runner_32_128export_json",
@@ -348,7 +349,6 @@ REQUIRED_DEFAULT_GATE_EVIDENCE_JSON_LABELS = {
 OPTIONAL_DEFAULT_GATE_EVIDENCE_JSON_LABELS = {
     "payload_cache_producer_state_inprocess_native_online_contract_json",
     "payload_cache_producer_state_inprocess_native_session_canary_json",
-    "payload_cache_producer_state_inprocess_native_session_online_contract_json",
     "future_kernel_args_aux_metadata_mirror_canary_json",
     "future_kernel_args_compatible_path_16_128export_artifact_check_json",
     "future_kernel_args_compatible_path_canary_json",
@@ -11456,6 +11456,8 @@ def _validate_payload_cache_producer_state_inprocess_native_online_contract_evid
         "real_ready_credit_granted": False,
         "payload_transfer_enabled": False,
         "payload_deref_allowed": False,
+        "kernel_arg_pass": False,
+        "kernel_arg_pass_allowed": False,
         "passed_to_kernel": False,
         "changes_kernel_launch_args": False,
         "current_wna16_arg_compatible": False,
@@ -11976,6 +11978,8 @@ def _validate_payload_cache_producer_state_inprocess_native_session_online_contr
         "real_ready_credit_granted": False,
         "payload_transfer_enabled": False,
         "payload_deref_allowed": False,
+        "kernel_arg_pass": False,
+        "kernel_arg_pass_allowed": False,
         "passed_to_kernel": False,
         "changes_kernel_launch_args": False,
         "current_wna16_arg_compatible": False,
@@ -12417,10 +12421,16 @@ def _validate_payload_cache_online_inside_graph_producer_boundary_contract_evide
         "inprocess_native_op": False,
         "post_export_native_replay": False,
         "payload_bytes": 0,
+        "payload_transfer_enabled": False,
+        "payload_deref_allowed": False,
         "ready_credit": False,
+        "ready_before_demand_credit": False,
+        "real_ready_credit_granted": False,
         "kernel_arg_pass": False,
+        "kernel_arg_pass_allowed": False,
         "passed_to_kernel": False,
         "changes_kernel_launch_args": False,
+        "current_wna16_arg_compatible": False,
         "uses_current_wna16_args": False,
         "passes_current_wna16_args": False,
         "measures_tpot": False,
@@ -12452,10 +12462,24 @@ def _validate_payload_cache_online_inside_graph_producer_boundary_contract_evide
         failures.append(f"{failure_prefix}_payload_bytes_nonzero")
     if evidence.get("ready_credit") is not False:
         failures.append(f"{failure_prefix}_ready_credit_enabled")
+    if evidence.get("ready_before_demand_credit") is not False:
+        failures.append(f"{failure_prefix}_ready_before_demand_credit_enabled")
+    if evidence.get("real_ready_credit_granted") is not False:
+        failures.append(f"{failure_prefix}_real_ready_credit_granted_enabled")
+    if evidence.get("payload_transfer_enabled") is not False:
+        failures.append(f"{failure_prefix}_payload_transfer_enabled")
+    if evidence.get("payload_deref_allowed") is not False:
+        failures.append(f"{failure_prefix}_payload_deref_allowed")
+    if evidence.get("kernel_arg_pass") is not False:
+        failures.append(f"{failure_prefix}_kernel_arg_pass_enabled")
+    if evidence.get("kernel_arg_pass_allowed") is not False:
+        failures.append(f"{failure_prefix}_kernel_arg_pass_allowed_enabled")
     if evidence.get("passed_to_kernel") is not False:
         failures.append(f"{failure_prefix}_passed_to_kernel_enabled")
     if evidence.get("changes_kernel_launch_args") is not False:
         failures.append(f"{failure_prefix}_changes_kernel_launch_args_enabled")
+    if evidence.get("current_wna16_arg_compatible") is not False:
+        failures.append(f"{failure_prefix}_current_wna16_arg_compatible_enabled")
     if evidence.get("uses_current_wna16_args") is not False:
         failures.append(f"{failure_prefix}_uses_current_wna16_args_enabled")
     if evidence.get("passes_current_wna16_args") is not False:
@@ -12543,10 +12567,16 @@ def _validate_payload_cache_online_native_producer_boundary_gap_evidence(
         "lab_gate_passed": False,
         "next_required_boundary": "inprocess_vllm_replay_visible_native_producer_op",
         "payload_bytes": 0,
+        "payload_transfer_enabled": False,
+        "payload_deref_allowed": False,
         "ready_credit": False,
+        "ready_before_demand_credit": False,
+        "real_ready_credit_granted": False,
         "kernel_arg_pass": False,
+        "kernel_arg_pass_allowed": False,
         "passed_to_kernel": False,
         "changes_kernel_launch_args": False,
+        "current_wna16_arg_compatible": False,
         "uses_current_wna16_args": False,
         "passes_current_wna16_args": False,
         "measures_tpot": False,
@@ -12617,8 +12647,15 @@ def _validate_payload_cache_producer_state_stream_online_contract_evidence(
         "native_stream_measures_tpot": False,
         "payload_bytes": 0,
         "ready_credit": False,
+        "ready_before_demand_credit": False,
+        "real_ready_credit_granted": False,
+        "payload_transfer_enabled": False,
+        "payload_deref_allowed": False,
         "passed_to_kernel": False,
+        "kernel_arg_pass": False,
+        "kernel_arg_pass_allowed": False,
         "changes_kernel_launch_args": False,
+        "current_wna16_arg_compatible": False,
         "uses_current_wna16_args": False,
         "passes_current_wna16_args": False,
         "native_stream_graph_replay_required": True,
