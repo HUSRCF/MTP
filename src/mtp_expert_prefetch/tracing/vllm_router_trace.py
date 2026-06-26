@@ -3054,8 +3054,29 @@ def _add_premap_payload_cache_vllm_replay_visible_native_producer_contract_to_pe
     performance[f"{contract_prefix}prelaunch_current_count_device_tensor_count"] = int(
         recorder._premap_payload_cache_vllm_replay_visible_prelaunch_current_count_device_tensor_count
     )
+    performance[f"{contract_prefix}prelaunch_current_count_device_scalar_int32_count"] = int(
+        recorder._premap_payload_cache_vllm_replay_visible_prelaunch_current_count_device_scalar_int32_count
+    )
     performance[f"{contract_prefix}prelaunch_current_count_host_scalar_available_count"] = int(
         recorder._premap_payload_cache_vllm_replay_visible_prelaunch_current_count_host_scalar_available_count
+    )
+    performance[f"{contract_prefix}prelaunch_native_session_update_count_ptr_v1_abi_ready_count"] = int(
+        recorder._premap_payload_cache_vllm_replay_visible_prelaunch_count_ptr_abi_ready_count
+    )
+    performance[f"{contract_prefix}prelaunch_native_session_update_count_ptr_v1_abi_blocked_count"] = int(
+        recorder._premap_payload_cache_vllm_replay_visible_prelaunch_count_ptr_abi_blocked_count
+    )
+    performance[f"{contract_prefix}prelaunch_native_session_update_count_ptr_v1_abi_ready"] = (
+        int(
+            recorder._premap_payload_cache_vllm_replay_visible_prelaunch_count_ptr_abi_ready_count
+        )
+        == int(
+            recorder._premap_payload_cache_vllm_replay_visible_prelaunch_probe_count
+        )
+        and int(
+            recorder._premap_payload_cache_vllm_replay_visible_prelaunch_probe_count
+        )
+        > 0
     )
     performance[f"{contract_prefix}prelaunch_native_session_update_v1_abi_ready"] = (
         int(
@@ -3075,6 +3096,9 @@ def _add_premap_payload_cache_vllm_replay_visible_native_producer_contract_to_pe
     )
     performance[f"{contract_prefix}prelaunch_last_block_reason"] = (
         recorder._premap_payload_cache_vllm_replay_visible_prelaunch_last_block_reason
+    )
+    performance[f"{contract_prefix}prelaunch_last_count_ptr_block_reason"] = (
+        recorder._premap_payload_cache_vllm_replay_visible_prelaunch_last_count_ptr_block_reason
     )
     performance[f"{contract_prefix}prelaunch_last_expert_dtype"] = (
         recorder._premap_payload_cache_vllm_replay_visible_prelaunch_last_expert_dtype
@@ -4350,12 +4374,30 @@ class VllmRouterRecorder:
         init=False,
         repr=False,
     )
+    _premap_payload_cache_vllm_replay_visible_prelaunch_current_count_device_scalar_int32_count: int = field(
+        default=0,
+        init=False,
+        repr=False,
+    )
     _premap_payload_cache_vllm_replay_visible_prelaunch_current_count_host_scalar_available_count: int = field(
         default=0,
         init=False,
         repr=False,
     )
+    _premap_payload_cache_vllm_replay_visible_prelaunch_count_ptr_abi_ready_count: int = field(
+        default=0,
+        init=False,
+        repr=False,
+    )
+    _premap_payload_cache_vllm_replay_visible_prelaunch_count_ptr_abi_blocked_count: int = field(
+        default=0,
+        init=False,
+        repr=False,
+    )
     _premap_payload_cache_vllm_replay_visible_prelaunch_last_block_reason: (
+        str | None
+    ) = field(default=None, init=False, repr=False)
+    _premap_payload_cache_vllm_replay_visible_prelaunch_last_count_ptr_block_reason: (
         str | None
     ) = field(default=None, init=False, repr=False)
     _premap_payload_cache_vllm_replay_visible_prelaunch_last_expert_dtype: (
@@ -4674,8 +4716,14 @@ class VllmRouterRecorder:
         self._premap_payload_cache_vllm_replay_visible_prelaunch_int32_count = 0
         self._premap_payload_cache_vllm_replay_visible_prelaunch_dtype_mismatch_count = 0
         self._premap_payload_cache_vllm_replay_visible_prelaunch_current_count_device_tensor_count = 0
+        self._premap_payload_cache_vllm_replay_visible_prelaunch_current_count_device_scalar_int32_count = 0
         self._premap_payload_cache_vllm_replay_visible_prelaunch_current_count_host_scalar_available_count = 0
+        self._premap_payload_cache_vllm_replay_visible_prelaunch_count_ptr_abi_ready_count = 0
+        self._premap_payload_cache_vllm_replay_visible_prelaunch_count_ptr_abi_blocked_count = 0
         self._premap_payload_cache_vllm_replay_visible_prelaunch_last_block_reason = (
+            None
+        )
+        self._premap_payload_cache_vllm_replay_visible_prelaunch_last_count_ptr_block_reason = (
             None
         )
         self._premap_payload_cache_vllm_replay_visible_prelaunch_last_expert_dtype = (
@@ -7374,6 +7422,7 @@ class VllmRouterRecorder:
         else:
             expert_is_device = bool(expert_ids.is_cuda)
             expert_is_int32 = expert_ids.dtype == torch.int32
+            expert_device = expert_ids.device if expert_is_device else None
             self._premap_payload_cache_vllm_replay_visible_prelaunch_last_expert_dtype = (
                 str(expert_ids.dtype)
             )
@@ -7410,6 +7459,7 @@ class VllmRouterRecorder:
                 failures.append("current_expert_dtype_not_int32")
 
         current_count_source_kind: str | None
+        count_ptr_failures = list(failures)
         integer_dtypes = {
             torch.int8,
             torch.int16,
@@ -7420,22 +7470,44 @@ class VllmRouterRecorder:
         if not isinstance(num_tokens_post_padded, torch.Tensor):
             current_count_source_kind = "missing"
             failures.append("current_count_tensor_missing")
+            count_ptr_failures.append("current_count_tensor_missing")
         elif int(num_tokens_post_padded.numel()) <= 0:
             current_count_source_kind = "num_tokens_post_padded_empty_host_tensor"
             failures.append("current_count_tensor_empty")
+            count_ptr_failures.append("current_count_tensor_empty")
         else:
             if int(num_tokens_post_padded.numel()) != 1:
                 failures.append("current_count_not_scalar")
+                count_ptr_failures.append("current_count_not_scalar")
             if num_tokens_post_padded.dtype not in integer_dtypes:
                 failures.append("current_count_dtype_not_integer")
+                count_ptr_failures.append("current_count_dtype_not_integer")
             if bool(num_tokens_post_padded.is_cuda):
                 current_count_source_kind = "num_tokens_post_padded_device_tensor"
                 self._premap_payload_cache_vllm_replay_visible_prelaunch_current_count_device_tensor_count += (
                     1
                 )
+                if (
+                    isinstance(expert_ids, torch.Tensor)
+                    and bool(expert_ids.is_cuda)
+                    and expert_device is not None
+                    and num_tokens_post_padded.device != expert_device
+                ):
+                    count_ptr_failures.append("current_count_device_mismatch")
+                if (
+                    int(num_tokens_post_padded.numel()) == 1
+                    and num_tokens_post_padded.dtype == torch.int32
+                ):
+                    self._premap_payload_cache_vllm_replay_visible_prelaunch_current_count_device_scalar_int32_count += (
+                        1
+                    )
+                else:
+                    if num_tokens_post_padded.dtype != torch.int32:
+                        count_ptr_failures.append("current_count_device_dtype_not_int32")
                 failures.append("current_count_host_scalar_not_available")
             else:
                 current_count_source_kind = "num_tokens_post_padded_host_tensor"
+                count_ptr_failures.append("current_count_device_tensor_not_available")
                 if (
                     int(num_tokens_post_padded.numel()) == 1
                     and num_tokens_post_padded.dtype in integer_dtypes
@@ -7446,6 +7518,21 @@ class VllmRouterRecorder:
         self._premap_payload_cache_vllm_replay_visible_prelaunch_last_current_count_source_kind = (
             current_count_source_kind
         )
+
+        if not count_ptr_failures:
+            self._premap_payload_cache_vllm_replay_visible_prelaunch_count_ptr_abi_ready_count += (
+                1
+            )
+            self._premap_payload_cache_vllm_replay_visible_prelaunch_last_count_ptr_block_reason = (
+                None
+            )
+        else:
+            self._premap_payload_cache_vllm_replay_visible_prelaunch_count_ptr_abi_blocked_count += (
+                1
+            )
+            self._premap_payload_cache_vllm_replay_visible_prelaunch_last_count_ptr_block_reason = (
+                ";".join(count_ptr_failures)
+            )
 
         if not failures:
             self._premap_payload_cache_vllm_replay_visible_prelaunch_abi_ready_count += (

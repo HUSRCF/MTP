@@ -1,3 +1,4 @@
+import inspect
 import json
 from pathlib import Path
 
@@ -47,6 +48,14 @@ from mtp_expert_prefetch.tracing.vllm_router_trace import (
     set_active_runtime_shadow_controller,
     write_active_runtime_shadow_action_summary,
 )
+
+
+def test_vllm_replay_visible_count_ptr_probe_tracks_device_mismatch_reason():
+    source = inspect.getsource(
+        VllmRouterRecorder._record_premap_payload_cache_vllm_replay_visible_prelaunch_probe
+    )
+
+    assert "current_count_device_mismatch" in source
 
 
 class _Sink:
@@ -1700,9 +1709,33 @@ def test_premap_payload_cache_vllm_replay_visible_native_producer_contract_fails
     assert performance[f"{replay_prefix}prelaunch_dtype_mismatch_count"] == 8
     assert (
         performance[
+            f"{replay_prefix}prelaunch_current_count_device_scalar_int32_count"
+        ]
+        == 0
+    )
+    assert (
+        performance[
             f"{replay_prefix}prelaunch_current_count_host_scalar_available_count"
         ]
         == 8
+    )
+    assert (
+        performance[
+            f"{replay_prefix}prelaunch_native_session_update_count_ptr_v1_abi_ready_count"
+        ]
+        == 0
+    )
+    assert (
+        performance[
+            f"{replay_prefix}prelaunch_native_session_update_count_ptr_v1_abi_blocked_count"
+        ]
+        == 8
+    )
+    assert (
+        performance[
+            f"{replay_prefix}prelaunch_native_session_update_count_ptr_v1_abi_ready"
+        ]
+        is False
     )
     assert (
         performance[f"{replay_prefix}prelaunch_native_session_update_v1_abi_ready"]
@@ -1718,6 +1751,10 @@ def test_premap_payload_cache_vllm_replay_visible_native_producer_contract_fails
     assert performance[f"{replay_prefix}prelaunch_last_block_size"] == 1
     assert performance[f"{replay_prefix}prelaunch_last_current_count_source_kind"] == (
         "num_tokens_post_padded_host_tensor"
+    )
+    assert performance[f"{replay_prefix}prelaunch_last_count_ptr_block_reason"] == (
+        "current_expert_not_device_tensor;current_expert_dtype_not_int32;"
+        "current_count_device_tensor_not_available"
     )
     assert performance[f"{replay_prefix}payload_bytes"] == 0
     assert performance[f"{replay_prefix}payload_transfer_enabled"] is False
@@ -1785,6 +1822,12 @@ def test_premap_payload_cache_vllm_replay_visible_native_producer_contract_emits
         performance[f"{replay_prefix}prelaunch_native_session_update_v1_abi_ready"]
         is False
     )
+    assert (
+        performance[
+            f"{replay_prefix}prelaunch_native_session_update_count_ptr_v1_abi_ready"
+        ]
+        is False
+    )
     assert performance[f"{replay_prefix}source_kind"] == (
         "missing_vllm_prelaunch_inprocess_native_producer"
     )
@@ -1845,8 +1888,24 @@ def test_premap_payload_cache_vllm_replay_visible_native_producer_probe_rejects_
         ]
         == 0
     )
+    assert (
+        performance[
+            f"{replay_prefix}prelaunch_native_session_update_count_ptr_v1_abi_ready_count"
+        ]
+        == 0
+    )
+    assert (
+        performance[
+            f"{replay_prefix}prelaunch_native_session_update_count_ptr_v1_abi_blocked_count"
+        ]
+        == 1
+    )
     assert performance[f"{replay_prefix}prelaunch_last_block_reason"] == (
         "current_expert_not_device_tensor;current_count_not_scalar"
+    )
+    assert performance[f"{replay_prefix}prelaunch_last_count_ptr_block_reason"] == (
+        "current_expert_not_device_tensor;current_count_not_scalar;"
+        "current_count_device_tensor_not_available"
     )
 
 
