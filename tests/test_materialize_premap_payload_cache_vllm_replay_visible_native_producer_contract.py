@@ -68,6 +68,25 @@ def _valid_contract() -> dict[str, object]:
         "passes_current_wna16_args": False,
         "measures_tpot": False,
         "measures_vllm_latency": False,
+        "prelaunch_probe_count": 2560,
+        "prelaunch_abi_ready_count": 2560,
+        "prelaunch_abi_blocked_count": 0,
+        "prelaunch_device_tensor_count": 2560,
+        "prelaunch_host_tensor_count": 0,
+        "prelaunch_int32_count": 2560,
+        "prelaunch_dtype_mismatch_count": 0,
+        "prelaunch_current_count_device_tensor_count": 0,
+        "prelaunch_current_count_host_scalar_available_count": 2560,
+        "prelaunch_native_session_update_v1_abi_ready": True,
+        "prelaunch_last_block_reason": None,
+        "prelaunch_last_expert_dtype": "torch.int32",
+        "prelaunch_last_expert_device": "cuda:0",
+        "prelaunch_last_expert_ndim": 1,
+        "prelaunch_last_expert_numel": 8,
+        "prelaunch_last_block_size": 16,
+        "prelaunch_last_current_count_source_kind": (
+            "num_tokens_post_padded_host_tensor"
+        ),
     }
 
 
@@ -99,6 +118,27 @@ def _fail_closed_contract() -> dict[str, object]:
             "current_expert_ptr_source_kind": None,
             "source_is_online_stream_contract": False,
             "ready_for_payload_cache_runtime_lab_gate": False,
+            "prelaunch_probe_count": 8,
+            "prelaunch_abi_ready_count": 0,
+            "prelaunch_abi_blocked_count": 8,
+            "prelaunch_device_tensor_count": 0,
+            "prelaunch_host_tensor_count": 8,
+            "prelaunch_int32_count": 0,
+            "prelaunch_dtype_mismatch_count": 8,
+            "prelaunch_current_count_device_tensor_count": 0,
+            "prelaunch_current_count_host_scalar_available_count": 8,
+            "prelaunch_native_session_update_v1_abi_ready": False,
+            "prelaunch_last_block_reason": (
+                "current_expert_not_device_tensor;current_expert_dtype_not_int32"
+            ),
+            "prelaunch_last_expert_dtype": "torch.int64",
+            "prelaunch_last_expert_device": "cpu",
+            "prelaunch_last_expert_ndim": 1,
+            "prelaunch_last_expert_numel": 2,
+            "prelaunch_last_block_size": 1,
+            "prelaunch_last_current_count_source_kind": (
+                "num_tokens_post_padded_host_tensor"
+            ),
         }
     )
     return payload
@@ -115,6 +155,9 @@ def test_materializer_extracts_fail_closed_contract_but_checker_rejects() -> Non
     assert result["native_runtime"] is False
     assert result["payload_bytes"] == 0
     assert result["kernel_arg_pass"] is False
+    assert result["prelaunch_probe_count"] == 8
+    assert result["prelaunch_abi_blocked_count"] == 8
+    assert result["prelaunch_last_expert_dtype"] == "torch.int64"
 
     checked = checker.check_contract(result)
     assert checked["passed"] is False
@@ -130,6 +173,8 @@ def test_materializer_extracts_future_positive_contract_for_checker() -> None:
     assert result["ok"] is True
     assert result["passed"] is True
     assert result["failures"] == []
+    assert result["prelaunch_probe_count"] == 2560
+    assert result["prelaunch_native_session_update_v1_abi_ready"] is True
 
     checked = checker.check_contract(result)
     assert checked["passed"] is True

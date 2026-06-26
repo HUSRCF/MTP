@@ -3030,6 +3030,64 @@ def _add_premap_payload_cache_vllm_replay_visible_native_producer_contract_to_pe
     performance[f"{contract_prefix}producer_update_count"] = 0
     performance[f"{contract_prefix}replay_visible_update_count"] = 0
     performance[f"{contract_prefix}current_expert_ptr_source_kind"] = None
+    performance[f"{contract_prefix}prelaunch_probe_count"] = int(
+        recorder._premap_payload_cache_vllm_replay_visible_prelaunch_probe_count
+    )
+    performance[f"{contract_prefix}prelaunch_abi_ready_count"] = int(
+        recorder._premap_payload_cache_vllm_replay_visible_prelaunch_abi_ready_count
+    )
+    performance[f"{contract_prefix}prelaunch_abi_blocked_count"] = int(
+        recorder._premap_payload_cache_vllm_replay_visible_prelaunch_abi_blocked_count
+    )
+    performance[f"{contract_prefix}prelaunch_device_tensor_count"] = int(
+        recorder._premap_payload_cache_vllm_replay_visible_prelaunch_device_tensor_count
+    )
+    performance[f"{contract_prefix}prelaunch_host_tensor_count"] = int(
+        recorder._premap_payload_cache_vllm_replay_visible_prelaunch_host_tensor_count
+    )
+    performance[f"{contract_prefix}prelaunch_int32_count"] = int(
+        recorder._premap_payload_cache_vllm_replay_visible_prelaunch_int32_count
+    )
+    performance[f"{contract_prefix}prelaunch_dtype_mismatch_count"] = int(
+        recorder._premap_payload_cache_vllm_replay_visible_prelaunch_dtype_mismatch_count
+    )
+    performance[f"{contract_prefix}prelaunch_current_count_device_tensor_count"] = int(
+        recorder._premap_payload_cache_vllm_replay_visible_prelaunch_current_count_device_tensor_count
+    )
+    performance[f"{contract_prefix}prelaunch_current_count_host_scalar_available_count"] = int(
+        recorder._premap_payload_cache_vllm_replay_visible_prelaunch_current_count_host_scalar_available_count
+    )
+    performance[f"{contract_prefix}prelaunch_native_session_update_v1_abi_ready"] = (
+        int(
+            recorder._premap_payload_cache_vllm_replay_visible_prelaunch_abi_ready_count
+        )
+        > 0
+        and int(
+            recorder._premap_payload_cache_vllm_replay_visible_prelaunch_abi_blocked_count
+        )
+        == 0
+    )
+    performance[f"{contract_prefix}prelaunch_last_block_reason"] = (
+        recorder._premap_payload_cache_vllm_replay_visible_prelaunch_last_block_reason
+    )
+    performance[f"{contract_prefix}prelaunch_last_expert_dtype"] = (
+        recorder._premap_payload_cache_vllm_replay_visible_prelaunch_last_expert_dtype
+    )
+    performance[f"{contract_prefix}prelaunch_last_expert_device"] = (
+        recorder._premap_payload_cache_vllm_replay_visible_prelaunch_last_expert_device
+    )
+    performance[f"{contract_prefix}prelaunch_last_expert_ndim"] = (
+        recorder._premap_payload_cache_vllm_replay_visible_prelaunch_last_expert_ndim
+    )
+    performance[f"{contract_prefix}prelaunch_last_expert_numel"] = (
+        recorder._premap_payload_cache_vllm_replay_visible_prelaunch_last_expert_numel
+    )
+    performance[f"{contract_prefix}prelaunch_last_block_size"] = int(
+        recorder._premap_payload_cache_vllm_replay_visible_prelaunch_last_block_size
+    )
+    performance[f"{contract_prefix}prelaunch_last_current_count_source_kind"] = (
+        recorder._premap_payload_cache_vllm_replay_visible_prelaunch_last_current_count_source_kind
+    )
     performance[f"{contract_prefix}source_is_online_stream_contract"] = False
     performance[f"{contract_prefix}source_is_raw_vllm_performance_summary"] = False
     performance[f"{contract_prefix}ready_for_payload_cache_runtime_lab_gate"] = False
@@ -4248,6 +4306,72 @@ class VllmRouterRecorder:
         init=False,
         repr=False,
     )
+    _premap_payload_cache_vllm_replay_visible_prelaunch_probe_count: int = field(
+        default=0,
+        init=False,
+        repr=False,
+    )
+    _premap_payload_cache_vllm_replay_visible_prelaunch_abi_ready_count: int = field(
+        default=0,
+        init=False,
+        repr=False,
+    )
+    _premap_payload_cache_vllm_replay_visible_prelaunch_abi_blocked_count: int = field(
+        default=0,
+        init=False,
+        repr=False,
+    )
+    _premap_payload_cache_vllm_replay_visible_prelaunch_device_tensor_count: int = field(
+        default=0,
+        init=False,
+        repr=False,
+    )
+    _premap_payload_cache_vllm_replay_visible_prelaunch_host_tensor_count: int = field(
+        default=0,
+        init=False,
+        repr=False,
+    )
+    _premap_payload_cache_vllm_replay_visible_prelaunch_int32_count: int = field(
+        default=0,
+        init=False,
+        repr=False,
+    )
+    _premap_payload_cache_vllm_replay_visible_prelaunch_dtype_mismatch_count: int = (
+        field(default=0, init=False, repr=False)
+    )
+    _premap_payload_cache_vllm_replay_visible_prelaunch_current_count_device_tensor_count: int = field(
+        default=0,
+        init=False,
+        repr=False,
+    )
+    _premap_payload_cache_vllm_replay_visible_prelaunch_current_count_host_scalar_available_count: int = field(
+        default=0,
+        init=False,
+        repr=False,
+    )
+    _premap_payload_cache_vllm_replay_visible_prelaunch_last_block_reason: (
+        str | None
+    ) = field(default=None, init=False, repr=False)
+    _premap_payload_cache_vllm_replay_visible_prelaunch_last_expert_dtype: (
+        str | None
+    ) = field(default=None, init=False, repr=False)
+    _premap_payload_cache_vllm_replay_visible_prelaunch_last_expert_device: (
+        str | None
+    ) = field(default=None, init=False, repr=False)
+    _premap_payload_cache_vllm_replay_visible_prelaunch_last_expert_ndim: int | None = (
+        field(default=None, init=False, repr=False)
+    )
+    _premap_payload_cache_vllm_replay_visible_prelaunch_last_expert_numel: (
+        int | None
+    ) = field(default=None, init=False, repr=False)
+    _premap_payload_cache_vllm_replay_visible_prelaunch_last_block_size: int = field(
+        default=0,
+        init=False,
+        repr=False,
+    )
+    _premap_payload_cache_vllm_replay_visible_prelaunch_last_current_count_source_kind: (
+        str | None
+    ) = field(default=None, init=False, repr=False)
     _configured_shadow_premap_event_token_index: int = field(
         default=-1,
         init=False,
@@ -4536,6 +4660,34 @@ class VllmRouterRecorder:
         # the tensor pointers into a CUDA/HIP graph while clear() only resets
         # per-sample Python bookkeeping.  Clearing would make the summary read a
         # fresh state while graph replay keeps updating the old captured buffers.
+        self._premap_payload_cache_vllm_replay_visible_prelaunch_probe_count = 0
+        self._premap_payload_cache_vllm_replay_visible_prelaunch_abi_ready_count = 0
+        self._premap_payload_cache_vllm_replay_visible_prelaunch_abi_blocked_count = 0
+        self._premap_payload_cache_vllm_replay_visible_prelaunch_device_tensor_count = 0
+        self._premap_payload_cache_vllm_replay_visible_prelaunch_host_tensor_count = 0
+        self._premap_payload_cache_vllm_replay_visible_prelaunch_int32_count = 0
+        self._premap_payload_cache_vllm_replay_visible_prelaunch_dtype_mismatch_count = 0
+        self._premap_payload_cache_vllm_replay_visible_prelaunch_current_count_device_tensor_count = 0
+        self._premap_payload_cache_vllm_replay_visible_prelaunch_current_count_host_scalar_available_count = 0
+        self._premap_payload_cache_vllm_replay_visible_prelaunch_last_block_reason = (
+            None
+        )
+        self._premap_payload_cache_vllm_replay_visible_prelaunch_last_expert_dtype = (
+            None
+        )
+        self._premap_payload_cache_vllm_replay_visible_prelaunch_last_expert_device = (
+            None
+        )
+        self._premap_payload_cache_vllm_replay_visible_prelaunch_last_expert_ndim = (
+            None
+        )
+        self._premap_payload_cache_vllm_replay_visible_prelaunch_last_expert_numel = (
+            None
+        )
+        self._premap_payload_cache_vllm_replay_visible_prelaunch_last_block_size = 0
+        self._premap_payload_cache_vllm_replay_visible_prelaunch_last_current_count_source_kind = (
+            None
+        )
         self.shadow_premap_event_token_index = int(
             self._configured_shadow_premap_event_token_index
         )
@@ -7165,6 +7317,127 @@ class VllmRouterRecorder:
         elif ptr_source_kind != "missing":
             _increment_premap_kernel_arg_live_mutation_counter(
                 "gpu_assignment_prelaunch_current_expert_ptr_observer_non_device_count"
+            )
+
+    def _record_premap_payload_cache_vllm_replay_visible_prelaunch_probe(
+        self,
+        *,
+        available: bool,
+        expert_ids: torch.Tensor | None,
+        num_tokens_post_padded: torch.Tensor | None,
+        block_size: int,
+    ) -> None:
+        """Record whether the current prelaunch tensors fit the native ABI.
+
+        The existing session native stub consumes ``int32* current_experts`` and
+        a host ``current_count`` scalar.  This probe is intentionally
+        observational: it never calls the native op, never transfers payload,
+        and never mutates kernel arguments.  It exposes the exact blockers that
+        must be removed before the vLLM prelaunch path can invoke the native
+        session safely.
+        """
+
+        if not bool(
+            self.shadow_premap_payload_cache_vllm_replay_visible_native_producer_enabled
+        ):
+            return
+
+        self._premap_payload_cache_vllm_replay_visible_prelaunch_probe_count += 1
+        self._premap_payload_cache_vllm_replay_visible_prelaunch_last_block_size = (
+            max(1, int(block_size))
+        )
+
+        failures: list[str] = []
+        if not bool(available):
+            failures.append("prelaunch_handle_unavailable")
+
+        if not isinstance(expert_ids, torch.Tensor):
+            failures.append("current_expert_tensor_missing")
+            self._premap_payload_cache_vllm_replay_visible_prelaunch_last_expert_dtype = (
+                None
+            )
+            self._premap_payload_cache_vllm_replay_visible_prelaunch_last_expert_device = (
+                None
+            )
+            self._premap_payload_cache_vllm_replay_visible_prelaunch_last_expert_ndim = (
+                None
+            )
+            self._premap_payload_cache_vllm_replay_visible_prelaunch_last_expert_numel = (
+                None
+            )
+        else:
+            expert_is_device = bool(expert_ids.is_cuda)
+            expert_is_int32 = expert_ids.dtype == torch.int32
+            self._premap_payload_cache_vllm_replay_visible_prelaunch_last_expert_dtype = (
+                str(expert_ids.dtype)
+            )
+            self._premap_payload_cache_vllm_replay_visible_prelaunch_last_expert_device = (
+                str(expert_ids.device)
+            )
+            self._premap_payload_cache_vllm_replay_visible_prelaunch_last_expert_ndim = int(
+                expert_ids.ndim
+            )
+            self._premap_payload_cache_vllm_replay_visible_prelaunch_last_expert_numel = int(
+                expert_ids.numel()
+            )
+            if expert_is_device:
+                self._premap_payload_cache_vllm_replay_visible_prelaunch_device_tensor_count += (
+                    1
+                )
+            else:
+                self._premap_payload_cache_vllm_replay_visible_prelaunch_host_tensor_count += (
+                    1
+                )
+                failures.append("current_expert_not_device_tensor")
+            if int(expert_ids.ndim) != 1:
+                failures.append("current_expert_not_1d")
+            if int(expert_ids.numel()) <= 0:
+                failures.append("current_expert_empty")
+            if expert_is_int32:
+                self._premap_payload_cache_vllm_replay_visible_prelaunch_int32_count += (
+                    1
+                )
+            else:
+                self._premap_payload_cache_vllm_replay_visible_prelaunch_dtype_mismatch_count += (
+                    1
+                )
+                failures.append("current_expert_dtype_not_int32")
+
+        current_count_source_kind: str | None
+        if not isinstance(num_tokens_post_padded, torch.Tensor):
+            current_count_source_kind = "missing"
+            failures.append("current_count_tensor_missing")
+        elif bool(num_tokens_post_padded.is_cuda):
+            current_count_source_kind = "num_tokens_post_padded_device_tensor"
+            self._premap_payload_cache_vllm_replay_visible_prelaunch_current_count_device_tensor_count += (
+                1
+            )
+            failures.append("current_count_host_scalar_not_available")
+        elif int(num_tokens_post_padded.numel()) > 0:
+            current_count_source_kind = "num_tokens_post_padded_host_tensor"
+            self._premap_payload_cache_vllm_replay_visible_prelaunch_current_count_host_scalar_available_count += (
+                1
+            )
+        else:
+            current_count_source_kind = "num_tokens_post_padded_empty_host_tensor"
+            failures.append("current_count_tensor_empty")
+        self._premap_payload_cache_vllm_replay_visible_prelaunch_last_current_count_source_kind = (
+            current_count_source_kind
+        )
+
+        if not failures:
+            self._premap_payload_cache_vllm_replay_visible_prelaunch_abi_ready_count += (
+                1
+            )
+            self._premap_payload_cache_vllm_replay_visible_prelaunch_last_block_reason = (
+                None
+            )
+        else:
+            self._premap_payload_cache_vllm_replay_visible_prelaunch_abi_blocked_count += (
+                1
+            )
+            self._premap_payload_cache_vllm_replay_visible_prelaunch_last_block_reason = (
+                ";".join(failures)
             )
 
     def _attach_premap_producer_gpu_assignment_envelope(
@@ -11496,6 +11769,12 @@ class VllmRouterRecorder:
         )
         self._apply_premap_payload_cache_graph_visible_producer_op(
             layer_id=int(layer_id),
+            expert_ids=expert_ids,
+            num_tokens_post_padded=num_tokens_post_padded,
+            block_size=int(block_size),
+        )
+        self._record_premap_payload_cache_vllm_replay_visible_prelaunch_probe(
+            available=bool(available),
             expert_ids=expert_ids,
             num_tokens_post_padded=num_tokens_post_padded,
             block_size=int(block_size),

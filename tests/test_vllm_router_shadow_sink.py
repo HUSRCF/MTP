@@ -1691,6 +1691,34 @@ def test_premap_payload_cache_vllm_replay_visible_native_producer_contract_fails
     assert performance[f"{replay_prefix}issue_candidate_count"] == 0
     assert performance[f"{replay_prefix}producer_update_count"] == 0
     assert performance[f"{replay_prefix}replay_visible_update_count"] == 0
+    assert performance[f"{replay_prefix}prelaunch_probe_count"] == 8
+    assert performance[f"{replay_prefix}prelaunch_abi_ready_count"] == 0
+    assert performance[f"{replay_prefix}prelaunch_abi_blocked_count"] == 8
+    assert performance[f"{replay_prefix}prelaunch_device_tensor_count"] == 0
+    assert performance[f"{replay_prefix}prelaunch_host_tensor_count"] == 8
+    assert performance[f"{replay_prefix}prelaunch_int32_count"] == 0
+    assert performance[f"{replay_prefix}prelaunch_dtype_mismatch_count"] == 8
+    assert (
+        performance[
+            f"{replay_prefix}prelaunch_current_count_host_scalar_available_count"
+        ]
+        == 8
+    )
+    assert (
+        performance[f"{replay_prefix}prelaunch_native_session_update_v1_abi_ready"]
+        is False
+    )
+    assert performance[f"{replay_prefix}prelaunch_last_block_reason"] == (
+        "current_expert_not_device_tensor;current_expert_dtype_not_int32"
+    )
+    assert performance[f"{replay_prefix}prelaunch_last_expert_dtype"] == "torch.int64"
+    assert performance[f"{replay_prefix}prelaunch_last_expert_device"] == "cpu"
+    assert performance[f"{replay_prefix}prelaunch_last_expert_ndim"] == 1
+    assert performance[f"{replay_prefix}prelaunch_last_expert_numel"] == 2
+    assert performance[f"{replay_prefix}prelaunch_last_block_size"] == 1
+    assert performance[f"{replay_prefix}prelaunch_last_current_count_source_kind"] == (
+        "num_tokens_post_padded_host_tensor"
+    )
     assert performance[f"{replay_prefix}payload_bytes"] == 0
     assert performance[f"{replay_prefix}payload_transfer_enabled"] is False
     assert performance[f"{replay_prefix}ready_credit"] is False
@@ -1750,6 +1778,13 @@ def test_premap_payload_cache_vllm_replay_visible_native_producer_contract_emits
     assert performance[f"{replay_prefix}expected_issue_candidate_count"] == 0
     assert performance[f"{replay_prefix}packet_count"] == 0
     assert performance[f"{replay_prefix}issue_candidate_count"] == 0
+    assert performance[f"{replay_prefix}prelaunch_probe_count"] == 0
+    assert performance[f"{replay_prefix}prelaunch_abi_ready_count"] == 0
+    assert performance[f"{replay_prefix}prelaunch_abi_blocked_count"] == 0
+    assert (
+        performance[f"{replay_prefix}prelaunch_native_session_update_v1_abi_ready"]
+        is False
+    )
     assert performance[f"{replay_prefix}source_kind"] == (
         "missing_vllm_prelaunch_inprocess_native_producer"
     )

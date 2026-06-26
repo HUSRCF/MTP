@@ -72,6 +72,25 @@ CONTRACT_FIELDS = (
     "measures_tpot",
     "measures_vllm_latency",
 )
+OPTIONAL_CONTRACT_FIELDS = (
+    "prelaunch_probe_count",
+    "prelaunch_abi_ready_count",
+    "prelaunch_abi_blocked_count",
+    "prelaunch_device_tensor_count",
+    "prelaunch_host_tensor_count",
+    "prelaunch_int32_count",
+    "prelaunch_dtype_mismatch_count",
+    "prelaunch_current_count_device_tensor_count",
+    "prelaunch_current_count_host_scalar_available_count",
+    "prelaunch_native_session_update_v1_abi_ready",
+    "prelaunch_last_block_reason",
+    "prelaunch_last_expert_dtype",
+    "prelaunch_last_expert_device",
+    "prelaunch_last_expert_ndim",
+    "prelaunch_last_expert_numel",
+    "prelaunch_last_block_size",
+    "prelaunch_last_current_count_source_kind",
+)
 
 
 def _resolve(path: str | Path) -> Path:
@@ -105,6 +124,10 @@ def materialize_contract(
             materializer_failures.append(f"{field}_missing")
             continue
         contract[field] = performance_summary[key]
+    for field in OPTIONAL_CONTRACT_FIELDS:
+        key = f"{CONTRACT_PREFIX}{field}"
+        if key in performance_summary:
+            contract[field] = performance_summary[key]
 
     input_failures = contract.get("failures")
     if input_failures is None:

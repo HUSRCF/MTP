@@ -27,6 +27,15 @@ def _payload() -> dict[str, object]:
         "expected_issue_candidate_count": 20160,
         "producer_update_count": 2560,
         "replay_visible_update_count": 2560,
+        "prelaunch_probe_count": 2560,
+        "prelaunch_abi_ready_count": 2560,
+        "prelaunch_abi_blocked_count": 0,
+        "prelaunch_device_tensor_count": 2560,
+        "prelaunch_host_tensor_count": 0,
+        "prelaunch_int32_count": 2560,
+        "prelaunch_dtype_mismatch_count": 0,
+        "prelaunch_current_count_host_scalar_available_count": 2560,
+        "prelaunch_native_session_update_v1_abi_ready": True,
         "source_kind": "vllm_prelaunch_inprocess_native_producer",
         "current_expert_ptr_source_kind": "vllm_prelaunch_device_tensor",
         "source_is_online_stream_contract": True,
@@ -56,6 +65,8 @@ def test_vllm_replay_visible_native_producer_accepts_valid_contract():
     assert result["ready_for_payload_cache_runtime_lab_gate"] is True
     assert result["packet_count"] == 2560
     assert result["issue_candidate_count"] == 20160
+    assert result["prelaunch_probe_count"] == 2560
+    assert result["prelaunch_abi_blocked_count"] == 0
     assert result["payload_bytes"] == 0
     assert result["kernel_arg_pass"] is False
     assert result["passed_to_kernel"] is False
@@ -108,6 +119,22 @@ def test_vllm_replay_visible_native_producer_rejects_count_mismatch():
     assert result["passed"] is False
     assert "producer_update_count_mismatch" in result["failures"]
     assert "replay_visible_update_count_mismatch" in result["failures"]
+
+
+def test_vllm_replay_visible_native_producer_rejects_prelaunch_abi_blocker():
+    payload = _payload()
+    payload["prelaunch_abi_ready_count"] = 0
+    payload["prelaunch_abi_blocked_count"] = 2560
+    payload["prelaunch_native_session_update_v1_abi_ready"] = False
+
+    result = checker.check_contract(payload)
+
+    assert result["passed"] is False
+    assert "prelaunch_abi_ready_count_invalid" in result["failures"]
+    assert "prelaunch_abi_blocked_count_mismatch" in result["failures"]
+    assert "prelaunch_native_session_update_v1_abi_ready_mismatch" in result[
+        "failures"
+    ]
 
 
 def test_vllm_replay_visible_native_producer_rejects_wrong_source_kind():
