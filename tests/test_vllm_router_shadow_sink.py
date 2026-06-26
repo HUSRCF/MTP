@@ -59,6 +59,19 @@ def test_vllm_replay_visible_count_ptr_probe_tracks_device_mismatch_reason():
     assert "current_count_device_mismatch" in source
 
 
+def test_graph_visible_state_only_option_is_passed_to_both_recorder_paths():
+    source = Path(
+        "src/mtp_expert_prefetch/tracing/vllm_router_trace.py"
+    ).read_text()
+
+    assert (
+        source.count(
+            "shadow_premap_payload_cache_graph_visible_producer_state_only=bool("
+        )
+        == 2
+    )
+
+
 class _Sink:
     def __init__(self) -> None:
         self.events = []
@@ -1455,6 +1468,8 @@ def test_premap_payload_cache_graph_visible_producer_contract_counts_stream():
     )
     assert performance[f"{prefix}captured_replay_required"] is True
     assert performance[f"{prefix}captured_replay_passed"] is True
+    assert performance[f"{prefix}state_snapshot_required"] is False
+    assert performance[f"{prefix}state_snapshot_passed"] is False
     assert performance[f"{prefix}transition_state_on_device"] is True
     assert performance[f"{prefix}issue_generation_on_device"] is True
     assert performance[f"{prefix}python_transition_skipped"] is False
@@ -1609,6 +1624,170 @@ def test_premap_payload_cache_inside_graph_producer_boundary_skips_python_transi
     assert performance[f"{online_prefix}present"] is False
     assert performance[f"{online_prefix}passed"] is False
     assert recorder._premap_payload_cache_transition_native_packet_count == 0
+
+
+def test_premap_payload_cache_inside_graph_state_only_skips_consumer_mapping(monkeypatch):
+    recorder = VllmRouterRecorder(
+        top_k=2,
+        shadow_outcome_sink=None,
+        shadow_num_experts=8,
+        shadow_emit_premap_payload_cache_manager_counters=True,
+        shadow_premap_payload_cache_manager_capacity=4,
+        shadow_premap_payload_cache_transition_state_owner="producer",
+        shadow_emit_premap_consumer_mapping=True,
+        shadow_premap_consumer_mapping_mode="noop_assertion",
+        shadow_premap_consumer_mapping_emit_rows=False,
+        shadow_premap_payload_cache_graph_visible_producer_enabled=True,
+        shadow_premap_payload_cache_graph_visible_producer_skip_python_transition=False,
+        shadow_premap_payload_cache_graph_visible_producer_state_only=True,
+        shadow_transition_topk_count=2,
+        shadow_descriptor_order_prelaunch_assertion_mode="exact",
+        shadow_descriptor_order_reorder_mvp_enabled=True,
+    )
+
+    def fail_if_mapping_called(*args, **kwargs):
+        raise AssertionError("state-only path must not enter CPU mapping extraction")
+
+    monkeypatch.setattr(
+        recorder,
+        "_write_premap_consumer_mapping_from_experts",
+        fail_if_mapping_called,
+    )
+    monkeypatch.setattr(
+        recorder,
+        "_apply_premap_payload_cache_transition_and_demand",
+        fail_if_mapping_called,
+    )
+
+    per_step_experts = (
+        ((1, 2), (3, 4)),
+        ((2, 5), (4, 6)),
+        ((5, 7), (0, 6)),
+        ((1, 7), (0, 3)),
+    )
+    for step_layers in per_step_experts:
+        for layer_id, experts in enumerate(step_layers):
+            recorder.maybe_reorder_prepared_expert_assignment(
+                layer_id=layer_id,
+                sorted_token_ids=torch.tensor([0, 1], dtype=torch.long),
+                expert_ids=torch.tensor(list(experts), dtype=torch.long),
+                num_tokens_post_padded=torch.tensor([2], dtype=torch.long),
+                block_size=1,
+            )
+    performance = {
+        "sample_count": 1,
+        "requested_output_token_count": 4,
+    }
+
+    _add_premap_payload_cache_manager_snapshot_to_performance(
+        performance,
+        recorder,
+        source="unit_test_inside_graph_state_only",
+    )
+
+    graph_prefix = (
+        "runtime_shadow_premap_payload_cache_direct_"
+        "graph_visible_producer_contract_"
+    )
+    assert performance[f"{graph_prefix}enabled"] is True
+    assert performance[f"{graph_prefix}present"] is True
+    assert performance[f"{graph_prefix}state_only"] is True
+    assert performance[f"{graph_prefix}passed"] is True
+    assert performance[f"{graph_prefix}failures"] == []
+    assert performance[f"{graph_prefix}transition_state_on_device"] is True
+    assert performance[f"{graph_prefix}issue_generation_on_device"] is False
+    assert performance[f"{graph_prefix}python_transition_skipped"] is True
+    assert performance[f"{graph_prefix}observed_packet_count"] == 8
+    assert performance[f"{graph_prefix}expected_packet_count"] == 8
+    assert performance[f"{graph_prefix}observed_previous_nonempty_packet_count"] == 0
+    assert performance[f"{graph_prefix}expected_previous_nonempty_packet_count"] == 0
+    assert (
+        performance[
+            f"{graph_prefix}full_replay_expected_previous_nonempty_packet_count"
+        ]
+        == 6
+    )
+    assert performance[f"{graph_prefix}observed_issue_candidate_count"] == 0
+    assert performance[f"{graph_prefix}expected_issue_candidate_count"] == 0
+    assert performance[f"{graph_prefix}full_replay_expected_issue_candidate_count"] == 12
+
+    boundary_prefix = (
+        "runtime_shadow_premap_payload_cache_direct_"
+        "online_inside_graph_producer_boundary_contract_"
+    )
+    assert performance[f"{boundary_prefix}passed"] is False
+    assert "issue_generation_not_on_device" in performance[
+        f"{boundary_prefix}failures"
+    ]
+    assert performance[f"{boundary_prefix}transition_state_on_device"] is True
+    assert performance[f"{boundary_prefix}issue_generation_on_device"] is False
+    assert performance[f"{boundary_prefix}python_transition_skipped"] is True
+    assert performance[f"{boundary_prefix}state_only_not_applicable"] is True
+    assert performance[f"{boundary_prefix}payload_bytes"] == 0
+    assert performance[f"{boundary_prefix}kernel_arg_pass"] is False
+    assert performance[f"{boundary_prefix}passed_to_kernel"] is False
+
+
+def test_premap_payload_cache_state_only_accepts_layer_snapshot_without_issue_replay():
+    recorder = VllmRouterRecorder(
+        top_k=2,
+        shadow_outcome_sink=None,
+        shadow_num_experts=8,
+        shadow_emit_premap_payload_cache_manager_counters=True,
+        shadow_premap_payload_cache_manager_capacity=4,
+        shadow_premap_payload_cache_transition_state_owner="producer",
+        shadow_premap_payload_cache_graph_visible_producer_enabled=True,
+        shadow_premap_payload_cache_graph_visible_producer_skip_python_transition=True,
+        shadow_premap_payload_cache_graph_visible_producer_state_only=True,
+        shadow_transition_topk_count=2,
+    )
+
+    for layer_id, experts in enumerate(((1, 2), (3, 4))):
+        recorder.maybe_reorder_prepared_expert_assignment(
+            layer_id=layer_id,
+            sorted_token_ids=torch.tensor([0, 1], dtype=torch.long),
+            expert_ids=torch.tensor(list(experts), dtype=torch.long),
+            num_tokens_post_padded=torch.tensor([2], dtype=torch.long),
+            block_size=1,
+        )
+    performance = {
+        "sample_count": 1,
+        "requested_output_token_count": 4,
+    }
+
+    _add_premap_payload_cache_manager_snapshot_to_performance(
+        performance,
+        recorder,
+        source="unit_test_state_only_layer_snapshot",
+    )
+
+    prefix = "runtime_shadow_premap_payload_cache_direct_graph_visible_producer_contract_"
+    assert performance[f"{prefix}state_only"] is True
+    assert performance[f"{prefix}passed"] is True
+    assert performance[f"{prefix}failures"] == []
+    assert performance[f"{prefix}observed_packet_count"] == 2
+    assert performance[f"{prefix}expected_packet_count"] == 8
+    assert performance[f"{prefix}packet_count_matches_expected"] is False
+    assert performance[f"{prefix}expected_state_snapshot_count"] == 2
+    assert performance[f"{prefix}state_snapshot_count_meets_expected"] is True
+    assert performance[f"{prefix}observed_previous_nonempty_packet_count"] == 0
+    assert performance[f"{prefix}expected_previous_nonempty_packet_count"] == 0
+    assert (
+        performance[f"{prefix}full_replay_expected_previous_nonempty_packet_count"]
+        == 6
+    )
+    assert performance[f"{prefix}observed_issue_candidate_count"] == 0
+    assert performance[f"{prefix}expected_issue_candidate_count"] == 0
+    assert performance[f"{prefix}full_replay_expected_issue_candidate_count"] == 12
+    assert performance[f"{prefix}issue_generation_on_device"] is False
+    assert performance[f"{prefix}replay_update_status"] == (
+        "state_only_layer_snapshot_observed"
+    )
+    assert performance[f"{prefix}captured_replay_required"] is False
+    assert performance[f"{prefix}captured_replay_passed"] is False
+    assert performance[f"{prefix}state_snapshot_required"] is True
+    assert performance[f"{prefix}state_snapshot_passed"] is True
+    assert performance[f"{prefix}production_candidate"] is False
 
 
 def test_premap_payload_cache_vllm_replay_visible_native_producer_contract_fails_closed_when_enabled_without_backend():

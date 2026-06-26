@@ -1444,6 +1444,19 @@ MODES[
 }
 
 MODES[
+    "production_batch_premap_payload_cache_ready_time_graph_warmup_inside_graph_state_only_producer_counter_off"
+] = {
+    **MODES[
+        "production_batch_premap_payload_cache_ready_time_graph_warmup_inside_graph_producer_counter_off"
+    ],
+    # Lower-bound graph-visible producer path: keep the previous-expert
+    # transition state in device tensors, but skip issue debug counters and
+    # Python transition extraction. This is still payloadless and does not
+    # issue real cache-manager work.
+    "premap_payload_cache_graph_visible_producer_state_only": True,
+}
+
+MODES[
     "production_batch_premap_payload_cache_ready_time_producer_counter_off"
 ] = {
     **MODES["production_batch_premap_payload_cache_ready_time_counter_off"],
@@ -1763,6 +1776,12 @@ MODES[
     "production_batch_premap_payload_cache_ready_time_graph_warmup_inside_graph_producer_counter_off_reuse_llm"
 ] = _with_reuse_llm_across_chunks(
     "production_batch_premap_payload_cache_ready_time_graph_warmup_inside_graph_producer_counter_off"
+)
+
+MODES[
+    "production_batch_premap_payload_cache_ready_time_graph_warmup_inside_graph_state_only_producer_counter_off_reuse_llm"
+] = _with_reuse_llm_across_chunks(
+    "production_batch_premap_payload_cache_ready_time_graph_warmup_inside_graph_state_only_producer_counter_off"
 )
 
 MODES[

@@ -46434,6 +46434,108 @@ PYTHONNOUSERSITE=1 /home/husrcf/anaconda3/envs/TRY/bin/python \
 # passed = true, failures = []
 ```
 
+## 2026-06-26: Graph-visible state-only producer lower-bound canary
+
+Added a payloadless `state_only` graph-visible producer mode for the
+premap payload-cache path.  This mode only keeps per-layer previous-expert
+transition state in device tensors and records a state snapshot; it does not
+generate issue candidates, enter Python consumer mapping, issue cache-manager
+actions, move payload, pass kernel arguments, or modify WNA16 execution.
+
+The telemetry contract is intentionally split:
+
+```text
+full replay:
+  captured_replay_required / captured_replay_passed / production_candidate
+
+state-only snapshot:
+  state_snapshot_required / state_snapshot_passed
+```
+
+For state-only, full replay counters remain explicit but non-authoritative:
+
+```text
+captured_replay_required = false
+captured_replay_passed = false
+production_candidate = false
+state_snapshot_required = true
+state_snapshot_passed = true
+issue_generation_on_device = false
+payload_bytes = 0
+kernel_arg_pass = false
+passed_to_kernel = false
+changes_kernel_launch_args = false
+```
+
+The stricter online inside-graph producer boundary remains fail-closed for
+state-only and reports `state_only_not_applicable = true`, since this mode does
+not produce issue candidates.
+
+Final GPU1 8-sample smoke:
+
+```text
+output root:
+  outputs/reports/awq_telemetry_ladder/
+    gpu1_payload_cache_graph_visible_state_only_ab_smoke8_hard_boundary_20260626
+
+baseline TPOT:
+  0.0082953876640625 s/token
+
+state-only TPOT:
+  0.008291600736328125 s/token
+
+delta:
+  -0.0457%  (noise-level, not a runtime win claim)
+```
+
+Key state-only summary fields from the final smoke:
+
+```text
+graph_visible_producer_contract_passed = true
+graph_visible_producer_contract_state_only = true
+graph_visible_producer_contract_state_snapshot_passed = true
+graph_visible_producer_contract_captured_replay_passed = false
+graph_visible_producer_contract_production_candidate = false
+graph_visible_producer_contract_observed_packet_count = 40
+graph_visible_producer_contract_expected_packet_count = 2560
+graph_visible_producer_contract_expected_state_snapshot_count = 40
+graph_visible_producer_contract_expected_issue_candidate_count = 0
+graph_visible_producer_contract_full_replay_expected_issue_candidate_count = 20160
+online_inside_graph_producer_boundary_contract_passed = false
+online_inside_graph_producer_boundary_contract_failures = ["issue_generation_not_on_device"]
+online_inside_graph_producer_boundary_contract_state_only_not_applicable = true
+```
+
+Validation:
+
+```bash
+PYTHONNOUSERSITE=1 /home/husrcf/anaconda3/envs/TRY/bin/python -m pytest \
+  tests/test_vllm_router_shadow_sink.py \
+  tests/test_run_awq_telemetry_ladder_modes.py -q
+# 221 passed
+
+PYTHONNOUSERSITE=1 /home/husrcf/anaconda3/envs/TRY/bin/python -m py_compile \
+  src/mtp_expert_prefetch/tracing/vllm_router_trace.py \
+  scripts/run_awq_telemetry_ladder.py
+
+git diff --check -- \
+  src/mtp_expert_prefetch/tracing/vllm_router_trace.py \
+  scripts/run_awq_telemetry_ladder.py \
+  tests/test_run_awq_telemetry_ladder_modes.py \
+  tests/test_vllm_router_shadow_sink.py
+```
+
+Conclusion:
+
+```text
+state-only graph-visible producer = safe lower-bound state snapshot canary
+state-only graph-visible producer != issue-generation runtime path
+state-only graph-visible producer != production performance win
+```
+
+Next real performance gate remains useful native issue generation or a real
+payload/cache-manager path; state-only should stay diagnostic/lower-bound.
+
 ## v1.55.1 - Packet-Stream Native Session Restore-State ABI
 
 The in-process native producer session can now consume shifted/midstream packet

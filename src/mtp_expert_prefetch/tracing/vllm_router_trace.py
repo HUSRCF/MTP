@@ -2731,6 +2731,7 @@ def _add_premap_payload_cache_graph_visible_producer_contract_to_performance(
     else:
         issue_per_packet = min(experts_per_layer, transition_topk_count)
 
+    state_only = bool(snapshot.get("state_only", False))
     observed_packet_count = int(snapshot.get("packet_count", 0) or 0)
     observed_previous_nonempty_packet_count = int(
         snapshot.get("previous_nonempty_packet_count", 0) or 0
@@ -2744,19 +2745,43 @@ def _add_premap_payload_cache_graph_visible_producer_contract_to_performance(
         0,
         issue_per_packet,
     )
-    if enabled and expected_packet_count <= 0:
+    full_replay_expected_previous_nonempty_packet_count = (
+        expected_previous_nonempty_packet_count
+    )
+    full_replay_expected_issue_candidate_count = expected_issue_candidate_count
+    reported_expected_previous_nonempty_packet_count = (
+        0 if state_only else expected_previous_nonempty_packet_count
+    )
+    reported_expected_issue_candidate_count = (
+        0 if state_only else expected_issue_candidate_count
+    )
+    expected_state_snapshot_count = max(0, layers)
+    state_snapshot_count_meets_expected = bool(
+        observed_packet_count >= expected_state_snapshot_count
+        and expected_state_snapshot_count > 0
+    )
+    if enabled and state_only:
+        if not state_snapshot_count_meets_expected:
+            failures.append("state_only_snapshot_count_insufficient")
+    elif enabled and expected_packet_count <= 0:
         failures.append("expected_packet_count_nonpositive")
     elif enabled and observed_packet_count != expected_packet_count:
         failures.append("observed_packet_count_mismatch")
-    if enabled and (
+    if enabled and not state_only and (
         observed_previous_nonempty_packet_count
         != expected_previous_nonempty_packet_count
     ):
         failures.append("observed_previous_nonempty_packet_count_mismatch")
-    if enabled and observed_issue_candidate_count != expected_issue_candidate_count:
+    if (
+        enabled
+        and not state_only
+        and observed_issue_candidate_count != expected_issue_candidate_count
+    ):
         failures.append("observed_issue_candidate_count_mismatch")
 
     passed = bool(enabled and present and not failures)
+    full_replay_passed = bool(passed and not state_only)
+    state_snapshot_passed = bool(passed and state_only)
     capture_once_per_layer_suspected = bool(
         enabled
         and present
@@ -2766,7 +2791,9 @@ def _add_premap_payload_cache_graph_visible_producer_contract_to_performance(
         and expected_previous_nonempty_packet_count > 0
         and observed_previous_nonempty_packet_count == 0
     )
-    if passed:
+    if passed and state_only:
+        replay_update_status = "state_only_layer_snapshot_observed"
+    elif passed:
         replay_update_status = "complete_replay_updates_observed"
     elif capture_once_per_layer_suspected:
         replay_update_status = "capture_once_per_layer_no_replay_updates"
@@ -2788,8 +2815,18 @@ def _add_premap_payload_cache_graph_visible_producer_contract_to_performance(
     performance[f"{contract_prefix}contract_boundary"] = (
         "captured_torch_tensor_state_visibility_canary"
     )
-    performance[f"{contract_prefix}captured_replay_required"] = bool(enabled)
-    performance[f"{contract_prefix}captured_replay_passed"] = bool(passed)
+    performance[f"{contract_prefix}captured_replay_required"] = bool(
+        enabled and not state_only
+    )
+    performance[f"{contract_prefix}captured_replay_passed"] = bool(
+        full_replay_passed
+    )
+    performance[f"{contract_prefix}state_snapshot_required"] = bool(
+        enabled and state_only
+    )
+    performance[f"{contract_prefix}state_snapshot_passed"] = bool(
+        state_snapshot_passed
+    )
     performance[f"{contract_prefix}transition_state_on_device"] = bool(
         snapshot.get("transition_state_on_device", False)
     )
@@ -2799,11 +2836,14 @@ def _add_premap_payload_cache_graph_visible_producer_contract_to_performance(
     performance[f"{contract_prefix}python_transition_skipped"] = bool(
         snapshot.get("python_transition_skipped", False)
     )
+    performance[f"{contract_prefix}state_only"] = state_only
     performance[f"{contract_prefix}capture_once_per_layer_suspected"] = bool(
         capture_once_per_layer_suspected
     )
     performance[f"{contract_prefix}replay_update_status"] = replay_update_status
-    performance[f"{contract_prefix}production_candidate"] = bool(passed)
+    performance[f"{contract_prefix}production_candidate"] = bool(
+        full_replay_passed
+    )
     performance[f"{contract_prefix}state_owner"] = str(
         recorder.shadow_premap_payload_cache_transition_state_owner
     )
@@ -2831,6 +2871,12 @@ def _add_premap_payload_cache_graph_visible_producer_contract_to_performance(
     performance[f"{contract_prefix}packet_count_matches_expected"] = bool(
         observed_packet_count == expected_packet_count
     )
+    performance[f"{contract_prefix}expected_state_snapshot_count"] = int(
+        expected_state_snapshot_count
+    )
+    performance[f"{contract_prefix}state_snapshot_count_meets_expected"] = bool(
+        state_snapshot_count_meets_expected
+    )
     performance[f"{contract_prefix}previous_nonempty_packet_count"] = int(
         observed_previous_nonempty_packet_count
     )
@@ -2838,8 +2884,11 @@ def _add_premap_payload_cache_graph_visible_producer_contract_to_performance(
         observed_previous_nonempty_packet_count
     )
     performance[f"{contract_prefix}expected_previous_nonempty_packet_count"] = int(
-        expected_previous_nonempty_packet_count
+        reported_expected_previous_nonempty_packet_count
     )
+    performance[
+        f"{contract_prefix}full_replay_expected_previous_nonempty_packet_count"
+    ] = int(full_replay_expected_previous_nonempty_packet_count)
     performance[f"{contract_prefix}issue_candidate_count"] = int(
         observed_issue_candidate_count
     )
@@ -2847,7 +2896,10 @@ def _add_premap_payload_cache_graph_visible_producer_contract_to_performance(
         observed_issue_candidate_count
     )
     performance[f"{contract_prefix}expected_issue_candidate_count"] = int(
-        expected_issue_candidate_count
+        reported_expected_issue_candidate_count
+    )
+    performance[f"{contract_prefix}full_replay_expected_issue_candidate_count"] = int(
+        full_replay_expected_issue_candidate_count
     )
     performance[f"{contract_prefix}last_issue_candidate_count"] = int(
         snapshot.get("last_issue_candidate_count", 0) or 0
@@ -2902,6 +2954,9 @@ def _add_premap_payload_cache_online_inside_graph_producer_boundary_contract_to_
     python_transition_skipped = bool(
         performance.get(f"{graph_prefix}python_transition_skipped", False)
     )
+    state_only_not_applicable = bool(
+        performance.get(f"{graph_prefix}state_only", False)
+    )
     failures: list[str] = []
     if not graph_enabled:
         failures.append("graph_visible_producer_disabled")
@@ -2938,6 +2993,9 @@ def _add_premap_payload_cache_online_inside_graph_producer_boundary_contract_to_
     )
     performance[f"{contract_prefix}python_transition_skipped"] = bool(
         python_transition_skipped
+    )
+    performance[f"{contract_prefix}state_only_not_applicable"] = bool(
+        state_only_not_applicable
     )
     performance[f"{contract_prefix}native_runtime"] = False
     performance[f"{contract_prefix}inprocess_native_op"] = False
@@ -4136,6 +4194,7 @@ class VllmRouterRecorder:
     shadow_premap_payload_cache_graph_visible_producer_skip_python_transition: (
         bool
     ) = False
+    shadow_premap_payload_cache_graph_visible_producer_state_only: bool = False
     shadow_premap_payload_cache_vllm_replay_visible_native_producer_enabled: (
         bool
     ) = False
@@ -6200,6 +6259,55 @@ class VllmRouterRecorder:
             )
             arange_cache[arange_key] = expert_offsets
 
+        state_only = bool(
+            self.shadow_premap_payload_cache_graph_visible_producer_state_only
+        )
+        if state_only:
+            state["state_only"] = True
+            state["packet_count"].index_add_(
+                0,
+                idx,
+                torch.ones(1, device=device, dtype=dtype),
+            )
+            state["layer_seen"].index_fill_(0, idx, 1)
+            padded = num_tokens_post_padded.reshape(-1)[0].to(
+                device=device,
+                dtype=dtype,
+            )
+            current_count = torch.div(
+                padded + (block_size_int - 1),
+                block_size_int,
+                rounding_mode="floor",
+            ).reshape(1)
+            max_experts = torch.full_like(current_count, int(expert_ids.numel()))
+            current_count = torch.minimum(
+                torch.clamp(current_count, min=0),
+                max_experts,
+            )
+            current_expert_row = expert_ids.reshape(-1).to(device=device, dtype=dtype)
+            if int(current_expert_row.numel()) < experts_per_layer:
+                current_expert_row = torch.nn.functional.pad(
+                    current_expert_row,
+                    (0, experts_per_layer - int(current_expert_row.numel())),
+                    value=-1,
+                )
+            elif int(current_expert_row.numel()) > experts_per_layer:
+                current_expert_row = current_expert_row[:experts_per_layer]
+            current_valid_mask = expert_offsets < current_count.reshape(())
+            current_expert_row = torch.where(
+                current_valid_mask,
+                current_expert_row,
+                torch.full_like(current_expert_row, -1),
+            )
+            state["previous_expert_state"].index_copy_(
+                0,
+                idx,
+                current_expert_row.reshape(1, -1),
+            )
+            state["previous_count"].index_copy_(0, idx, current_count)
+            state["last_current_count"].index_copy_(0, idx, current_count)
+            return
+
         previous_count = state["previous_count"]
         prev = previous_count.index_select(0, idx)
         one = torch.ones_like(prev)
@@ -6368,9 +6476,12 @@ class VllmRouterRecorder:
             "last_issue_candidate_expert_sum": int(last_issue_sum_cpu.max().item())
             if int(last_issue_sum_cpu.numel()) > 0
             else 0,
-            "issue_generation_on_device": True,
+            "issue_generation_on_device": not bool(state.get("state_only", False)),
             "transition_state_on_device": True,
+            "state_only": bool(state.get("state_only", False)),
             "python_transition_skipped": bool(
+                state.get("state_only", False)
+                or
                 self.shadow_premap_payload_cache_graph_visible_producer_skip_python_transition
             ),
         }
@@ -11930,8 +12041,13 @@ class VllmRouterRecorder:
         wants_premap_payload_cache = bool(
             self.shadow_emit_premap_payload_cache_manager_counters
         )
+        state_only_graph_producer = bool(
+            self.shadow_premap_payload_cache_graph_visible_producer_enabled
+            and self.shadow_premap_payload_cache_graph_visible_producer_state_only
+        )
         wants_premap_runtime_consumer = bool(
-            wants_premap_mapping or wants_premap_payload_cache
+            not state_only_graph_producer
+            and (wants_premap_mapping or wants_premap_payload_cache)
         )
         wants_descriptor_handle = bool(wants_assertion or wants_reorder)
         handle_source = "fused_moe_prepare_expert_assignment"
@@ -11964,8 +12080,11 @@ class VllmRouterRecorder:
             num_tokens_post_padded=num_tokens_post_padded,
             block_size=int(block_size),
         )
+        if state_only_graph_producer:
+            return sorted_token_ids, expert_ids, num_tokens_post_padded
         if (
             wants_premap_payload_cache
+            and not state_only_graph_producer
             and self._premap_payload_cache_transition_state_owner_allows("producer")
             and not bool(
                 self.shadow_premap_payload_cache_graph_visible_producer_skip_python_transition
@@ -23092,6 +23211,12 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
                     False,
                 )
             ),
+            shadow_premap_payload_cache_graph_visible_producer_state_only=bool(
+                runtime_shadow_options.get(
+                    "premap_payload_cache_graph_visible_producer_state_only",
+                    False,
+                )
+            ),
             shadow_premap_payload_cache_vllm_replay_visible_native_producer_enabled=bool(
                 runtime_shadow_options.get(
                     "premap_payload_cache_vllm_replay_visible_native_producer_enabled",
@@ -24029,6 +24154,12 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
                 False,
             )
         ),
+        "runtime_shadow_premap_payload_cache_graph_visible_producer_state_only": bool(
+            runtime_shadow_options.get(
+                "premap_payload_cache_graph_visible_producer_state_only",
+                False,
+            )
+        ),
         "runtime_shadow_premap_summary_sample_period": int(
             runtime_shadow_options.get(
                 "premap_summary_sample_period",
@@ -24798,6 +24929,12 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
                             shadow_premap_payload_cache_graph_visible_producer_skip_python_transition=bool(
                                 runtime_shadow_options.get(
                                     "premap_payload_cache_graph_visible_producer_skip_python_transition",
+                                    False,
+                                )
+                            ),
+                            shadow_premap_payload_cache_graph_visible_producer_state_only=bool(
+                                runtime_shadow_options.get(
+                                    "premap_payload_cache_graph_visible_producer_state_only",
                                     False,
                                 )
                             ),

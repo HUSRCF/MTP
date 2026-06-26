@@ -797,6 +797,34 @@ def test_production_batch_payload_cache_inside_graph_producer_mode_skips_python_
     assert mode["outcome_logging_mode"] == "off"
 
 
+def test_production_batch_payload_cache_inside_graph_state_only_mode_is_payloadless() -> None:
+    module = _load_module()
+    base = module.MODES[
+        "production_batch_premap_payload_cache_ready_time_graph_warmup_inside_graph_producer_counter_off"
+    ]
+    mode = module.MODES[
+        "production_batch_premap_payload_cache_ready_time_graph_warmup_inside_graph_state_only_producer_counter_off"
+    ]
+
+    comparable = dict(mode)
+    comparable.pop("premap_payload_cache_graph_visible_producer_state_only")
+    assert comparable == base
+    assert mode["premap_payload_cache_graph_visible_producer_enabled"] is True
+    assert (
+        mode["premap_payload_cache_graph_visible_producer_skip_python_transition"]
+        is True
+    )
+    assert mode["premap_payload_cache_graph_visible_producer_state_only"] is True
+    assert mode["runtime_shadow_enabled"] is False
+    assert mode["premap_payload_cache_manager_emit_consumer_rows"] is False
+    assert mode["premap_kernel_arg_handoff_kernel_arg_pass_enabled"] is False
+    assert (
+        mode["premap_kernel_arg_handoff_future_wna16_typed_slot_kernel_variant_enabled"]
+        is False
+    )
+    assert mode["descriptor_order_reorder_mvp_enabled"] is False
+
+
 def test_production_batch_premap_live_typed_slot_envelope_detailed_only_enables_counters() -> None:
     module = _load_module()
     detailed = module.MODES[
@@ -1552,6 +1580,10 @@ def test_production_batch_reuse_llm_modes_only_add_engine_reuse() -> None:
             "production_batch_premap_payload_cache_ready_time_graph_warmup_inside_graph_producer_counter_off_reuse_llm",
         ),
         (
+            "production_batch_premap_payload_cache_ready_time_graph_warmup_inside_graph_state_only_producer_counter_off",
+            "production_batch_premap_payload_cache_ready_time_graph_warmup_inside_graph_state_only_producer_counter_off_reuse_llm",
+        ),
+        (
             "production_batch_premap_payload_cache_ready_time_counter_off",
             "production_batch_premap_payload_cache_ready_time_counter_off_reuse_llm",
         ),
@@ -2139,12 +2171,14 @@ def test_payload_cache_measured_copy_override_is_scoped_to_ready_time_modes(
         "production_batch_premap_payload_cache_ready_time_graph_warmup_producer_counter_off",
         "production_batch_premap_payload_cache_ready_time_graph_warmup_graph_visible_producer_counter_off",
         "production_batch_premap_payload_cache_ready_time_graph_warmup_inside_graph_producer_counter_off",
+        "production_batch_premap_payload_cache_ready_time_graph_warmup_inside_graph_state_only_producer_counter_off",
         "production_batch_premap_payload_cache_ready_time_counter_off",
         "production_batch_premap_payload_cache_ready_time_producer_counter_off",
         "production_batch_premap_payload_cache_ready_time_graph_warmup_counter_off_reuse_llm",
         "production_batch_premap_payload_cache_ready_time_graph_warmup_producer_counter_off_reuse_llm",
         "production_batch_premap_payload_cache_ready_time_graph_warmup_graph_visible_producer_counter_off_reuse_llm",
         "production_batch_premap_payload_cache_ready_time_graph_warmup_inside_graph_producer_counter_off_reuse_llm",
+        "production_batch_premap_payload_cache_ready_time_graph_warmup_inside_graph_state_only_producer_counter_off_reuse_llm",
         "production_batch_premap_payload_cache_ready_time_counter_off_reuse_llm",
         "production_batch_premap_payload_cache_ready_time_producer_counter_off_reuse_llm",
     ):
