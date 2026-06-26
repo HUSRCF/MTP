@@ -7,6 +7,10 @@ from scripts import (
     check_premap_payload_cache_vllm_replay_visible_native_producer as checker,
 )
 from scripts import (
+    check_premap_payload_cache_vllm_replay_visible_count_ptr_readiness
+    as count_ptr_checker,
+)
+from scripts import (
     materialize_premap_payload_cache_vllm_replay_visible_native_producer_contract
     as materializer,
 )
@@ -88,6 +92,29 @@ def _valid_contract() -> dict[str, object]:
             "num_tokens_post_padded_host_tensor"
         ),
     }
+
+
+def _count_ptr_ready_contract() -> dict[str, object]:
+    payload = _valid_contract()
+    payload.update(
+        {
+            "prelaunch_abi_ready_count": 0,
+            "prelaunch_abi_blocked_count": 2560,
+            "prelaunch_current_count_device_tensor_count": 2560,
+            "prelaunch_current_count_device_scalar_int32_count": 2560,
+            "prelaunch_current_count_host_scalar_available_count": 0,
+            "prelaunch_native_session_update_v1_abi_ready": False,
+            "prelaunch_native_session_update_count_ptr_v1_abi_ready_count": 2560,
+            "prelaunch_native_session_update_count_ptr_v1_abi_blocked_count": 0,
+            "prelaunch_native_session_update_count_ptr_v1_abi_ready": True,
+            "prelaunch_last_block_reason": "current_count_host_scalar_not_available",
+            "prelaunch_last_count_ptr_block_reason": None,
+            "prelaunch_last_current_count_source_kind": (
+                "num_tokens_post_padded_device_tensor"
+            ),
+        }
+    )
+    return payload
 
 
 def _fail_closed_contract() -> dict[str, object]:
@@ -179,6 +206,30 @@ def test_materializer_extracts_future_positive_contract_for_checker() -> None:
     checked = checker.check_contract(result)
     assert checked["passed"] is True
     assert checked["ready_for_payload_cache_runtime_lab_gate"] is True
+
+
+def test_materializer_extracts_count_ptr_readiness_surface_for_checker() -> None:
+    result = materializer.materialize_contract(_prefixed(_count_ptr_ready_contract()))
+
+    assert result["materializer_passed"] is True
+    assert result["ok"] is True
+    assert result["passed"] is True
+    assert result["prelaunch_current_count_device_tensor_count"] == 2560
+    assert result["prelaunch_current_count_device_scalar_int32_count"] == 2560
+    assert result["prelaunch_native_session_update_count_ptr_v1_abi_ready"] is True
+
+    checked = count_ptr_checker.check_contract(result)
+    assert checked["passed"] is True
+    assert checked["ready_for_future_count_ptr_native_session"] is True
+
+    legacy_checked = checker.check_contract(result)
+    assert legacy_checked["passed"] is False
+    assert "prelaunch_abi_ready_count_invalid" in legacy_checked["failures"]
+    assert "prelaunch_abi_blocked_count_mismatch" in legacy_checked["failures"]
+    assert (
+        "prelaunch_native_session_update_v1_abi_ready_mismatch"
+        in legacy_checked["failures"]
+    )
 
 
 def test_materializer_reports_missing_prefixed_surface(tmp_path: Path) -> None:
