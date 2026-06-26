@@ -123,6 +123,19 @@ def _load_library(args: argparse.Namespace) -> ctypes.CDLL:
     ]
     update.restype = ctypes.c_int
 
+    update_count_ptr = (
+        lib.premap_payload_cache_inprocess_producer_session_update_count_ptr_v1
+    )
+    update_count_ptr.argtypes = [
+        ctypes.c_uint64,
+        ctypes.c_uint32,
+        ctypes.c_void_p,
+        ctypes.c_void_p,
+        ctypes.c_uint32,
+        ctypes.POINTER(InprocessProducerSessionUpdateResult),
+    ]
+    update_count_ptr.restype = ctypes.c_int
+
     update_generated = (
         lib.premap_payload_cache_inprocess_producer_session_update_generated_v1
     )
@@ -509,6 +522,12 @@ def _payload_from_updates(
         not bool(args.native_generated_current)
         and not packet_stream_input
     )
+    device_current_count = bool(getattr(args, "device_current_count", False))
+    current_count_source_kind = (
+        "device_tensor_int32_bits_as_uint32"
+        if device_current_count
+        else "host_scalar_uint32"
+    )
     ready_for_external_pointer_smoke = bool(ok and external_current_expert_ptr_source)
     ready_for_vllm_prelaunch_canary = bool(
         ok and current_expert_ptr_source_kind == "vllm_prelaunch_device_tensor"
@@ -574,6 +593,9 @@ def _payload_from_updates(
         "current_expert_ptr_passed": True,
         "current_expert_ptr_source": current_expert_ptr_source,
         "current_expert_ptr_source_kind": current_expert_ptr_source_kind,
+        "current_count_source_kind": current_count_source_kind,
+        "current_count_device_ptr_passed": device_current_count,
+        "current_count_host_scalar_passed": not device_current_count,
         "external_current_expert_ptr_source": external_current_expert_ptr_source,
         "payload_bytes": 0,
         "payload_transfer_enabled": False,
@@ -599,6 +621,7 @@ def _payload_from_updates(
         "requested_experts_per_layer": int(args.experts_per_layer),
         "requested_transition_topk_count": int(args.transition_topk_count),
         "requested_disable_vectorized_copy": bool(args.disable_vectorized_copy),
+        "requested_device_current_count": bool(device_current_count),
     }
 
 
@@ -654,6 +677,9 @@ def run_session_stub(args: argparse.Namespace) -> dict[str, Any]:
     lib = _load_library(args)
     create = lib.premap_payload_cache_inprocess_producer_session_create_v1
     update = lib.premap_payload_cache_inprocess_producer_session_update_v1
+    update_count_ptr = (
+        lib.premap_payload_cache_inprocess_producer_session_update_count_ptr_v1
+    )
     update_generated = (
         lib.premap_payload_cache_inprocess_producer_session_update_generated_v1
     )
@@ -675,6 +701,7 @@ def run_session_stub(args: argparse.Namespace) -> dict[str, Any]:
     if create_returncode == 0 and int(handle.value) != 0:
         current_stream = None
         previous_stream = None
+        current_count_stream = None
         if packet_stream is not None:
             import torch
 
@@ -684,6 +711,12 @@ def run_session_stub(args: argparse.Namespace) -> dict[str, Any]:
                 device=device,
                 dtype=torch.int32,
             ).view(steps, experts_per_layer)
+            if bool(args.device_current_count):
+                current_count_stream = torch.tensor(
+                    packet_stream["current_counts"],
+                    device=device,
+                    dtype=torch.int32,
+                ).view(steps)
             previous_stream = torch.tensor(
                 packet_stream["previous_experts"],
                 device=device,
@@ -696,6 +729,16 @@ def run_session_stub(args: argparse.Namespace) -> dict[str, Any]:
                 layers=layers,
                 experts=experts_per_layer,
             )
+            if bool(args.device_current_count):
+                import torch
+
+                device = torch.device(f"cuda:{int(args.device)}")
+                current_count_stream = torch.full(
+                    (steps, layers),
+                    int(experts_per_layer),
+                    device=device,
+                    dtype=torch.int32,
+                )
         for step in range(steps):
             layer_iterable = (
                 [int(packet_stream["layer_ids"][step])]
@@ -719,16 +762,30 @@ def run_session_stub(args: argparse.Namespace) -> dict[str, Any]:
                         )
                         restore_returncodes.append(restore_returncode)
                     row = current_stream[step]
-                    native_returncode = int(
-                        update(
-                            int(handle.value),
-                            int(layer),
-                            ctypes.c_void_p(int(row.data_ptr())),
-                            int(packet_stream["current_counts"][step]),
-                            0 if args.disable_vectorized_copy else 1,
-                            ctypes.byref(result),
+                    if bool(args.device_current_count):
+                        assert current_count_stream is not None
+                        count_value = current_count_stream[step : step + 1]
+                        native_returncode = int(
+                            update_count_ptr(
+                                int(handle.value),
+                                int(layer),
+                                ctypes.c_void_p(int(row.data_ptr())),
+                                ctypes.c_void_p(int(count_value.data_ptr())),
+                                0 if args.disable_vectorized_copy else 1,
+                                ctypes.byref(result),
+                            )
                         )
-                    )
+                    else:
+                        native_returncode = int(
+                            update(
+                                int(handle.value),
+                                int(layer),
+                                ctypes.c_void_p(int(row.data_ptr())),
+                                int(packet_stream["current_counts"][step]),
+                                0 if args.disable_vectorized_copy else 1,
+                                ctypes.byref(result),
+                            )
+                        )
                 elif args.native_generated_current:
                     native_returncode = int(
                         update_generated(
@@ -745,16 +802,30 @@ def run_session_stub(args: argparse.Namespace) -> dict[str, Any]:
                 else:
                     assert current_stream is not None
                     row = current_stream[step, layer]
-                    native_returncode = int(
-                        update(
-                            int(handle.value),
-                            int(layer),
-                            ctypes.c_void_p(int(row.data_ptr())),
-                            int(experts_per_layer),
-                            0 if args.disable_vectorized_copy else 1,
-                            ctypes.byref(result),
+                    if bool(args.device_current_count):
+                        assert current_count_stream is not None
+                        count_value = current_count_stream[step, layer : layer + 1]
+                        native_returncode = int(
+                            update_count_ptr(
+                                int(handle.value),
+                                int(layer),
+                                ctypes.c_void_p(int(row.data_ptr())),
+                                ctypes.c_void_p(int(count_value.data_ptr())),
+                                0 if args.disable_vectorized_copy else 1,
+                                ctypes.byref(result),
+                            )
                         )
-                    )
+                    else:
+                        native_returncode = int(
+                            update(
+                                int(handle.value),
+                                int(layer),
+                                ctypes.c_void_p(int(row.data_ptr())),
+                                int(experts_per_layer),
+                                0 if args.disable_vectorized_copy else 1,
+                                ctypes.byref(result),
+                            )
+                        )
                 update_results.append((native_returncode, result))
     destroy_returncode = 0
     if int(handle.value) != 0:
@@ -781,6 +852,15 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--step-shift", type=int, default=1)
     parser.add_argument("--layer-stride", type=int, default=17)
     parser.add_argument("--disable-vectorized-copy", action="store_true")
+    parser.add_argument(
+        "--device-current-count",
+        action="store_true",
+        help=(
+            "Pass current_count as a device uint32 pointer to the native "
+            "session update ABI. This exercises the future vLLM prelaunch path "
+            "where the native producer should not require a host scalar count."
+        ),
+    )
     parser.add_argument(
         "--packet-stream-bin",
         type=Path,

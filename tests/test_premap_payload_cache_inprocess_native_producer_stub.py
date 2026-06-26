@@ -28,6 +28,10 @@ def test_inprocess_native_stub_source_preserves_payloadless_contract() -> None:
         "extern \"C\" int "
         "premap_payload_cache_inprocess_producer_session_restore_state_v1"
     ) in source
+    assert (
+        "extern \"C\" int "
+        "premap_payload_cache_inprocess_producer_session_update_count_ptr_v1"
+    ) in source
     assert "current_wna16_arg_compatible = 0" in source
     assert "uses_current_wna16_args = 0" in source
     assert "passes_current_wna16_args = 0" in source
@@ -272,6 +276,7 @@ def _session_args() -> argparse.Namespace:
         step_shift=1,
         layer_stride=17,
         disable_vectorized_copy=False,
+        device_current_count=False,
         native_generated_current=False,
         offload_arch="gfx1100",
         force_build=False,
@@ -434,6 +439,9 @@ def test_inprocess_native_session_payload_preserves_no_payload_contract(
     assert payload["current_expert_ptr_source_kind"] == (
         "external_torch_device_tensor_smoke"
     )
+    assert payload["current_count_source_kind"] == "host_scalar_uint32"
+    assert payload["current_count_device_ptr_passed"] is False
+    assert payload["current_count_host_scalar_passed"] is True
     assert payload["external_current_expert_ptr_source"] is True
     assert payload["vllm_replay_visible"] is False
     assert payload["torch_graph_replay_visible"] is False
@@ -450,6 +458,32 @@ def test_inprocess_native_session_payload_preserves_no_payload_contract(
     assert payload["kernel_arg_pass_allowed"] is False
     assert payload["uses_current_wna16_args"] is False
     assert payload["passes_current_wna16_args"] is False
+
+
+def test_inprocess_native_session_payload_marks_device_current_count(
+    tmp_path: Path,
+) -> None:
+    args = argparse.Namespace(**{**vars(_session_args()), "device_current_count": True})
+    update_results = [
+        (0, _valid_session_update_result(previous_count_before=0)),
+        (0, _valid_session_update_result(previous_count_before=0)),
+    ]
+
+    payload = session_runner._payload_from_updates(
+        args=argparse.Namespace(**{**vars(args), "steps": 1}),
+        library=tmp_path / "producer.so",
+        create_returncode=0,
+        destroy_returncode=0,
+        handle=1234,
+        update_results=update_results,
+    )
+
+    assert payload["ok"] is True
+    assert payload["current_count_source_kind"] == "device_tensor_int32_bits_as_uint32"
+    assert payload["current_count_device_ptr_passed"] is True
+    assert payload["current_count_host_scalar_passed"] is False
+    assert payload["payload_bytes"] == 0
+    assert payload["kernel_arg_pass"] is False
 
 
 def test_inprocess_native_session_payload_disambiguates_native_generated_current(

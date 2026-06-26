@@ -289,6 +289,7 @@ __global__ void inprocess_session_restore_state_kernel(
 __global__ void inprocess_session_update_layer_kernel(
     const int32_t* __restrict__ current_experts,
     uint32_t current_count,
+    const uint32_t* __restrict__ current_count_device,
     int32_t* __restrict__ previous_expert_state,
     uint32_t* __restrict__ previous_count_state,
     InprocessLayerResult* __restrict__ layer_results,
@@ -297,7 +298,10 @@ __global__ void inprocess_session_update_layer_kernel(
     uint32_t experts_per_layer,
     uint32_t transition_topk_count,
     uint32_t use_vectorized_copy) {
-  if (blockIdx.x != 0 || layer >= layer_count || current_count > experts_per_layer) {
+  const uint32_t effective_current_count =
+      current_count_device == nullptr ? current_count : *current_count_device;
+  if (blockIdx.x != 0 || layer >= layer_count ||
+      effective_current_count > experts_per_layer) {
     return;
   }
 
@@ -348,7 +352,7 @@ __global__ void inprocess_session_update_layer_kernel(
   const bool aligned_for_int4 =
       reinterpret_cast<uintptr_t>(current_experts) % alignof(int4) == 0 &&
       reinterpret_cast<uintptr_t>(previous_base) % alignof(int4) == 0;
-  if (use_vectorized_copy != 0 && current_count == experts_per_layer &&
+  if (use_vectorized_copy != 0 && effective_current_count == experts_per_layer &&
       experts_per_layer % 4 == 0 && aligned_for_int4) {
     if (threadIdx.x == 0) {
       vectorized_copy_seen = 1;
@@ -360,10 +364,10 @@ __global__ void inprocess_session_update_layer_kernel(
       previous_vec[vec] = current_vec[vec];
     }
   } else {
-    for (uint32_t i = threadIdx.x; i < current_count; i += blockDim.x) {
+    for (uint32_t i = threadIdx.x; i < effective_current_count; i += blockDim.x) {
       previous_base[i] = current_experts[i];
     }
-    for (uint32_t i = current_count + threadIdx.x; i < experts_per_layer;
+    for (uint32_t i = effective_current_count + threadIdx.x; i < experts_per_layer;
          i += blockDim.x) {
       previous_base[i] = -1;
     }
@@ -371,11 +375,12 @@ __global__ void inprocess_session_update_layer_kernel(
   __syncthreads();
 
   if (threadIdx.x == 0) {
-    *previous_count_ptr = current_count;
+    *previous_count_ptr = effective_current_count;
     result->checked = 1;
     result->packet_count += 1;
     result->previous_nonempty_packet_count += previous_count > 0 ? 1 : 0;
-    result->current_nonempty_packet_count += current_count > 0 ? 1 : 0;
+    result->current_nonempty_packet_count +=
+        effective_current_count > 0 ? 1 : 0;
     result->issue_candidate_count += local_issue_count;
     result->vectorized_copy_used =
         result->vectorized_copy_used || vectorized_copy_seen ? 1 : 0;
@@ -620,11 +625,12 @@ extern "C" int premap_payload_cache_inprocess_producer_session_restore_state_v1(
   return 0;
 }
 
-extern "C" int premap_payload_cache_inprocess_producer_session_update_v1(
+static int premap_payload_cache_inprocess_producer_session_update_common_v1(
     uint64_t handle,
     uint32_t layer,
     const int32_t* current_experts_device,
     uint32_t current_count,
+    const uint32_t* current_count_device,
     uint32_t use_vectorized_copy,
     PremapPayloadCacheInprocessProducerSessionUpdateResultV1* out) {
   fill_session_update_safe_defaults(out);
@@ -651,13 +657,29 @@ extern "C" int premap_payload_cache_inprocess_producer_session_update_v1(
   out->layers = session->layers;
   out->experts_per_layer = session->experts_per_layer;
   out->transition_topk_count = session->transition_topk_count;
-  out->current_count = current_count;
 
   if (current_experts_device == nullptr) {
     out->native_returncode = 232;
     return 232;
   }
-  if (layer >= session->layers || current_count > session->experts_per_layer) {
+  uint32_t effective_current_count = current_count;
+  if (current_count_device != nullptr) {
+    if (hipSetDevice(session->device) != hipSuccess) {
+      out->native_returncode = 234;
+      return 234;
+    }
+    if (hipMemcpy(
+            &effective_current_count,
+            current_count_device,
+            sizeof(uint32_t),
+            hipMemcpyDeviceToHost) != hipSuccess) {
+      out->native_returncode = 246;
+      return 246;
+    }
+  }
+  out->current_count = effective_current_count;
+  if (layer >= session->layers ||
+      effective_current_count > session->experts_per_layer) {
     out->native_returncode = 233;
     return 233;
   }
@@ -709,7 +731,8 @@ extern "C" int premap_payload_cache_inprocess_producer_session_update_v1(
       0,
       session->stream,
       current_experts_device,
-      current_count,
+      effective_current_count,
+      current_count_device,
       session->d_previous_state,
       session->d_previous_count,
       session->d_layer_results,
@@ -768,12 +791,54 @@ extern "C" int premap_payload_cache_inprocess_producer_session_update_v1(
       layer_result.checked != 0 && layer_result.ready != 0 &&
       error_delta == 0 && packet_delta == 1 &&
       previous_nonempty_delta == (previous_count_before > 0 ? 1U : 0U) &&
-      current_nonempty_delta == (current_count > 0 ? 1U : 0U) &&
+      current_nonempty_delta == (effective_current_count > 0 ? 1U : 0U) &&
       issue_delta == expected_issue_per_update;
   out->ok = ok ? 1 : 0;
   out->passed = ok ? 1 : 0;
   out->native_returncode = ok ? 0 : 10;
   return ok ? 0 : 10;
+}
+
+extern "C" int premap_payload_cache_inprocess_producer_session_update_v1(
+    uint64_t handle,
+    uint32_t layer,
+    const int32_t* current_experts_device,
+    uint32_t current_count,
+    uint32_t use_vectorized_copy,
+    PremapPayloadCacheInprocessProducerSessionUpdateResultV1* out) {
+  return premap_payload_cache_inprocess_producer_session_update_common_v1(
+      handle,
+      layer,
+      current_experts_device,
+      current_count,
+      nullptr,
+      use_vectorized_copy,
+      out);
+}
+
+extern "C" int premap_payload_cache_inprocess_producer_session_update_count_ptr_v1(
+    uint64_t handle,
+    uint32_t layer,
+    const int32_t* current_experts_device,
+    const uint32_t* current_count_device,
+    uint32_t use_vectorized_copy,
+    PremapPayloadCacheInprocessProducerSessionUpdateResultV1* out) {
+  if (current_count_device == nullptr) {
+    fill_session_update_safe_defaults(out);
+    if (out != nullptr) {
+      out->native_stub_invoked = 1;
+      out->native_returncode = 247;
+    }
+    return 247;
+  }
+  return premap_payload_cache_inprocess_producer_session_update_common_v1(
+      handle,
+      layer,
+      current_experts_device,
+      0,
+      current_count_device,
+      use_vectorized_copy,
+      out);
 }
 
 extern "C" int premap_payload_cache_inprocess_producer_session_update_generated_v1(
