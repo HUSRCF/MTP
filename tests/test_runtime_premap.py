@@ -45,6 +45,7 @@ from mtp_expert_prefetch.tracing import vllm_router_trace
 from mtp_expert_prefetch.tracing.vllm_router_trace import (
     VllmRouterRecorder,
     _premap_attach_future_wna16_typed_slot_columns_to_package,
+    _premap_future_wna16_typed_slot_prepared_columns_from_package,
     _premap_kernel_arg_live_mutation_counters,
     _reset_premap_kernel_arg_live_mutation_counters,
 )
@@ -711,6 +712,76 @@ def test_controlled_premap_address_manager_executes_descriptor_prep_readonly():
         assert tensor_column[0].item() == -7
         assert tensor_column[3].item() == -7
         assert tensor_column[1:3].tolist() == list(expected_column)
+    unsigned_device_columns = tuple(
+        torch.zeros(4, dtype=torch.uint64) for _ in range(4)
+    )
+    unsigned_device_copied = table_object.copy_native_typed_consumer_columns_to_device(
+        unsigned_device_columns,
+        offset=1,
+        signed_i64=False,
+    )
+    assert unsigned_device_copied == 2
+    for tensor_column, expected_column in zip(
+        unsigned_device_columns,
+        table_object.native_typed_consumer_columns_u64,
+        strict=True,
+    ):
+        assert tensor_column[0].item() == 0
+        assert tensor_column[3].item() == 0
+        assert tensor_column[1:3].tolist() == list(expected_column)
+    with pytest.raises(ValueError, match="offset"):
+        table_object.copy_native_typed_consumer_columns_to_device(
+            tuple(torch.zeros(4, dtype=torch.uint64) for _ in range(4)),
+            offset=-1,
+            signed_i64=False,
+        )
+    with pytest.raises(ValueError, match="capacity"):
+        table_object.copy_native_typed_consumer_columns_to_device(
+            tuple(torch.zeros(2, dtype=torch.uint64) for _ in range(4)),
+            offset=1,
+            signed_i64=False,
+        )
+    with pytest.raises(ValueError, match="torch.Tensor"):
+        table_object.copy_native_typed_consumer_columns_to_device(
+            tuple([0, 0, 0, 0] for _ in range(4)),
+            signed_i64=False,
+        )
+    with pytest.raises(ValueError, match="1D"):
+        table_object.copy_native_typed_consumer_columns_to_device(
+            tuple(torch.zeros((2, 2), dtype=torch.uint64) for _ in range(4)),
+            signed_i64=False,
+        )
+    with pytest.raises(ValueError, match="contiguous"):
+        table_object.copy_native_typed_consumer_columns_to_device(
+            tuple(torch.zeros(8, dtype=torch.uint64)[::2] for _ in range(4)),
+            signed_i64=False,
+        )
+    for rejected_dtype in (torch.float32, torch.int32, torch.bool):
+        with pytest.raises(ValueError, match="requires torch.uint64"):
+            table_object.copy_native_typed_consumer_columns_to_device(
+                tuple(torch.zeros(4, dtype=rejected_dtype) for _ in range(4)),
+                signed_i64=False,
+            )
+    with pytest.raises(ValueError, match="requires torch.uint64"):
+        table_object.copy_native_typed_consumer_columns_to_device(
+            tuple(torch.zeros(4, dtype=torch.int64) for _ in range(4)),
+            signed_i64=False,
+        )
+    with pytest.raises(ValueError, match="requires torch.int64"):
+        table_object.copy_native_typed_consumer_columns_to_device(
+            tuple(torch.zeros(4, dtype=torch.uint64) for _ in range(4)),
+            signed_i64=True,
+        )
+    with pytest.raises(ValueError, match="same device"):
+        table_object.copy_native_typed_consumer_columns_to_device(
+            (
+                torch.zeros(4, dtype=torch.int64),
+                torch.empty(4, dtype=torch.int64, device="meta"),
+                torch.zeros(4, dtype=torch.int64),
+                torch.zeros(4, dtype=torch.int64),
+            ),
+            signed_i64=True,
+        )
     prep_dry_run_result = manager.execute_descriptor_address_prep_dry_run_readonly(
         table_object,
         read_result=read_result,
@@ -2201,6 +2272,275 @@ def test_future_wna16_typed_slot_content_cache_reuses_repeated_tables():
     assert counters["future_wna16_typed_slot_content_cache_hit_row_count"] == 2
     assert counters["future_wna16_typed_slot_fallback_dict_extract_count"] == 0
     assert counters["future_wna16_typed_slot_fallback_tensor_materialization_count"] == 0
+
+
+def test_future_wna16_typed_slot_strict_native_only_accepts_device_copy():
+    plan = prepare_premap_address_plan(
+        [
+            ExpertPrefetchDescriptor(0, 1, 3, 2, "transition_head", 0.95),
+            ExpertPrefetchDescriptor(0, 1, 7, 4, "mtp_token_extra_head", 0.75),
+        ],
+        descriptor_bytes=64,
+    )
+    manager = ControlledPremapAddressManager(capacity=4)
+    manager.prepare(plan)
+    keys = [record.address_key for record in plan.records]
+    prep_result = manager.execute_descriptor_prep_readonly(keys)
+    read_result = manager.read_descriptor_consumer_objects_readonly(
+        keys,
+        expected_object_hash_by_address_key=prep_result.consumer_object_hash_by_address_key,
+    )
+    _table_result, table_object = manager.build_kernel_arg_shadow_table_object_readonly(
+        keys,
+        read_result=read_result,
+        expected_object_hash_by_address_key=prep_result.consumer_object_hash_by_address_key,
+    )
+
+    _reset_premap_kernel_arg_live_mutation_counters()
+    recorder = VllmRouterRecorder(
+        top_k=8,
+        shadow_premap_kernel_arg_handoff_future_wna16_typed_slot_strict_native_only=True,
+    )
+    package = {"table_object": table_object}
+
+    assert _premap_attach_future_wna16_typed_slot_columns_to_package(
+        package,
+        device=torch.device("cpu"),
+        stage="test",
+        recorder=recorder,
+    )
+    assert package["future_wna16_typed_slot_materialization_adapter"] == (
+        "persistent_native_typed_slot_buffer"
+    )
+    prepared_columns = _premap_future_wna16_typed_slot_prepared_columns_from_package(
+        package,
+        device=torch.device("cpu"),
+    )
+    assert prepared_columns is not None
+
+    counters = _premap_kernel_arg_live_mutation_counters()
+    assert counters["future_wna16_typed_slot_native_row_fill_count"] == 1
+    assert counters["future_wna16_typed_slot_native_row_fill_row_count"] == 2
+    assert counters["future_wna16_typed_slot_device_source_materialization_count"] == 1
+    assert (
+        counters["future_wna16_typed_slot_device_source_materialization_row_count"]
+        == 2
+    )
+    assert counters["future_wna16_typed_slot_strict_native_only_block_count"] == 0
+    assert (
+        counters["future_wna16_typed_slot_strict_native_only_fallback_block_count"]
+        == 0
+    )
+    assert counters["future_wna16_typed_slot_fallback_dict_extract_count"] == 0
+    assert counters["future_wna16_typed_slot_fallback_tensor_materialization_count"] == 0
+
+
+def test_future_wna16_typed_slot_require_prepared_device_source_blocks_cold_table():
+    plan = prepare_premap_address_plan(
+        [ExpertPrefetchDescriptor(0, 1, 3, 2, "transition_head", 0.95)],
+        descriptor_bytes=64,
+    )
+    manager = ControlledPremapAddressManager(capacity=4)
+    manager.prepare(plan)
+    keys = [record.address_key for record in plan.records]
+    prep_result = manager.execute_descriptor_prep_readonly(keys)
+    read_result = manager.read_descriptor_consumer_objects_readonly(
+        keys,
+        expected_object_hash_by_address_key=prep_result.consumer_object_hash_by_address_key,
+    )
+    _table_result, table_object = manager.build_kernel_arg_shadow_table_object_readonly(
+        keys,
+        read_result=read_result,
+        expected_object_hash_by_address_key=prep_result.consumer_object_hash_by_address_key,
+    )
+    assert not table_object.has_native_typed_consumer_device_tensor_columns(
+        device=torch.device("cpu"),
+        signed_i64=True,
+    )
+
+    _reset_premap_kernel_arg_live_mutation_counters()
+    cold_package = {"table_object": table_object}
+    assert not _premap_attach_future_wna16_typed_slot_columns_to_package(
+        cold_package,
+        device=torch.device("cpu"),
+        stage="test",
+        strict_native_only=True,
+        require_prepared_device_source=True,
+    )
+    assert cold_package["future_wna16_typed_slot_materialization_adapter"] == (
+        "require_prepared_device_source_blocked"
+    )
+
+    assert (
+        table_object.prepare_native_typed_consumer_device_tensor_columns(
+            device=torch.device("cpu"),
+            signed_i64=True,
+        )
+        == 1
+    )
+    assert table_object.has_native_typed_consumer_device_tensor_columns(
+        device=torch.device("cpu"),
+        signed_i64=True,
+    )
+
+    hot_package = {"table_object": table_object}
+    assert _premap_attach_future_wna16_typed_slot_columns_to_package(
+        hot_package,
+        device=torch.device("cpu"),
+        stage="producer-prepared",
+        strict_native_only=True,
+        require_prepared_device_source=True,
+    )
+    assert hot_package["future_wna16_typed_slot_materialization_adapter"] == (
+        "prepared_native_typed_slot_columns"
+    )
+
+    counters = _premap_kernel_arg_live_mutation_counters()
+    assert (
+        counters["future_wna16_typed_slot_require_prepared_device_source_block_count"]
+        == 1
+    )
+    assert counters["future_wna16_typed_slot_device_source_cache_hit_count"] == 1
+    assert counters["future_wna16_typed_slot_device_source_materialization_count"] == 0
+
+
+def test_future_wna16_typed_slot_require_prepared_device_source_blocks_content_cache_hit():
+    plan = prepare_premap_address_plan(
+        [ExpertPrefetchDescriptor(0, 1, 3, 2, "transition_head", 0.95)],
+        descriptor_bytes=64,
+    )
+    manager = ControlledPremapAddressManager(capacity=4)
+    manager.prepare(plan)
+    keys = [record.address_key for record in plan.records]
+    prep_result = manager.execute_descriptor_prep_readonly(keys)
+    read_result = manager.read_descriptor_consumer_objects_readonly(
+        keys,
+        expected_object_hash_by_address_key=prep_result.consumer_object_hash_by_address_key,
+    )
+    _table_result, table_object = manager.build_kernel_arg_shadow_table_object_readonly(
+        keys,
+        read_result=read_result,
+        expected_object_hash_by_address_key=prep_result.consumer_object_hash_by_address_key,
+    )
+    recorder = VllmRouterRecorder(
+        top_k=8,
+        shadow_premap_kernel_arg_handoff_typed_slot_content_cache_store_after_seen=1,
+        shadow_premap_kernel_arg_handoff_future_wna16_typed_slot_require_prepared_device_source=True,
+    )
+    device = torch.device("cpu")
+    cache_key = (str(device), table_object.row_count, table_object.object_hash)
+    columns = tuple(torch.tensor([index], dtype=torch.int64) for index in range(4))
+    recorder._premap_future_wna16_typed_slot_content_cache[cache_key] = {
+        "columns": columns,
+        "row_count": table_object.row_count,
+    }
+
+    _reset_premap_kernel_arg_live_mutation_counters()
+    package = {"table_object": table_object}
+
+    assert not _premap_attach_future_wna16_typed_slot_columns_to_package(
+        package,
+        device=device,
+        stage="test",
+        recorder=recorder,
+    )
+    assert package["future_wna16_typed_slot_materialization_adapter"] == (
+        "require_prepared_device_source_blocked"
+    )
+
+    counters = _premap_kernel_arg_live_mutation_counters()
+    assert (
+        counters["future_wna16_typed_slot_require_prepared_device_source_block_count"]
+        == 1
+    )
+    assert counters["future_wna16_typed_slot_content_cache_hit_count"] == 0
+
+
+def test_future_wna16_typed_slot_strict_native_only_blocks_legacy_host_fallback():
+    class LegacyOnlyTable:
+        row_count = 2
+        rows = (object(), object())
+        object_hash = "legacy-only"
+
+        def copy_native_typed_consumer_columns_to(
+            self,
+            columns,
+            *,
+            offset: int = 0,
+            signed_i64: bool = False,
+        ) -> int:
+            for column in columns:
+                values = torch.tensor([11, 13], dtype=torch.int64)
+                column.narrow(0, int(offset), 2).copy_(values)
+            return 2
+
+    _reset_premap_kernel_arg_live_mutation_counters()
+    package = {"table_object": LegacyOnlyTable()}
+
+    assert not _premap_attach_future_wna16_typed_slot_columns_to_package(
+        package,
+        device=torch.device("cpu"),
+        stage="test",
+        strict_native_only=True,
+    )
+    assert package["future_wna16_typed_slot_materialization_adapter"] == (
+        "strict_native_only_blocked_missing_device_copy"
+    )
+    assert "future_wna16_typed_slot_device_columns" not in package
+
+    counters = _premap_kernel_arg_live_mutation_counters()
+    assert counters["future_wna16_typed_slot_strict_native_only_block_count"] == 1
+    assert (
+        counters["future_wna16_typed_slot_strict_native_only_fallback_block_count"]
+        == 1
+    )
+    assert counters["future_wna16_typed_slot_producer_materialization_miss_count"] == 1
+    assert counters["future_wna16_typed_slot_native_row_fill_count"] == 0
+    assert counters["future_wna16_typed_slot_fallback_tensor_materialization_count"] == 0
+
+
+def test_future_wna16_typed_slot_prepared_columns_reader_accepts_tuple_cache_key():
+    wrong_columns = tuple(
+        torch.tensor([index + 10], dtype=torch.int64) for index in range(4)
+    )
+    legacy_columns = tuple(
+        torch.tensor([index + 20], dtype=torch.int64) for index in range(4)
+    )
+    columns = tuple(torch.tensor([index], dtype=torch.int64) for index in range(4))
+    package = {
+        "future_wna16_typed_slot_row_count": 1,
+        "future_wna16_typed_slot_table_object_hash": "table-a",
+        "future_wna16_typed_slot_device_columns": {
+            "cpu": legacy_columns,
+            ("cpu", 1, "table-b"): wrong_columns,
+            ("cpu", 1, "table-a"): columns,
+        }
+    }
+
+    prepared = _premap_future_wna16_typed_slot_prepared_columns_from_package(
+        package,
+        device=torch.device("cpu"),
+    )
+
+    assert prepared is columns
+
+
+def test_future_wna16_typed_slot_prepared_columns_reader_rejects_ambiguous_legacy_key():
+    legacy_columns = tuple(
+        torch.tensor([index + 20], dtype=torch.int64) for index in range(4)
+    )
+    package = {
+        "future_wna16_typed_slot_row_count": 1,
+        "future_wna16_typed_slot_table_object_hash": "table-a",
+        "future_wna16_typed_slot_device_columns": {"cpu": legacy_columns},
+    }
+
+    prepared = _premap_future_wna16_typed_slot_prepared_columns_from_package(
+        package,
+        device=torch.device("cpu"),
+    )
+
+    assert prepared is None
 
 
 def test_future_wna16_typed_slot_content_seen_counts_are_bounded():

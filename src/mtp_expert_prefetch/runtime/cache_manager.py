@@ -6,6 +6,8 @@ from collections import OrderedDict, deque
 from dataclasses import asdict, dataclass, field
 from functools import cached_property
 
+import torch
+
 from mtp_expert_prefetch.runtime.premap import PremapAddressRecord, PremapPreparedPlan
 
 PREMAP_DESCRIPTOR_CONSUMER_HANDLE_TABLE_COLUMNS = (
@@ -1703,6 +1705,12 @@ class PremapKernelArgShadowTableObject:
         tuple[tuple[int, ...], tuple[int, ...], tuple[int, ...], tuple[int, ...]]
         | None
     ) = field(default=None, compare=False, repr=False)
+    _native_typed_consumer_columns_tensors_u64: dict[
+        str, tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]
+    ] = field(default_factory=dict, compare=False, repr=False)
+    _native_typed_consumer_columns_tensors_i64: dict[
+        str, tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]
+    ] = field(default_factory=dict, compare=False, repr=False)
 
     @property
     def row_count(self) -> int:
@@ -1815,6 +1823,65 @@ class PremapKernelArgShadowTableObject:
             for column in self.native_typed_consumer_columns_u64
         )
 
+    def _cache_key(self, device: torch.device) -> str:
+        return str(torch.device(device))
+
+    def has_native_typed_consumer_device_tensor_columns(
+        self,
+        *,
+        device: torch.device,
+        signed_i64: bool,
+    ) -> bool:
+        cache_key = self._cache_key(torch.device(device))
+        cache = (
+            self._native_typed_consumer_columns_tensors_i64
+            if bool(signed_i64)
+            else self._native_typed_consumer_columns_tensors_u64
+        )
+        return cache_key in cache
+
+    def _prepare_device_tensor_columns(
+        self,
+        *,
+        device: torch.device,
+        signed_i64: bool,
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+        cache_key = self._cache_key(torch.device(device))
+        cache = (
+            self._native_typed_consumer_columns_tensors_i64
+            if bool(signed_i64)
+            else self._native_typed_consumer_columns_tensors_u64
+        )
+        cached = cache.get(cache_key)
+        if cached is not None:
+            return cached
+
+        if bool(signed_i64):
+            source_columns = self.native_typed_consumer_columns_i64
+            dtype = torch.int64
+        else:
+            source_columns = self.native_typed_consumer_columns_u64
+            dtype = torch.uint64
+
+        prepared = tuple(
+            torch.tensor(values, device=device, dtype=dtype)  # type: ignore[arg-type]
+            for values in source_columns
+        )
+        cache[cache_key] = prepared
+        return prepared
+
+    def prepare_native_typed_consumer_device_tensor_columns(
+        self,
+        *,
+        device: torch.device,
+        signed_i64: bool = True,
+    ) -> int:
+        self._prepare_device_tensor_columns(
+            device=torch.device(device),
+            signed_i64=bool(signed_i64),
+        )
+        return int(self.row_count)
+
     def to_native_typed_consumer_input_dict(self) -> dict[str, object]:
         """Export the table in the JSON shape accepted by the native stub.
 
@@ -1878,8 +1945,11 @@ class PremapKernelArgShadowTableObject:
             )
             raise ValueError(msg)
         base = int(offset)
-        descriptor_ptr, packed_weight_descriptor, scale_metadata_handle, aux_metadata_handle = (
-            columns
+        output_columns = (
+            columns[0],
+            columns[1],
+            columns[2],
+            columns[3],
         )
         source_columns = (
             self.native_typed_consumer_columns_i64
@@ -1887,15 +1957,14 @@ class PremapKernelArgShadowTableObject:
             else self.native_typed_consumer_columns_u64
         )
         for output_column, source_values in zip(
-            (
-                descriptor_ptr,
-                packed_weight_descriptor,
-                scale_metadata_handle,
-                aux_metadata_handle,
-            ),
+            output_columns,
             source_columns,
             strict=True,
         ):
+            source_len = len(source_values)
+            if source_len <= 0:
+                continue
+
             if hasattr(output_column, "new_tensor") and hasattr(
                 output_column,
                 "narrow",
@@ -1911,14 +1980,126 @@ class PremapKernelArgShadowTableObject:
                         "signed_i64=True for torch int64 destinations."
                     )
                     raise ValueError(msg)
-                source_len = len(source_values)
-                if source_len > 0:
-                    output_column.narrow(0, base, source_len).copy_(  # type: ignore[attr-defined]
-                        output_column.new_tensor(source_values)  # type: ignore[attr-defined]
-                    )
+                output_column.narrow(0, base, source_len).copy_(  # type: ignore[attr-defined]
+                    output_column.new_tensor(source_values),  # type: ignore[attr-defined]
+                )
                 continue
+
             for row_index, value in enumerate(source_values):
                 output_column[base + int(row_index)] = int(value)  # type: ignore[index]
+        return int(self.row_count)
+
+    def copy_native_typed_consumer_columns_to_device(
+        self,
+        columns: tuple[object, object, object, object],
+        *,
+        offset: int = 0,
+        signed_i64: bool = False,
+    ) -> int:
+        """Copy typed handle columns directly into device destination buffers.
+
+        This is the no-host-staging path for the native producer adapter: we
+        write native integer identities directly into the provided destination
+        tensors (typically preallocated GPU buffers) in one device-side copy.
+        """
+
+        if len(columns) != len(PREMAP_DESCRIPTOR_CONSUMER_HANDLE_TABLE_COLUMNS):
+            msg = (
+                "copy_native_typed_consumer_columns_to_device expected four "
+                f"columns, got {len(columns)}."
+            )
+            raise ValueError(msg)
+        base = int(offset)
+        if base < 0:
+            msg = "copy_native_typed_consumer_columns_to_device offset must be >= 0."
+            raise ValueError(msg)
+        output_columns = (
+            columns[0],
+            columns[1],
+            columns[2],
+            columns[3],
+        )
+        source_columns = (
+            self.native_typed_consumer_columns_i64
+            if bool(signed_i64)
+            else self.native_typed_consumer_columns_u64
+        )
+        target_device = None
+        for output_column in output_columns:
+            if not isinstance(output_column, torch.Tensor):
+                msg = (
+                    "copy_native_typed_consumer_columns_to_device requires "
+                    "torch.Tensor destination buffers."
+                )
+                raise ValueError(msg)
+            column_device = getattr(output_column, "device", None)
+            if column_device is None:
+                msg = (
+                    "copy_native_typed_consumer_columns_to_device tensor-like "
+                    "destinations must expose a device."
+                )
+                raise ValueError(msg)
+            column_device = torch.device(column_device)
+            if target_device is None:
+                target_device = column_device
+            elif column_device != target_device:
+                msg = (
+                    "copy_native_typed_consumer_columns_to_device requires all "
+                    f"tensor destinations to be on the same device; got "
+                    f"{target_device} and {column_device}."
+                )
+                raise ValueError(msg)
+        if target_device is None:
+            source_tensors = None
+        else:
+            source_tensors = self._prepare_device_tensor_columns(
+                device=target_device,
+                signed_i64=bool(signed_i64),
+            )
+
+        for output_column, source_values, source_tensor in zip(
+            output_columns,
+            source_columns,
+            source_tensors or source_columns,
+            strict=True,
+        ):
+            source_len = len(source_values)
+            if source_len <= 0:
+                continue
+
+            if output_column.dim() != 1:
+                msg = (
+                    "copy_native_typed_consumer_columns_to_device requires "
+                    f"1D destination buffers, got shape {tuple(output_column.shape)}."
+                )
+                raise ValueError(msg)
+            if not output_column.is_contiguous():
+                msg = (
+                    "copy_native_typed_consumer_columns_to_device requires "
+                    "contiguous destination buffers."
+                )
+                raise ValueError(msg)
+            column_size = int(output_column.size(0))
+            if column_size < base + source_len:
+                msg = (
+                    "copy_native_typed_consumer_columns_to_device "
+                    f"destination capacity too small: need {base + source_len}, "
+                    f"got {column_size}."
+                )
+                raise ValueError(msg)
+            column_dtype = getattr(output_column, "dtype", None)
+            expected_dtype = torch.int64 if bool(signed_i64) else torch.uint64
+            if column_dtype != expected_dtype:
+                msg = (
+                    "copy_native_typed_consumer_columns_to_device "
+                    f"requires {expected_dtype} destinations when "
+                    f"signed_i64={bool(signed_i64)}, got {column_dtype}."
+                )
+                raise ValueError(msg)
+            output_column.narrow(0, base, source_len).copy_(  # type: ignore[attr-defined]
+                source_tensor[:source_len],  # type: ignore[index]
+                non_blocking=True,
+            )
         return int(self.row_count)
 
 
