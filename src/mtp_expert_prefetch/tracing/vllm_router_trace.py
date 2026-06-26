@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import gc
+import ctypes
 import hashlib
 import functools
 import importlib.util
@@ -113,6 +114,56 @@ _PREMAP_DESCRIPTOR_PREP_EXECUTION_MODES = frozenset(
 _PREMAP_PAYLOAD_CACHE_ISSUE_FNV_OFFSET = 0xCBF29CE484222325
 _PREMAP_PAYLOAD_CACHE_ISSUE_FNV_PRIME = 0x100000001B3
 _UINT64_MASK = 0xFFFFFFFFFFFFFFFF
+
+
+class _PremapPayloadCacheNativeSessionUpdateResultV1(ctypes.Structure):
+    _fields_ = [
+        ("abi_version", ctypes.c_uint32),
+        ("ok", ctypes.c_uint32),
+        ("passed", ctypes.c_uint32),
+        ("native_returncode", ctypes.c_uint32),
+        ("session_handle_nonzero", ctypes.c_uint32),
+        ("current_expert_ptr_nonzero", ctypes.c_uint32),
+        ("layer_id", ctypes.c_uint32),
+        ("layers", ctypes.c_uint32),
+        ("experts_per_layer", ctypes.c_uint32),
+        ("transition_topk_count", ctypes.c_uint32),
+        ("previous_count_before", ctypes.c_uint32),
+        ("current_count", ctypes.c_uint32),
+        ("packet_count", ctypes.c_uint32),
+        ("previous_nonempty_packet_count", ctypes.c_uint32),
+        ("current_nonempty_packet_count", ctypes.c_uint32),
+        ("issue_candidate_count", ctypes.c_uint32),
+        ("expected_issue_candidate_count", ctypes.c_uint32),
+        ("issue_candidate_hash", ctypes.c_uint64),
+        ("first_issue_expert", ctypes.c_int32),
+        ("last_issue_expert", ctypes.c_int32),
+        ("ready", ctypes.c_uint32),
+        ("error_count", ctypes.c_uint32),
+        ("gpu_elapsed_ms", ctypes.c_float),
+        ("persistent_state_on_device", ctypes.c_uint32),
+        ("issue_generation_on_device", ctypes.c_uint32),
+        ("prelaunch_callable_native_session", ctypes.c_uint32),
+        ("graph_visible", ctypes.c_uint32),
+        ("native_stub_invoked", ctypes.c_uint32),
+        ("vectorized_copy_requested", ctypes.c_uint32),
+        ("vectorized_copy_used", ctypes.c_uint32),
+        ("payload_bytes", ctypes.c_uint32),
+        ("payload_transfer_enabled", ctypes.c_uint32),
+        ("payload_deref_allowed", ctypes.c_uint32),
+        ("ready_credit", ctypes.c_uint32),
+        ("ready_before_demand_credit", ctypes.c_uint32),
+        ("real_ready_credit_granted", ctypes.c_uint32),
+        ("passed_to_kernel", ctypes.c_uint32),
+        ("changes_kernel_launch_args", ctypes.c_uint32),
+        ("kernel_arg_pass", ctypes.c_uint32),
+        ("kernel_arg_pass_allowed", ctypes.c_uint32),
+        ("current_wna16_arg_compatible", ctypes.c_uint32),
+        ("uses_current_wna16_args", ctypes.c_uint32),
+        ("passes_current_wna16_args", ctypes.c_uint32),
+        ("measures_tpot", ctypes.c_uint32),
+        ("measures_vllm_latency", ctypes.c_uint32),
+    ]
 
 
 _ACTIVE_DECODE_WORKLOAD_TRACE: contextvars.ContextVar[
@@ -3070,6 +3121,54 @@ def _add_premap_payload_cache_vllm_replay_visible_native_producer_contract_to_pe
     prelaunch_count_ptr_blocked_count = int(
         recorder._premap_payload_cache_vllm_replay_visible_prelaunch_count_ptr_abi_blocked_count
     )
+    native_session_enabled = bool(
+        recorder.shadow_premap_payload_cache_vllm_replay_visible_native_session_enabled
+    )
+    native_session_update_count = int(
+        recorder._premap_payload_cache_vllm_replay_visible_native_session_update_count
+    )
+    native_session_packet_count = int(
+        recorder._premap_payload_cache_vllm_replay_visible_native_session_packet_count
+    )
+    native_session_issue_candidate_count = int(
+        recorder._premap_payload_cache_vllm_replay_visible_native_session_issue_candidate_count
+    )
+    native_session_ready_update_count = int(
+        recorder._premap_payload_cache_vllm_replay_visible_native_session_ready_update_count
+    )
+    native_session_error_count = int(
+        recorder._premap_payload_cache_vllm_replay_visible_native_session_error_count
+    )
+    native_session_create_failed_count = int(
+        recorder._premap_payload_cache_vllm_replay_visible_native_session_create_failed_count
+    )
+    native_session_update_failed_count = int(
+        recorder._premap_payload_cache_vllm_replay_visible_native_session_update_failed_count
+    )
+    native_session_result_abi_ready_count = int(
+        recorder._premap_payload_cache_vllm_replay_visible_native_session_result_abi_ready_count
+    )
+    native_session_result_passed_count = int(
+        recorder._premap_payload_cache_vllm_replay_visible_native_session_result_passed_count
+    )
+    native_session_native_stub_invoked_count = int(
+        recorder._premap_payload_cache_vllm_replay_visible_native_session_native_stub_invoked_count
+    )
+    native_session_handle_nonzero_count = int(
+        recorder._premap_payload_cache_vllm_replay_visible_native_session_handle_nonzero_count
+    )
+    native_session_current_expert_ptr_nonzero_count = int(
+        recorder._premap_payload_cache_vllm_replay_visible_native_session_current_expert_ptr_nonzero_count
+    )
+    native_session_persistent_state_on_device_count = int(
+        recorder._premap_payload_cache_vllm_replay_visible_native_session_persistent_state_on_device_count
+    )
+    native_session_issue_generation_on_device_count = int(
+        recorder._premap_payload_cache_vllm_replay_visible_native_session_issue_generation_on_device_count
+    )
+    native_session_prelaunch_callable_count = int(
+        recorder._premap_payload_cache_vllm_replay_visible_native_session_prelaunch_callable_count
+    )
     source_present = bool(
         enabled
         and prelaunch_probe_count > 0
@@ -3091,6 +3190,33 @@ def _add_premap_payload_cache_vllm_replay_visible_native_producer_contract_to_pe
         and prelaunch_abi_blocked_count == 0
         and expected_packet_count > 0
     )
+    python_transition_skipped = bool(
+        recorder.shadow_premap_payload_cache_graph_visible_producer_skip_python_transition
+    )
+    native_session_present = bool(native_session_update_count > 0)
+    native_session_passed = bool(
+        enabled
+        and native_session_enabled
+        and source_present
+        and legacy_abi_ready
+        and python_transition_skipped
+        and expected_packet_count > 0
+        and native_session_update_count == expected_packet_count
+        and native_session_packet_count == expected_packet_count
+        and native_session_issue_candidate_count == expected_issue_candidate_count
+        and native_session_ready_update_count == expected_packet_count
+        and native_session_result_abi_ready_count == expected_packet_count
+        and native_session_result_passed_count == expected_packet_count
+        and native_session_native_stub_invoked_count == expected_packet_count
+        and native_session_handle_nonzero_count == expected_packet_count
+        and native_session_current_expert_ptr_nonzero_count == expected_packet_count
+        and native_session_persistent_state_on_device_count == expected_packet_count
+        and native_session_issue_generation_on_device_count == expected_packet_count
+        and native_session_prelaunch_callable_count == expected_packet_count
+        and native_session_error_count == 0
+        and native_session_create_failed_count == 0
+        and native_session_update_failed_count == 0
+    )
     source_kind = (
         "vllm_prelaunch_inprocess_native_producer"
         if source_present
@@ -3111,20 +3237,67 @@ def _add_premap_payload_cache_vllm_replay_visible_native_producer_contract_to_pe
     failures: list[str] = []
     if not enabled:
         failures.append("vllm_replay_visible_native_producer_disabled")
+    elif native_session_passed:
+        failures = []
     else:
-        failures.extend(
-            [
-                "native_runtime_not_connected",
-                "inprocess_native_op_not_connected",
-                "vllm_replay_visible_updates_missing",
-            ]
-        )
+        if not native_session_enabled:
+            failures.extend(
+                [
+                    "native_runtime_not_connected",
+                    "inprocess_native_op_not_connected",
+                    "vllm_replay_visible_updates_missing",
+                ]
+            )
+        else:
+            if not native_session_present:
+                failures.append("native_session_updates_missing")
+            if native_session_update_count != expected_packet_count:
+                failures.append("native_session_update_count_mismatch")
+            if native_session_packet_count != expected_packet_count:
+                failures.append("native_session_packet_count_mismatch")
+            if native_session_issue_candidate_count != expected_issue_candidate_count:
+                failures.append("native_session_issue_candidate_count_mismatch")
+            if native_session_ready_update_count != expected_packet_count:
+                failures.append("native_session_ready_update_count_mismatch")
+            if native_session_result_abi_ready_count != expected_packet_count:
+                failures.append("native_session_result_abi_ready_count_mismatch")
+            if native_session_result_passed_count != expected_packet_count:
+                failures.append("native_session_result_passed_count_mismatch")
+            if native_session_native_stub_invoked_count != expected_packet_count:
+                failures.append("native_session_native_stub_invoked_count_mismatch")
+            if native_session_handle_nonzero_count != expected_packet_count:
+                failures.append("native_session_handle_nonzero_count_mismatch")
+            if (
+                native_session_current_expert_ptr_nonzero_count
+                != expected_packet_count
+            ):
+                failures.append(
+                    "native_session_current_expert_ptr_nonzero_count_mismatch"
+                )
+            if native_session_persistent_state_on_device_count != expected_packet_count:
+                failures.append(
+                    "native_session_persistent_state_on_device_count_mismatch"
+                )
+            if native_session_issue_generation_on_device_count != expected_packet_count:
+                failures.append(
+                    "native_session_issue_generation_on_device_count_mismatch"
+                )
+            if native_session_prelaunch_callable_count != expected_packet_count:
+                failures.append("native_session_prelaunch_callable_count_mismatch")
+            if native_session_error_count != 0:
+                failures.append("native_session_error_count_nonzero")
+            if native_session_create_failed_count != 0:
+                failures.append("native_session_create_failed")
+            if native_session_update_failed_count != 0:
+                failures.append("native_session_update_failed")
+            if not python_transition_skipped:
+                failures.append("python_transition_not_skipped")
         if source_present and not legacy_abi_ready:
             failures.append("native_session_update_v1_abi_not_ready")
 
     performance[f"{contract_prefix}enabled"] = bool(enabled)
-    performance[f"{contract_prefix}present"] = False
-    performance[f"{contract_prefix}passed"] = False
+    performance[f"{contract_prefix}present"] = bool(native_session_present)
+    performance[f"{contract_prefix}passed"] = bool(native_session_passed)
     performance[f"{contract_prefix}failures"] = failures
     performance[f"{contract_prefix}mode"] = (
         "payload_cache_vllm_replay_visible_native_producer_contract"
@@ -3133,18 +3306,28 @@ def _add_premap_payload_cache_vllm_replay_visible_native_producer_contract_to_pe
         "inprocess_vllm_replay_visible_native_producer_op"
     )
     performance[f"{contract_prefix}source_kind"] = source_kind
-    performance[f"{contract_prefix}native_runtime"] = False
-    performance[f"{contract_prefix}inprocess_native_op"] = False
-    performance[f"{contract_prefix}vllm_replay_visible"] = False
-    performance[f"{contract_prefix}prelaunch_callable_native_session"] = False
+    performance[f"{contract_prefix}native_runtime"] = bool(native_session_passed)
+    performance[f"{contract_prefix}inprocess_native_op"] = bool(native_session_passed)
+    performance[f"{contract_prefix}vllm_replay_visible"] = bool(native_session_passed)
+    performance[f"{contract_prefix}prelaunch_callable_native_session"] = bool(
+        native_session_passed
+    )
     performance[f"{contract_prefix}post_export_native_replay"] = False
     performance[f"{contract_prefix}standalone_native_replay"] = False
     performance[f"{contract_prefix}native_graph_replay"] = False
-    performance[f"{contract_prefix}transition_state_on_device"] = False
-    performance[f"{contract_prefix}persistent_state_on_device"] = False
-    performance[f"{contract_prefix}issue_generation_on_device"] = False
-    performance[f"{contract_prefix}python_transition_skipped"] = False
-    performance[f"{contract_prefix}packet_count"] = 0
+    performance[f"{contract_prefix}transition_state_on_device"] = bool(
+        native_session_passed
+    )
+    performance[f"{contract_prefix}persistent_state_on_device"] = bool(
+        native_session_passed
+    )
+    performance[f"{contract_prefix}issue_generation_on_device"] = bool(
+        native_session_passed
+    )
+    performance[f"{contract_prefix}python_transition_skipped"] = bool(
+        native_session_passed and python_transition_skipped
+    )
+    performance[f"{contract_prefix}packet_count"] = int(native_session_packet_count)
     performance[f"{contract_prefix}expected_packet_count"] = int(
         expected_packet_count
     )
@@ -3154,12 +3337,18 @@ def _add_premap_payload_cache_vllm_replay_visible_native_producer_contract_to_pe
     performance[f"{contract_prefix}graph_visible_expected_packet_count_present"] = (
         bool(graph_expected_packet_count_present)
     )
-    performance[f"{contract_prefix}issue_candidate_count"] = 0
+    performance[f"{contract_prefix}issue_candidate_count"] = int(
+        native_session_issue_candidate_count
+    )
     performance[f"{contract_prefix}expected_issue_candidate_count"] = int(
         expected_issue_candidate_count
     )
-    performance[f"{contract_prefix}producer_update_count"] = 0
-    performance[f"{contract_prefix}replay_visible_update_count"] = 0
+    performance[f"{contract_prefix}producer_update_count"] = int(
+        native_session_update_count
+    )
+    performance[f"{contract_prefix}replay_visible_update_count"] = int(
+        native_session_update_count
+    )
     performance[f"{contract_prefix}current_expert_ptr_source_kind"] = (
         current_expert_ptr_source_kind
     )
@@ -3254,7 +3443,78 @@ def _add_premap_payload_cache_vllm_replay_visible_native_producer_contract_to_pe
         source_present
     )
     performance[f"{contract_prefix}source_is_raw_vllm_performance_summary"] = False
-    performance[f"{contract_prefix}ready_for_payload_cache_runtime_lab_gate"] = False
+    performance[f"{contract_prefix}native_session_enabled"] = bool(
+        native_session_enabled
+    )
+    performance[f"{contract_prefix}native_session_library"] = (
+        recorder.shadow_premap_payload_cache_vllm_replay_visible_native_session_library
+    )
+    performance[f"{contract_prefix}native_session_create_count"] = int(
+        recorder._premap_payload_cache_vllm_replay_visible_native_session_create_count
+    )
+    performance[f"{contract_prefix}native_session_create_failed_count"] = int(
+        native_session_create_failed_count
+    )
+    performance[f"{contract_prefix}native_session_update_failed_count"] = int(
+        native_session_update_failed_count
+    )
+    performance[f"{contract_prefix}native_session_ready_update_count"] = int(
+        native_session_ready_update_count
+    )
+    performance[f"{contract_prefix}native_session_result_abi_ready_count"] = int(
+        native_session_result_abi_ready_count
+    )
+    performance[f"{contract_prefix}native_session_result_passed_count"] = int(
+        native_session_result_passed_count
+    )
+    performance[f"{contract_prefix}native_session_native_stub_invoked_count"] = int(
+        native_session_native_stub_invoked_count
+    )
+    performance[f"{contract_prefix}native_session_handle_nonzero_count"] = int(
+        native_session_handle_nonzero_count
+    )
+    performance[f"{contract_prefix}native_session_current_expert_ptr_nonzero_count"] = int(
+        native_session_current_expert_ptr_nonzero_count
+    )
+    performance[f"{contract_prefix}native_session_persistent_state_on_device_count"] = int(
+        native_session_persistent_state_on_device_count
+    )
+    performance[f"{contract_prefix}native_session_issue_generation_on_device_count"] = int(
+        native_session_issue_generation_on_device_count
+    )
+    performance[f"{contract_prefix}native_session_prelaunch_callable_count"] = int(
+        native_session_prelaunch_callable_count
+    )
+    performance[f"{contract_prefix}native_session_error_count"] = int(
+        native_session_error_count
+    )
+    performance[f"{contract_prefix}native_session_previous_nonempty_packet_count"] = int(
+        recorder._premap_payload_cache_vllm_replay_visible_native_session_previous_nonempty_packet_count
+    )
+    performance[f"{contract_prefix}native_session_last_returncode"] = (
+        recorder._premap_payload_cache_vllm_replay_visible_native_session_last_returncode
+    )
+    performance[f"{contract_prefix}native_session_last_failure"] = (
+        recorder._premap_payload_cache_vllm_replay_visible_native_session_last_failure
+    )
+    performance[f"{contract_prefix}native_session_gpu_elapsed_ms"] = float(
+        recorder._premap_payload_cache_vllm_replay_visible_native_session_gpu_elapsed_ms
+    )
+    performance[f"{contract_prefix}native_session_last_issue_candidate_count"] = int(
+        recorder._premap_payload_cache_vllm_replay_visible_native_session_last_issue_candidate_count
+    )
+    performance[f"{contract_prefix}native_session_last_issue_candidate_first_expert"] = int(
+        recorder._premap_payload_cache_vllm_replay_visible_native_session_last_issue_candidate_first_expert
+    )
+    performance[f"{contract_prefix}native_session_last_issue_candidate_last_expert"] = int(
+        recorder._premap_payload_cache_vllm_replay_visible_native_session_last_issue_candidate_last_expert
+    )
+    performance[f"{contract_prefix}native_session_last_current_count"] = int(
+        recorder._premap_payload_cache_vllm_replay_visible_native_session_last_current_count
+    )
+    performance[f"{contract_prefix}ready_for_payload_cache_runtime_lab_gate"] = bool(
+        native_session_passed
+    )
     performance[f"{contract_prefix}next_boundary"] = (
         "payload_cache_manager_payloadless_ab_or_full_fetch_canary"
     )
@@ -4198,6 +4458,15 @@ class VllmRouterRecorder:
     shadow_premap_payload_cache_vllm_replay_visible_native_producer_enabled: (
         bool
     ) = False
+    shadow_premap_payload_cache_vllm_replay_visible_native_session_enabled: (
+        bool
+    ) = False
+    shadow_premap_payload_cache_vllm_replay_visible_native_session_library: (
+        str | None
+    ) = None
+    shadow_premap_payload_cache_vllm_replay_visible_native_session_disable_vectorized_copy: (
+        bool
+    ) = False
     shadow_premap_payload_cache_manager_mode: str = "resident"
     shadow_premap_payload_cache_manager_service_us_per_issue: float = 0.0
     shadow_premap_payload_cache_manager_service_us_per_batch: float = 0.0
@@ -4555,6 +4824,131 @@ class VllmRouterRecorder:
     _premap_payload_cache_vllm_replay_visible_prelaunch_last_current_count_source_kind: (
         str | None
     ) = field(default=None, init=False, repr=False)
+    _premap_payload_cache_vllm_replay_visible_native_session_state: dict[str, Any] = field(
+        default_factory=dict,
+        init=False,
+        repr=False,
+    )
+    _premap_payload_cache_vllm_replay_visible_native_session_update_count: int = field(
+        default=0,
+        init=False,
+        repr=False,
+    )
+    _premap_payload_cache_vllm_replay_visible_native_session_packet_count: int = field(
+        default=0,
+        init=False,
+        repr=False,
+    )
+    _premap_payload_cache_vllm_replay_visible_native_session_previous_nonempty_packet_count: int = field(
+        default=0,
+        init=False,
+        repr=False,
+    )
+    _premap_payload_cache_vllm_replay_visible_native_session_issue_candidate_count: int = field(
+        default=0,
+        init=False,
+        repr=False,
+    )
+    _premap_payload_cache_vllm_replay_visible_native_session_ready_update_count: int = field(
+        default=0,
+        init=False,
+        repr=False,
+    )
+    _premap_payload_cache_vllm_replay_visible_native_session_result_abi_ready_count: int = field(
+        default=0,
+        init=False,
+        repr=False,
+    )
+    _premap_payload_cache_vllm_replay_visible_native_session_result_passed_count: int = field(
+        default=0,
+        init=False,
+        repr=False,
+    )
+    _premap_payload_cache_vllm_replay_visible_native_session_native_stub_invoked_count: int = field(
+        default=0,
+        init=False,
+        repr=False,
+    )
+    _premap_payload_cache_vllm_replay_visible_native_session_handle_nonzero_count: int = field(
+        default=0,
+        init=False,
+        repr=False,
+    )
+    _premap_payload_cache_vllm_replay_visible_native_session_current_expert_ptr_nonzero_count: int = field(
+        default=0,
+        init=False,
+        repr=False,
+    )
+    _premap_payload_cache_vllm_replay_visible_native_session_persistent_state_on_device_count: int = field(
+        default=0,
+        init=False,
+        repr=False,
+    )
+    _premap_payload_cache_vllm_replay_visible_native_session_issue_generation_on_device_count: int = field(
+        default=0,
+        init=False,
+        repr=False,
+    )
+    _premap_payload_cache_vllm_replay_visible_native_session_prelaunch_callable_count: int = field(
+        default=0,
+        init=False,
+        repr=False,
+    )
+    _premap_payload_cache_vllm_replay_visible_native_session_error_count: int = field(
+        default=0,
+        init=False,
+        repr=False,
+    )
+    _premap_payload_cache_vllm_replay_visible_native_session_create_count: int = field(
+        default=0,
+        init=False,
+        repr=False,
+    )
+    _premap_payload_cache_vllm_replay_visible_native_session_create_failed_count: int = field(
+        default=0,
+        init=False,
+        repr=False,
+    )
+    _premap_payload_cache_vllm_replay_visible_native_session_update_failed_count: int = field(
+        default=0,
+        init=False,
+        repr=False,
+    )
+    _premap_payload_cache_vllm_replay_visible_native_session_last_returncode: int | None = field(
+        default=None,
+        init=False,
+        repr=False,
+    )
+    _premap_payload_cache_vllm_replay_visible_native_session_last_failure: str | None = field(
+        default=None,
+        init=False,
+        repr=False,
+    )
+    _premap_payload_cache_vllm_replay_visible_native_session_gpu_elapsed_ms: float = field(
+        default=0.0,
+        init=False,
+        repr=False,
+    )
+    _premap_payload_cache_vllm_replay_visible_native_session_last_issue_candidate_count: int = field(
+        default=0,
+        init=False,
+        repr=False,
+    )
+    _premap_payload_cache_vllm_replay_visible_native_session_last_issue_candidate_first_expert: int = field(
+        default=-1,
+        init=False,
+        repr=False,
+    )
+    _premap_payload_cache_vllm_replay_visible_native_session_last_issue_candidate_last_expert: int = field(
+        default=-1,
+        init=False,
+        repr=False,
+    )
+    _premap_payload_cache_vllm_replay_visible_native_session_last_current_count: int = field(
+        default=0,
+        init=False,
+        repr=False,
+    )
     _configured_shadow_premap_event_token_index: int = field(
         default=-1,
         init=False,
@@ -4877,6 +5271,31 @@ class VllmRouterRecorder:
         self._premap_payload_cache_vllm_replay_visible_prelaunch_last_current_count_source_kind = (
             None
         )
+        self._destroy_premap_payload_cache_vllm_native_session()
+        self._premap_payload_cache_vllm_replay_visible_native_session_update_count = 0
+        self._premap_payload_cache_vllm_replay_visible_native_session_packet_count = 0
+        self._premap_payload_cache_vllm_replay_visible_native_session_previous_nonempty_packet_count = 0
+        self._premap_payload_cache_vllm_replay_visible_native_session_issue_candidate_count = 0
+        self._premap_payload_cache_vllm_replay_visible_native_session_ready_update_count = 0
+        self._premap_payload_cache_vllm_replay_visible_native_session_result_abi_ready_count = 0
+        self._premap_payload_cache_vllm_replay_visible_native_session_result_passed_count = 0
+        self._premap_payload_cache_vllm_replay_visible_native_session_native_stub_invoked_count = 0
+        self._premap_payload_cache_vllm_replay_visible_native_session_handle_nonzero_count = 0
+        self._premap_payload_cache_vllm_replay_visible_native_session_current_expert_ptr_nonzero_count = 0
+        self._premap_payload_cache_vllm_replay_visible_native_session_persistent_state_on_device_count = 0
+        self._premap_payload_cache_vllm_replay_visible_native_session_issue_generation_on_device_count = 0
+        self._premap_payload_cache_vllm_replay_visible_native_session_prelaunch_callable_count = 0
+        self._premap_payload_cache_vllm_replay_visible_native_session_error_count = 0
+        self._premap_payload_cache_vllm_replay_visible_native_session_create_count = 0
+        self._premap_payload_cache_vllm_replay_visible_native_session_create_failed_count = 0
+        self._premap_payload_cache_vllm_replay_visible_native_session_update_failed_count = 0
+        self._premap_payload_cache_vllm_replay_visible_native_session_last_returncode = None
+        self._premap_payload_cache_vllm_replay_visible_native_session_last_failure = None
+        self._premap_payload_cache_vllm_replay_visible_native_session_gpu_elapsed_ms = 0.0
+        self._premap_payload_cache_vllm_replay_visible_native_session_last_issue_candidate_count = 0
+        self._premap_payload_cache_vllm_replay_visible_native_session_last_issue_candidate_first_expert = -1
+        self._premap_payload_cache_vllm_replay_visible_native_session_last_issue_candidate_last_expert = -1
+        self._premap_payload_cache_vllm_replay_visible_native_session_last_current_count = 0
         self.shadow_premap_event_token_index = int(
             self._configured_shadow_premap_event_token_index
         )
@@ -7735,6 +8154,375 @@ class VllmRouterRecorder:
             self._premap_payload_cache_vllm_replay_visible_prelaunch_last_block_reason = (
                 ";".join(failures)
             )
+
+    def _premap_payload_cache_vllm_native_session_blocked(self, reason: str) -> None:
+        self._premap_payload_cache_vllm_replay_visible_native_session_last_failure = (
+            str(reason)
+        )
+
+    def _destroy_premap_payload_cache_vllm_native_session(self) -> None:
+        state = self._premap_payload_cache_vllm_replay_visible_native_session_state
+        handle = int(state.get("handle", 0) or 0) if state else 0
+        destroy = state.get("destroy") if state else None
+        if handle != 0 and destroy is not None:
+            try:
+                returncode = int(destroy(ctypes.c_uint64(handle)))
+            except Exception as exc:  # pragma: no cover - defensive native boundary
+                self._premap_payload_cache_vllm_native_session_blocked(
+                    f"native_session_destroy_exception:{type(exc).__name__}"
+                )
+            else:
+                if returncode != 0:
+                    self._premap_payload_cache_vllm_native_session_blocked(
+                        f"native_session_destroy_failed:{returncode}"
+                    )
+        state.clear()
+
+    def _ensure_premap_payload_cache_vllm_native_session(
+        self,
+        *,
+        layer_id: int,
+        expert_width: int,
+        device_index: int,
+    ) -> tuple[dict[str, Any] | None, str | None]:
+        library_raw = (
+            self.shadow_premap_payload_cache_vllm_replay_visible_native_session_library
+        )
+        if not library_raw:
+            return None, "native_session_library_missing"
+        library_path = Path(str(library_raw)).expanduser()
+        if not library_path.exists():
+            return None, "native_session_library_not_found"
+        transition_topk_count = int(
+            self.shadow_transition_topk_count
+            if self.shadow_transition_topk_count is not None
+            else 0
+        )
+        if transition_topk_count < 0:
+            return None, "transition_topk_count_negative"
+        layers = max(1024, int(layer_id) + 1)
+        expert_width = max(1, int(expert_width))
+        device_index = max(0, int(device_index))
+        key = (
+            str(library_path.resolve()),
+            int(device_index),
+            int(layers),
+            int(expert_width),
+            int(transition_topk_count),
+        )
+        state = self._premap_payload_cache_vllm_replay_visible_native_session_state
+        if state.get("key") == key and int(state.get("handle", 0) or 0) != 0:
+            return state, None
+
+        self._destroy_premap_payload_cache_vllm_native_session()
+        state = self._premap_payload_cache_vllm_replay_visible_native_session_state
+        try:
+            lib = ctypes.CDLL(str(library_path))
+            create = lib.premap_payload_cache_inprocess_producer_session_create_v1
+            create.argtypes = [
+                ctypes.c_int,
+                ctypes.c_uint32,
+                ctypes.c_uint32,
+                ctypes.c_uint32,
+                ctypes.POINTER(ctypes.c_uint64),
+            ]
+            create.restype = ctypes.c_int
+            update = lib.premap_payload_cache_inprocess_producer_session_update_v1
+            update.argtypes = [
+                ctypes.c_uint64,
+                ctypes.c_uint32,
+                ctypes.c_void_p,
+                ctypes.c_uint32,
+                ctypes.c_uint32,
+                ctypes.POINTER(_PremapPayloadCacheNativeSessionUpdateResultV1),
+            ]
+            update.restype = ctypes.c_int
+            destroy = lib.premap_payload_cache_inprocess_producer_session_destroy_v1
+            destroy.argtypes = [ctypes.c_uint64]
+            destroy.restype = ctypes.c_int
+            handle = ctypes.c_uint64(0)
+            create_returncode = int(
+                create(
+                    int(device_index),
+                    ctypes.c_uint32(int(layers)),
+                    ctypes.c_uint32(int(expert_width)),
+                    ctypes.c_uint32(int(transition_topk_count)),
+                    ctypes.byref(handle),
+                )
+            )
+        except Exception as exc:  # pragma: no cover - defensive native boundary
+            self._premap_payload_cache_vllm_replay_visible_native_session_create_failed_count += (
+                1
+            )
+            return None, f"native_session_create_exception:{type(exc).__name__}"
+        self._premap_payload_cache_vllm_replay_visible_native_session_create_count += 1
+        self._premap_payload_cache_vllm_replay_visible_native_session_last_returncode = (
+            int(create_returncode)
+        )
+        if create_returncode != 0 or int(handle.value) == 0:
+            self._premap_payload_cache_vllm_replay_visible_native_session_create_failed_count += (
+                1
+            )
+            return None, f"native_session_create_failed:{create_returncode}"
+        state.update(
+            {
+                "key": key,
+                "library": str(library_path.resolve()),
+                "lib": lib,
+                "update": update,
+                "destroy": destroy,
+                "handle": int(handle.value),
+                "layers": int(layers),
+                "experts_per_layer": int(expert_width),
+                "transition_topk_count": int(transition_topk_count),
+                "device_index": int(device_index),
+            }
+        )
+        return state, None
+
+    def _apply_premap_payload_cache_vllm_replay_visible_native_session_update(
+        self,
+        *,
+        available: bool,
+        layer_id: int,
+        expert_ids: torch.Tensor | None,
+        num_tokens_post_padded: torch.Tensor | None,
+        block_size: int,
+    ) -> None:
+        """Invoke the live-disabled native session producer canary.
+
+        This is the first online in-process native boundary: it feeds the
+        prelaunch expert-id device pointer into the native session and lets the
+        native stub update persistent transition state / issue candidates.  It
+        deliberately does not move expert payloads, grant ready credit, mutate
+        kernel launch arguments, or reuse the current WNA16 ABI.
+        """
+
+        if not bool(
+            self.shadow_premap_payload_cache_vllm_replay_visible_native_session_enabled
+        ):
+            return
+        if not bool(
+            self.shadow_premap_payload_cache_vllm_replay_visible_native_producer_enabled
+        ):
+            self._premap_payload_cache_vllm_native_session_blocked(
+                "native_producer_contract_disabled"
+            )
+            return
+        if not bool(available):
+            self._premap_payload_cache_vllm_native_session_blocked(
+                "prelaunch_handle_unavailable"
+            )
+            return
+        if not isinstance(expert_ids, torch.Tensor) or not bool(expert_ids.is_cuda):
+            self._premap_payload_cache_vllm_native_session_blocked(
+                "current_expert_device_tensor_missing"
+            )
+            return
+        if expert_ids.dtype != torch.int32 or int(expert_ids.ndim) != 1:
+            self._premap_payload_cache_vllm_native_session_blocked(
+                "current_expert_tensor_abi_mismatch"
+            )
+            return
+        if not isinstance(num_tokens_post_padded, torch.Tensor):
+            self._premap_payload_cache_vllm_native_session_blocked(
+                "num_tokens_post_padded_missing"
+            )
+            return
+        if bool(num_tokens_post_padded.is_cuda):
+            self._premap_payload_cache_vllm_native_session_blocked(
+                "current_count_host_scalar_not_available"
+            )
+            return
+        integer_dtypes = {
+            torch.int8,
+            torch.int16,
+            torch.int32,
+            torch.int64,
+            torch.uint8,
+        }
+        if int(num_tokens_post_padded.numel()) != 1:
+            self._premap_payload_cache_vllm_native_session_blocked(
+                "current_count_not_scalar"
+            )
+            return
+        if num_tokens_post_padded.dtype not in integer_dtypes:
+            self._premap_payload_cache_vllm_native_session_blocked(
+                "current_count_dtype_not_integer"
+            )
+            return
+        try:
+            raw_padded = int(num_tokens_post_padded.detach().reshape(-1)[0].cpu().item())
+        except Exception as exc:  # pragma: no cover - defensive tensor boundary
+            self._premap_payload_cache_vllm_native_session_blocked(
+                f"current_count_extract_failed:{type(exc).__name__}"
+            )
+            return
+        block_size_int = max(1, int(block_size))
+        current_count = min(
+            int(expert_ids.numel()),
+            max(0, (int(raw_padded) + block_size_int - 1) // block_size_int),
+        )
+        if current_count <= 0:
+            self._premap_payload_cache_vllm_native_session_blocked(
+                "current_count_nonpositive"
+            )
+            return
+        device_index = expert_ids.device.index
+        state, blocked = self._ensure_premap_payload_cache_vllm_native_session(
+            layer_id=int(layer_id),
+            expert_width=int(expert_ids.numel()),
+            device_index=0 if device_index is None else int(device_index),
+        )
+        if state is None:
+            self._premap_payload_cache_vllm_native_session_blocked(
+                blocked or "native_session_unavailable"
+            )
+            return
+        update = state.get("update")
+        handle = int(state.get("handle", 0) or 0)
+        if update is None or handle == 0:
+            self._premap_payload_cache_vllm_native_session_blocked(
+                "native_session_update_function_missing"
+            )
+            return
+        result = _PremapPayloadCacheNativeSessionUpdateResultV1()
+        try:
+            native_returncode = int(
+                update(
+                    ctypes.c_uint64(handle),
+                    ctypes.c_uint32(int(layer_id)),
+                    ctypes.c_void_p(int(expert_ids.data_ptr())),
+                    ctypes.c_uint32(int(current_count)),
+                    ctypes.c_uint32(
+                        0
+                        if bool(
+                            self.shadow_premap_payload_cache_vllm_replay_visible_native_session_disable_vectorized_copy
+                        )
+                        else 1
+                    ),
+                    ctypes.byref(result),
+                )
+            )
+        except Exception as exc:  # pragma: no cover - defensive native boundary
+            self._premap_payload_cache_vllm_replay_visible_native_session_update_failed_count += (
+                1
+            )
+            self._premap_payload_cache_vllm_native_session_blocked(
+                f"native_session_update_exception:{type(exc).__name__}"
+            )
+            return
+
+        self._premap_payload_cache_vllm_replay_visible_native_session_update_count += 1
+        self._premap_payload_cache_vllm_replay_visible_native_session_last_returncode = (
+            int(native_returncode)
+        )
+        self._premap_payload_cache_vllm_replay_visible_native_session_packet_count += int(
+            result.packet_count
+        )
+        self._premap_payload_cache_vllm_replay_visible_native_session_previous_nonempty_packet_count += int(
+            result.previous_nonempty_packet_count
+        )
+        self._premap_payload_cache_vllm_replay_visible_native_session_issue_candidate_count += int(
+            result.issue_candidate_count
+        )
+        self._premap_payload_cache_vllm_replay_visible_native_session_ready_update_count += (
+            1 if int(result.ready) != 0 else 0
+        )
+        self._premap_payload_cache_vllm_replay_visible_native_session_result_abi_ready_count += (
+            1 if int(result.abi_version) == 1 else 0
+        )
+        self._premap_payload_cache_vllm_replay_visible_native_session_result_passed_count += (
+            1 if int(result.passed) != 0 else 0
+        )
+        self._premap_payload_cache_vllm_replay_visible_native_session_native_stub_invoked_count += (
+            1 if int(result.native_stub_invoked) != 0 else 0
+        )
+        self._premap_payload_cache_vllm_replay_visible_native_session_handle_nonzero_count += (
+            1 if int(result.session_handle_nonzero) != 0 else 0
+        )
+        self._premap_payload_cache_vllm_replay_visible_native_session_current_expert_ptr_nonzero_count += (
+            1 if int(result.current_expert_ptr_nonzero) != 0 else 0
+        )
+        self._premap_payload_cache_vllm_replay_visible_native_session_persistent_state_on_device_count += (
+            1 if int(result.persistent_state_on_device) != 0 else 0
+        )
+        self._premap_payload_cache_vllm_replay_visible_native_session_issue_generation_on_device_count += (
+            1 if int(result.issue_generation_on_device) != 0 else 0
+        )
+        self._premap_payload_cache_vllm_replay_visible_native_session_prelaunch_callable_count += (
+            1 if int(result.prelaunch_callable_native_session) != 0 else 0
+        )
+        self._premap_payload_cache_vllm_replay_visible_native_session_error_count += int(
+            result.error_count
+        )
+        self._premap_payload_cache_vllm_replay_visible_native_session_gpu_elapsed_ms += float(
+            result.gpu_elapsed_ms
+        )
+        self._premap_payload_cache_vllm_replay_visible_native_session_last_issue_candidate_count = int(
+            result.issue_candidate_count
+        )
+        self._premap_payload_cache_vllm_replay_visible_native_session_last_issue_candidate_first_expert = int(
+            result.first_issue_expert
+        )
+        self._premap_payload_cache_vllm_replay_visible_native_session_last_issue_candidate_last_expert = int(
+            result.last_issue_expert
+        )
+        self._premap_payload_cache_vllm_replay_visible_native_session_last_current_count = int(
+            result.current_count
+        )
+        capability_failed = any(
+            int(getattr(result, field)) == 0
+            for field in (
+                "passed",
+                "native_stub_invoked",
+                "session_handle_nonzero",
+                "current_expert_ptr_nonzero",
+                "persistent_state_on_device",
+                "issue_generation_on_device",
+                "prelaunch_callable_native_session",
+            )
+        ) or int(result.abi_version) != 1
+        safety_failed = any(
+            int(getattr(result, field)) != 0
+            for field in (
+                "payload_bytes",
+                "payload_transfer_enabled",
+                "payload_deref_allowed",
+                "ready_credit",
+                "ready_before_demand_credit",
+                "real_ready_credit_granted",
+                "passed_to_kernel",
+                "changes_kernel_launch_args",
+                "kernel_arg_pass",
+                "kernel_arg_pass_allowed",
+                "current_wna16_arg_compatible",
+                "uses_current_wna16_args",
+                "passes_current_wna16_args",
+                "measures_tpot",
+                "measures_vllm_latency",
+            )
+        )
+        if (
+            native_returncode != 0
+            or int(result.ok) == 0
+            or capability_failed
+            or safety_failed
+        ):
+            self._premap_payload_cache_vllm_replay_visible_native_session_update_failed_count += (
+                1
+            )
+            if safety_failed:
+                reason = "native_session_safety_flag_enabled"
+            elif capability_failed:
+                reason = "native_session_capability_flag_missing"
+            else:
+                reason = f"native_session_update_failed:{native_returncode}"
+            self._premap_payload_cache_vllm_native_session_blocked(reason)
+            return
+        self._premap_payload_cache_vllm_replay_visible_native_session_last_failure = (
+            None
+        )
 
     def _attach_premap_producer_gpu_assignment_envelope(
         self,
@@ -12076,6 +12864,13 @@ class VllmRouterRecorder:
         )
         self._record_premap_payload_cache_vllm_replay_visible_prelaunch_probe(
             available=bool(available),
+            expert_ids=expert_ids,
+            num_tokens_post_padded=num_tokens_post_padded,
+            block_size=int(block_size),
+        )
+        self._apply_premap_payload_cache_vllm_replay_visible_native_session_update(
+            available=bool(available),
+            layer_id=int(layer_id),
             expert_ids=expert_ids,
             num_tokens_post_padded=num_tokens_post_padded,
             block_size=int(block_size),
@@ -23223,6 +24018,30 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
                     False,
                 )
             ),
+            shadow_premap_payload_cache_vllm_replay_visible_native_session_enabled=bool(
+                runtime_shadow_options.get(
+                    "premap_payload_cache_vllm_replay_visible_native_session_enabled",
+                    False,
+                )
+            ),
+            shadow_premap_payload_cache_vllm_replay_visible_native_session_library=(
+                None
+                if runtime_shadow_options.get(
+                    "premap_payload_cache_vllm_replay_visible_native_session_library"
+                )
+                is None
+                else str(
+                    runtime_shadow_options.get(
+                        "premap_payload_cache_vllm_replay_visible_native_session_library"
+                    )
+                )
+            ),
+            shadow_premap_payload_cache_vllm_replay_visible_native_session_disable_vectorized_copy=bool(
+                runtime_shadow_options.get(
+                    "premap_payload_cache_vllm_replay_visible_native_session_disable_vectorized_copy",
+                    False,
+                )
+            ),
             shadow_emit_premap_consumer_mapping=bool(
                 runtime_shadow_options.get("emit_premap_consumer_mapping", False)
             ),
@@ -24941,6 +25760,30 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
                             shadow_premap_payload_cache_vllm_replay_visible_native_producer_enabled=bool(
                                 runtime_shadow_options.get(
                                     "premap_payload_cache_vllm_replay_visible_native_producer_enabled",
+                                    False,
+                                )
+                            ),
+                            shadow_premap_payload_cache_vllm_replay_visible_native_session_enabled=bool(
+                                runtime_shadow_options.get(
+                                    "premap_payload_cache_vllm_replay_visible_native_session_enabled",
+                                    False,
+                                )
+                            ),
+                            shadow_premap_payload_cache_vllm_replay_visible_native_session_library=(
+                                None
+                                if runtime_shadow_options.get(
+                                    "premap_payload_cache_vllm_replay_visible_native_session_library"
+                                )
+                                is None
+                                else str(
+                                    runtime_shadow_options.get(
+                                        "premap_payload_cache_vllm_replay_visible_native_session_library"
+                                    )
+                                )
+                            ),
+                            shadow_premap_payload_cache_vllm_replay_visible_native_session_disable_vectorized_copy=bool(
+                                runtime_shadow_options.get(
+                                    "premap_payload_cache_vllm_replay_visible_native_session_disable_vectorized_copy",
                                     False,
                                 )
                             ),
