@@ -18,6 +18,11 @@ import json
 from pathlib import Path
 from typing import Any
 
+from scripts import (
+    check_premap_payload_cache_vllm_replay_visible_count_ptr_readiness
+    as count_ptr_checker,
+)
+
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 CONTRACT_PREFIX = (
@@ -172,6 +177,22 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Return nonzero unless the materialized positive contract itself passes.",
     )
+    parser.add_argument(
+        "--count-ptr-readiness-output-json",
+        type=Path,
+        help=(
+            "Optionally write the future count-pointer readiness checker output "
+            "for this materialized contract."
+        ),
+    )
+    parser.add_argument(
+        "--require-count-ptr-readiness",
+        action="store_true",
+        help=(
+            "Return nonzero unless the optional count-pointer readiness checker "
+            "output passes."
+        ),
+    )
     return parser
 
 
@@ -188,10 +209,27 @@ def main(argv: list[str] | None = None) -> int:
         json.dumps(result, indent=2, sort_keys=True) + "\n",
         encoding="utf-8",
     )
+    count_ptr_result: dict[str, Any] | None = None
+    if (
+        args.count_ptr_readiness_output_json is not None
+        or args.require_count_ptr_readiness
+    ):
+        count_ptr_result = count_ptr_checker.check_contract(result)
+        if args.count_ptr_readiness_output_json is not None:
+            count_ptr_output_json = _resolve(args.count_ptr_readiness_output_json)
+            count_ptr_output_json.parent.mkdir(parents=True, exist_ok=True)
+            count_ptr_output_json.write_text(
+                json.dumps(count_ptr_result, indent=2, sort_keys=True) + "\n",
+                encoding="utf-8",
+            )
     print(json.dumps(result, indent=2, sort_keys=True))
     if not bool(result.get("materializer_passed")):
         return 1
     if bool(args.require_contract_pass) and not bool(result.get("passed")):
+        return 1
+    if bool(args.require_count_ptr_readiness) and not bool(
+        (count_ptr_result or {}).get("passed")
+    ):
         return 1
     return 0
 

@@ -285,3 +285,91 @@ def test_materializer_cli_accepts_complete_fail_closed_surface(tmp_path: Path) -
     assert payload["passed"] is False
     assert payload["ok"] is False
     assert "native_runtime_not_connected" in payload["failures"]
+
+
+def test_materializer_cli_writes_count_ptr_readiness_output(tmp_path: Path) -> None:
+    performance_summary = tmp_path / "performance_summary.json"
+    output_json = tmp_path / "contract.json"
+    readiness_json = tmp_path / "count_ptr_readiness.json"
+    performance_summary.write_text(
+        json.dumps(_prefixed(_count_ptr_ready_contract())),
+        encoding="utf-8",
+    )
+
+    exit_code = materializer.main(
+        [
+            "--performance-summary",
+            str(performance_summary),
+            "--output-json",
+            str(output_json),
+            "--count-ptr-readiness-output-json",
+            str(readiness_json),
+            "--require-count-ptr-readiness",
+        ]
+    )
+
+    assert exit_code == 0
+    readiness = json.loads(readiness_json.read_text(encoding="utf-8"))
+    assert readiness["passed"] is True
+    assert readiness["mode"] == (
+        "payload_cache_vllm_replay_visible_native_count_ptr_readiness"
+    )
+    assert readiness["ready_for_future_count_ptr_native_session"] is True
+    assert readiness["payload_bytes"] == 0
+    assert readiness["kernel_arg_pass"] is False
+
+
+def test_materializer_cli_rejects_count_ptr_requirement_for_host_scalar_surface(
+    tmp_path: Path,
+) -> None:
+    performance_summary = tmp_path / "performance_summary.json"
+    output_json = tmp_path / "contract.json"
+    readiness_json = tmp_path / "count_ptr_readiness.json"
+    performance_summary.write_text(
+        json.dumps(_prefixed(_valid_contract())),
+        encoding="utf-8",
+    )
+
+    exit_code = materializer.main(
+        [
+            "--performance-summary",
+            str(performance_summary),
+            "--output-json",
+            str(output_json),
+            "--count-ptr-readiness-output-json",
+            str(readiness_json),
+            "--require-count-ptr-readiness",
+        ]
+    )
+
+    assert exit_code == 1
+    readiness = json.loads(readiness_json.read_text(encoding="utf-8"))
+    assert readiness["passed"] is False
+    assert (
+        "prelaunch_current_count_device_tensor_count_invalid"
+        in readiness["failures"]
+    )
+
+
+def test_materializer_cli_requires_count_ptr_readiness_without_output_path(
+    tmp_path: Path,
+) -> None:
+    performance_summary = tmp_path / "performance_summary.json"
+    output_json = tmp_path / "contract.json"
+    performance_summary.write_text(
+        json.dumps(_prefixed(_count_ptr_ready_contract())),
+        encoding="utf-8",
+    )
+
+    exit_code = materializer.main(
+        [
+            "--performance-summary",
+            str(performance_summary),
+            "--output-json",
+            str(output_json),
+            "--require-count-ptr-readiness",
+        ]
+    )
+
+    assert exit_code == 0
+    assert output_json.exists()
