@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import json
+import os
 from collections.abc import Iterable
 from dataclasses import dataclass, field
 from pathlib import Path
+import sys
 from typing import Any
 
 import torch
@@ -232,6 +234,44 @@ def _disable_optional_cuda_kernels_on_rocm() -> None:
         mark_unavailable("is_flash_linear_attention_available")
 
 
+def _prewarm_rocm_torch_cuda_for_vllm_backend() -> bool:
+    debug = str(os.environ.get("MTP_DEBUG_ROCM_PREWARM", "")).lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }
+    if getattr(torch.version, "hip", None) is None:
+        if debug:
+            print("[mtp-rocm-router-prewarm] skipped: torch.version.hip is false", file=sys.stderr)
+        return False
+    try:
+        device_count = int(torch.cuda.device_count())
+        available = bool(torch.cuda.is_available())
+        if debug:
+            print(
+                "[mtp-rocm-router-prewarm] "
+                f"device_count={device_count} is_available={available}",
+                file=sys.stderr,
+            )
+        if device_count <= 0:
+            return False
+        if not available:
+            return False
+        _ = torch.cuda.get_device_properties(0)
+    except Exception as exc:
+        if debug:
+            print(
+                "[mtp-rocm-router-prewarm] "
+                f"failed {type(exc).__name__}: {exc}",
+                file=sys.stderr,
+            )
+        return False
+    if debug:
+        print("[mtp-rocm-router-prewarm] ok", file=sys.stderr)
+    return True
+
+
 def _model_input_device(model: torch.nn.Module) -> torch.device:
     try:
         return next(model.parameters()).device
@@ -359,6 +399,7 @@ def trace_router_mtp(config_path: str | Path) -> Path:
     model_config = load_yaml(resolve_path(trace_config["model"], base_dir=project_root))
     backend = str(model_config.get("backend", "")).strip().lower()
     if backend == "vllm":
+        _prewarm_rocm_torch_cuda_for_vllm_backend()
         # Import lazily to avoid a router_mtp <-> vllm_router_trace import cycle:
         # vLLM tracing reuses dataset loading helpers from this module.
         from mtp_expert_prefetch.tracing.vllm_router_trace import trace_router_mtp_vllm

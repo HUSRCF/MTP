@@ -6,13 +6,23 @@ from pathlib import Path
 import pytest
 
 from scripts.run_premap_online_native_stub_canary import (
+    _apply_pointer_source_observer_gate,
     build_parser,
     exported_input_from_performance,
     exported_inputs_from_performance,
     finalize_report_with_artifact_check,
     finalize_report_with_strict_preflight,
+    main,
+    _pointer_source_observer_check_summary,
     run_canary,
     trace_output_dir,
+)
+from scripts.check_premap_prelaunch_pointer_source_observer import (
+    HANDOFF_BOOL_PREFIX as PRELAUNCH_POINTER_SOURCE_OBSERVER_HANDOFF_BOOL_PREFIX,
+    LIVE_MUTATION_COUNTER_PREFIX as PRELAUNCH_POINTER_SOURCE_OBSERVER_LIVE_MUTATION_COUNTER_PREFIX,
+    REQUIRED_BOOL_KEYS as PRELAUNCH_POINTER_SOURCE_OBSERVER_REQUIRED_BOOL_KEYS,
+    REQUIRED_INT_KEYS as PRELAUNCH_POINTER_SOURCE_OBSERVER_REQUIRED_INT_KEYS,
+    ZERO_INT_KEYS as PRELAUNCH_POINTER_SOURCE_OBSERVER_ZERO_INT_KEYS,
 )
 
 
@@ -25,6 +35,235 @@ def test_trace_output_dir_resolves_repo_relative_path(tmp_path: Path, monkeypatc
     monkeypatch.setattr(canary, "REPO_ROOT", tmp_path)
 
     assert trace_output_dir(config) == tmp_path / "outputs/example"
+
+
+def _pointer_source_observer_check_payload(**overrides) -> dict[str, object]:
+    required_bool_values = {
+        key: False for key in PRELAUNCH_POINTER_SOURCE_OBSERVER_REQUIRED_BOOL_KEYS
+    }
+    required_bool_values[
+        "runtime_shadow_premap_live_config_without_router_recorder_enabled"
+    ] = True
+    required_bool_values[
+        "runtime_shadow_premap_kernel_arg_handoff_gpu_assignment_prelaunch_pointer_source_canary_enabled"
+    ] = True
+
+    required_int_values = {
+        key: 0 for key in PRELAUNCH_POINTER_SOURCE_OBSERVER_REQUIRED_INT_KEYS
+    }
+    required_int_values["sample_count"] = 16
+    required_int_values["requested_output_token_count"] = 1024
+    required_int_values[
+        "runtime_shadow_premap_kernel_arg_live_mutation_gpu_assignment_prelaunch_current_expert_ptr_observer_seen_count"
+    ] = 2560
+    required_int_values[
+        "runtime_shadow_premap_kernel_arg_live_mutation_gpu_assignment_prelaunch_current_expert_ptr_observer_available_count"
+    ] = 2560
+    required_int_values[
+        "runtime_shadow_premap_kernel_arg_live_mutation_gpu_assignment_prelaunch_current_expert_ptr_observer_vllm_device_count"
+    ] = 2560
+
+    payload: dict[str, object] = {
+        "mode": "premap_prelaunch_pointer_source_observer_check",
+        "passed": True,
+        "failures": [],
+        "min_seen": 128,
+        "observer_seen": 2560,
+        "observer_available": 2560,
+        "observer_vllm_device": 2560,
+        "observer_unavailable": 0,
+        "observer_non_device": 0,
+        "min_sample_count": 16,
+        "sample_count": 16,
+        "min_requested_output_tokens": 1024,
+        "requested_output_token_count": 1024,
+        "live_handoff_enabled": False,
+        "live_consumer_connected": False,
+        "kernel_arg_pass_enabled": False,
+        "real_kernel_arg_mutation_enabled": False,
+        "producer_gpu_assignment_envelope_enabled": False,
+        "live_config_without_router_recorder_enabled": True,
+        "prelaunch_pointer_source_canary_enabled": True,
+        "required_bool_values": required_bool_values,
+        "required_int_values": required_int_values,
+        "handoff_bool_values": {
+            key: value
+            for key, value in required_bool_values.items()
+            if key.startswith(PRELAUNCH_POINTER_SOURCE_OBSERVER_HANDOFF_BOOL_PREFIX)
+        },
+        "live_mutation_counter_values": {
+            key: value
+            for key, value in required_int_values.items()
+            if key.startswith(
+                PRELAUNCH_POINTER_SOURCE_OBSERVER_LIVE_MUTATION_COUNTER_PREFIX
+            )
+        },
+        "zero_counter_values": {
+            key: required_int_values[key]
+            for key in PRELAUNCH_POINTER_SOURCE_OBSERVER_ZERO_INT_KEYS
+        },
+    }
+    payload.update(overrides)
+    return payload
+
+
+def test_pointer_source_observer_check_summary_accepts_valid_artifact(tmp_path: Path):
+    artifact = tmp_path / "observer.check.json"
+    artifact.write_text(
+        json.dumps(_pointer_source_observer_check_payload()) + "\n",
+        encoding="utf-8",
+    )
+
+    summary = _pointer_source_observer_check_summary(artifact, required=True)
+
+    assert summary["present"] is True
+    assert summary["passed"] is True
+    assert summary["observer_vllm_device"] == 2560
+
+
+def test_pointer_source_observer_check_summary_rejects_missing_required_artifact(
+    tmp_path: Path,
+):
+    summary = _pointer_source_observer_check_summary(
+        tmp_path / "missing.check.json",
+        required=True,
+    )
+
+    assert summary["present"] is False
+    assert summary["passed"] is False
+    assert summary["failures"] == ["pointer_source_observer_check_missing"]
+
+
+def test_pointer_source_observer_check_summary_optional_missing_is_not_evidence_passed(
+    tmp_path: Path,
+):
+    summary = _pointer_source_observer_check_summary(
+        tmp_path / "missing.check.json",
+        required=False,
+    )
+
+    assert summary["present"] is False
+    assert summary["passed"] is False
+    assert summary["gate_passed"] is True
+
+
+def test_pointer_source_observer_check_summary_bad_json_fails_without_crash(
+    tmp_path: Path,
+):
+    artifact = tmp_path / "observer.check.json"
+    artifact.write_text("{bad-json", encoding="utf-8")
+
+    summary = _pointer_source_observer_check_summary(artifact, required=False)
+
+    assert summary["present"] is True
+    assert summary["passed"] is False
+    assert summary["gate_passed"] is False
+    assert summary["failures"]
+
+
+def test_pointer_source_observer_check_summary_bad_utf8_fails_without_crash(
+    tmp_path: Path,
+):
+    artifact = tmp_path / "observer.check.json"
+    artifact.write_bytes(b"\xff")
+
+    summary = _pointer_source_observer_check_summary(artifact, required=False)
+
+    assert summary["present"] is True
+    assert summary["passed"] is False
+    assert summary["gate_passed"] is False
+    assert summary["failures"]
+
+
+def test_pointer_source_observer_check_summary_rejects_bad_artifact(tmp_path: Path):
+    artifact = tmp_path / "observer.check.json"
+    payload = _pointer_source_observer_check_payload()
+    payload["handoff_bool_values"] = {}
+    artifact.write_text(json.dumps(payload) + "\n", encoding="utf-8")
+
+    summary = _pointer_source_observer_check_summary(artifact, required=True)
+
+    assert summary["present"] is True
+    assert summary["passed"] is False
+    assert (
+        "prelaunch_pointer_source_observer_handoff_bool_map_truncated"
+        in summary["failures"]
+    )
+
+
+def test_run_canary_requires_pointer_source_observer_check_in_dry_run(tmp_path: Path):
+    trace_config = tmp_path / "trace.yaml"
+    trace_config.write_text("output_dir: outputs/example\n", encoding="utf-8")
+    args = build_parser().parse_args(
+        [
+            "--dry-run",
+            "--require-pointer-source-observer-check",
+            "--pointer-source-observer-check-json",
+            str(tmp_path / "missing.check.json"),
+            "--trace-config",
+            str(trace_config),
+            "--output-json",
+            str(tmp_path / "runner.json"),
+        ]
+    )
+
+    result = run_canary(args)
+
+    assert result["passed"] is False
+    assert result["failures"] == ["pointer_source_observer_check_not_passed"]
+    assert result["pointer_source_observer_check_required"] is True
+    assert result["pointer_source_observer_check"]["present"] is False
+
+
+def test_pointer_source_observer_gate_rejects_existing_payload_when_required_missing(
+    tmp_path: Path,
+):
+    args = build_parser().parse_args(
+        [
+            "--dry-run",
+            "--require-pointer-source-observer-check",
+            "--pointer-source-observer-check-json",
+            str(tmp_path / "missing.check.json"),
+            "--output-json",
+            str(tmp_path / "runner.json"),
+        ]
+    )
+    payload = {"passed": True, "failures": []}
+
+    result = _apply_pointer_source_observer_gate(payload, args)
+
+    assert result["passed"] is False
+    assert result["failures"] == ["pointer_source_observer_check_not_passed"]
+    assert result["pointer_source_observer_check_required"] is True
+    assert result["pointer_source_observer_gate_passed"] is False
+
+
+def test_pointer_source_observer_gate_preserves_existing_payload_when_valid(
+    tmp_path: Path,
+):
+    artifact = tmp_path / "observer.check.json"
+    artifact.write_text(
+        json.dumps(_pointer_source_observer_check_payload()) + "\n",
+        encoding="utf-8",
+    )
+    args = build_parser().parse_args(
+        [
+            "--dry-run",
+            "--require-pointer-source-observer-check",
+            "--pointer-source-observer-check-json",
+            str(artifact),
+            "--output-json",
+            str(tmp_path / "runner.json"),
+        ]
+    )
+    payload = {"passed": True, "failures": []}
+
+    result = _apply_pointer_source_observer_gate(payload, args)
+
+    assert result["passed"] is True
+    assert result["failures"] == []
+    assert result["pointer_source_observer_check_passed"] is True
+    assert result["pointer_source_observer_gate_passed"] is True
 
 
 def test_exported_input_from_performance_requires_current_run_path(tmp_path: Path):
@@ -1374,3 +1613,76 @@ def test_finalize_report_with_strict_preflight_fails_on_status_checker_failure(
     assert result["final_preflight_status_check_summary"]["failures"] == [
         "payload_bytes_required_mismatch"
     ]
+
+
+def test_main_finalize_existing_applies_required_pointer_source_gate(
+    tmp_path: Path,
+    monkeypatch,
+):
+    import scripts.run_premap_online_native_stub_canary as canary
+
+    def passthrough_finalize(**kwargs):
+        return kwargs["payload"]
+
+    monkeypatch.setattr(canary, "finalize_report_with_artifact_check", passthrough_finalize)
+    monkeypatch.setattr(canary, "finalize_report_with_strict_preflight", passthrough_finalize)
+    runner = tmp_path / "runner.json"
+    runner.write_text(json.dumps({"passed": True, "failures": []}) + "\n", encoding="utf-8")
+
+    exit_code = main(
+        [
+            "--finalize-existing",
+            "--require-pointer-source-observer-check",
+            "--pointer-source-observer-check-json",
+            str(tmp_path / "missing.check.json"),
+            "--output-json",
+            str(runner),
+            "--stdout-mode",
+            "none",
+        ]
+    )
+    payload = json.loads(runner.read_text(encoding="utf-8"))
+
+    assert exit_code == 1
+    assert payload["passed"] is False
+    assert payload["failures"] == ["pointer_source_observer_check_not_passed"]
+    assert payload["pointer_source_observer_gate_passed"] is False
+
+
+def test_main_finalize_existing_preserves_pass_with_valid_pointer_source_gate(
+    tmp_path: Path,
+    monkeypatch,
+):
+    import scripts.run_premap_online_native_stub_canary as canary
+
+    def passthrough_finalize(**kwargs):
+        return kwargs["payload"]
+
+    monkeypatch.setattr(canary, "finalize_report_with_artifact_check", passthrough_finalize)
+    monkeypatch.setattr(canary, "finalize_report_with_strict_preflight", passthrough_finalize)
+    artifact = tmp_path / "observer.check.json"
+    artifact.write_text(
+        json.dumps(_pointer_source_observer_check_payload()) + "\n",
+        encoding="utf-8",
+    )
+    runner = tmp_path / "runner.json"
+    runner.write_text(json.dumps({"passed": True, "failures": []}) + "\n", encoding="utf-8")
+
+    exit_code = main(
+        [
+            "--finalize-existing",
+            "--require-pointer-source-observer-check",
+            "--pointer-source-observer-check-json",
+            str(artifact),
+            "--output-json",
+            str(runner),
+            "--stdout-mode",
+            "none",
+        ]
+    )
+    payload = json.loads(runner.read_text(encoding="utf-8"))
+
+    assert exit_code == 0
+    assert payload["passed"] is True
+    assert payload["failures"] == []
+    assert payload["pointer_source_observer_gate_passed"] is True

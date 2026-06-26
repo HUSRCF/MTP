@@ -1272,6 +1272,50 @@ def _add_kernel_arg_handoff_live_consumer_adapter(
     return summary
 
 
+def _add_future_wna16_typed_slot_strict_native_device_source(
+    summary: dict,
+) -> dict:
+    aggregate = summary["aggregate"]
+    checked_count = int(
+        aggregate[
+            "premap_consumer_descriptor_prep_consumer_shim_executed_count"
+        ]
+    )
+    row_count = int(
+        aggregate[
+            "premap_consumer_descriptor_prep_kernel_arg_shadow_table_row_count"
+        ]
+    )
+    aggregate.update(
+        {
+            "runtime_shadow_premap_kernel_arg_handoff_producer_future_wna16_typed_slot_envelope_enabled": True,
+            "runtime_shadow_premap_kernel_arg_handoff_future_wna16_typed_slot_kernel_variant_enabled": True,
+            "runtime_shadow_premap_kernel_arg_handoff_future_wna16_typed_slot_slim_kernel_variant_enabled": False,
+            "runtime_shadow_premap_kernel_arg_handoff_future_wna16_typed_slot_strict_native_only": True,
+            "runtime_shadow_premap_kernel_arg_handoff_future_wna16_typed_slot_require_prepared_device_source": True,
+            "runtime_shadow_premap_kernel_arg_handoff_prepared_table_materialization_mode": "producer_native_adapter",
+            "runtime_shadow_premap_kernel_arg_live_mutation_future_wna16_typed_slot_kernel_variant_launch_count": checked_count,
+            "runtime_shadow_premap_kernel_arg_live_mutation_future_wna16_typed_slot_kernel_variant_fallback_count": 0,
+            "runtime_shadow_premap_kernel_arg_live_mutation_future_wna16_typed_slot_slim_kernel_variant_launch_count": 0,
+            "runtime_shadow_premap_kernel_arg_live_mutation_future_wna16_typed_slot_slim_kernel_variant_fallback_count": 0,
+            "runtime_shadow_premap_kernel_arg_live_mutation_future_wna16_typed_slot_wrapper_prepared_columns_hit_count": checked_count,
+            "runtime_shadow_premap_kernel_arg_live_mutation_future_wna16_typed_slot_wrapper_materialization_blocked_count": 0,
+            "runtime_shadow_premap_kernel_arg_live_mutation_future_wna16_typed_slot_fallback_tensor_materialization_count": 0,
+            "runtime_shadow_premap_kernel_arg_live_mutation_future_wna16_typed_slot_fallback_dict_extract_count": 0,
+            "runtime_shadow_premap_kernel_arg_live_mutation_future_wna16_typed_slot_strict_native_only_block_count": 0,
+            "runtime_shadow_premap_kernel_arg_live_mutation_future_wna16_typed_slot_strict_native_only_fallback_block_count": 0,
+            "runtime_shadow_premap_kernel_arg_live_mutation_future_wna16_typed_slot_device_source_cache_hit_count": checked_count,
+            "runtime_shadow_premap_kernel_arg_live_mutation_future_wna16_typed_slot_device_source_materialization_count": 0,
+            "runtime_shadow_premap_kernel_arg_live_mutation_future_wna16_typed_slot_device_source_materialization_row_count": 0,
+            "runtime_shadow_premap_kernel_arg_live_mutation_future_wna16_typed_slot_producer_device_source_prepare_count": checked_count,
+            "runtime_shadow_premap_kernel_arg_live_mutation_future_wna16_typed_slot_producer_device_source_prepare_row_count": row_count,
+            "runtime_shadow_premap_kernel_arg_live_mutation_future_wna16_typed_slot_producer_device_source_prepare_miss_count": 0,
+            "runtime_shadow_premap_kernel_arg_live_mutation_future_wna16_typed_slot_require_prepared_device_source_block_count": 0,
+        }
+    )
+    return summary
+
+
 def test_premap_longrun_audit_gate_accepts_read_only_handle_contract():
     result = check_summary(
         _passing_summary(),
@@ -4742,6 +4786,208 @@ def test_premap_longrun_audit_gate_rejects_allow_kernel_arg_pass_without_runtime
     assert result["passed"] is False
     assert (
         "allow_kernel_arg_handoff_live_kernel_arg_pass_requires_runtime_flag_true"
+        in result["failures"]
+    )
+
+
+def test_premap_longrun_audit_gate_accepts_future_wna16_strict_native_device_source():
+    result = check_summary(
+        _add_future_wna16_typed_slot_strict_native_device_source(
+            _passing_summary()
+        ),
+        max_capacity=12,
+        min_reuse_rate=0.98,
+        require_readonly_consumer=True,
+        require_descriptor_prep=True,
+        require_real_descriptor_prep=True,
+        require_kernel_arg_shadow_table=True,
+        require_consumer_shim_table_read=True,
+        require_consumer_shim_table_consume=True,
+        require_future_wna16_typed_slot_strict_native_device_source=True,
+    )
+
+    assert result["passed"] is True
+    assert result["failures"] == []
+    assert (
+        result[
+            "require_future_wna16_typed_slot_strict_native_device_source"
+        ]
+        is True
+    )
+    assert (
+        result["metrics"][
+            "runtime_shadow_premap_kernel_arg_live_mutation_future_wna16_typed_slot_wrapper_prepared_columns_hit_count"
+        ]
+        == 2
+    )
+    assert (
+        result["metrics"][
+            "runtime_shadow_premap_kernel_arg_live_mutation_future_wna16_typed_slot_producer_device_source_prepare_row_count"
+        ]
+        == 20
+    )
+
+
+def test_premap_longrun_audit_gate_accepts_future_wna16_real_mutation_handoff():
+    summary = _add_future_wna16_typed_slot_strict_native_device_source(
+        _add_kernel_arg_handoff_live_consumer_adapter(
+            _add_kernel_arg_handoff_live_noop_integration(
+                _add_kernel_arg_handoff_live_toggle(
+                    _add_kernel_arg_handoff_launch_schema_mirror(
+                        _add_kernel_arg_handoff_attempt(_passing_summary())
+                    ),
+                    enabled_blocked=True,
+                ),
+                enabled_blocked=True,
+                consumer_connected=True,
+            ),
+            enabled_blocked=True,
+            consumer_connected=True,
+            kernel_arg_pass_live=True,
+            real_kernel_arg_mutation_live=True,
+        )
+    )
+    aggregate = summary["aggregate"]
+    aggregate[
+        "runtime_shadow_premap_kernel_arg_live_mutation_package_pass_through_count"
+    ] = 0
+
+    result = check_summary(
+        summary,
+        max_capacity=12,
+        min_reuse_rate=0.98,
+        require_readonly_consumer=True,
+        require_descriptor_prep=True,
+        require_real_descriptor_prep=True,
+        require_kernel_arg_shadow_table=True,
+        require_consumer_shim_table_read=True,
+        require_consumer_shim_table_consume=True,
+        require_kernel_arg_handoff_attempt=True,
+        require_kernel_arg_handoff_live_toggle=True,
+        require_kernel_arg_handoff_launch_schema_mirror=True,
+        require_kernel_arg_handoff_live_noop_integration=True,
+        require_kernel_arg_handoff_live_consumer_adapter=True,
+        require_future_wna16_typed_slot_strict_native_device_source=True,
+        allow_enabled_blocked_live_toggle=True,
+        allow_connected_blocked_consumer_adapter=True,
+        allow_kernel_arg_handoff_live_kernel_arg_pass=True,
+        allow_kernel_arg_handoff_live_real_kernel_arg_mutation=True,
+        allow_incompatible_real_kernel_arg_mutation_canary=True,
+    )
+
+    assert result["passed"] is True
+    assert result["failures"] == []
+    assert (
+        result["metrics"][
+            "runtime_shadow_premap_kernel_arg_live_mutation_future_wna16_typed_slot_kernel_variant_launch_count"
+        ]
+        == 2
+    )
+
+
+def test_premap_longrun_audit_gate_rejects_future_wna16_strict_native_fallbacks():
+    summary = _add_future_wna16_typed_slot_strict_native_device_source(
+        _passing_summary()
+    )
+    aggregate = summary["aggregate"]
+    aggregate[
+        "runtime_shadow_premap_kernel_arg_handoff_future_wna16_typed_slot_strict_native_only"
+    ] = False
+    aggregate[
+        "runtime_shadow_premap_kernel_arg_live_mutation_future_wna16_typed_slot_fallback_dict_extract_count"
+    ] = 1
+    aggregate[
+        "runtime_shadow_premap_kernel_arg_live_mutation_future_wna16_typed_slot_producer_device_source_prepare_count"
+    ] = 0
+    aggregate[
+        "runtime_shadow_premap_kernel_arg_live_mutation_future_wna16_typed_slot_strict_native_only_block_count"
+    ] = 1
+
+    result = check_summary(
+        summary,
+        max_capacity=12,
+        min_reuse_rate=0.98,
+        require_readonly_consumer=True,
+        require_descriptor_prep=True,
+        require_real_descriptor_prep=True,
+        require_kernel_arg_shadow_table=True,
+        require_consumer_shim_table_read=True,
+        require_consumer_shim_table_consume=True,
+        require_future_wna16_typed_slot_strict_native_device_source=True,
+    )
+
+    assert result["passed"] is False
+    assert (
+        "future_wna16_typed_slot_strict_native_only_not_enabled"
+        in result["failures"]
+    )
+    assert (
+        "future_wna16_typed_slot_producer_device_source_prepare_count_missing_or_zero"
+        in result["failures"]
+    )
+    assert (
+        "future_wna16_typed_slot_fallback_dict_extract_count_nonzero=1"
+        in result["failures"]
+    )
+    assert (
+        "future_wna16_typed_slot_strict_native_only_block_count_nonzero=1"
+        in result["failures"]
+    )
+
+
+def test_premap_longrun_audit_gate_rejects_future_wna16_mixed_pass_through():
+    summary = _add_future_wna16_typed_slot_strict_native_device_source(
+        _add_kernel_arg_handoff_live_consumer_adapter(
+            _add_kernel_arg_handoff_live_noop_integration(
+                _add_kernel_arg_handoff_live_toggle(
+                    _add_kernel_arg_handoff_launch_schema_mirror(
+                        _add_kernel_arg_handoff_attempt(_passing_summary())
+                    ),
+                    enabled_blocked=True,
+                ),
+                enabled_blocked=True,
+                consumer_connected=True,
+            ),
+            enabled_blocked=True,
+            consumer_connected=True,
+            kernel_arg_pass_live=True,
+            real_kernel_arg_mutation_live=True,
+        )
+    )
+    summary["aggregate"][
+        "runtime_shadow_premap_kernel_arg_live_mutation_future_wna16_typed_slot_wrapper_prepared_columns_hit_count"
+    ] = 1
+
+    result = check_summary(
+        summary,
+        max_capacity=12,
+        min_reuse_rate=0.98,
+        require_readonly_consumer=True,
+        require_descriptor_prep=True,
+        require_real_descriptor_prep=True,
+        require_kernel_arg_shadow_table=True,
+        require_consumer_shim_table_read=True,
+        require_consumer_shim_table_consume=True,
+        require_kernel_arg_handoff_attempt=True,
+        require_kernel_arg_handoff_live_toggle=True,
+        require_kernel_arg_handoff_launch_schema_mirror=True,
+        require_kernel_arg_handoff_live_noop_integration=True,
+        require_kernel_arg_handoff_live_consumer_adapter=True,
+        require_future_wna16_typed_slot_strict_native_device_source=True,
+        allow_enabled_blocked_live_toggle=True,
+        allow_connected_blocked_consumer_adapter=True,
+        allow_kernel_arg_handoff_live_kernel_arg_pass=True,
+        allow_kernel_arg_handoff_live_real_kernel_arg_mutation=True,
+        allow_incompatible_real_kernel_arg_mutation_canary=True,
+    )
+
+    assert result["passed"] is False
+    assert (
+        "future_wna16_typed_slot_wrapper_prepared_columns_hit_count_mismatch=1!=2"
+        in result["failures"]
+    )
+    assert (
+        "future_wna16_typed_slot_package_pass_through_count_nonzero=2"
         in result["failures"]
     )
 

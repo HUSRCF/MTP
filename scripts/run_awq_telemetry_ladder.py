@@ -22,6 +22,11 @@ _MODE_RESERVED_KEYS = {
 }
 
 
+DEFAULT_PREMAP_PAYLOAD_CACHE_MEASURED_COPY_JSON = (
+    "configs/runtime/premap_payload_cache_gpu1_h2d_smoke_measured_copy.json"
+)
+
+
 MODES: dict[str, dict[str, Any]] = {
     "production_batch": {
         "runtime_shadow_enabled": False,
@@ -1316,7 +1321,7 @@ MODES["production_batch_premap_payload_cache_ready_time_graph_warmup_counter_off
     "premap_payload_cache_manager_capacity": 12_288,
     "premap_payload_cache_manager_mode": "ready_time",
     "premap_payload_cache_manager_measured_copy_json": (
-        "configs/runtime/premap_payload_cache_gpu1_h2d_smoke_measured_copy.json"
+        DEFAULT_PREMAP_PAYLOAD_CACHE_MEASURED_COPY_JSON
     ),
     "premap_payload_cache_manager_measured_copy_stat": "p95",
     "premap_payload_cache_manager_measured_copy_experts": 8,
@@ -1332,6 +1337,10 @@ MODES["production_batch_premap_payload_cache_ready_time_graph_warmup_counter_off
     ],
     "premap_payload_cache_manager_demand_on_consumer": True,
     "premap_payload_cache_manager_emit_consumer_rows": False,
+    "premap_consumer_require_readonly_gate": False,
+    "premap_consumer_readonly_gate_path": None,
+    "premap_consumer_readonly_gate_live_config_only_no_rows": False,
+    "premap_descriptor_prep_execution_mode": "off",
     "emit_premap_consumer_mapping": False,
     "premap_consumer_mapping_emit_rows": False,
     "premap_kernel_arg_handoff_live_enabled": False,
@@ -1367,7 +1376,7 @@ MODES["production_batch_premap_payload_cache_ready_time_counter_off"] = {
     "premap_payload_cache_manager_capacity": 12_288,
     "premap_payload_cache_manager_mode": "ready_time",
     "premap_payload_cache_manager_measured_copy_json": (
-        "configs/runtime/premap_payload_cache_gpu1_h2d_smoke_measured_copy.json"
+        DEFAULT_PREMAP_PAYLOAD_CACHE_MEASURED_COPY_JSON
     ),
     "premap_payload_cache_manager_measured_copy_stat": "p95",
     "premap_payload_cache_manager_measured_copy_experts": 8,
@@ -1383,6 +1392,10 @@ MODES["production_batch_premap_payload_cache_ready_time_counter_off"] = {
     ],
     "premap_payload_cache_manager_demand_on_consumer": True,
     "premap_payload_cache_manager_emit_consumer_rows": False,
+    "premap_consumer_require_readonly_gate": False,
+    "premap_consumer_readonly_gate_path": None,
+    "premap_consumer_readonly_gate_live_config_only_no_rows": False,
+    "premap_descriptor_prep_execution_mode": "off",
     "emit_premap_consumer_mapping": False,
     "premap_consumer_mapping_emit_rows": False,
     "premap_kernel_arg_handoff_live_enabled": False,
@@ -1408,6 +1421,29 @@ MODES[
 }
 
 MODES[
+    "production_batch_premap_payload_cache_ready_time_graph_warmup_graph_visible_producer_counter_off"
+] = {
+    **MODES[
+        "production_batch_premap_payload_cache_ready_time_graph_warmup_producer_counter_off"
+    ],
+    # Keep the Python producer packet contract as a negative/positive control,
+    # but additionally update persistent tensor counters through captured ops.
+    "premap_payload_cache_graph_visible_producer_enabled": True,
+}
+
+MODES[
+    "production_batch_premap_payload_cache_ready_time_graph_warmup_inside_graph_producer_counter_off"
+] = {
+    **MODES[
+        "production_batch_premap_payload_cache_ready_time_graph_warmup_graph_visible_producer_counter_off"
+    ],
+    # Strict producer-boundary mode: transition state and issue generation stay
+    # in graph-visible device tensors, and Python prelaunch packet extraction is
+    # deliberately skipped.
+    "premap_payload_cache_graph_visible_producer_skip_python_transition": True,
+}
+
+MODES[
     "production_batch_premap_payload_cache_ready_time_producer_counter_off"
 ] = {
     **MODES["production_batch_premap_payload_cache_ready_time_counter_off"],
@@ -1426,6 +1462,8 @@ MODES["production_batch_premap_live_future_wna16_typed_slot_envelope_counter_off
         **_PRODUCTION_BATCH_TRACE_OVERRIDES,
         "allow_premap_live_config_without_router_recorder": True,
     },
+    "record_router_topk": False,
+    "capture_router_topk": False,
     "emit_summaries": False,
     "emit_outcomes": False,
     "outcome_logging_mode": "off",
@@ -1438,6 +1476,28 @@ MODES["production_batch_premap_live_future_wna16_typed_slot_envelope_detailed"] 
     # performance_summary can prove package construction/consumption.  Use this
     # for semantic smoke, not final TPOT.
     "premap_kernel_arg_handoff_live_counter_mode": "detailed",
+}
+
+MODES["production_batch_premap_prelaunch_pointer_source_observer_detailed"] = {
+    **MODES["production_batch"],
+    # Pure no-op provenance observer: instantiate the premap live config at the
+    # vLLM prelaunch assignment boundary and record whether expert_ids is a
+    # real device tensor.  Do not install a live handoff package, pass kernel
+    # args, or enable real mutation.
+    "runtime_shadow_enabled": False,
+    "trace_overrides": {
+        **_PRODUCTION_BATCH_TRACE_OVERRIDES,
+        "allow_premap_live_config_without_router_recorder": True,
+    },
+    "record_router_topk": False,
+    "capture_router_topk": False,
+    "emit_summaries": False,
+    "emit_outcomes": False,
+    "outcome_logging_mode": "off",
+    "premap_kernel_arg_handoff_live_counter_mode": "detailed",
+    "premap_kernel_arg_handoff_gpu_assignment_prelaunch_pointer_source_canary_enabled": (
+        True
+    ),
 }
 
 MODES[
@@ -1489,6 +1549,43 @@ MODES[
     # Semantic smoke for the trusted-refs lower-bound mode.  Use this to prove
     # the trusted branch is consumed; use the counter_off variants for TPOT.
     "premap_kernel_arg_handoff_live_counter_mode": "detailed",
+    # Narrow prelaunch pointer-source canary: the producer records whether the
+    # current expert_ids reference is a real vLLM prelaunch device tensor.  Keep
+    # this in detailed semantic smoke only; counter_off TPOT modes stay minimal.
+    "premap_kernel_arg_handoff_gpu_assignment_prelaunch_pointer_source_canary_enabled": (
+        True
+    ),
+}
+
+MODES[
+    "production_batch_premap_readonly_future_wna16_typed_slot_gpu_assignment_envelope_trusted_refs_pointer_source_detailed"
+] = {
+    **MODES[
+        "production_batch_premap_live_future_wna16_typed_slot_gpu_assignment_envelope_trusted_refs_counter_off"
+    ],
+    # Readonly prelaunch package/provenance gate: construct the future typed-slot
+    # GPU-assignment envelope and consume it through trusted refs, while keeping
+    # all kernel-arg/live-mutation paths disabled.  This is the bridge between
+    # the observer-only pointer-source gate and future native-session typed
+    # consumer work; it is not a TPOT or WNA16-arg mutation mode.
+    "premap_kernel_arg_handoff_live_counter_mode": "detailed",
+    "premap_consumer_readonly_gate_path": (
+        "configs/runtime/"
+        "premap_consumer_readonly_gate_dolly128_gen64_awq_w7900_gpu1_live_connected_readonly.yaml"
+    ),
+    "premap_risky_trace_canary_scope": (
+        "benchmark_premap_readonly_future_wna16_typed_slot_gpu_assignment_"
+        "trusted_refs_pointer_source"
+    ),
+    "premap_kernel_arg_handoff_gpu_assignment_prelaunch_pointer_source_canary_enabled": (
+        True
+    ),
+    "premap_kernel_arg_handoff_live_enabled": True,
+    "premap_kernel_arg_handoff_live_consumer_connected": True,
+    "premap_kernel_arg_handoff_kernel_arg_pass_enabled": False,
+    "premap_kernel_arg_handoff_real_kernel_arg_mutation_enabled": False,
+    "premap_kernel_arg_handoff_single_field_replacement_dry_run_enabled": False,
+    "premap_kernel_arg_handoff_single_field_replacement_live_enabled": False,
 }
 
 MODES[
@@ -1654,6 +1751,18 @@ MODES[
     "production_batch_premap_payload_cache_ready_time_graph_warmup_producer_counter_off_reuse_llm"
 ] = _with_reuse_llm_across_chunks(
     "production_batch_premap_payload_cache_ready_time_graph_warmup_producer_counter_off"
+)
+
+MODES[
+    "production_batch_premap_payload_cache_ready_time_graph_warmup_graph_visible_producer_counter_off_reuse_llm"
+] = _with_reuse_llm_across_chunks(
+    "production_batch_premap_payload_cache_ready_time_graph_warmup_graph_visible_producer_counter_off"
+)
+
+MODES[
+    "production_batch_premap_payload_cache_ready_time_graph_warmup_inside_graph_producer_counter_off_reuse_llm"
+] = _with_reuse_llm_across_chunks(
+    "production_batch_premap_payload_cache_ready_time_graph_warmup_inside_graph_producer_counter_off"
 )
 
 MODES[
@@ -2036,6 +2145,23 @@ def _normalize_compare_path_candidates(value: Any, *, base_config: Path) -> set[
     }
 
 
+def _mode_accepts_premap_payload_cache_measured_copy_override(mode: str) -> bool:
+    cfg = MODES[mode]
+    return (
+        cfg.get("premap_payload_cache_manager_mode") == "ready_time"
+        or "premap_payload_cache_manager_measured_copy_json" in cfg
+    )
+
+
+def _clear_premap_payload_cache_manager_fields(shadow: dict[str, Any]) -> None:
+    for key in tuple(shadow):
+        if (
+            key == "emit_premap_payload_cache_manager_counters"
+            or key.startswith("premap_payload_cache_manager_")
+        ):
+            shadow.pop(key, None)
+
+
 def _write_mode_config(
     *,
     base_config: Path,
@@ -2045,6 +2171,7 @@ def _write_mode_config(
     max_samples: int | None,
     max_tokens: int | None,
     start_sample: int | None,
+    premap_payload_cache_measured_copy_json: Path | None = None,
 ) -> Path:
     cfg = yaml.safe_load(base_config.read_text())
     output_dir = output_root / mode / f"repeat_{repeat:02d}"
@@ -2068,6 +2195,13 @@ def _write_mode_config(
             if key not in _MODE_RESERVED_KEYS
         }
     )
+    if _mode_accepts_premap_payload_cache_measured_copy_override(mode):
+        if premap_payload_cache_measured_copy_json is not None:
+            shadow["premap_payload_cache_manager_measured_copy_json"] = str(
+                premap_payload_cache_measured_copy_json
+            )
+    else:
+        _clear_premap_payload_cache_manager_fields(shadow)
     shadow_enabled = bool(MODES[mode].get("runtime_shadow_enabled", True))
     shadow["enabled"] = shadow_enabled
     shadow["output_path"] = str(output_dir / "runtime_shadow.jsonl")
@@ -2142,7 +2276,7 @@ def _prepend_pythonpath(env: dict[str, str], path: str) -> None:
     env["PYTHONPATH"] = path if not existing else f"{path}{os.pathsep}{existing}"
 
 
-def main() -> None:
+def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "--base-config",
@@ -2187,12 +2321,27 @@ def main() -> None:
     parser.add_argument("--conda-env", default="TRY")
     parser.add_argument("--repeats", type=int, default=1)
     parser.add_argument(
+        "--premap-payload-cache-measured-copy-json",
+        type=Path,
+        default=None,
+        help=(
+            "Override premap_payload_cache_manager_measured_copy_json for "
+            "payload/cache ready-time modes. Use this when rerunning on a "
+            "different GPU or after PCIe link changes."
+        ),
+    )
+    parser.add_argument(
         "--modes",
         nargs="*",
         choices=tuple(MODES),
         default=list(MODES),
     )
     parser.add_argument("--continue-on-error", action="store_true")
+    return parser
+
+
+def main() -> None:
+    parser = _build_parser()
     args = parser.parse_args()
 
     base_trace = yaml.safe_load(args.base_config.read_text()).setdefault("trace", {})
@@ -2212,6 +2361,11 @@ def main() -> None:
         split=effective_split,
         base_config=args.base_config,
     )
+    measured_copy_override = None
+    if args.premap_payload_cache_measured_copy_json is not None:
+        measured_copy_override = (
+            args.premap_payload_cache_measured_copy_json.resolve(strict=True)
+        )
 
     args.output_root.mkdir(parents=True, exist_ok=True)
     results: list[dict[str, Any]] = []
@@ -2226,6 +2380,9 @@ def main() -> None:
                 max_samples=args.max_samples,
                 max_tokens=args.max_tokens,
                 start_sample=args.start_sample,
+                premap_payload_cache_measured_copy_json=(
+                    measured_copy_override
+                ),
             )
             env = os.environ.copy()
             visible_devices = _resolve_hip_visible_devices(args.gpu)

@@ -185,7 +185,7 @@ def build_parser() -> argparse.ArgumentParser:
         default=REPO_ROOT
         / "configs"
         / "runtime"
-        / "premap_payload_cache_gpu1_h2d_smoke_measured_copy.json",
+        / "premap_payload_cache_gpu0_pcie4x16_h2d_measured_copy_20260625.json",
     )
     parser.add_argument("--measured-copy-stat", default="p95")
     parser.add_argument("--measured-copy-experts", type=int, default=8)

@@ -22,10 +22,9 @@ DEFAULT_OUTPUT_JSON = (
 )
 DEFAULT_MEASURED_COPY_JSON = (
     REPO_ROOT
-    / "outputs"
-    / "reports"
-    / "prefetch_action_replay"
-    / "measured_copy_gpu1_expert_transfer_v1.json"
+    / "configs"
+    / "runtime"
+    / "premap_payload_cache_gpu0_pcie4x16_h2d_measured_copy_20260625.json"
 )
 SAFE_FALSE_FLAGS = (
     "full_fetch_allowed",

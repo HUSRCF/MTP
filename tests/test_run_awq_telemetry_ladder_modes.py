@@ -28,6 +28,16 @@ def test_resolve_visible_devices_accepts_unset_sentinel() -> None:
     assert module._resolve_hip_visible_devices("") is None
 
 
+def test_parser_defaults_to_gpu1_and_no_measured_copy_override() -> None:
+    module = _load_module()
+
+    args = module._build_parser().parse_args([])
+
+    assert args.gpu == "1"
+    assert args.output_root == Path("outputs/reports/awq_telemetry_ladder/gpu1")
+    assert args.premap_payload_cache_measured_copy_json is None
+
+
 def test_trace_command_prefers_hardcoded_conda_python(monkeypatch, tmp_path) -> None:
     module = _load_module()
     config_path = tmp_path / "trace.yaml"
@@ -640,6 +650,10 @@ def test_production_batch_payload_cache_ready_time_graph_warmup_is_accounting_on
     assert mode.get("premap_payload_cache_transition_state_owner", "consumer") == (
         "consumer"
     )
+    assert mode["premap_consumer_require_readonly_gate"] is False
+    assert mode["premap_consumer_readonly_gate_path"] is None
+    assert mode["premap_consumer_readonly_gate_live_config_only_no_rows"] is False
+    assert mode["premap_descriptor_prep_execution_mode"] == "off"
     assert mode["emit_premap_consumer_mapping"] is False
     assert mode["premap_consumer_mapping_emit_rows"] is False
     assert mode["premap_kernel_arg_handoff_live_enabled"] is False
@@ -695,6 +709,10 @@ def test_production_batch_payload_cache_ready_time_eager_counter_off_is_accounti
     assert mode.get("premap_payload_cache_transition_state_owner", "consumer") == (
         "consumer"
     )
+    assert mode["premap_consumer_require_readonly_gate"] is False
+    assert mode["premap_consumer_readonly_gate_path"] is None
+    assert mode["premap_consumer_readonly_gate_live_config_only_no_rows"] is False
+    assert mode["premap_descriptor_prep_execution_mode"] == "off"
     assert mode["emit_premap_consumer_mapping"] is False
     assert mode["premap_consumer_mapping_emit_rows"] is False
     assert mode["premap_kernel_arg_handoff_live_enabled"] is False
@@ -745,6 +763,38 @@ def test_production_batch_payload_cache_ready_time_producer_modes_are_accounting
         )
         assert producer["descriptor_order_reorder_mvp_enabled"] is False
         assert producer["outcome_logging_mode"] == "off"
+
+
+def test_production_batch_payload_cache_inside_graph_producer_mode_skips_python_transition() -> None:
+    module = _load_module()
+    base = module.MODES[
+        "production_batch_premap_payload_cache_ready_time_graph_warmup_graph_visible_producer_counter_off"
+    ]
+    mode = module.MODES[
+        "production_batch_premap_payload_cache_ready_time_graph_warmup_inside_graph_producer_counter_off"
+    ]
+
+    comparable = dict(mode)
+    comparable.pop("premap_payload_cache_graph_visible_producer_skip_python_transition")
+    assert comparable == base
+    assert mode["premap_payload_cache_transition_state_owner"] == "producer"
+    assert mode["premap_payload_cache_graph_visible_producer_enabled"] is True
+    assert (
+        mode["premap_payload_cache_graph_visible_producer_skip_python_transition"]
+        is True
+    )
+    assert mode["runtime_shadow_enabled"] is False
+    assert mode["record_router_topk"] is False
+    assert mode["capture_router_topk"] is False
+    assert mode["emit_premap_payload_cache_manager_counters"] is True
+    assert mode["premap_payload_cache_manager_emit_consumer_rows"] is False
+    assert mode["premap_kernel_arg_handoff_kernel_arg_pass_enabled"] is False
+    assert (
+        mode["premap_kernel_arg_handoff_future_wna16_typed_slot_kernel_variant_enabled"]
+        is False
+    )
+    assert mode["descriptor_order_reorder_mvp_enabled"] is False
+    assert mode["outcome_logging_mode"] == "off"
 
 
 def test_production_batch_premap_live_typed_slot_envelope_detailed_only_enables_counters() -> None:
@@ -872,6 +922,191 @@ def test_production_batch_premap_live_gpu_assignment_trusted_refs_only_skips_ide
     assert comparable_trusted == comparable_base
 
 
+def test_production_batch_premap_readonly_gpu_assignment_trusted_refs_pointer_source_is_noop() -> None:
+    module = _load_module()
+    mode = module.MODES[
+        "production_batch_premap_readonly_future_wna16_typed_slot_gpu_assignment_envelope_trusted_refs_pointer_source_detailed"
+    ]
+    trusted = module.MODES[
+        "production_batch_premap_live_future_wna16_typed_slot_gpu_assignment_envelope_trusted_refs_counter_off"
+    ]
+
+    assert mode["runtime_shadow_enabled"] is False
+    assert mode["trace_overrides"] == trusted["trace_overrides"]
+    assert mode["record_router_topk"] is False
+    assert mode["capture_router_topk"] is False
+    assert mode["emit_premap_consumer_mapping"] is False
+    assert (
+        mode[
+            "premap_kernel_arg_handoff_producer_future_wna16_typed_slot_envelope_enabled"
+        ]
+        is True
+    )
+    assert (
+        mode[
+            "premap_kernel_arg_handoff_producer_gpu_assignment_envelope_enabled"
+        ]
+        is True
+    )
+    assert (
+        mode["premap_kernel_arg_handoff_gpu_assignment_validation_mode"]
+        == "trusted_refs"
+    )
+    assert (
+        mode["premap_consumer_readonly_gate_path"]
+        == "configs/runtime/"
+        "premap_consumer_readonly_gate_dolly128_gen64_awq_w7900_gpu1_live_connected_readonly.yaml"
+    )
+    assert (
+        mode["premap_risky_trace_canary_scope"]
+        == "benchmark_premap_readonly_future_wna16_typed_slot_gpu_assignment_"
+        "trusted_refs_pointer_source"
+    )
+    assert mode["premap_kernel_arg_handoff_live_counter_mode"] == "detailed"
+    assert (
+        mode[
+            "premap_kernel_arg_handoff_gpu_assignment_prelaunch_pointer_source_canary_enabled"
+        ]
+        is True
+    )
+    assert mode["premap_kernel_arg_handoff_live_enabled"] is True
+    assert mode["premap_kernel_arg_handoff_live_consumer_connected"] is True
+    assert mode["premap_kernel_arg_handoff_kernel_arg_pass_enabled"] is False
+    assert mode["premap_kernel_arg_handoff_real_kernel_arg_mutation_enabled"] is False
+    assert (
+        mode["premap_kernel_arg_handoff_single_field_replacement_dry_run_enabled"]
+        is False
+    )
+    assert (
+        mode["premap_kernel_arg_handoff_single_field_replacement_live_enabled"]
+        is False
+    )
+    assert mode["premap_kernel_arg_handoff_prepared_table_materialization_mode"] == "off"
+    assert (
+        mode.get(
+            "premap_kernel_arg_handoff_future_wna16_typed_slot_kernel_variant_enabled",
+            False,
+        )
+        is False
+    )
+    assert (
+        mode.get(
+            "premap_kernel_arg_handoff_gpu_assignment_kernel_variant_enabled",
+            False,
+        )
+        is False
+    )
+
+
+def test_production_batch_prelaunch_pointer_source_observer_is_noop_detailed_only() -> None:
+    module = _load_module()
+    mode = module.MODES[
+        "production_batch_premap_prelaunch_pointer_source_observer_detailed"
+    ]
+    trace_overrides = mode["trace_overrides"]
+
+    assert mode["runtime_shadow_enabled"] is False
+    assert trace_overrides["allow_premap_live_config_without_router_recorder"] is True
+    assert trace_overrides["use_router_logits_recorder"] is False
+    assert trace_overrides["capture_router_topk"] is False
+    assert mode["record_router_topk"] is False
+    assert mode["capture_router_topk"] is False
+    assert mode["emit_summaries"] is False
+    assert mode["emit_outcomes"] is False
+    assert mode["outcome_logging_mode"] == "off"
+    assert mode["premap_kernel_arg_handoff_live_counter_mode"] == "detailed"
+    assert (
+        mode[
+            "premap_kernel_arg_handoff_gpu_assignment_prelaunch_pointer_source_canary_enabled"
+        ]
+        is True
+    )
+    assert (
+        mode.get(
+            "premap_kernel_arg_handoff_live_enabled",
+            False,
+        )
+        is False
+    )
+    assert (
+        mode.get(
+            "premap_kernel_arg_handoff_kernel_arg_pass_enabled",
+            False,
+        )
+        is False
+    )
+    assert (
+        mode.get(
+            "premap_kernel_arg_handoff_real_kernel_arg_mutation_enabled",
+            False,
+        )
+        is False
+    )
+    assert (
+        mode.get(
+            "premap_kernel_arg_handoff_producer_gpu_assignment_envelope_enabled",
+            False,
+        )
+        is False
+    )
+    assert (
+        mode.get(
+            "premap_kernel_arg_handoff_producer_future_wna16_typed_slot_envelope_enabled",
+            False,
+        )
+        is False
+    )
+    assert (
+        mode.get(
+            "premap_kernel_arg_handoff_producer_minimal_identity_envelope_enabled",
+            False,
+        )
+        is False
+    )
+    assert (
+        mode.get(
+            "premap_kernel_arg_handoff_live_consumer_connected",
+            False,
+        )
+        is False
+    )
+    assert (
+        mode.get(
+            "premap_kernel_arg_handoff_single_field_replacement_dry_run_enabled",
+            False,
+        )
+        is False
+    )
+    assert (
+        mode.get(
+            "premap_kernel_arg_handoff_single_field_replacement_live_enabled",
+            False,
+        )
+        is False
+    )
+    assert (
+        mode.get(
+            "premap_kernel_arg_handoff_gpu_assignment_kernel_variant_enabled",
+            False,
+        )
+        is False
+    )
+    assert (
+        mode.get(
+            "premap_kernel_arg_handoff_future_wna16_typed_slot_kernel_variant_enabled",
+            False,
+        )
+        is False
+    )
+    assert (
+        mode.get(
+            "premap_kernel_arg_handoff_future_wna16_typed_slot_slim_kernel_variant_enabled",
+            False,
+        )
+        is False
+    )
+
+
 def test_production_batch_gpu_assignment_envelope_graph_warmup_only_changes_vllm_posture() -> None:
     module = _load_module()
     pairs = (
@@ -982,10 +1217,26 @@ def test_production_batch_premap_live_gpu_assignment_trusted_refs_detailed_only_
     )
     assert counter_off["premap_kernel_arg_handoff_live_counter_mode"] == "off"
     assert detailed["premap_kernel_arg_handoff_live_counter_mode"] == "detailed"
+    assert (
+        detailed[
+            "premap_kernel_arg_handoff_gpu_assignment_prelaunch_pointer_source_canary_enabled"
+        ]
+        is True
+    )
+    assert (
+        counter_off.get(
+            "premap_kernel_arg_handoff_gpu_assignment_prelaunch_pointer_source_canary_enabled",
+            False,
+        )
+        is False
+    )
 
     comparable_detailed = dict(detailed)
     comparable_counter_off = dict(counter_off)
     comparable_detailed["premap_kernel_arg_handoff_live_counter_mode"] = "off"
+    comparable_detailed.pop(
+        "premap_kernel_arg_handoff_gpu_assignment_prelaunch_pointer_source_canary_enabled"
+    )
     assert comparable_detailed == comparable_counter_off
 
 
@@ -1295,6 +1546,10 @@ def test_production_batch_reuse_llm_modes_only_add_engine_reuse() -> None:
         (
             "production_batch_premap_payload_cache_ready_time_graph_warmup_producer_counter_off",
             "production_batch_premap_payload_cache_ready_time_graph_warmup_producer_counter_off_reuse_llm",
+        ),
+        (
+            "production_batch_premap_payload_cache_ready_time_graph_warmup_inside_graph_producer_counter_off",
+            "production_batch_premap_payload_cache_ready_time_graph_warmup_inside_graph_producer_counter_off_reuse_llm",
         ),
         (
             "production_batch_premap_payload_cache_ready_time_counter_off",
@@ -1825,6 +2080,149 @@ def test_write_mode_config_does_not_emit_reserved_env_keys(tmp_path: Path) -> No
     assert "unset_env" not in shadow
     assert shadow["enabled"] is True
     assert shadow["record_router_topk"] is False
+
+
+def test_write_mode_config_can_override_payload_cache_measured_copy_json(
+    tmp_path: Path,
+) -> None:
+    module = _load_module()
+    base = tmp_path / "base.yaml"
+    base.write_text(
+        "model: model.yaml\n"
+        "output_dir: old\n"
+        "trace:\n"
+        "  start_sample: 0\n"
+        "  runtime_shadow: {}\n"
+    )
+    override = Path(
+        "configs/runtime/"
+        "premap_payload_cache_gpu0_pcie4x16_h2d_measured_copy_20260625.json"
+    )
+
+    config_path = module._write_mode_config(
+        base_config=base,
+        output_root=tmp_path / "out",
+        mode="production_batch_premap_payload_cache_ready_time_counter_off",
+        repeat=0,
+        max_samples=1,
+        max_tokens=2,
+        start_sample=None,
+        premap_payload_cache_measured_copy_json=override,
+    )
+
+    data = yaml.safe_load(config_path.read_text())
+    shadow = data["trace"]["runtime_shadow"]
+    assert shadow["premap_payload_cache_manager_measured_copy_json"] == str(
+        override
+    )
+
+
+def test_payload_cache_measured_copy_override_is_scoped_to_ready_time_modes(
+    tmp_path: Path,
+) -> None:
+    module = _load_module()
+    base = tmp_path / "base.yaml"
+    base.write_text(
+        "model: model.yaml\n"
+        "output_dir: old\n"
+        "trace:\n"
+        "  start_sample: 0\n"
+        "  runtime_shadow: {}\n"
+    )
+    override = Path(
+        "configs/runtime/"
+        "premap_payload_cache_gpu0_pcie4x16_h2d_measured_copy_20260625.json"
+    )
+
+    for mode in (
+        "production_batch_premap_payload_cache_ready_time_graph_warmup_counter_off",
+        "production_batch_premap_payload_cache_ready_time_graph_warmup_producer_counter_off",
+        "production_batch_premap_payload_cache_ready_time_graph_warmup_graph_visible_producer_counter_off",
+        "production_batch_premap_payload_cache_ready_time_graph_warmup_inside_graph_producer_counter_off",
+        "production_batch_premap_payload_cache_ready_time_counter_off",
+        "production_batch_premap_payload_cache_ready_time_producer_counter_off",
+        "production_batch_premap_payload_cache_ready_time_graph_warmup_counter_off_reuse_llm",
+        "production_batch_premap_payload_cache_ready_time_graph_warmup_producer_counter_off_reuse_llm",
+        "production_batch_premap_payload_cache_ready_time_graph_warmup_graph_visible_producer_counter_off_reuse_llm",
+        "production_batch_premap_payload_cache_ready_time_graph_warmup_inside_graph_producer_counter_off_reuse_llm",
+        "production_batch_premap_payload_cache_ready_time_counter_off_reuse_llm",
+        "production_batch_premap_payload_cache_ready_time_producer_counter_off_reuse_llm",
+    ):
+        config_path = module._write_mode_config(
+            base_config=base,
+            output_root=tmp_path / "out",
+            mode=mode,
+            repeat=0,
+            max_samples=1,
+            max_tokens=2,
+            start_sample=None,
+            premap_payload_cache_measured_copy_json=override,
+        )
+        data = yaml.safe_load(config_path.read_text())
+        shadow = data["trace"]["runtime_shadow"]
+        assert shadow["premap_payload_cache_manager_measured_copy_json"] == str(
+            override
+        )
+
+    control_path = module._write_mode_config(
+        base_config=base,
+        output_root=tmp_path / "out",
+        mode="production_like",
+        repeat=0,
+        max_samples=1,
+        max_tokens=2,
+        start_sample=None,
+        premap_payload_cache_measured_copy_json=override,
+    )
+    control = yaml.safe_load(control_path.read_text())
+    assert (
+        "premap_payload_cache_manager_measured_copy_json"
+        not in control["trace"]["runtime_shadow"]
+    )
+
+
+def test_non_payload_cache_mode_drops_base_measured_copy_fields(
+    tmp_path: Path,
+) -> None:
+    module = _load_module()
+    base = tmp_path / "base.yaml"
+    base.write_text(
+        "model: model.yaml\n"
+        "output_dir: old\n"
+        "trace:\n"
+        "  start_sample: 0\n"
+        "  runtime_shadow:\n"
+        "    emit_premap_payload_cache_manager_counters: true\n"
+        "    premap_payload_cache_manager_measured_copy_json: old_gpu1.json\n"
+        "    premap_payload_cache_manager_measured_copy_stat: p95\n"
+        "    premap_payload_cache_manager_measured_copy_experts: 8\n"
+        "    premap_payload_cache_manager_mode: ready_time\n"
+        "    premap_payload_cache_manager_capacity: 12288\n"
+        "    premap_payload_cache_manager_issue_sources:\n"
+        "      - previous_token_transition_premap_shadow\n"
+        "    premap_payload_cache_manager_queue_deadline_us: 1000\n"
+    )
+
+    config_path = module._write_mode_config(
+        base_config=base,
+        output_root=tmp_path / "out",
+        mode="production_like",
+        repeat=0,
+        max_samples=1,
+        max_tokens=2,
+        start_sample=None,
+    )
+
+    data = yaml.safe_load(config_path.read_text())
+    shadow = data["trace"]["runtime_shadow"]
+    assert "emit_premap_payload_cache_manager_counters" not in shadow
+    assert "premap_payload_cache_manager_measured_copy_json" not in shadow
+    assert "premap_payload_cache_manager_measured_copy_stat" not in shadow
+    assert "premap_payload_cache_manager_measured_copy_experts" not in shadow
+    assert "premap_payload_cache_manager_mode" not in shadow
+    assert "premap_payload_cache_manager_capacity" not in shadow
+    assert "premap_payload_cache_manager_issue_sources" not in shadow
+    assert "premap_payload_cache_manager_queue_deadline_us" not in shadow
 
 
 def test_production_batch_write_mode_config_uses_no_recorder_batch_path(

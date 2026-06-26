@@ -258,6 +258,9 @@ def _check_ready_time_direct_snapshot_gate(
     metrics = metrics if isinstance(metrics, dict) else {}
     passed = bool(report.get("passed", False)) if isinstance(report, dict) else False
     allow = bool(report.get("allow_full_fetch", False)) if isinstance(report, dict) else False
+    allow_may_pass_threshold = bool(
+        section.get("ready_time_direct_snapshot_allow_full_fetch", False)
+    )
     recheck_passed = bool(recheck.get("passed", False))
     recheck_failures = _string_list(recheck.get("failures"))
     direct_present = _optional_bool(metrics, "direct_snapshot_present")
@@ -325,7 +328,7 @@ def _check_ready_time_direct_snapshot_gate(
         failures.append("ready_time_direct_snapshot_report_not_passed")
     if not recheck_passed:
         failures.append("ready_time_direct_snapshot_report_recheck_failed")
-    if allow:
+    if allow and not allow_may_pass_threshold:
         failures.append("ready_time_direct_snapshot_report_allows_full_fetch")
     if direct_present is not True:
         failures.append("ready_time_direct_snapshot_not_present")
@@ -469,6 +472,9 @@ def _check_ready_time_direct_snapshot_gate(
         "ready_time_direct_snapshot_report_recheck_passed": recheck_passed,
         "ready_time_direct_snapshot_report_recheck_failures": recheck_failures,
         "ready_time_direct_snapshot_allow_full_fetch": allow,
+        "ready_time_direct_snapshot_allow_full_fetch_allowed": (
+            allow_may_pass_threshold
+        ),
         "ready_time_direct_snapshot_decision_reason": report.get("decision_reason"),
         "ready_time_direct_snapshot_threshold_failures": _string_list(
             report.get("threshold_failures")

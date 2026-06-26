@@ -1195,6 +1195,171 @@ def test_apply_premap_consumer_readonly_gate_rejects_live_config_only_emit_rows(
         )
 
 
+def test_apply_premap_consumer_readonly_gate_accepts_readonly_future_envelope_pointer_source(
+    tmp_path,
+):
+    gate = tmp_path / "readonly_gate.yaml"
+    _write_readonly_gate(
+        gate,
+        lab_precondition=True,
+        descriptor_prep_execution_mode="readonly_descriptor_address_object",
+        descriptor_prep_payload_bytes=0,
+        descriptor_prep_kernel_arg_mutation=False,
+        extra_contract_lines=_kernel_arg_handoff_adapter_contract_lines(
+            live_enabled=False,
+            consumer_connected_required=False,
+            kernel_arg_pass_required=False,
+            real_kernel_arg_mutation_required=False,
+        ),
+        extra_check_lines=_kernel_arg_handoff_adapter_check_lines(),
+    )
+
+    options = _apply_premap_consumer_readonly_gate(
+        {
+            "enabled": True,
+            "emit_premap_consumer_mapping": False,
+            "premap_consumer_require_readonly_gate": True,
+            "premap_consumer_readonly_gate_path": str(gate),
+            "premap_consumer_mapping_mode": "off",
+            "premap_consumer_resolve_real_handles": False,
+            "premap_descriptor_bytes": 4096,
+            "premap_descriptor_prep_execution_mode": (
+                "readonly_descriptor_address_object"
+            ),
+            "premap_kernel_arg_handoff_minimal_identity_envelope_enabled": True,
+            "premap_kernel_arg_handoff_producer_future_wna16_typed_slot_envelope_enabled": True,
+            "premap_kernel_arg_handoff_producer_gpu_assignment_envelope_enabled": True,
+            "premap_kernel_arg_handoff_gpu_assignment_validation_mode": "trusted_refs",
+            "premap_kernel_arg_handoff_gpu_assignment_prelaunch_pointer_source_canary_enabled": True,
+            "premap_kernel_arg_handoff_prepared_table_materialization_mode": "off",
+            "premap_kernel_arg_handoff_live_enabled": False,
+            "premap_kernel_arg_handoff_live_consumer_connected": False,
+            "premap_kernel_arg_handoff_kernel_arg_pass_enabled": False,
+            "premap_kernel_arg_handoff_real_kernel_arg_mutation_enabled": False,
+            "premap_kernel_arg_handoff_single_field_replacement_dry_run_enabled": False,
+            "premap_kernel_arg_handoff_single_field_replacement_live_enabled": False,
+        },
+        project_root=tmp_path,
+    )
+
+    assert options["premap_consumer_readonly_gate_passed"] is True
+    assert options["premap_consumer_readonly_gate_required"] is True
+    assert options["premap_kernel_arg_handoff_kernel_arg_pass_enabled"] is False
+    assert (
+        options["premap_kernel_arg_handoff_real_kernel_arg_mutation_enabled"]
+        is False
+    )
+
+
+def test_apply_premap_consumer_readonly_gate_accepts_live_connected_readonly_future_envelope_pointer_source(
+    tmp_path,
+):
+    gate = tmp_path / "readonly_gate.yaml"
+    _write_readonly_gate(
+        gate,
+        lab_precondition=True,
+        descriptor_prep_execution_mode="readonly_descriptor_address_object",
+        descriptor_prep_payload_bytes=0,
+        descriptor_prep_kernel_arg_mutation=False,
+        kernel_arg_handoff_live_toggle_required=True,
+        kernel_arg_handoff_live_toggle_enabled_required=True,
+        kernel_arg_handoff_live_toggle_block_reason=(
+            "kernel_arg_handoff_kernel_consumer_not_connected"
+        ),
+        kernel_arg_handoff_live_toggle_live_eligible_required=True,
+        require_kernel_arg_handoff_live_toggle=True,
+        extra_contract_lines=_kernel_arg_handoff_adapter_contract_lines(
+            live_enabled=True,
+            consumer_connected_required=True,
+            kernel_arg_pass_required=False,
+            real_kernel_arg_mutation_required=False,
+        ),
+        extra_check_lines=_kernel_arg_handoff_adapter_check_lines(),
+    )
+
+    options = _apply_premap_consumer_readonly_gate(
+        {
+            "enabled": True,
+            "emit_premap_consumer_mapping": False,
+            "premap_consumer_require_readonly_gate": True,
+            "premap_consumer_readonly_gate_path": str(gate),
+            "premap_consumer_mapping_mode": "off",
+            "premap_consumer_resolve_real_handles": False,
+            "premap_descriptor_bytes": 4096,
+            "premap_descriptor_prep_execution_mode": (
+                "readonly_descriptor_address_object"
+            ),
+            "premap_kernel_arg_handoff_minimal_identity_envelope_enabled": True,
+            "premap_kernel_arg_handoff_producer_future_wna16_typed_slot_envelope_enabled": True,
+            "premap_kernel_arg_handoff_producer_gpu_assignment_envelope_enabled": True,
+            "premap_kernel_arg_handoff_gpu_assignment_validation_mode": "trusted_refs",
+            "premap_kernel_arg_handoff_gpu_assignment_prelaunch_pointer_source_canary_enabled": True,
+            "premap_kernel_arg_handoff_prepared_table_materialization_mode": "off",
+            "premap_kernel_arg_handoff_live_enabled": True,
+            "premap_kernel_arg_handoff_live_consumer_connected": True,
+            "premap_kernel_arg_handoff_kernel_arg_pass_enabled": False,
+            "premap_kernel_arg_handoff_real_kernel_arg_mutation_enabled": False,
+            "premap_kernel_arg_handoff_single_field_replacement_dry_run_enabled": False,
+            "premap_kernel_arg_handoff_single_field_replacement_live_enabled": False,
+        },
+        project_root=tmp_path,
+    )
+
+    assert options["premap_consumer_readonly_gate_passed"] is True
+    assert options["premap_kernel_arg_handoff_live_enabled"] is True
+    assert options["premap_kernel_arg_handoff_live_consumer_connected"] is True
+    assert options["premap_kernel_arg_handoff_kernel_arg_pass_enabled"] is False
+    assert (
+        options["premap_kernel_arg_handoff_real_kernel_arg_mutation_enabled"]
+        is False
+    )
+
+
+def test_apply_premap_consumer_readonly_gate_rejects_readonly_future_envelope_without_pointer_source(
+    tmp_path,
+):
+    gate = tmp_path / "readonly_gate.yaml"
+    _write_readonly_gate(
+        gate,
+        lab_precondition=True,
+        descriptor_prep_execution_mode="readonly_descriptor_address_object",
+        descriptor_prep_payload_bytes=0,
+        descriptor_prep_kernel_arg_mutation=False,
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="producer_minimal_identity_envelope_enabled=True",
+    ):
+        _apply_premap_consumer_readonly_gate(
+            {
+                "enabled": True,
+                "emit_premap_consumer_mapping": False,
+                "premap_consumer_require_readonly_gate": True,
+                "premap_consumer_readonly_gate_path": str(gate),
+                "premap_consumer_mapping_mode": "off",
+                "premap_consumer_resolve_real_handles": False,
+                "premap_descriptor_bytes": 4096,
+                "premap_descriptor_prep_execution_mode": (
+                    "readonly_descriptor_address_object"
+                ),
+                "premap_kernel_arg_handoff_minimal_identity_envelope_enabled": True,
+                "premap_kernel_arg_handoff_producer_future_wna16_typed_slot_envelope_enabled": True,
+                "premap_kernel_arg_handoff_producer_gpu_assignment_envelope_enabled": True,
+                "premap_kernel_arg_handoff_gpu_assignment_validation_mode": "trusted_refs",
+                "premap_kernel_arg_handoff_gpu_assignment_prelaunch_pointer_source_canary_enabled": False,
+                "premap_kernel_arg_handoff_prepared_table_materialization_mode": "off",
+                "premap_kernel_arg_handoff_live_enabled": False,
+                "premap_kernel_arg_handoff_live_consumer_connected": False,
+                "premap_kernel_arg_handoff_kernel_arg_pass_enabled": False,
+                "premap_kernel_arg_handoff_real_kernel_arg_mutation_enabled": False,
+                "premap_kernel_arg_handoff_single_field_replacement_dry_run_enabled": False,
+                "premap_kernel_arg_handoff_single_field_replacement_live_enabled": False,
+            },
+            project_root=tmp_path,
+        )
+
+
 def test_apply_premap_consumer_readonly_gate_accepts_prepared_handle_table_live_canary(
     tmp_path,
 ):

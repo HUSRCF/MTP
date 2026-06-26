@@ -24,8 +24,14 @@ from typing import Any
 
 import yaml
 
-
 REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
+from scripts.run_premap_lab_preflight import (
+    _validate_prelaunch_pointer_source_observer_check_evidence,
+)
+
 DEFAULT_TRACE_CONFIG = (
     REPO_ROOT
     / "configs"
@@ -252,6 +258,16 @@ DEFAULT_ARTIFACT_CHECK_OUTPUT = (
     / "reports"
     / "premap_kernel_consumer"
     / "online_prelaunch_native_stub_canary_artifact_check.json"
+)
+DEFAULT_POINTER_SOURCE_OBSERVER_CHECK = (
+    REPO_ROOT
+    / "outputs"
+    / "reports"
+    / "premap_kernel_consumer"
+    / "prelaunch_pointer_source_observer_16sample_20260626"
+    / "production_batch_premap_prelaunch_pointer_source_observer_detailed"
+    / "repeat_00"
+    / "prelaunch_pointer_source_observer.check.json"
 )
 TYPED_HANDLE_FIELDS = (
     "descriptor_ptr",
@@ -1880,6 +1896,95 @@ def _load_json_if_exists(path: Path) -> dict[str, Any]:
     return {}
 
 
+def _pointer_source_observer_check_summary(
+    path: Path,
+    *,
+    required: bool,
+) -> dict[str, object]:
+    resolved = _resolve_repo_path(path)
+    if not resolved.exists():
+        return {
+            "required": bool(required),
+            "present": False,
+            "path": str(resolved),
+            "passed": False,
+            "gate_passed": not bool(required),
+            "failures": ["pointer_source_observer_check_missing"]
+            if required
+            else [],
+        }
+    try:
+        payload = json.loads(resolved.read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+        return {
+            "required": bool(required),
+            "present": True,
+            "path": str(resolved),
+            "passed": False,
+            "gate_passed": False,
+            "failures": [f"pointer_source_observer_check_read_error:{type(exc).__name__}"],
+        }
+    if not isinstance(payload, dict):
+        return {
+            "required": bool(required),
+            "present": True,
+            "path": str(resolved),
+            "passed": False,
+            "gate_passed": False,
+            "failures": ["pointer_source_observer_check_not_object"],
+        }
+    failures = _validate_prelaunch_pointer_source_observer_check_evidence(payload)
+    evidence_passed = not failures
+    return {
+        "required": bool(required),
+        "present": True,
+        "path": str(resolved),
+        "passed": evidence_passed,
+        "gate_passed": evidence_passed,
+        "failures": failures,
+        "mode": payload.get("mode"),
+        "observer_seen": payload.get("observer_seen"),
+        "observer_available": payload.get("observer_available"),
+        "observer_vllm_device": payload.get("observer_vllm_device"),
+        "sample_count": payload.get("sample_count"),
+        "requested_output_token_count": payload.get("requested_output_token_count"),
+    }
+
+
+def _apply_pointer_source_observer_gate(
+    payload: dict[str, Any],
+    args: argparse.Namespace,
+) -> dict[str, Any]:
+    pointer_source_observer_check = _pointer_source_observer_check_summary(
+        args.pointer_source_observer_check_json,
+        required=bool(args.require_pointer_source_observer_check),
+    )
+    pointer_source_observer_gate_passed = (
+        pointer_source_observer_check.get("gate_passed") is True
+    )
+    payload["pointer_source_observer_check"] = pointer_source_observer_check
+    payload["pointer_source_observer_check_json"] = str(
+        _resolve_repo_path(args.pointer_source_observer_check_json)
+    )
+    payload["pointer_source_observer_check_required"] = bool(
+        args.require_pointer_source_observer_check
+    )
+    payload["pointer_source_observer_check_passed"] = (
+        pointer_source_observer_check.get("passed") is True
+    )
+    payload["pointer_source_observer_gate_passed"] = (
+        pointer_source_observer_gate_passed
+    )
+    if not pointer_source_observer_gate_passed:
+        failures = payload.get("failures")
+        failure_list = list(failures) if isinstance(failures, list) else []
+        if "pointer_source_observer_check_not_passed" not in failure_list:
+            failure_list.append("pointer_source_observer_check_not_passed")
+        payload["failures"] = failure_list
+        payload["passed"] = False
+    return payload
+
+
 def _typed_consumer_input_row_count(path: Path) -> int:
     payload = json.loads(path.read_text(encoding="utf-8"))
     if not isinstance(payload, dict):
@@ -1940,6 +2045,13 @@ def run_canary(args: argparse.Namespace) -> dict[str, object]:
     performance_path = output_dir / "performance_summary.json"
     env = _base_env(gpu_index=args.gpu_index)
     steps: dict[str, object] = {}
+    pointer_source_observer_check = _pointer_source_observer_check_summary(
+        args.pointer_source_observer_check_json,
+        required=bool(args.require_pointer_source_observer_check),
+    )
+    pointer_source_observer_gate_passed = (
+        pointer_source_observer_check.get("gate_passed") is True
+    )
 
     if not args.skip_trace:
         steps["trace"] = _run(
@@ -4149,46 +4261,60 @@ def run_canary(args: argparse.Namespace) -> dict[str, object]:
         or all(item.get("passed") is True for item in extra_input_check_summaries)
     )
     passed = bool(
-        args.dry_run
-        or (
-            stub_payload.get("passed") is True
-            and stub_payload.get("input_json") is not None
-            and _resolve_repo_path(str(stub_payload.get("input_json"))) == input_path
-            and per_field_passed
-            and envelope_mirror_passed
-            and packed_weight_mirror_passed
-            and aux_metadata_mirror_passed
-            and descriptor_ptr_mirror_passed
-            and kernel_side_compatible_passed
-            and future_kernel_args_passed
-            and future_kernel_args_extra_passed
-            and future_kernel_args_compatible_path_passed
-            and future_native_consumer_passed
-            and future_native_consumer_extra_passed
-            and future_native_launch_consumer_passed
-            and future_native_launch_consumer_extra_passed
-            and future_native_dispatch_consumer_passed
-            and future_native_dispatch_consumer_extra_passed
-            and future_native_request_ptr_passed
-            and future_native_request_launch_passed
-            and future_native_request_launch_ptr_passed
-            and extra_input_checks_passed
-            and preflight_payload.get("passed") is True
-            and preflight_status_payload.get("passed") is True
+        (
+            args.dry_run
+            or (
+                stub_payload.get("passed") is True
+                and stub_payload.get("input_json") is not None
+                and _resolve_repo_path(str(stub_payload.get("input_json")))
+                == input_path
+                and per_field_passed
+                and envelope_mirror_passed
+                and packed_weight_mirror_passed
+                and aux_metadata_mirror_passed
+                and descriptor_ptr_mirror_passed
+                and kernel_side_compatible_passed
+                and future_kernel_args_passed
+                and future_kernel_args_extra_passed
+                and future_kernel_args_compatible_path_passed
+                and future_native_consumer_passed
+                and future_native_consumer_extra_passed
+                and future_native_launch_consumer_passed
+                and future_native_launch_consumer_extra_passed
+                and future_native_dispatch_consumer_passed
+                and future_native_dispatch_consumer_extra_passed
+                and future_native_request_ptr_passed
+                and future_native_request_launch_passed
+                and future_native_request_launch_ptr_passed
+                and extra_input_checks_passed
+                and preflight_payload.get("passed") is True
+                and preflight_status_payload.get("passed") is True
+            )
         )
+        and pointer_source_observer_gate_passed
     )
     failures: list[str] = []
     if not passed:
-        if stub_payload.get("passed") is not True:
-            failures.append("native_stub_not_passed")
-        if stub_payload.get("input_json") is None:
-            failures.append("native_stub_input_json_missing")
-        elif not args.dry_run and _resolve_repo_path(str(stub_payload.get("input_json"))) != input_path:
-            failures.append("native_stub_input_json_mismatch")
-        if preflight_payload.get("passed") is not True:
-            failures.append("preflight_not_passed")
-        if preflight_status_payload.get("passed") is not True:
-            failures.append("preflight_status_not_passed")
+        if not pointer_source_observer_gate_passed:
+            failures.append("pointer_source_observer_check_not_passed")
+        suppress_native_dry_run_failures = bool(
+            args.dry_run and not pointer_source_observer_gate_passed
+        )
+        if not suppress_native_dry_run_failures:
+            if stub_payload.get("passed") is not True:
+                failures.append("native_stub_not_passed")
+            if stub_payload.get("input_json") is None:
+                failures.append("native_stub_input_json_missing")
+            elif (
+                not args.dry_run
+                and _resolve_repo_path(str(stub_payload.get("input_json")))
+                != input_path
+            ):
+                failures.append("native_stub_input_json_mismatch")
+            if preflight_payload.get("passed") is not True:
+                failures.append("preflight_not_passed")
+            if preflight_status_payload.get("passed") is not True:
+                failures.append("preflight_status_not_passed")
     if not per_field_passed:
         if per_field_stub_payload.get("passed") is not True:
             failures.append("native_stub_per_field_not_passed")
@@ -4963,6 +5089,17 @@ def run_canary(args: argparse.Namespace) -> dict[str, object]:
         "preflight_output_json": str(preflight_output),
         "preflight_status_output_json": str(preflight_status_output),
         "preflight_status_check_output_json": str(preflight_status_check_output),
+        "pointer_source_observer_check": pointer_source_observer_check,
+        "pointer_source_observer_check_json": str(
+            _resolve_repo_path(args.pointer_source_observer_check_json)
+        ),
+        "pointer_source_observer_check_required": bool(
+            args.require_pointer_source_observer_check
+        ),
+        "pointer_source_observer_check_passed": (
+            pointer_source_observer_check.get("passed") is True
+        ),
+        "pointer_source_observer_gate_passed": pointer_source_observer_gate_passed,
         "gpu_index": args.gpu_index,
         "stub_device": int(args.stub_device),
         "future_native_dispatch_row_offset": int(
@@ -6043,6 +6180,16 @@ def build_parser() -> argparse.ArgumentParser:
         type=Path,
         default=DEFAULT_ARTIFACT_CHECK_OUTPUT,
     )
+    parser.add_argument(
+        "--pointer-source-observer-check-json",
+        type=Path,
+        default=DEFAULT_POINTER_SOURCE_OBSERVER_CHECK,
+        help=(
+            "Optional prelaunch pointer-source observer check artifact. "
+            "When --require-pointer-source-observer-check is set, this must "
+            "prove the real vLLM prelaunch expert_ids source is a device tensor."
+        ),
+    )
     parser.add_argument("--output-json", type=Path, default=DEFAULT_REPORT)
     parser.add_argument("--skip-trace", action="store_true")
     parser.add_argument("--skip-stub", action="store_true")
@@ -6083,6 +6230,15 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--skip-preflight", action="store_true")
     parser.add_argument("--skip-artifact-check", action="store_true")
+    parser.add_argument(
+        "--require-pointer-source-observer-check",
+        action="store_true",
+        help=(
+            "Require the pointer-source observer artifact to pass before the "
+            "native/typed consumer canary report can pass. This remains a "
+            "no-op evidence gate and does not pass WNA16 kernel args."
+        ),
+    )
     parser.add_argument(
         "--finalize-existing",
         action="store_true",
@@ -6130,6 +6286,15 @@ def _stdout_summary(payload: dict[str, Any], *, output_json: Path) -> dict[str, 
         "final_preflight_passed": preflight_summary.get("passed"),
         "final_deferred_count": artifact_summary.get("final_deferred_count"),
         "status_deferred_count": artifact_summary.get("status_deferred_count"),
+        "pointer_source_observer_check_required": payload.get(
+            "pointer_source_observer_check_required"
+        ),
+        "pointer_source_observer_check_passed": payload.get(
+            "pointer_source_observer_check_passed"
+        ),
+        "pointer_source_observer_gate_passed": payload.get(
+            "pointer_source_observer_gate_passed"
+        ),
     }
 
 
@@ -6183,6 +6348,7 @@ def main(argv: list[str] | None = None) -> int:
         allow_runner_self_finalization=False,
         step_prefix="final",
     )
+    payload = _apply_pointer_source_observer_gate(payload, args)
     write_report(output, payload)
     if args.stdout_mode == "full":
         print(json.dumps(payload, indent=2, sort_keys=True))

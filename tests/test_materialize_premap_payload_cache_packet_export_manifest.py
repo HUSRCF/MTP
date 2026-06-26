@@ -50,6 +50,7 @@ def _safe_flags() -> dict:
         "real_ready_credit_granted": False,
         "payload_transfer_enabled": False,
         "payload_deref_allowed": False,
+        "kernel_arg_pass": False,
         "kernel_arg_pass_allowed": False,
         "passed_to_kernel": False,
         "changes_kernel_launch_args": False,
@@ -138,6 +139,7 @@ def _summary(packet_paths: list[Path], *, enabled: object = True) -> dict:
         f"{shifted_prefix}real_ready_credit_granted": False,
         f"{shifted_prefix}payload_transfer_enabled": False,
         f"{shifted_prefix}payload_deref_allowed": False,
+        f"{shifted_prefix}kernel_arg_pass": False,
         f"{shifted_prefix}kernel_arg_pass_allowed": False,
         f"{shifted_prefix}passed_to_kernel": False,
         f"{shifted_prefix}changes_kernel_launch_args": False,
@@ -189,6 +191,7 @@ def test_packet_export_manifest_materializes_executor_input(tmp_path: Path):
     assert result["payload_bytes"] == 0
     assert result["ready_credit"] is False
     assert result["payload_transfer_enabled"] is False
+    assert result["kernel_arg_pass"] is False
     assert result["kernel_arg_pass_allowed"] is False
     assert result["passed_to_kernel"] is False
     assert result["measures_tpot"] is False

@@ -355,6 +355,7 @@ def check_summary(
     require_native_typed_consumer_bridge: bool = False,
     require_native_stub_online_invocation_canary: bool = False,
     require_kernel_side_typed_row_consumer_path: bool = False,
+    require_future_wna16_typed_slot_strict_native_device_source: bool = False,
     allow_enabled_blocked_live_toggle: bool = False,
     allow_connected_blocked_consumer_adapter: bool = False,
     allow_kernel_arg_handoff_live_kernel_arg_pass: bool = False,
@@ -388,6 +389,24 @@ def check_summary(
     raw_single_field_replacement_allow_signature_mismatch_live = summary.get(
         "runtime_shadow_premap_kernel_arg_handoff_single_field_replacement_allow_signature_mismatch_live"
     )
+    raw_producer_future_wna16_typed_slot_envelope_enabled = summary.get(
+        "runtime_shadow_premap_kernel_arg_handoff_producer_future_wna16_typed_slot_envelope_enabled"
+    )
+    raw_future_wna16_typed_slot_kernel_variant_enabled = summary.get(
+        "runtime_shadow_premap_kernel_arg_handoff_future_wna16_typed_slot_kernel_variant_enabled"
+    )
+    raw_future_wna16_typed_slot_slim_kernel_variant_enabled = summary.get(
+        "runtime_shadow_premap_kernel_arg_handoff_future_wna16_typed_slot_slim_kernel_variant_enabled"
+    )
+    raw_future_wna16_typed_slot_strict_native_only = summary.get(
+        "runtime_shadow_premap_kernel_arg_handoff_future_wna16_typed_slot_strict_native_only"
+    )
+    raw_future_wna16_typed_slot_require_prepared_device_source = summary.get(
+        "runtime_shadow_premap_kernel_arg_handoff_future_wna16_typed_slot_require_prepared_device_source"
+    )
+    raw_prepared_table_materialization_mode = summary.get(
+        "runtime_shadow_premap_kernel_arg_handoff_prepared_table_materialization_mode"
+    )
     raw_metrics = summary.get("metrics")
     if isinstance(raw_metrics, dict):
         raw_single_field_replacement_dry_run_enabled = raw_metrics.get(
@@ -411,6 +430,30 @@ def check_summary(
                 "runtime_shadow_premap_kernel_arg_handoff_single_field_replacement_allow_signature_mismatch_live",
                 raw_single_field_replacement_allow_signature_mismatch_live,
             )
+        )
+        raw_producer_future_wna16_typed_slot_envelope_enabled = raw_metrics.get(
+            "runtime_shadow_premap_kernel_arg_handoff_producer_future_wna16_typed_slot_envelope_enabled",
+            raw_producer_future_wna16_typed_slot_envelope_enabled,
+        )
+        raw_future_wna16_typed_slot_kernel_variant_enabled = raw_metrics.get(
+            "runtime_shadow_premap_kernel_arg_handoff_future_wna16_typed_slot_kernel_variant_enabled",
+            raw_future_wna16_typed_slot_kernel_variant_enabled,
+        )
+        raw_future_wna16_typed_slot_slim_kernel_variant_enabled = raw_metrics.get(
+            "runtime_shadow_premap_kernel_arg_handoff_future_wna16_typed_slot_slim_kernel_variant_enabled",
+            raw_future_wna16_typed_slot_slim_kernel_variant_enabled,
+        )
+        raw_future_wna16_typed_slot_strict_native_only = raw_metrics.get(
+            "runtime_shadow_premap_kernel_arg_handoff_future_wna16_typed_slot_strict_native_only",
+            raw_future_wna16_typed_slot_strict_native_only,
+        )
+        raw_future_wna16_typed_slot_require_prepared_device_source = raw_metrics.get(
+            "runtime_shadow_premap_kernel_arg_handoff_future_wna16_typed_slot_require_prepared_device_source",
+            raw_future_wna16_typed_slot_require_prepared_device_source,
+        )
+        raw_prepared_table_materialization_mode = raw_metrics.get(
+            "runtime_shadow_premap_kernel_arg_handoff_prepared_table_materialization_mode",
+            raw_prepared_table_materialization_mode,
         )
     summary = _normalize_summary(summary)
     event_counts = {
@@ -497,6 +540,30 @@ def check_summary(
     single_field_replacement_field = aggregate.get(
         "runtime_shadow_premap_kernel_arg_handoff_single_field_replacement_field",
         raw_single_field_replacement_field,
+    )
+    producer_future_wna16_typed_slot_envelope_enabled = aggregate.get(
+        "runtime_shadow_premap_kernel_arg_handoff_producer_future_wna16_typed_slot_envelope_enabled",
+        raw_producer_future_wna16_typed_slot_envelope_enabled,
+    )
+    future_wna16_typed_slot_kernel_variant_enabled = aggregate.get(
+        "runtime_shadow_premap_kernel_arg_handoff_future_wna16_typed_slot_kernel_variant_enabled",
+        raw_future_wna16_typed_slot_kernel_variant_enabled,
+    )
+    future_wna16_typed_slot_slim_kernel_variant_enabled = aggregate.get(
+        "runtime_shadow_premap_kernel_arg_handoff_future_wna16_typed_slot_slim_kernel_variant_enabled",
+        raw_future_wna16_typed_slot_slim_kernel_variant_enabled,
+    )
+    future_wna16_typed_slot_strict_native_only = aggregate.get(
+        "runtime_shadow_premap_kernel_arg_handoff_future_wna16_typed_slot_strict_native_only",
+        raw_future_wna16_typed_slot_strict_native_only,
+    )
+    future_wna16_typed_slot_require_prepared_device_source = aggregate.get(
+        "runtime_shadow_premap_kernel_arg_handoff_future_wna16_typed_slot_require_prepared_device_source",
+        raw_future_wna16_typed_slot_require_prepared_device_source,
+    )
+    prepared_table_materialization_mode = aggregate.get(
+        "runtime_shadow_premap_kernel_arg_handoff_prepared_table_materialization_mode",
+        raw_prepared_table_materialization_mode,
     )
     single_field_replacement_allow_signature_mismatch_live = aggregate.get(
         "runtime_shadow_premap_kernel_arg_handoff_single_field_replacement_allow_signature_mismatch_live",
@@ -1040,6 +1107,7 @@ def check_summary(
         or require_native_typed_consumer_bridge
         or require_native_stub_online_invocation_canary
         or require_kernel_side_typed_row_consumer_path
+        or require_future_wna16_typed_slot_strict_native_device_source
         or descriptor_prep_active
     ):
         attempted = _as_int(
@@ -7004,6 +7072,99 @@ def check_summary(
             "runtime_shadow_premap_kernel_arg_live_mutation_single_field_replacement_candidate_source_prepared_table_type_mismatch_count"
         )
     )
+    future_wna16_typed_slot_kernel_variant_launch_count = _as_int(
+        aggregate.get(
+            "runtime_shadow_premap_kernel_arg_live_mutation_future_wna16_typed_slot_kernel_variant_launch_count"
+        )
+    )
+    future_wna16_typed_slot_kernel_variant_fallback_count = _as_int(
+        aggregate.get(
+            "runtime_shadow_premap_kernel_arg_live_mutation_future_wna16_typed_slot_kernel_variant_fallback_count"
+        )
+    )
+    future_wna16_typed_slot_slim_kernel_variant_launch_count = _as_int(
+        aggregate.get(
+            "runtime_shadow_premap_kernel_arg_live_mutation_future_wna16_typed_slot_slim_kernel_variant_launch_count"
+        )
+    )
+    future_wna16_typed_slot_slim_kernel_variant_fallback_count = _as_int(
+        aggregate.get(
+            "runtime_shadow_premap_kernel_arg_live_mutation_future_wna16_typed_slot_slim_kernel_variant_fallback_count"
+        )
+    )
+    future_wna16_typed_slot_wrapper_prepared_columns_hit_count = _as_int(
+        aggregate.get(
+            "runtime_shadow_premap_kernel_arg_live_mutation_future_wna16_typed_slot_wrapper_prepared_columns_hit_count"
+        )
+    )
+    future_wna16_typed_slot_wrapper_materialization_blocked_count = _as_int(
+        aggregate.get(
+            "runtime_shadow_premap_kernel_arg_live_mutation_future_wna16_typed_slot_wrapper_materialization_blocked_count"
+        )
+    )
+    future_wna16_typed_slot_fallback_tensor_materialization_count = _as_int(
+        aggregate.get(
+            "runtime_shadow_premap_kernel_arg_live_mutation_future_wna16_typed_slot_fallback_tensor_materialization_count"
+        )
+    )
+    future_wna16_typed_slot_fallback_dict_extract_count = _as_int(
+        aggregate.get(
+            "runtime_shadow_premap_kernel_arg_live_mutation_future_wna16_typed_slot_fallback_dict_extract_count"
+        )
+    )
+    future_wna16_typed_slot_strict_native_only_block_count = _as_int(
+        aggregate.get(
+            "runtime_shadow_premap_kernel_arg_live_mutation_future_wna16_typed_slot_strict_native_only_block_count"
+        )
+    )
+    future_wna16_typed_slot_strict_native_only_fallback_block_count = _as_int(
+        aggregate.get(
+            "runtime_shadow_premap_kernel_arg_live_mutation_future_wna16_typed_slot_strict_native_only_fallback_block_count"
+        )
+    )
+    future_wna16_typed_slot_device_source_cache_hit_count = _as_int(
+        aggregate.get(
+            "runtime_shadow_premap_kernel_arg_live_mutation_future_wna16_typed_slot_device_source_cache_hit_count"
+        )
+    )
+    future_wna16_typed_slot_device_source_materialization_count = _as_int(
+        aggregate.get(
+            "runtime_shadow_premap_kernel_arg_live_mutation_future_wna16_typed_slot_device_source_materialization_count"
+        )
+    )
+    future_wna16_typed_slot_device_source_materialization_row_count = _as_int(
+        aggregate.get(
+            "runtime_shadow_premap_kernel_arg_live_mutation_future_wna16_typed_slot_device_source_materialization_row_count"
+        )
+    )
+    future_wna16_typed_slot_producer_device_source_prepare_count = _as_int(
+        aggregate.get(
+            "runtime_shadow_premap_kernel_arg_live_mutation_future_wna16_typed_slot_producer_device_source_prepare_count"
+        )
+    )
+    future_wna16_typed_slot_producer_device_source_prepare_row_count = _as_int(
+        aggregate.get(
+            "runtime_shadow_premap_kernel_arg_live_mutation_future_wna16_typed_slot_producer_device_source_prepare_row_count"
+        )
+    )
+    future_wna16_typed_slot_producer_device_source_prepare_miss_count = _as_int(
+        aggregate.get(
+            "runtime_shadow_premap_kernel_arg_live_mutation_future_wna16_typed_slot_producer_device_source_prepare_miss_count"
+        )
+    )
+    future_wna16_typed_slot_require_prepared_device_source_block_count = _as_int(
+        aggregate.get(
+            "runtime_shadow_premap_kernel_arg_live_mutation_future_wna16_typed_slot_require_prepared_device_source_block_count"
+        )
+    )
+    future_wna16_typed_slot_launch_count = (
+        future_wna16_typed_slot_kernel_variant_launch_count
+        + future_wna16_typed_slot_slim_kernel_variant_launch_count
+    )
+    future_wna16_typed_slot_fallback_count = (
+        future_wna16_typed_slot_kernel_variant_fallback_count
+        + future_wna16_typed_slot_slim_kernel_variant_fallback_count
+    )
     if not _as_bool(single_field_replacement_live_enabled):
         if (
             not _as_bool(single_field_replacement_dry_run_enabled)
@@ -7053,20 +7214,32 @@ def check_summary(
                 "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_consumer_adapter_real_kernel_arg_handoff_count"
             )
         )
-        if live_mutation_package_pass_through_count <= 0:
+        effective_live_handoff_count = live_mutation_package_pass_through_count
+        if require_future_wna16_typed_slot_strict_native_device_source:
+            effective_live_handoff_count += future_wna16_typed_slot_launch_count
+        if effective_live_handoff_count <= 0:
             failures.append(
-                "kernel_arg_live_mutation_package_pass_through_count_missing_or_zero"
+                "kernel_arg_live_mutation_handoff_count_missing_or_zero"
             )
-        if live_mutation_package_pass_through_count < adapter_real_count:
+        if effective_live_handoff_count < adapter_real_count:
             failures.append(
-                "kernel_arg_live_mutation_package_pass_through_count_below_adapter_real_count="
-                f"{live_mutation_package_pass_through_count}<{adapter_real_count}"
+                "kernel_arg_live_mutation_handoff_count_below_adapter_real_count="
+                f"{effective_live_handoff_count}<{adapter_real_count}"
             )
         if live_mutation_package_seen_count < live_mutation_package_pass_through_count:
             failures.append(
                 "kernel_arg_live_mutation_package_seen_count_below_pass_through_count="
                 f"{live_mutation_package_seen_count}<"
                 f"{live_mutation_package_pass_through_count}"
+            )
+        if (
+            require_future_wna16_typed_slot_strict_native_device_source
+            and live_mutation_package_seen_count < effective_live_handoff_count
+        ):
+            failures.append(
+                "kernel_arg_live_mutation_package_seen_count_below_effective_handoff_count="
+                f"{live_mutation_package_seen_count}<"
+                f"{effective_live_handoff_count}"
             )
         for name, count in (
             ("layer_mismatch", live_mutation_package_layer_mismatch_count),
@@ -7079,6 +7252,122 @@ def check_summary(
                 failures.append(
                     f"kernel_arg_live_mutation_package_{name}_count_nonzero={count}"
                 )
+    if require_future_wna16_typed_slot_strict_native_device_source:
+        if not _as_bool(producer_future_wna16_typed_slot_envelope_enabled):
+            failures.append(
+                "future_wna16_typed_slot_requires_producer_future_envelope"
+            )
+        if not (
+            _as_bool(future_wna16_typed_slot_kernel_variant_enabled)
+            or _as_bool(future_wna16_typed_slot_slim_kernel_variant_enabled)
+        ):
+            failures.append(
+                "future_wna16_typed_slot_requires_kernel_variant_enabled"
+            )
+        if not _as_bool(future_wna16_typed_slot_strict_native_only):
+            failures.append(
+                "future_wna16_typed_slot_strict_native_only_not_enabled"
+            )
+        if not _as_bool(future_wna16_typed_slot_require_prepared_device_source):
+            failures.append(
+                "future_wna16_typed_slot_require_prepared_device_source_not_enabled"
+            )
+        if str(prepared_table_materialization_mode) != "producer_native_adapter":
+            failures.append(
+                "future_wna16_typed_slot_materialization_mode_not_producer_native_adapter="
+                f"{prepared_table_materialization_mode}"
+            )
+        if future_wna16_typed_slot_launch_count <= 0:
+            failures.append(
+                "future_wna16_typed_slot_kernel_variant_launch_count_missing_or_zero"
+            )
+        if future_wna16_typed_slot_wrapper_prepared_columns_hit_count <= 0:
+            failures.append(
+                "future_wna16_typed_slot_wrapper_prepared_columns_hit_count_missing_or_zero"
+            )
+        if (
+            future_wna16_typed_slot_wrapper_prepared_columns_hit_count
+            != future_wna16_typed_slot_launch_count
+        ):
+            failures.append(
+                "future_wna16_typed_slot_wrapper_prepared_columns_hit_count_mismatch="
+                f"{future_wna16_typed_slot_wrapper_prepared_columns_hit_count}!="
+                f"{future_wna16_typed_slot_launch_count}"
+            )
+        if allow_kernel_arg_handoff_live_real_kernel_arg_mutation:
+            adapter_real_count = _as_int(
+                aggregate.get(
+                    "premap_consumer_descriptor_prep_consumer_shim_kernel_arg_handoff_live_consumer_adapter_real_kernel_arg_handoff_count"
+                )
+            )
+            if adapter_real_count <= 0:
+                failures.append(
+                    "future_wna16_typed_slot_adapter_real_count_missing_or_zero"
+                )
+            if future_wna16_typed_slot_launch_count < adapter_real_count:
+                failures.append(
+                    "future_wna16_typed_slot_launch_count_below_adapter_real_count="
+                    f"{future_wna16_typed_slot_launch_count}<"
+                    f"{adapter_real_count}"
+                )
+            if live_mutation_package_pass_through_count != 0:
+                failures.append(
+                    "future_wna16_typed_slot_package_pass_through_count_nonzero="
+                    f"{live_mutation_package_pass_through_count}"
+                )
+        if future_wna16_typed_slot_producer_device_source_prepare_count <= 0:
+            failures.append(
+                "future_wna16_typed_slot_producer_device_source_prepare_count_missing_or_zero"
+            )
+        if future_wna16_typed_slot_producer_device_source_prepare_row_count <= 0:
+            failures.append(
+                "future_wna16_typed_slot_producer_device_source_prepare_row_count_missing_or_zero"
+            )
+        if future_wna16_typed_slot_device_source_cache_hit_count <= 0:
+            failures.append(
+                "future_wna16_typed_slot_device_source_cache_hit_count_missing_or_zero"
+            )
+        for name, count in (
+            ("kernel_variant_fallback", future_wna16_typed_slot_fallback_count),
+            (
+                "wrapper_materialization_blocked",
+                future_wna16_typed_slot_wrapper_materialization_blocked_count,
+            ),
+            (
+                "fallback_tensor_materialization",
+                future_wna16_typed_slot_fallback_tensor_materialization_count,
+            ),
+            (
+                "fallback_dict_extract",
+                future_wna16_typed_slot_fallback_dict_extract_count,
+            ),
+            (
+                "strict_native_only_block",
+                future_wna16_typed_slot_strict_native_only_block_count,
+            ),
+            (
+                "strict_native_only_fallback_block",
+                future_wna16_typed_slot_strict_native_only_fallback_block_count,
+            ),
+            (
+                "device_source_materialization",
+                future_wna16_typed_slot_device_source_materialization_count,
+            ),
+            (
+                "device_source_materialization_row",
+                future_wna16_typed_slot_device_source_materialization_row_count,
+            ),
+            (
+                "producer_device_source_prepare_miss",
+                future_wna16_typed_slot_producer_device_source_prepare_miss_count,
+            ),
+            (
+                "require_prepared_device_source_block",
+                future_wna16_typed_slot_require_prepared_device_source_block_count,
+            ),
+        ):
+            if count != 0:
+                failures.append(f"future_wna16_typed_slot_{name}_count_nonzero={count}")
     if _as_bool(single_field_replacement_dry_run_enabled):
         if single_field_replacement_candidate_count <= 0:
             failures.append(
@@ -7418,6 +7707,75 @@ def check_summary(
         ),
         "runtime_shadow_premap_kernel_arg_live_mutation_single_field_replacement_candidate_source_prepared_table_type_mismatch_count": (
             single_field_replacement_candidate_source_prepared_table_type_mismatch_count
+        ),
+        "runtime_shadow_premap_kernel_arg_handoff_producer_future_wna16_typed_slot_envelope_enabled": _as_bool(
+            producer_future_wna16_typed_slot_envelope_enabled
+        ),
+        "runtime_shadow_premap_kernel_arg_handoff_future_wna16_typed_slot_kernel_variant_enabled": _as_bool(
+            future_wna16_typed_slot_kernel_variant_enabled
+        ),
+        "runtime_shadow_premap_kernel_arg_handoff_future_wna16_typed_slot_slim_kernel_variant_enabled": _as_bool(
+            future_wna16_typed_slot_slim_kernel_variant_enabled
+        ),
+        "runtime_shadow_premap_kernel_arg_handoff_future_wna16_typed_slot_strict_native_only": _as_bool(
+            future_wna16_typed_slot_strict_native_only
+        ),
+        "runtime_shadow_premap_kernel_arg_handoff_future_wna16_typed_slot_require_prepared_device_source": _as_bool(
+            future_wna16_typed_slot_require_prepared_device_source
+        ),
+        "runtime_shadow_premap_kernel_arg_handoff_prepared_table_materialization_mode": str(
+            prepared_table_materialization_mode or ""
+        ),
+        "runtime_shadow_premap_kernel_arg_live_mutation_future_wna16_typed_slot_kernel_variant_launch_count": (
+            future_wna16_typed_slot_kernel_variant_launch_count
+        ),
+        "runtime_shadow_premap_kernel_arg_live_mutation_future_wna16_typed_slot_kernel_variant_fallback_count": (
+            future_wna16_typed_slot_kernel_variant_fallback_count
+        ),
+        "runtime_shadow_premap_kernel_arg_live_mutation_future_wna16_typed_slot_slim_kernel_variant_launch_count": (
+            future_wna16_typed_slot_slim_kernel_variant_launch_count
+        ),
+        "runtime_shadow_premap_kernel_arg_live_mutation_future_wna16_typed_slot_slim_kernel_variant_fallback_count": (
+            future_wna16_typed_slot_slim_kernel_variant_fallback_count
+        ),
+        "runtime_shadow_premap_kernel_arg_live_mutation_future_wna16_typed_slot_wrapper_prepared_columns_hit_count": (
+            future_wna16_typed_slot_wrapper_prepared_columns_hit_count
+        ),
+        "runtime_shadow_premap_kernel_arg_live_mutation_future_wna16_typed_slot_wrapper_materialization_blocked_count": (
+            future_wna16_typed_slot_wrapper_materialization_blocked_count
+        ),
+        "runtime_shadow_premap_kernel_arg_live_mutation_future_wna16_typed_slot_fallback_tensor_materialization_count": (
+            future_wna16_typed_slot_fallback_tensor_materialization_count
+        ),
+        "runtime_shadow_premap_kernel_arg_live_mutation_future_wna16_typed_slot_fallback_dict_extract_count": (
+            future_wna16_typed_slot_fallback_dict_extract_count
+        ),
+        "runtime_shadow_premap_kernel_arg_live_mutation_future_wna16_typed_slot_strict_native_only_block_count": (
+            future_wna16_typed_slot_strict_native_only_block_count
+        ),
+        "runtime_shadow_premap_kernel_arg_live_mutation_future_wna16_typed_slot_strict_native_only_fallback_block_count": (
+            future_wna16_typed_slot_strict_native_only_fallback_block_count
+        ),
+        "runtime_shadow_premap_kernel_arg_live_mutation_future_wna16_typed_slot_device_source_cache_hit_count": (
+            future_wna16_typed_slot_device_source_cache_hit_count
+        ),
+        "runtime_shadow_premap_kernel_arg_live_mutation_future_wna16_typed_slot_device_source_materialization_count": (
+            future_wna16_typed_slot_device_source_materialization_count
+        ),
+        "runtime_shadow_premap_kernel_arg_live_mutation_future_wna16_typed_slot_device_source_materialization_row_count": (
+            future_wna16_typed_slot_device_source_materialization_row_count
+        ),
+        "runtime_shadow_premap_kernel_arg_live_mutation_future_wna16_typed_slot_producer_device_source_prepare_count": (
+            future_wna16_typed_slot_producer_device_source_prepare_count
+        ),
+        "runtime_shadow_premap_kernel_arg_live_mutation_future_wna16_typed_slot_producer_device_source_prepare_row_count": (
+            future_wna16_typed_slot_producer_device_source_prepare_row_count
+        ),
+        "runtime_shadow_premap_kernel_arg_live_mutation_future_wna16_typed_slot_producer_device_source_prepare_miss_count": (
+            future_wna16_typed_slot_producer_device_source_prepare_miss_count
+        ),
+        "runtime_shadow_premap_kernel_arg_live_mutation_future_wna16_typed_slot_require_prepared_device_source_block_count": (
+            future_wna16_typed_slot_require_prepared_device_source_block_count
         ),
         "premap_address_resident_count_max": resident_count,
         "premap_address_reuse_rate_mean": _as_float(
@@ -9828,6 +10186,9 @@ def check_summary(
         "require_kernel_side_typed_row_consumer_path": bool(
             require_kernel_side_typed_row_consumer_path
         ),
+        "require_future_wna16_typed_slot_strict_native_device_source": bool(
+            require_future_wna16_typed_slot_strict_native_device_source
+        ),
         "allow_enabled_blocked_live_toggle": bool(
             allow_enabled_blocked_live_toggle
         ),
@@ -10066,6 +10427,17 @@ def main() -> None:
         ),
     )
     parser.add_argument(
+        "--require-future-wna16-typed-slot-strict-native-device-source",
+        action="store_true",
+        help=(
+            "Require the future WNA16 typed-slot canary to use producer-prepared "
+            "native device-source columns only. This checks that strict-native "
+            "and require-prepared-device-source runtime flags are enabled, "
+            "future typed-slot columns are prepared and consumed, and legacy "
+            "host/dict/tensor fallback paths remain unused."
+        ),
+    )
+    parser.add_argument(
         "--allow-enabled-blocked-live-toggle",
         action="store_true",
         help=(
@@ -10206,6 +10578,9 @@ def main() -> None:
         ),
         require_kernel_side_typed_row_consumer_path=(
             args.require_kernel_side_typed_row_consumer_path
+        ),
+        require_future_wna16_typed_slot_strict_native_device_source=(
+            args.require_future_wna16_typed_slot_strict_native_device_source
         ),
         allow_enabled_blocked_live_toggle=(
             args.allow_enabled_blocked_live_toggle

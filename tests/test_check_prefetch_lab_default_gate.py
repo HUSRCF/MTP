@@ -1272,6 +1272,10 @@ def test_prefetch_lab_default_gate_accepts_queue_budget_early_first_lead(
     result = check_prefetch_lab_default_gate(config, root=tmp_path)
 
     assert result["passed"] is True
+    assert (
+        "full_fetch:ready_time_direct_snapshot_report_allows_full_fetch"
+        not in result["failures"]
+    )
     full_fetch = result["sections"]["full_fetch"]
     assert full_fetch["stream_shifted_issue_replay_contract_required_lead_tokens"] == 32
     assert full_fetch["stream_queue_budget_first_model_passing_issue_lead_tokens"] == 8
@@ -1704,6 +1708,84 @@ def test_prefetch_lab_default_gate_rejects_full_fetch_allow_report(tmp_path: Pat
 
     assert result["passed"] is False
     assert "full_fetch:ready_time_gate_report_allows_full_fetch" in result["failures"]
+
+
+def _make_direct_snapshot_allow_full_fetch(config: Path) -> None:
+    payload = yaml.safe_load(config.read_text(encoding="utf-8"))
+    direct_path = Path(payload["full_fetch"]["ready_time_direct_snapshot_report"])
+    direct = json.loads(direct_path.read_text(encoding="utf-8"))
+    direct["allow_full_fetch"] = True
+    direct["decision_reason"] = "allow"
+    direct["threshold_failures"] = []
+    metrics = direct["metrics"]
+    metrics.update(
+        {
+            "demand_hit_count": 100,
+            "demand_hit_rate": 1.0,
+            "ready_late_miss_count": 0,
+            "ready_late_miss_rate": 0.0,
+            "used_fetch_count": 8,
+            "used_per_issued_fetch": 1.0,
+            "direct_demand_hit_count": 100,
+            "direct_ready_late_miss_count": 0,
+            "direct_used_fetch_count": 8,
+            "direct_snapshot_runtime_participation_status": (
+                "ready_time_candidate_requires_lab_gate"
+            ),
+            "direct_snapshot_runtime_participation_candidate_reason": (
+                "candidate_requires_ready_time_gate"
+            ),
+            "direct_snapshot_runtime_plan_status": (
+                "lab_gate_blocked:ready_time_direct_snapshot_disallows_full_fetch"
+            ),
+            "direct_snapshot_runtime_plan_participation_status": (
+                "ready_time_candidate_requires_lab_gate"
+            ),
+            "direct_snapshot_runtime_execution_status": (
+                "blocked_by_runtime_plan:"
+                "lab_gate_blocked:ready_time_direct_snapshot_disallows_full_fetch"
+            ),
+            "direct_snapshot_runtime_execution_plan_status": (
+                "lab_gate_blocked:ready_time_direct_snapshot_disallows_full_fetch"
+            ),
+            "direct_snapshot_runtime_execution_block_reason": (
+                "lab_gate_blocked:ready_time_direct_snapshot_disallows_full_fetch"
+            ),
+        }
+    )
+    direct_path.write_text(json.dumps(direct), encoding="utf-8")
+
+
+def test_prefetch_lab_default_gate_rejects_direct_snapshot_allow_by_default(
+    tmp_path: Path,
+) -> None:
+    config = _write_fixture(tmp_path)
+    _make_direct_snapshot_allow_full_fetch(config)
+
+    result = check_prefetch_lab_default_gate(config, root=tmp_path)
+
+    assert result["passed"] is False
+    assert (
+        "full_fetch:ready_time_direct_snapshot_report_allows_full_fetch"
+        in result["failures"]
+    )
+
+
+def test_prefetch_lab_default_gate_can_allow_direct_snapshot_threshold_pass(
+    tmp_path: Path,
+) -> None:
+    config = _write_fixture(tmp_path)
+    _make_direct_snapshot_allow_full_fetch(config)
+    payload = yaml.safe_load(config.read_text(encoding="utf-8"))
+    payload["full_fetch"]["ready_time_direct_snapshot_allow_full_fetch"] = True
+    config.write_text(yaml.safe_dump(payload), encoding="utf-8")
+
+    result = check_prefetch_lab_default_gate(config, root=tmp_path)
+
+    assert result["passed"] is True
+    full_fetch = result["sections"]["full_fetch"]
+    assert full_fetch["ready_time_direct_snapshot_allow_full_fetch"] is True
+    assert full_fetch["ready_time_direct_snapshot_allow_full_fetch_allowed"] is True
 
 
 def test_prefetch_lab_default_gate_rejects_missing_stream_reports(tmp_path: Path):
