@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass
+from functools import cached_property
 import math
 from typing import Sequence
 
 from mtp_expert_prefetch.runtime.cache_manager import (
     PayloadCacheRuntimeAdapterAccountingDryRun,
     PayloadCacheRuntimeAdapterPayloadlessLive,
+    PayloadCacheRuntimeDemandHitShadowPublication,
     PayloadCacheRuntimePayloadIssueRequest,
     PayloadCacheRuntimePayloadTransferToggle,
     PayloadCacheRuntimeAdapterShell,
@@ -4401,6 +4403,186 @@ class PayloadCacheLiveRuntimeAdapterPayloadlessInstanceCanary:
 
     def as_dict(self) -> dict[str, bool | float | int | str]:
         return asdict(self)
+
+
+@dataclass(frozen=True)
+class PayloadCacheLiveRuntimeAdapterDemandHitShadowPublicationCanary:
+    """Shadow-only demand-hit publication after payloadless live adapter.
+
+    This canary is intentionally weaker than the existing blocked
+    consumer-visible demand-hit publication: it may expose manager hit/miss
+    counters to lab gates, but it still cannot publish a payload hit to the
+    actual consumer and cannot grant ready credit.
+    """
+
+    present: bool
+    stage: str
+    status: str
+    consumes_payloadless_instance_canary: bool
+    payloadless_instance_canary_status: str
+    publication_schema: str
+    publication_scope: str
+    source_manager_contract: str
+    shadow_publication_created: bool
+    shadow_publication_consumed_payloadless_instance: bool
+    demand_hit_shadow_publication_allowed: bool
+    demand_hit_published_to_shadow: bool
+    consumer_visible_payload_hit: bool
+    prefetched_demand_hit: bool
+    unprefetched_demand_hit: bool
+    demand_count: int
+    demand_hit_count: int
+    demand_miss_count: int
+    ready_late_miss_count: int
+    issued_fetch_count: int
+    used_fetch_count: int
+    unused_fetch_count: int
+    resident_count: int
+    queue_batch_count: int
+    queue_service_us: float
+    queue_total_span_us: float
+    decision: str = "blocked"
+    block_reason: str = "shadow_only_not_consumer_visible_payload_hit"
+    execution_mode: str = (
+        "payload_cache_live_runtime_adapter_demand_hit_shadow_publication_canary"
+    )
+    issued_payload_count: int = 0
+    payload_bytes: int = 0
+    demand_hit_payload_bytes: int = 0
+    live_payload_runtime_enabled: bool = False
+    payload_transfer_runtime_enabled: bool = False
+    payload_deref_allowed: bool = False
+    payload_deref_runtime_allowed: bool = False
+    payload_deref_attempted: bool = False
+    payload_handle_deref_attempted: bool = False
+    ready_credit: bool = False
+    ready_before_demand_credit: bool = False
+    real_ready_credit_granted: bool = False
+    kernel_arg_pass_allowed: bool = False
+    passed_to_kernel: bool = False
+    changes_kernel_launch_args: bool = False
+    full_fetch_runtime_allowed: bool = False
+    uses_current_wna16_args: bool = False
+    passes_current_wna16_args: bool = False
+    measures_tpot: bool = False
+    measures_vllm_latency: bool = False
+    live_runtime_instantiated: bool = False
+
+    def __post_init__(self) -> None:
+        if self.present is not True:
+            raise ValueError("demand-hit shadow publication canary must be present")
+        if self.stage != "payload_cache_live_runtime_adapter_demand_hit_shadow_publication_canary":
+            raise ValueError("demand-hit shadow publication stage mismatch")
+        if self.consumes_payloadless_instance_canary is not True:
+            raise ValueError("shadow publication must consume payloadless instance canary")
+        if (
+            not isinstance(self.payloadless_instance_canary_status, str)
+            or not self.payloadless_instance_canary_status
+        ):
+            raise TypeError("payloadless_instance_canary_status must be nonempty")
+        expected_status = (
+            "blocked_by_payloadless_instance_canary:"
+            f"{self.payloadless_instance_canary_status}"
+        )
+        if self.status != expected_status:
+            raise ValueError("demand-hit shadow publication status mismatch")
+        if self.publication_schema != "payload_cache_demand_hit_shadow_publication_v1":
+            raise ValueError("demand-hit shadow publication schema mismatch")
+        if self.publication_scope != "shadow_only":
+            raise ValueError("demand-hit publication must remain shadow-only")
+        if self.source_manager_contract != "ready_time_issue_demand_skeleton_v1":
+            raise ValueError("demand-hit shadow publication manager contract mismatch")
+        for field_name in (
+            "shadow_publication_created",
+            "shadow_publication_consumed_payloadless_instance",
+            "demand_hit_shadow_publication_allowed",
+            "demand_hit_published_to_shadow",
+            "prefetched_demand_hit",
+        ):
+            if getattr(self, field_name) is not True:
+                raise ValueError(f"{field_name} must be true")
+        for field_name in (
+            "consumer_visible_payload_hit",
+            "unprefetched_demand_hit",
+        ):
+            if getattr(self, field_name) is not False:
+                raise ValueError(f"{field_name} must remain disabled")
+        expected_counts = {
+            "resident_count": 2,
+            "issued_fetch_count": 1,
+            "used_fetch_count": 1,
+            "unused_fetch_count": 0,
+            "demand_count": 2,
+            "demand_hit_count": 1,
+            "demand_miss_count": 1,
+            "ready_late_miss_count": 0,
+            "queue_batch_count": 1,
+        }
+        for field_name, expected in expected_counts.items():
+            value = getattr(self, field_name)
+            if not isinstance(value, int) or isinstance(value, bool):
+                raise TypeError(f"{field_name} must be an integer")
+            if value != expected:
+                raise ValueError(f"{field_name} mismatch")
+        for field_name in ("queue_service_us", "queue_total_span_us"):
+            value = getattr(self, field_name)
+            if not isinstance(value, (int, float)) or isinstance(value, bool):
+                raise TypeError(f"{field_name} must be numeric")
+            value_float = float(value)
+            if not math.isfinite(value_float):
+                raise ValueError(f"{field_name} must be finite")
+            if value_float != 0.0:
+                raise ValueError(f"{field_name} must remain zero")
+        if self.decision != "blocked":
+            raise ValueError("demand-hit shadow publication decision must stay blocked")
+        if self.block_reason != "shadow_only_not_consumer_visible_payload_hit":
+            raise ValueError("demand-hit shadow publication block reason mismatch")
+        if (
+            self.execution_mode
+            != "payload_cache_live_runtime_adapter_demand_hit_shadow_publication_canary"
+        ):
+            raise ValueError("demand-hit shadow publication execution mode mismatch")
+        for field_name in (
+            "issued_payload_count",
+            "payload_bytes",
+            "demand_hit_payload_bytes",
+        ):
+            value = getattr(self, field_name)
+            if not isinstance(value, int) or isinstance(value, bool):
+                raise TypeError(f"{field_name} must be an integer")
+            if value != 0:
+                raise ValueError(f"{field_name} must remain zero")
+        for field_name in (
+            "live_payload_runtime_enabled",
+            "payload_transfer_runtime_enabled",
+            "payload_deref_allowed",
+            "payload_deref_runtime_allowed",
+            "payload_deref_attempted",
+            "payload_handle_deref_attempted",
+            "ready_credit",
+            "ready_before_demand_credit",
+            "real_ready_credit_granted",
+            "kernel_arg_pass_allowed",
+            "passed_to_kernel",
+            "changes_kernel_launch_args",
+            "full_fetch_runtime_allowed",
+            "uses_current_wna16_args",
+            "passes_current_wna16_args",
+            "measures_tpot",
+            "measures_vllm_latency",
+            "live_runtime_instantiated",
+        ):
+            if getattr(self, field_name) is not False:
+                raise ValueError(f"{field_name} must remain disabled")
+
+    @cached_property
+    def demand_hit_rate(self) -> float:
+        return float(self.demand_hit_count) / float(self.demand_count)
+
+    def as_dict(self) -> dict[str, bool | float | int | str]:
+        payload = asdict(self)
+        payload["demand_hit_rate"] = self.demand_hit_rate
+        return payload
 
 
 @dataclass(frozen=True)
@@ -11013,6 +11195,12 @@ def build_payload_cache_live_runtime_adapter_payloadless_instance_canary(
         raise ValueError("mixed-outcome canary must not create live adapter")
     if canary.live_runtime_instantiated is not False:
         raise ValueError("mixed-outcome canary must not instantiate live runtime")
+    if canary.manager_backend != "ReadyTimeExpertCacheManager":
+        raise ValueError("mixed-outcome canary backend mismatch")
+    if canary.manager_runtime_contract != "ready_time_issue_demand_skeleton_v1":
+        raise ValueError("mixed-outcome canary contract mismatch")
+    if canary.manager_runtime_mode != "ready_time_payload_cache_skeleton":
+        raise ValueError("mixed-outcome canary mode mismatch")
     expected_counts = {
         "resident_count": 2,
         "issued_fetch_count": 1,
@@ -11027,8 +11215,44 @@ def build_payload_cache_live_runtime_adapter_payloadless_instance_canary(
         "queue_batch_count": 1,
     }
     for field_name, expected in expected_counts.items():
-        if getattr(canary, field_name) != expected:
+        value = getattr(canary, field_name)
+        if not isinstance(value, int) or isinstance(value, bool):
+            raise TypeError(f"mixed-outcome canary {field_name} must be an integer")
+        if value != expected:
             raise ValueError(f"mixed-outcome canary {field_name} mismatch")
+    for field_name in (
+        "capacity_entries",
+        "issue_lead_tokens",
+        "queue_batch_size",
+        "shifted_issue_accounted_packet_count",
+        "shifted_issue_unique_issue_key_count",
+    ):
+        value = getattr(canary, field_name)
+        if not isinstance(value, int) or isinstance(value, bool):
+            raise TypeError(f"mixed-outcome canary {field_name} must be an integer")
+        if value <= 0:
+            raise ValueError(f"mixed-outcome canary {field_name} must be positive")
+    for field_name in (
+        "queue_deadline_us",
+        "lookahead_us",
+        "queue_service_us",
+        "queue_total_span_us",
+        "queue_wait_us",
+        "queue_max_delay_us",
+    ):
+        value = getattr(canary, field_name)
+        if not isinstance(value, (int, float)) or isinstance(value, bool):
+            raise TypeError(f"mixed-outcome canary {field_name} must be numeric")
+        value_float = float(value)
+        if not math.isfinite(value_float):
+            raise ValueError(f"mixed-outcome canary {field_name} must be finite")
+        if field_name in ("queue_deadline_us", "lookahead_us"):
+            if value_float <= 0.0:
+                raise ValueError(f"mixed-outcome canary {field_name} must be positive")
+        elif value_float != 0.0:
+            raise ValueError(f"mixed-outcome canary {field_name} must remain zero")
+    if canary.shifted_issue_accounting_enabled is not True:
+        raise ValueError("mixed-outcome canary shifted issue accounting must be enabled")
     for field_name in (
         "live_payload_runtime_enabled",
         "payload_transfer_runtime_enabled",
@@ -11049,7 +11273,10 @@ def build_payload_cache_live_runtime_adapter_payloadless_instance_canary(
         if getattr(canary, field_name) is not False:
             raise ValueError(f"mixed-outcome canary {field_name} enabled")
     for field_name in ("issued_payload_count", "payload_bytes"):
-        if getattr(canary, field_name) != 0:
+        value = getattr(canary, field_name)
+        if not isinstance(value, int) or isinstance(value, bool):
+            raise TypeError(f"mixed-outcome canary {field_name} must be an integer")
+        if value != 0:
             raise ValueError(f"mixed-outcome canary {field_name} must be zero")
 
     adapter = PayloadCacheRuntimeAdapterPayloadlessLive(
@@ -11118,6 +11345,183 @@ def build_payload_cache_live_runtime_adapter_payloadless_instance_canary(
         shifted_issue_unique_issue_key_count=int(
             canary.shifted_issue_unique_issue_key_count,
         ),
+    )
+
+
+def build_payload_cache_live_runtime_adapter_demand_hit_shadow_publication_canary(
+    canary: PayloadCacheLiveRuntimeAdapterPayloadlessInstanceCanary,
+) -> PayloadCacheLiveRuntimeAdapterDemandHitShadowPublicationCanary:
+    """Publish payloadless manager hit/miss accounting to shadow-only gates."""
+
+    if not isinstance(canary, PayloadCacheLiveRuntimeAdapterPayloadlessInstanceCanary):
+        raise TypeError(
+            "canary must be a PayloadCacheLiveRuntimeAdapterPayloadlessInstanceCanary",
+        )
+    if canary.present is not True:
+        raise ValueError("payloadless instance canary must be present")
+    if canary.stage != "payload_cache_live_runtime_adapter_payloadless_instance_canary":
+        raise ValueError("payloadless instance canary stage mismatch")
+    if canary.consumes_mixed_outcome_dry_run_canary is not True:
+        raise ValueError("payloadless instance must consume mixed-outcome canary")
+    if (
+        not isinstance(canary.mixed_outcome_dry_run_canary_status, str)
+        or not canary.mixed_outcome_dry_run_canary_status
+    ):
+        raise TypeError("payloadless instance mixed-outcome status invalid")
+    if not canary.mixed_outcome_dry_run_canary_status.startswith(
+        "blocked_by_accounting_dry_run_canary:"
+    ):
+        raise ValueError("payloadless instance ancestry status chain mismatch")
+    expected_status = (
+        "blocked_by_mixed_outcome_dry_run_canary:"
+        f"{canary.mixed_outcome_dry_run_canary_status}"
+    )
+    if canary.status != expected_status:
+        raise ValueError("payloadless instance canary status mismatch")
+    if canary.decision != "blocked":
+        raise ValueError("payloadless instance canary must stay blocked")
+    if canary.block_reason != "live_runtime_adapter_payloadless_instance_canary_only":
+        raise ValueError("payloadless instance block reason mismatch")
+    if (
+        canary.execution_mode
+        != "payload_cache_live_runtime_adapter_payloadless_instance_canary_payloadless"
+    ):
+        raise ValueError("payloadless instance execution mode mismatch")
+    if canary.manager_backend != "ReadyTimeExpertCacheManager":
+        raise ValueError("payloadless instance backend mismatch")
+    if canary.manager_runtime_contract != "ready_time_issue_demand_skeleton_v1":
+        raise ValueError("payloadless instance contract mismatch")
+    if canary.manager_runtime_mode != "ready_time_payload_cache_skeleton":
+        raise ValueError("payloadless instance mode mismatch")
+    if (
+        canary.payloadless_instance_schema
+        != "ready_time_payload_cache_runtime_adapter_payloadless_instance_canary_v1"
+    ):
+        raise ValueError("payloadless instance schema mismatch")
+    for field_name in (
+        "payloadless_live_adapter_created",
+        "payloadless_live_operations_ran",
+        "accounting_dry_run_enabled",
+        "issue_prefetch_accepted",
+        "duplicate_issue_suppressed",
+        "prefetched_demand_hit",
+        "unprefetched_demand_missed",
+        "live_adapter_instance_created",
+    ):
+        if getattr(canary, field_name) is not True:
+            raise ValueError(f"payloadless instance {field_name} invalid")
+    if canary.unprefetched_demand_hit is not False:
+        raise ValueError("payloadless instance unprefetched demand must miss")
+    if canary.live_runtime_instantiated is not False:
+        raise ValueError("payloadless instance must not instantiate live runtime")
+    for field_name in (
+        "live_payload_runtime_enabled",
+        "payload_transfer_runtime_enabled",
+        "payload_deref_allowed",
+        "payload_deref_runtime_allowed",
+        "ready_credit",
+        "ready_before_demand_credit",
+        "real_ready_credit_granted",
+        "kernel_arg_pass_allowed",
+        "passed_to_kernel",
+        "changes_kernel_launch_args",
+        "full_fetch_runtime_allowed",
+        "uses_current_wna16_args",
+        "passes_current_wna16_args",
+        "measures_tpot",
+        "measures_vllm_latency",
+    ):
+        if getattr(canary, field_name) is not False:
+            raise ValueError(f"payloadless instance {field_name} enabled")
+    for field_name in ("issued_payload_count", "payload_bytes"):
+        value = getattr(canary, field_name)
+        if not isinstance(value, int) or isinstance(value, bool):
+            raise TypeError(f"payloadless instance {field_name} must be an integer")
+        if value != 0:
+            raise ValueError(f"payloadless instance {field_name} must be zero")
+    expected_counts = {
+        "resident_count": 2,
+        "issued_fetch_count": 1,
+        "used_fetch_count": 1,
+        "unused_fetch_count": 0,
+        "demand_count": 2,
+        "demand_hit_count": 1,
+        "demand_miss_count": 1,
+        "ready_late_miss_count": 0,
+        "queue_batch_count": 1,
+    }
+    for field_name, expected in expected_counts.items():
+        value = getattr(canary, field_name)
+        if not isinstance(value, int) or isinstance(value, bool):
+            raise TypeError(f"payloadless instance {field_name} must be an integer")
+        if value != expected:
+            raise ValueError(f"payloadless instance {field_name} mismatch")
+    for field_name in ("queue_service_us", "queue_total_span_us"):
+        value = getattr(canary, field_name)
+        if not isinstance(value, (int, float)) or isinstance(value, bool):
+            raise TypeError(f"payloadless instance {field_name} must be numeric")
+        value_float = float(value)
+        if not math.isfinite(value_float):
+            raise ValueError(f"payloadless instance {field_name} must be finite")
+        if value_float != 0.0:
+            raise ValueError(f"payloadless instance {field_name} must remain zero")
+
+    publication = PayloadCacheRuntimeDemandHitShadowPublication(
+        present=True,
+        publication_schema="payload_cache_demand_hit_shadow_publication_v1",
+        publication_scope="shadow_only",
+        source_manager_contract=str(canary.manager_runtime_contract),
+        source_accounting_dry_run_enabled=bool(canary.accounting_dry_run_enabled),
+        demand_hit_shadow_publication_allowed=True,
+        demand_hit_published_to_shadow=True,
+        consumer_visible_payload_hit=False,
+        demand_count=int(canary.demand_count),
+        demand_hit_count=int(canary.demand_hit_count),
+        demand_miss_count=int(canary.demand_miss_count),
+        ready_late_miss_count=int(canary.ready_late_miss_count),
+        issued_fetch_count=int(canary.issued_fetch_count),
+        used_fetch_count=int(canary.used_fetch_count),
+        unused_fetch_count=int(canary.unused_fetch_count),
+        resident_count=int(canary.resident_count),
+        queue_batch_count=int(canary.queue_batch_count),
+        queue_service_us=float(canary.queue_service_us),
+        queue_total_span_us=float(canary.queue_total_span_us),
+    )
+
+    return PayloadCacheLiveRuntimeAdapterDemandHitShadowPublicationCanary(
+        present=True,
+        stage=(
+            "payload_cache_live_runtime_adapter_"
+            "demand_hit_shadow_publication_canary"
+        ),
+        status=f"blocked_by_payloadless_instance_canary:{canary.status}",
+        consumes_payloadless_instance_canary=True,
+        payloadless_instance_canary_status=str(canary.status),
+        publication_schema=str(publication.publication_schema),
+        publication_scope=str(publication.publication_scope),
+        source_manager_contract=str(publication.source_manager_contract),
+        shadow_publication_created=True,
+        shadow_publication_consumed_payloadless_instance=True,
+        demand_hit_shadow_publication_allowed=bool(
+            publication.demand_hit_shadow_publication_allowed,
+        ),
+        demand_hit_published_to_shadow=bool(
+            publication.demand_hit_published_to_shadow,
+        ),
+        consumer_visible_payload_hit=bool(publication.consumer_visible_payload_hit),
+        prefetched_demand_hit=bool(canary.prefetched_demand_hit),
+        unprefetched_demand_hit=bool(canary.unprefetched_demand_hit),
+        demand_count=int(publication.demand_count),
+        demand_hit_count=int(publication.demand_hit_count),
+        demand_miss_count=int(publication.demand_miss_count),
+        ready_late_miss_count=int(publication.ready_late_miss_count),
+        issued_fetch_count=int(publication.issued_fetch_count),
+        used_fetch_count=int(publication.used_fetch_count),
+        unused_fetch_count=int(publication.unused_fetch_count),
+        resident_count=int(publication.resident_count),
+        queue_batch_count=int(publication.queue_batch_count),
+        queue_service_us=float(publication.queue_service_us),
+        queue_total_span_us=float(publication.queue_total_span_us),
     )
 
 

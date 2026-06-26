@@ -2,8 +2,94 @@
 
 ## Progress Version
 
-- Version: `v1.55.1-packet-stream-inprocess-session-restore-state`
+- Version: `v1.55.2-payload-cache-demand-hit-shadow-publication`
 - Updated: 2026-06-26
+
+## Latest Update: Payload-Cache Demand-Hit Shadow Publication Gate
+
+The ReadyTime payload/cache-manager line now has a strict shadow-only demand-hit
+publication gate.  It publishes demand hit/miss accounting into the lab gate
+without claiming consumer-visible payload readiness or touching kernel launch
+arguments.
+
+This is still blocked from live payload semantics:
+
+```text
+publication_scope = shadow_only
+consumer_visible_payload_hit = false
+demand_hit_published_to_shadow = true
+payload_bytes = 0
+demand_hit_payload_bytes = 0
+payload_deref_attempted = false
+payload_handle_deref_attempted = false
+ready_credit = false
+ready_before_demand_credit = false
+real_ready_credit_granted = false
+kernel_arg_pass_allowed = false
+passed_to_kernel = false
+changes_kernel_launch_args = false
+```
+
+The new builder chain consumes the payloadless live-runtime adapter canary and
+revalidates the upstream source identity before creating the publication
+canary:
+
+```text
+manager_backend = ReadyTimeExpertCacheManager
+manager_runtime_contract = ready_time_issue_demand_skeleton_v1
+manager_runtime_mode = ready_time_payload_cache_skeleton
+payloadless_instance_schema =
+  ready_time_payload_cache_runtime_adapter_payloadless_instance_canary_v1
+```
+
+The source chain is hardened against polluted accounting inputs:
+
+```text
+NaN / inf queue timing values rejected
+bool-as-int counters rejected
+string / float count laundering rejected
+wrong backend / mode / schema rejected
+nonzero payload / ready / kernel side effects rejected
+```
+
+Standalone gate runner:
+
+```text
+scripts/run_payload_cache_demand_hit_shadow_publication_gate.py
+```
+
+Default output:
+
+```text
+outputs/reports/premap_payload_cache/
+  payload_cache_demand_hit_shadow_publication_gate.json
+```
+
+Validation:
+
+```text
+pytest tests/test_cache_manager.py \
+       tests/test_cache_lab_gate.py \
+       tests/test_run_payload_cache_demand_hit_shadow_publication_gate.py:
+  166 passed
+
+scripts.run_payload_cache_demand_hit_shadow_publication_gate:
+  passed = true
+  failures = []
+
+git diff --check:
+  passed
+
+External review:
+  GPT-5.5 high static review found no blocker or medium issues after the
+  hardening patch.  It confirmed the prior medium findings are closed and that
+  the shadow-only payload/ready/kernel-arg safety contract remains intact.
+```
+
+This gate is a correctness/audit step, not a TPOT claim.  The next runtime
+boundary remains useful payload/cache-manager work: publish shadow demand hits
+only as accounting until a real consumer-visible payload path and ready-time
+contract are explicitly implemented and benchmarked.
 
 ## Latest Update: Packet-Stream Restore-State To In-Process Native Session Bridge
 

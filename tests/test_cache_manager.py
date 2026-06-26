@@ -7,12 +7,14 @@ from mtp_expert_prefetch.runtime import (
     PayloadCacheRuntimeAdapterAccountingDryRun,
     PayloadCacheRuntimeAdapterAccountingDryRunSnapshot,
     PayloadCacheRuntimeAdapterPayloadlessLive,
+    PayloadCacheRuntimeDemandHitShadowPublication,
     PayloadCacheRuntimePayloadTransferToggle,
     PayloadCacheRuntimePayloadTransferToggleSnapshot,
     PayloadCacheRuntimePayloadIssueRequest,
     PayloadCacheRuntimeAdapterShell,
     PayloadCacheRuntimeAdapterShellSnapshot,
     ReadyTimeExpertCacheManager,
+    build_payload_cache_demand_hit_shadow_publication,
 )
 
 
@@ -375,6 +377,20 @@ def test_payload_cache_runtime_adapter_accounting_dry_run_snapshot_rejects_side_
                 },
             )
 
+    for field_name, bad_value in (
+        ("queue_deadline_us", float("nan")),
+        ("service_us_per_issue", float("inf")),
+        ("queue_service_us", float("nan")),
+        ("queue_total_span_us", float("inf")),
+    ):
+        with pytest.raises(ValueError, match=f"{field_name}.*finite"):
+            PayloadCacheRuntimeAdapterAccountingDryRunSnapshot(
+                **{
+                    **base_kwargs,
+                    field_name: bad_value,
+                },
+            )
+
 
 def test_payload_cache_runtime_adapter_payloadless_live_tracks_hit_and_miss() -> None:
     adapter = PayloadCacheRuntimeAdapterPayloadlessLive(
@@ -423,6 +439,186 @@ def test_payload_cache_runtime_adapter_payloadless_live_tracks_hit_and_miss() ->
         "live_runtime_instantiated",
     ):
         assert payload[key] is False
+
+
+def test_payload_cache_demand_hit_shadow_publication_from_payloadless_live() -> None:
+    adapter = PayloadCacheRuntimeAdapterPayloadlessLive(
+        capacity=4096,
+        queue_batch_size=1,
+        queue_deadline_us=100.0,
+    )
+
+    assert adapter.issue_prefetch(0, 0, arrival_us=0.0) is True
+    assert adapter.demand(0, 0, arrival_us=2.0) is True
+    assert adapter.demand(0, 1, arrival_us=3.0) is False
+
+    publication = build_payload_cache_demand_hit_shadow_publication(adapter.snapshot())
+    payload = publication.as_dict()
+
+    assert payload["present"] is True
+    assert payload["publication_schema"] == "payload_cache_demand_hit_shadow_publication_v1"
+    assert payload["publication_scope"] == "shadow_only"
+    assert payload["source_manager_contract"] == "ready_time_issue_demand_skeleton_v1"
+    assert payload["demand_hit_shadow_publication_allowed"] is True
+    assert payload["demand_hit_published_to_shadow"] is True
+    assert payload["consumer_visible_payload_hit"] is False
+    assert payload["demand_count"] == 2
+    assert payload["demand_hit_count"] == 1
+    assert payload["demand_miss_count"] == 1
+    assert payload["demand_hit_rate"] == 0.5
+    assert payload["issued_fetch_count"] == 1
+    assert payload["used_fetch_count"] == 1
+    assert payload["payload_bytes"] == 0
+    assert payload["demand_hit_payload_bytes"] == 0
+    for key in (
+        "ready_credit",
+        "ready_before_demand_credit",
+        "real_ready_credit_granted",
+        "payload_transfer_runtime_enabled",
+        "payload_deref_allowed",
+        "payload_deref_runtime_allowed",
+        "payload_deref_attempted",
+        "payload_handle_deref_attempted",
+        "kernel_arg_pass_allowed",
+        "passed_to_kernel",
+        "changes_kernel_launch_args",
+        "full_fetch_runtime_allowed",
+        "uses_current_wna16_args",
+        "passes_current_wna16_args",
+        "measures_tpot",
+        "measures_vllm_latency",
+        "live_runtime_instantiated",
+    ):
+        assert payload[key] is False
+
+
+def test_payload_cache_demand_hit_shadow_publication_rejects_side_effects() -> None:
+    base = {
+        "present": True,
+        "publication_schema": "payload_cache_demand_hit_shadow_publication_v1",
+        "publication_scope": "shadow_only",
+        "source_manager_contract": "ready_time_issue_demand_skeleton_v1",
+        "source_accounting_dry_run_enabled": True,
+        "demand_hit_shadow_publication_allowed": True,
+        "demand_hit_published_to_shadow": True,
+        "consumer_visible_payload_hit": False,
+        "demand_count": 2,
+        "demand_hit_count": 1,
+        "demand_miss_count": 1,
+        "ready_late_miss_count": 0,
+        "issued_fetch_count": 1,
+        "used_fetch_count": 1,
+        "unused_fetch_count": 0,
+        "resident_count": 2,
+        "queue_batch_count": 1,
+        "queue_service_us": 0.0,
+        "queue_total_span_us": 0.0,
+    }
+
+    with pytest.raises(ValueError, match="shadow-only"):
+        PayloadCacheRuntimeDemandHitShadowPublication(
+            **{**base, "publication_scope": "consumer_visible"},
+        )
+    with pytest.raises(ValueError, match="consumer-visible"):
+        PayloadCacheRuntimeDemandHitShadowPublication(
+            **{**base, "consumer_visible_payload_hit": True},
+        )
+    with pytest.raises(ValueError, match="payload_bytes"):
+        PayloadCacheRuntimeDemandHitShadowPublication(
+            **{**base, "payload_bytes": 1},
+        )
+    with pytest.raises(ValueError, match="ready_credit"):
+        PayloadCacheRuntimeDemandHitShadowPublication(
+            **{**base, "ready_credit": True},
+        )
+    with pytest.raises(ValueError, match="payload_deref_attempted"):
+        PayloadCacheRuntimeDemandHitShadowPublication(
+            **{**base, "payload_deref_attempted": True},
+        )
+    with pytest.raises(ValueError, match="payload_handle_deref_attempted"):
+        PayloadCacheRuntimeDemandHitShadowPublication(
+            **{**base, "payload_handle_deref_attempted": True},
+        )
+    with pytest.raises(ValueError, match="kernel_arg_pass_allowed"):
+        PayloadCacheRuntimeDemandHitShadowPublication(
+            **{**base, "kernel_arg_pass_allowed": True},
+        )
+    with pytest.raises(ValueError, match="close over demand_count"):
+        PayloadCacheRuntimeDemandHitShadowPublication(
+            **{**base, "demand_miss_count": 2},
+        )
+    with pytest.raises(ValueError, match="queue_service_us.*finite"):
+        PayloadCacheRuntimeDemandHitShadowPublication(
+            **{**base, "queue_service_us": float("nan")},
+        )
+    with pytest.raises(ValueError, match="queue_total_span_us.*finite"):
+        PayloadCacheRuntimeDemandHitShadowPublication(
+            **{**base, "queue_total_span_us": float("inf")},
+        )
+
+
+def test_payload_cache_demand_hit_shadow_publication_rejects_mutated_source() -> None:
+    def build_snapshot():
+        adapter = PayloadCacheRuntimeAdapterPayloadlessLive(
+            capacity=4096,
+            queue_batch_size=1,
+            queue_deadline_us=100.0,
+        )
+        adapter.issue_prefetch(0, 0, arrival_us=0.0)
+        adapter.demand(0, 0, arrival_us=2.0)
+        return adapter.snapshot()
+
+    snapshot = build_snapshot()
+    object.__setattr__(snapshot, "payload_bytes", 1)
+    with pytest.raises(ValueError, match="source snapshot payload_bytes"):
+        build_payload_cache_demand_hit_shadow_publication(snapshot)
+
+    snapshot = build_snapshot()
+    object.__setattr__(snapshot, "manager_backend", "OtherManager")
+    with pytest.raises(ValueError, match="source manager backend"):
+        build_payload_cache_demand_hit_shadow_publication(snapshot)
+
+    for field_name in (
+        "ready_credit",
+        "kernel_arg_pass_allowed",
+        "payload_deref_allowed",
+    ):
+        snapshot = build_snapshot()
+        object.__setattr__(snapshot, field_name, True)
+        with pytest.raises(ValueError, match=f"source snapshot {field_name}"):
+            build_payload_cache_demand_hit_shadow_publication(snapshot)
+
+    for field_name, bad_value, error in (
+        ("demand_count", "2", TypeError),
+        ("demand_hit_count", True, TypeError),
+        ("issued_fetch_count", 1.5, TypeError),
+        ("queue_service_us", "0.0", TypeError),
+        ("queue_total_span_us", float("nan"), ValueError),
+        ("queue_wait_us", float("inf"), ValueError),
+    ):
+        snapshot = build_snapshot()
+        object.__setattr__(snapshot, field_name, bad_value)
+        with pytest.raises(error, match=f"source snapshot {field_name}"):
+            build_payload_cache_demand_hit_shadow_publication(snapshot)
+
+    snapshot = build_snapshot()
+    object.__setattr__(snapshot, "demand_miss_count", 2)
+    with pytest.raises(ValueError, match="close over demand_count"):
+        build_payload_cache_demand_hit_shadow_publication(snapshot)
+
+
+def test_payload_cache_demand_hit_shadow_publication_rejects_nonfinite_constructor_inputs() -> None:
+    for field_name, bad_value in (
+        ("queue_deadline_us", float("nan")),
+        ("service_us_per_issue", float("inf")),
+        ("service_us_per_batch", float("nan")),
+    ):
+        with pytest.raises(ValueError, match=f"{field_name}.*finite"):
+            PayloadCacheRuntimeAdapterPayloadlessLive(
+                capacity=4096,
+                queue_batch_size=1,
+                **{field_name: bad_value},
+            )
 
 
 def test_payload_cache_runtime_adapter_payloadless_live_rejects_payload_or_kernel_args() -> None:

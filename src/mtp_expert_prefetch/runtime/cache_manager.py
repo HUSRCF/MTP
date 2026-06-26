@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 from collections import OrderedDict, deque
 from dataclasses import asdict, dataclass, field
 from functools import cached_property
@@ -315,10 +316,20 @@ class ReadyTimeExpertCacheManager:
         queue_deadline_us: float = 0.0,
     ) -> None:
         self.capacity = int(capacity)
-        self.service_us_per_issue = max(0.0, float(service_us_per_issue))
-        self.service_us_per_batch = max(0.0, float(service_us_per_batch))
+        service_us_per_issue_value = float(service_us_per_issue)
+        service_us_per_batch_value = float(service_us_per_batch)
+        queue_deadline_us_value = float(queue_deadline_us)
+        for field_name, value in (
+            ("service_us_per_issue", service_us_per_issue_value),
+            ("service_us_per_batch", service_us_per_batch_value),
+            ("queue_deadline_us", queue_deadline_us_value),
+        ):
+            if not math.isfinite(value):
+                raise ValueError(f"{field_name} must be finite")
+        self.service_us_per_issue = max(0.0, service_us_per_issue_value)
+        self.service_us_per_batch = max(0.0, service_us_per_batch_value)
         self.queue_batch_size = max(1, int(queue_batch_size) or 1)
-        self.queue_deadline_us = max(0.0, float(queue_deadline_us))
+        self.queue_deadline_us = max(0.0, queue_deadline_us_value)
 
         self._cache: OrderedDict[tuple[int, int], CacheManagerEntry] = OrderedDict()
         self._pending_keys: list[tuple[int, int]] = []
@@ -649,7 +660,10 @@ class PayloadCacheRuntimeAdapterShellSnapshot:
             value = getattr(self, field_name)
             if not isinstance(value, (int, float)) or isinstance(value, bool):
                 raise TypeError(f"{field_name} must be numeric")
-            if float(value) < 0.0:
+            value_float = float(value)
+            if not math.isfinite(value_float):
+                raise ValueError(f"{field_name} must be finite")
+            if value_float < 0.0:
                 raise ValueError(f"{field_name} must be non-negative")
         for field_name in (
             "resident_count",
@@ -858,7 +872,10 @@ class PayloadCacheRuntimeAdapterAccountingDryRunSnapshot:
             value = getattr(self, field_name)
             if not isinstance(value, (int, float)) or isinstance(value, bool):
                 raise TypeError(f"{field_name} must be numeric")
-            if float(value) < 0.0:
+            value_float = float(value)
+            if not math.isfinite(value_float):
+                raise ValueError(f"{field_name} must be finite")
+            if value_float < 0.0:
                 raise ValueError(f"{field_name} must be non-negative")
         for field_name in ("issued_payload_count", "payload_bytes"):
             if getattr(self, field_name) != 0:
@@ -1065,6 +1082,255 @@ class PayloadCacheRuntimeAdapterPayloadlessLive:
             queue_wait_us=float(snapshot.queue_wait_us),
             queue_max_delay_us=float(snapshot.queue_max_delay_us),
         )
+
+
+@dataclass(frozen=True)
+class PayloadCacheRuntimeDemandHitShadowPublication:
+    """Shadow-only demand-hit publication for the payload-cache manager path.
+
+    This object is intentionally not a consumer-visible payload hit.  It lets
+    online gates consume ready-time manager hit/miss accounting after the live
+    payloadless adapter runs, while preserving the safety boundary: no payload
+    transfer, no payload dereference, no ready credit, and no kernel-argument
+    mutation.
+    """
+
+    present: bool
+    publication_schema: str
+    publication_scope: str
+    source_manager_contract: str
+    source_accounting_dry_run_enabled: bool
+    demand_hit_shadow_publication_allowed: bool
+    demand_hit_published_to_shadow: bool
+    consumer_visible_payload_hit: bool
+    demand_count: int
+    demand_hit_count: int
+    demand_miss_count: int
+    ready_late_miss_count: int
+    issued_fetch_count: int
+    used_fetch_count: int
+    unused_fetch_count: int
+    resident_count: int
+    queue_batch_count: int
+    queue_service_us: float
+    queue_total_span_us: float
+    payload_bytes: int = 0
+    demand_hit_payload_bytes: int = 0
+    ready_credit: bool = False
+    ready_before_demand_credit: bool = False
+    real_ready_credit_granted: bool = False
+    payload_transfer_runtime_enabled: bool = False
+    payload_deref_allowed: bool = False
+    payload_deref_runtime_allowed: bool = False
+    payload_deref_attempted: bool = False
+    payload_handle_deref_attempted: bool = False
+    kernel_arg_pass_allowed: bool = False
+    passed_to_kernel: bool = False
+    changes_kernel_launch_args: bool = False
+    full_fetch_runtime_allowed: bool = False
+    uses_current_wna16_args: bool = False
+    passes_current_wna16_args: bool = False
+    measures_tpot: bool = False
+    measures_vllm_latency: bool = False
+    live_runtime_instantiated: bool = False
+
+    def __post_init__(self) -> None:
+        if self.present is not True:
+            raise ValueError("demand-hit shadow publication must be present")
+        if self.publication_schema != "payload_cache_demand_hit_shadow_publication_v1":
+            raise ValueError("demand-hit shadow publication schema mismatch")
+        if self.publication_scope != "shadow_only":
+            raise ValueError("demand-hit publication must remain shadow-only")
+        if self.source_manager_contract != "ready_time_issue_demand_skeleton_v1":
+            raise ValueError("demand-hit publication source manager contract mismatch")
+        if self.source_accounting_dry_run_enabled is not True:
+            raise ValueError("demand-hit publication requires accounting dry-run source")
+        if self.demand_hit_shadow_publication_allowed is not True:
+            raise ValueError("shadow demand-hit publication must be allowed")
+        if self.demand_hit_published_to_shadow is not True:
+            raise ValueError("shadow demand-hit publication must be emitted")
+        if self.consumer_visible_payload_hit is not False:
+            raise ValueError("consumer-visible payload hit must remain disabled")
+        for field_name in (
+            "demand_count",
+            "demand_hit_count",
+            "demand_miss_count",
+            "ready_late_miss_count",
+            "issued_fetch_count",
+            "used_fetch_count",
+            "unused_fetch_count",
+            "resident_count",
+            "queue_batch_count",
+            "payload_bytes",
+            "demand_hit_payload_bytes",
+        ):
+            value = getattr(self, field_name)
+            if not isinstance(value, int) or isinstance(value, bool):
+                raise TypeError(f"{field_name} must be an integer")
+            if value < 0:
+                raise ValueError(f"{field_name} must be non-negative")
+        if self.demand_count <= 0:
+            raise ValueError("demand_count must be positive for shadow publication")
+        if self.demand_hit_count + self.demand_miss_count != self.demand_count:
+            raise ValueError("demand hit/miss counts must close over demand_count")
+        if self.used_fetch_count > self.issued_fetch_count:
+            raise ValueError("used_fetch_count cannot exceed issued_fetch_count")
+        for field_name in ("queue_service_us", "queue_total_span_us"):
+            value = getattr(self, field_name)
+            if not isinstance(value, (int, float)) or isinstance(value, bool):
+                raise TypeError(f"{field_name} must be numeric")
+            value_float = float(value)
+            if not math.isfinite(value_float):
+                raise ValueError(f"{field_name} must be finite")
+            if value_float < 0.0:
+                raise ValueError(f"{field_name} must be non-negative")
+        for field_name in ("payload_bytes", "demand_hit_payload_bytes"):
+            if getattr(self, field_name) != 0:
+                raise ValueError(f"{field_name} must remain zero")
+        for field_name in (
+            "ready_credit",
+            "ready_before_demand_credit",
+            "real_ready_credit_granted",
+            "payload_transfer_runtime_enabled",
+            "payload_deref_allowed",
+            "payload_deref_runtime_allowed",
+            "payload_deref_attempted",
+            "payload_handle_deref_attempted",
+            "kernel_arg_pass_allowed",
+            "passed_to_kernel",
+            "changes_kernel_launch_args",
+            "full_fetch_runtime_allowed",
+            "uses_current_wna16_args",
+            "passes_current_wna16_args",
+            "measures_tpot",
+            "measures_vllm_latency",
+            "live_runtime_instantiated",
+        ):
+            if getattr(self, field_name) is not False:
+                raise ValueError(f"{field_name} must remain disabled")
+
+    @cached_property
+    def demand_hit_rate(self) -> float:
+        return float(self.demand_hit_count) / float(self.demand_count)
+
+    def as_dict(self) -> dict[str, bool | float | int | str]:
+        payload = asdict(self)
+        payload["demand_hit_rate"] = self.demand_hit_rate
+        return payload
+
+
+def build_payload_cache_demand_hit_shadow_publication(
+    snapshot: PayloadCacheRuntimeAdapterAccountingDryRunSnapshot,
+) -> PayloadCacheRuntimeDemandHitShadowPublication:
+    """Build a shadow-only demand-hit publication from manager accounting."""
+
+    if not isinstance(snapshot, PayloadCacheRuntimeAdapterAccountingDryRunSnapshot):
+        raise TypeError("snapshot must be a PayloadCacheRuntimeAdapterAccountingDryRunSnapshot")
+    if snapshot.present is not True:
+        raise ValueError("source snapshot must be present")
+    if snapshot.accounting_dry_run_enabled is not True:
+        raise ValueError("source snapshot must be accounting dry-run")
+    if snapshot.manager_backend != "ReadyTimeExpertCacheManager":
+        raise ValueError("source manager backend mismatch")
+    if snapshot.manager_contract != "ready_time_issue_demand_skeleton_v1":
+        raise ValueError("source manager contract mismatch")
+    source_int_fields = (
+        "capacity",
+        "queue_batch_size",
+        "resident_count",
+        "issued_fetch_count",
+        "used_fetch_count",
+        "unused_fetch_count",
+        "demand_count",
+        "demand_hit_count",
+        "demand_miss_count",
+        "evicted_before_use_count",
+        "ready_late_miss_count",
+        "late_completion_unused_count",
+        "queue_batch_count",
+        "issued_payload_count",
+        "payload_bytes",
+    )
+    for field_name in source_int_fields:
+        value = getattr(snapshot, field_name)
+        if not isinstance(value, int) or isinstance(value, bool):
+            raise TypeError(f"source snapshot {field_name} must be an integer")
+        if field_name in ("capacity", "queue_batch_size"):
+            if value <= 0:
+                raise ValueError(f"source snapshot {field_name} must be positive")
+        elif value < 0:
+            raise ValueError(f"source snapshot {field_name} must be non-negative")
+    source_float_fields = (
+        "queue_deadline_us",
+        "service_us_per_issue",
+        "service_us_per_batch",
+        "queue_service_us",
+        "queue_total_span_us",
+        "queue_wait_us",
+        "queue_max_delay_us",
+    )
+    for field_name in source_float_fields:
+        value = getattr(snapshot, field_name)
+        if not isinstance(value, (int, float)) or isinstance(value, bool):
+            raise TypeError(f"source snapshot {field_name} must be numeric")
+        value_float = float(value)
+        if not math.isfinite(value_float):
+            raise ValueError(f"source snapshot {field_name} must be finite")
+        if value_float < 0.0:
+            raise ValueError(f"source snapshot {field_name} must be non-negative")
+    if snapshot.demand_count <= 0:
+        raise ValueError("source snapshot demand_count must be positive")
+    if snapshot.demand_hit_count + snapshot.demand_miss_count != snapshot.demand_count:
+        raise ValueError("source snapshot demand hit/miss counts must close over demand_count")
+    if snapshot.used_fetch_count > snapshot.issued_fetch_count:
+        raise ValueError("source snapshot used_fetch_count cannot exceed issued_fetch_count")
+    for field_name in (
+        "payload_bytes",
+        "issued_payload_count",
+    ):
+        if getattr(snapshot, field_name) != 0:
+            raise ValueError(f"source snapshot {field_name} must remain zero")
+    for field_name in (
+        "payload_transfer_runtime_enabled",
+        "payload_deref_allowed",
+        "payload_deref_runtime_allowed",
+        "ready_credit",
+        "ready_before_demand_credit",
+        "real_ready_credit_granted",
+        "kernel_arg_pass_allowed",
+        "passed_to_kernel",
+        "changes_kernel_launch_args",
+        "full_fetch_runtime_allowed",
+        "uses_current_wna16_args",
+        "passes_current_wna16_args",
+        "measures_tpot",
+        "measures_vllm_latency",
+        "live_runtime_instantiated",
+    ):
+        if getattr(snapshot, field_name) is not False:
+            raise ValueError(f"source snapshot {field_name} must remain disabled")
+
+    return PayloadCacheRuntimeDemandHitShadowPublication(
+        present=True,
+        publication_schema="payload_cache_demand_hit_shadow_publication_v1",
+        publication_scope="shadow_only",
+        source_manager_contract=str(snapshot.manager_contract),
+        source_accounting_dry_run_enabled=True,
+        demand_hit_shadow_publication_allowed=True,
+        demand_hit_published_to_shadow=True,
+        consumer_visible_payload_hit=False,
+        demand_count=int(snapshot.demand_count),
+        demand_hit_count=int(snapshot.demand_hit_count),
+        demand_miss_count=int(snapshot.demand_miss_count),
+        ready_late_miss_count=int(snapshot.ready_late_miss_count),
+        issued_fetch_count=int(snapshot.issued_fetch_count),
+        used_fetch_count=int(snapshot.used_fetch_count),
+        unused_fetch_count=int(snapshot.unused_fetch_count),
+        resident_count=int(snapshot.resident_count),
+        queue_batch_count=int(snapshot.queue_batch_count),
+        queue_service_us=float(snapshot.queue_service_us),
+        queue_total_span_us=float(snapshot.queue_total_span_us),
+    )
 
 
 @dataclass(frozen=True)

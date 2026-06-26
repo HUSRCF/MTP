@@ -17,6 +17,7 @@ from mtp_expert_prefetch.runtime import (
     PayloadCacheLiveRuntimeAdapterObjectShellEvidence,
     PayloadCacheLiveRuntimeAdapterOperationRejectionCanary,
     PayloadCacheLiveRuntimeAdapterPayloadlessInstanceCanary,
+    PayloadCacheLiveRuntimeAdapterDemandHitShadowPublicationCanary,
     PayloadCacheLiveRuntimeAdapterPayloadTransferToggleDisabledCanary,
     PayloadCacheLiveRuntimeAdapterPayloadIssueRequestBlockedCanary,
     PayloadCacheLiveRuntimeAdapterPayloadIssuePlanDryRun,
@@ -74,6 +75,7 @@ from mtp_expert_prefetch.runtime import (
     build_payload_cache_live_runtime_adapter_accounting_dry_run_canary,
     build_payload_cache_live_runtime_adapter_mixed_outcome_dry_run_canary,
     build_payload_cache_live_runtime_adapter_payloadless_instance_canary,
+    build_payload_cache_live_runtime_adapter_demand_hit_shadow_publication_canary,
     build_payload_cache_live_runtime_adapter_payload_transfer_toggle_disabled_canary,
     build_payload_cache_live_runtime_adapter_payload_issue_request_blocked_canary,
     build_payload_cache_live_runtime_adapter_payload_issue_plan_dry_run,
@@ -5188,6 +5190,21 @@ def test_live_runtime_adapter_payloadless_instance_canary_builder_rejects_bad_mi
     with pytest.raises(ValueError, match="payload_bytes"):
         build_payload_cache_live_runtime_adapter_payloadless_instance_canary(mixed)
 
+    for field_name, bad_value, error, match in (
+        ("manager_backend", "OtherManager", ValueError, "backend"),
+        ("manager_runtime_mode", "other_mode", ValueError, "mode"),
+        ("demand_count", "2", TypeError, "demand_count"),
+        ("demand_hit_count", True, TypeError, "demand_hit_count"),
+        ("issued_fetch_count", 1.0, TypeError, "issued_fetch_count"),
+        ("queue_service_us", "0.0", TypeError, "queue_service_us"),
+        ("queue_total_span_us", float("nan"), ValueError, "queue_total_span_us"),
+        ("queue_max_delay_us", float("inf"), ValueError, "queue_max_delay_us"),
+    ):
+        mixed = _build_live_runtime_adapter_mixed_outcome_dry_run_canary()
+        object.__setattr__(mixed, field_name, bad_value)
+        with pytest.raises(error, match=match):
+            build_payload_cache_live_runtime_adapter_payloadless_instance_canary(mixed)
+
 
 def _build_live_runtime_adapter_payloadless_instance_canary() -> (
     PayloadCacheLiveRuntimeAdapterPayloadlessInstanceCanary
@@ -5195,6 +5212,175 @@ def _build_live_runtime_adapter_payloadless_instance_canary() -> (
     return build_payload_cache_live_runtime_adapter_payloadless_instance_canary(
         _build_live_runtime_adapter_mixed_outcome_dry_run_canary(),
     )
+
+
+def test_live_runtime_adapter_demand_hit_shadow_publication_consumes_payloadless_instance() -> None:
+    payloadless = _build_live_runtime_adapter_payloadless_instance_canary()
+
+    canary = build_payload_cache_live_runtime_adapter_demand_hit_shadow_publication_canary(
+        payloadless,
+    )
+    payload = canary.as_dict()
+
+    assert payload["present"] is True
+    assert payload["stage"] == (
+        "payload_cache_live_runtime_adapter_demand_hit_shadow_publication_canary"
+    )
+    assert payload["status"] == (
+        f"blocked_by_payloadless_instance_canary:{payloadless.status}"
+    )
+    assert payload["consumes_payloadless_instance_canary"] is True
+    assert payload["payloadless_instance_canary_status"] == payloadless.status
+    assert payload["publication_schema"] == "payload_cache_demand_hit_shadow_publication_v1"
+    assert payload["publication_scope"] == "shadow_only"
+    assert payload["source_manager_contract"] == "ready_time_issue_demand_skeleton_v1"
+    assert payload["shadow_publication_created"] is True
+    assert payload["shadow_publication_consumed_payloadless_instance"] is True
+    assert payload["demand_hit_shadow_publication_allowed"] is True
+    assert payload["demand_hit_published_to_shadow"] is True
+    assert payload["consumer_visible_payload_hit"] is False
+    assert payload["prefetched_demand_hit"] is True
+    assert payload["unprefetched_demand_hit"] is False
+    assert payload["demand_count"] == 2
+    assert payload["demand_hit_count"] == 1
+    assert payload["demand_miss_count"] == 1
+    assert payload["demand_hit_rate"] == 0.5
+    assert payload["payload_bytes"] == 0
+    assert payload["demand_hit_payload_bytes"] == 0
+    assert payload["decision"] == "blocked"
+    assert payload["block_reason"] == "shadow_only_not_consumer_visible_payload_hit"
+    for key in (
+        "live_payload_runtime_enabled",
+        "payload_transfer_runtime_enabled",
+        "payload_deref_allowed",
+        "payload_deref_runtime_allowed",
+        "payload_deref_attempted",
+        "payload_handle_deref_attempted",
+        "ready_credit",
+        "ready_before_demand_credit",
+        "real_ready_credit_granted",
+        "kernel_arg_pass_allowed",
+        "passed_to_kernel",
+        "changes_kernel_launch_args",
+        "full_fetch_runtime_allowed",
+        "uses_current_wna16_args",
+        "passes_current_wna16_args",
+        "measures_tpot",
+        "measures_vllm_latency",
+        "live_runtime_instantiated",
+    ):
+        assert payload[key] is False
+
+
+def test_live_runtime_adapter_demand_hit_shadow_publication_rejects_side_effects() -> None:
+    payloadless_status = _build_live_runtime_adapter_payloadless_instance_canary().status
+    base_kwargs = {
+        "present": True,
+        "stage": "payload_cache_live_runtime_adapter_demand_hit_shadow_publication_canary",
+        "status": f"blocked_by_payloadless_instance_canary:{payloadless_status}",
+        "consumes_payloadless_instance_canary": True,
+        "payloadless_instance_canary_status": payloadless_status,
+        "publication_schema": "payload_cache_demand_hit_shadow_publication_v1",
+        "publication_scope": "shadow_only",
+        "source_manager_contract": "ready_time_issue_demand_skeleton_v1",
+        "shadow_publication_created": True,
+        "shadow_publication_consumed_payloadless_instance": True,
+        "demand_hit_shadow_publication_allowed": True,
+        "demand_hit_published_to_shadow": True,
+        "consumer_visible_payload_hit": False,
+        "prefetched_demand_hit": True,
+        "unprefetched_demand_hit": False,
+        "demand_count": 2,
+        "demand_hit_count": 1,
+        "demand_miss_count": 1,
+        "ready_late_miss_count": 0,
+        "issued_fetch_count": 1,
+        "used_fetch_count": 1,
+        "unused_fetch_count": 0,
+        "resident_count": 2,
+        "queue_batch_count": 1,
+        "queue_service_us": 0.0,
+        "queue_total_span_us": 0.0,
+    }
+
+    with pytest.raises(ValueError, match="shadow-only"):
+        PayloadCacheLiveRuntimeAdapterDemandHitShadowPublicationCanary(
+            **{**base_kwargs, "publication_scope": "consumer_visible"},
+        )
+    with pytest.raises(ValueError, match="consumer_visible_payload_hit"):
+        PayloadCacheLiveRuntimeAdapterDemandHitShadowPublicationCanary(
+            **{**base_kwargs, "consumer_visible_payload_hit": True},
+        )
+    for field_name in (
+        "payload_bytes",
+        "demand_hit_payload_bytes",
+        "ready_credit",
+        "payload_deref_attempted",
+        "payload_handle_deref_attempted",
+        "kernel_arg_pass_allowed",
+        "passed_to_kernel",
+    ):
+        with pytest.raises(ValueError, match=field_name):
+            PayloadCacheLiveRuntimeAdapterDemandHitShadowPublicationCanary(
+                **{**base_kwargs, field_name: 1 if "bytes" in field_name else True},
+            )
+
+
+def test_live_runtime_adapter_demand_hit_shadow_publication_builder_rejects_bad_payloadless_instance() -> None:
+    payloadless = _build_live_runtime_adapter_payloadless_instance_canary()
+
+    object.__setattr__(payloadless, "payload_bytes", 1)
+    with pytest.raises(ValueError, match="payload_bytes"):
+        build_payload_cache_live_runtime_adapter_demand_hit_shadow_publication_canary(
+            payloadless,
+        )
+
+    payloadless = _build_live_runtime_adapter_payloadless_instance_canary()
+    object.__setattr__(payloadless, "ready_credit", True)
+    with pytest.raises(ValueError, match="ready_credit"):
+        build_payload_cache_live_runtime_adapter_demand_hit_shadow_publication_canary(
+            payloadless,
+        )
+
+    payloadless = _build_live_runtime_adapter_payloadless_instance_canary()
+    object.__setattr__(payloadless, "unprefetched_demand_hit", True)
+    with pytest.raises(ValueError, match="unprefetched demand"):
+        build_payload_cache_live_runtime_adapter_demand_hit_shadow_publication_canary(
+            payloadless,
+        )
+
+    for field_name, bad_value, match in (
+        ("manager_backend", "OtherManager", "backend"),
+        ("manager_runtime_mode", "other_mode", "mode"),
+        ("payloadless_instance_schema", "other_schema", "schema"),
+    ):
+        payloadless = _build_live_runtime_adapter_payloadless_instance_canary()
+        object.__setattr__(payloadless, field_name, bad_value)
+        with pytest.raises(ValueError, match=match):
+            build_payload_cache_live_runtime_adapter_demand_hit_shadow_publication_canary(
+                payloadless,
+            )
+
+    for field_name, bad_value, error in (
+        ("demand_count", "2", TypeError),
+        ("demand_hit_count", True, TypeError),
+        ("issued_fetch_count", 1.0, TypeError),
+        ("payload_bytes", False, TypeError),
+        ("queue_service_us", "0.0", TypeError),
+        ("queue_service_us", float("nan"), ValueError),
+        ("queue_total_span_us", float("inf"), ValueError),
+    ):
+        payloadless = _build_live_runtime_adapter_payloadless_instance_canary()
+        object.__setattr__(payloadless, field_name, bad_value)
+        with pytest.raises(error, match=field_name):
+            build_payload_cache_live_runtime_adapter_demand_hit_shadow_publication_canary(
+                payloadless,
+            )
+
+    with pytest.raises(TypeError, match="canary"):
+        build_payload_cache_live_runtime_adapter_demand_hit_shadow_publication_canary(
+            object(),  # type: ignore[arg-type]
+        )
 
 
 def test_live_runtime_adapter_payload_transfer_toggle_disabled_canary_consumes_payloadless_instance() -> None:
