@@ -12590,10 +12590,47 @@ def _validate_payload_cache_online_native_producer_boundary_gap_evidence(
         evidence,
         "native_expected_issue_candidate_count",
     )
+    native_packet_count = _int_metric(evidence, "native_packet_count")
+    online_expected_packet_count = _int_metric(
+        evidence,
+        "online_graph_expected_packet_count",
+    )
+    online_expected_issue_count = _int_metric(
+        evidence,
+        "online_graph_expected_issue_candidate_count",
+    )
+    if native_packet_count is None or native_packet_count <= 0:
+        failures.append(f"{failure_prefix}_native_packet_count_invalid")
     if native_issue_count is None or native_issue_count <= 0:
         failures.append(f"{failure_prefix}_native_issue_candidate_count_invalid")
+    if online_expected_packet_count is None or online_expected_packet_count <= 0:
+        failures.append(f"{failure_prefix}_online_graph_expected_packet_count_invalid")
+    if online_expected_issue_count is None or online_expected_issue_count <= 0:
+        failures.append(
+            f"{failure_prefix}_online_graph_expected_issue_candidate_count_invalid"
+        )
+    if (
+        native_packet_count is not None
+        and online_expected_packet_count is not None
+        and native_packet_count != online_expected_packet_count
+    ):
+        failures.append(f"{failure_prefix}_native_online_packet_count_mismatch")
     if native_issue_count != native_expected_issue_count:
         failures.append(f"{failure_prefix}_native_issue_candidate_count_mismatch")
+    if (
+        native_issue_count is not None
+        and online_expected_issue_count is not None
+        and native_issue_count != online_expected_issue_count
+    ):
+        failures.append(f"{failure_prefix}_native_online_issue_candidate_count_mismatch")
+    if (
+        native_expected_issue_count is not None
+        and online_expected_issue_count is not None
+        and native_expected_issue_count != online_expected_issue_count
+    ):
+        failures.append(
+            f"{failure_prefix}_native_expected_online_issue_candidate_count_mismatch"
+        )
     for path_key in (
         "native_graph_replay_json",
         "online_inside_graph_contract_json",

@@ -62,7 +62,12 @@ def check_boundary_gap(
             failures.append(f"native_{key}_mismatch")
     if native.get("issue_candidate_count") != native.get("expected_issue_candidate_count"):
         failures.append("native_issue_candidate_count_mismatch")
-    if not isinstance(native.get("packet_count"), int) or native.get("packet_count", 0) <= 0:
+    native_packet_count = int(native.get("packet_count", 0) or 0)
+    native_issue_candidate_count = int(native.get("issue_candidate_count", 0) or 0)
+    native_expected_issue_candidate_count = int(
+        native.get("expected_issue_candidate_count", 0) or 0
+    )
+    if native_packet_count <= 0:
         failures.append("native_packet_count_empty")
 
     capture_only = (
@@ -125,6 +130,25 @@ def check_boundary_gap(
     for key in online_expected_false_fields:
         if not _is_false(online.get(key)):
             failures.append(f"online_{key}_not_false")
+    online_expected_packet_count = int(
+        online.get("graph_expected_packet_count", 0) or 0
+    )
+    online_expected_issue_candidate_count = int(
+        online.get("graph_expected_issue_candidate_count", 0) or 0
+    )
+    if online_expected_packet_count <= 0:
+        failures.append("online_graph_expected_packet_count_missing")
+    elif native_packet_count != online_expected_packet_count:
+        failures.append("native_online_packet_count_mismatch")
+    if online_expected_issue_candidate_count <= 0:
+        failures.append("online_graph_expected_issue_candidate_count_missing")
+    elif native_issue_candidate_count != online_expected_issue_candidate_count:
+        failures.append("native_online_issue_candidate_count_mismatch")
+    if (
+        online_expected_issue_candidate_count > 0
+        and native_expected_issue_candidate_count != online_expected_issue_candidate_count
+    ):
+        failures.append("native_expected_online_issue_candidate_count_mismatch")
 
     gap_identified = not failures
     return {
@@ -139,9 +163,12 @@ def check_boundary_gap(
         is True,
         "native_issue_generation_on_device": native.get("issue_generation_on_device")
         is True,
-        "native_issue_candidate_count": int(native.get("issue_candidate_count", 0) or 0),
-        "native_expected_issue_candidate_count": int(
-            native.get("expected_issue_candidate_count", 0) or 0
+        "native_packet_count": native_packet_count,
+        "native_issue_candidate_count": native_issue_candidate_count,
+        "native_expected_issue_candidate_count": native_expected_issue_candidate_count,
+        "online_graph_expected_packet_count": online_expected_packet_count,
+        "online_graph_expected_issue_candidate_count": (
+            online_expected_issue_candidate_count
         ),
         "online_tensor_producer_passed": online.get("passed") is True,
         "online_contract_failures": online_contract_failures,

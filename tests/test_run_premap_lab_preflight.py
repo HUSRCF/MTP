@@ -3120,8 +3120,11 @@ def _payload_cache_online_native_producer_boundary_gap_payload() -> dict[str, ob
         "native_graph_replay_passed": True,
         "native_persistent_state_on_device": True,
         "native_issue_generation_on_device": True,
+        "native_packet_count": 8,
         "native_issue_candidate_count": 48,
         "native_expected_issue_candidate_count": 48,
+        "online_graph_expected_packet_count": 8,
+        "online_graph_expected_issue_candidate_count": 48,
         "online_tensor_producer_passed": False,
         "online_capture_once_per_layer_suspected": True,
         "online_replay_update_status": "capture_once_per_layer_no_replay_updates",
@@ -3192,6 +3195,53 @@ def test_payload_cache_online_native_producer_boundary_gap_evidence_rejects_extr
     assert "payload_cache_online_native_producer_boundary_gap_kernel_arg_pass_mismatch" in failures
     assert (
         "payload_cache_online_native_producer_boundary_gap_payload_transfer_enabled_unexpectedly_enabled"
+        in failures
+    )
+
+
+def test_payload_cache_online_native_producer_boundary_gap_evidence_rejects_scale_mismatch():
+    payload = _payload_cache_online_native_producer_boundary_gap_payload()
+    payload["online_graph_expected_packet_count"] = 2560
+    payload["online_graph_expected_issue_candidate_count"] = 20160
+
+    failures = _validate_payload_cache_online_native_producer_boundary_gap_evidence(
+        payload
+    )
+
+    assert (
+        "payload_cache_online_native_producer_boundary_gap_native_online_packet_count_mismatch"
+        in failures
+    )
+    assert (
+        "payload_cache_online_native_producer_boundary_gap_native_online_issue_candidate_count_mismatch"
+        in failures
+    )
+    assert (
+        "payload_cache_online_native_producer_boundary_gap_native_expected_online_issue_candidate_count_mismatch"
+        in failures
+    )
+
+
+def test_payload_cache_online_native_producer_boundary_gap_evidence_rejects_missing_scale_fields():
+    payload = _payload_cache_online_native_producer_boundary_gap_payload()
+    payload.pop("native_packet_count")
+    payload.pop("online_graph_expected_packet_count")
+    payload.pop("online_graph_expected_issue_candidate_count")
+
+    failures = _validate_payload_cache_online_native_producer_boundary_gap_evidence(
+        payload
+    )
+
+    assert (
+        "payload_cache_online_native_producer_boundary_gap_native_packet_count_invalid"
+        in failures
+    )
+    assert (
+        "payload_cache_online_native_producer_boundary_gap_online_graph_expected_packet_count_invalid"
+        in failures
+    )
+    assert (
+        "payload_cache_online_native_producer_boundary_gap_online_graph_expected_issue_candidate_count_invalid"
         in failures
     )
 

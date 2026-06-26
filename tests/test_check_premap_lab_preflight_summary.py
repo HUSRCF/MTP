@@ -588,6 +588,16 @@ def _summary() -> dict[str, object]:
         "default_contract_passed": True,
         "default_required_evidence_passed": True,
         "default_optional_evidence_passed": True,
+        "payload_cache_online_native_producer_boundary_gap_required": True,
+        "payload_cache_online_native_producer_boundary_gap_acknowledged": True,
+        "payload_cache_online_native_producer_boundary_gap_ready_for_lab_runtime_gate": (
+            False
+        ),
+        "payload_cache_online_native_producer_boundary_gap_runtime_passed": False,
+        "payload_cache_online_native_producer_boundary_gap_lab_gate_passed": False,
+        "payload_cache_online_native_producer_boundary_gap_next_required_boundary": (
+            "inprocess_vllm_replay_visible_native_producer_op"
+        ),
         "default_kernel_consumer_schema_passed": True,
         "default_kernel_consumer_schema_row_field_names": [
             "descriptor_ptr",
@@ -5025,6 +5035,49 @@ def test_check_premap_lab_preflight_summary_accepts_valid_summary() -> None:
     assert result["online_merged_device"] == 1
     assert result["expected_online_merged_device"] == 1
     assert result["online_merged_mirror_field"] == "scale_metadata_handle"
+
+
+def test_check_premap_lab_preflight_summary_accepts_missing_optional_evidence() -> None:
+    summary = _summary()
+    summary["optional_evidence"]["required_count"] = 15
+    summary["optional_evidence"]["present_count"] = 13
+    summary["optional_evidence"]["passed_count"] = 13
+
+    result = check_premap_lab_preflight_summary(summary)
+
+    assert result["passed"] is True
+    assert "optional_evidence_present_count_mismatch" not in result["failures"]
+    assert "optional_evidence_passed_count_mismatch" not in result["failures"]
+
+
+def test_check_premap_lab_preflight_summary_rejects_failed_present_optional_evidence() -> None:
+    summary = _summary()
+    summary["optional_evidence"]["required_count"] = 15
+    summary["optional_evidence"]["present_count"] = 13
+    summary["optional_evidence"]["passed_count"] = 12
+
+    result = check_premap_lab_preflight_summary(summary)
+
+    assert result["passed"] is False
+    assert "optional_evidence_passed_count_mismatch" in result["failures"]
+
+
+def test_check_premap_lab_preflight_summary_rejects_boundary_gap_runtime_pass() -> None:
+    summary = _summary()
+    summary["payload_cache_online_native_producer_boundary_gap_runtime_passed"] = True
+    summary["payload_cache_online_native_producer_boundary_gap_lab_gate_passed"] = True
+
+    result = check_premap_lab_preflight_summary(summary)
+
+    assert result["passed"] is False
+    assert (
+        "payload_cache_online_native_producer_boundary_gap_runtime_passed_mismatch"
+        in result["failures"]
+    )
+    assert (
+        "payload_cache_online_native_producer_boundary_gap_lab_gate_passed_mismatch"
+        in result["failures"]
+    )
 
 
 def test_check_premap_lab_preflight_summary_accepts_queue_budget_early_first_lead() -> None:

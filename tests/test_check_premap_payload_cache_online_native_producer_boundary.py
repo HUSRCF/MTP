@@ -50,6 +50,8 @@ def _online_capture_only() -> dict[str, object]:
         ),
         "embedded_inside_graph_boundary_contract_passed": False,
         "contract_boundary": "online_inside_graph_tensor_producer",
+        "graph_expected_packet_count": 8,
+        "graph_expected_issue_candidate_count": 48,
         "transition_state_on_device": True,
         "issue_generation_on_device": True,
         "python_transition_skipped": True,
@@ -91,6 +93,9 @@ def test_online_native_producer_boundary_gap_accepts_expected_gap(tmp_path):
     assert payload["runtime_passed"] is False
     assert payload["lab_gate_passed"] is False
     assert payload["native_graph_replay_passed"] is True
+    assert payload["native_packet_count"] == 8
+    assert payload["online_graph_expected_packet_count"] == 8
+    assert payload["online_graph_expected_issue_candidate_count"] == 48
     assert payload["online_tensor_producer_passed"] is False
     assert payload["online_capture_once_per_layer_suspected"] is True
     assert payload["payload_bytes"] == 0
@@ -264,3 +269,26 @@ def test_online_native_producer_boundary_gap_rejects_missing_native_kernel_arg_a
 
     assert payload["passed"] is False
     assert "native_kernel_arg_pass_allowed_mismatch" in payload["failures"]
+
+
+def test_online_native_producer_boundary_gap_rejects_scale_mismatch(tmp_path):
+    native_path = tmp_path / "native.json"
+    online_path = tmp_path / "online.failed.json"
+    online = _online_capture_only()
+    online["graph_expected_packet_count"] = 2560
+    online["graph_expected_issue_candidate_count"] = 20160
+    native_path.write_text(json.dumps(_native_passed()), encoding="utf-8")
+    online_path.write_text(json.dumps(online), encoding="utf-8")
+
+    payload = checker.check_boundary_gap(
+        native_graph_replay_json=native_path,
+        online_inside_graph_contract_json=online_path,
+    )
+
+    assert payload["passed"] is False
+    assert "native_online_packet_count_mismatch" in payload["failures"]
+    assert "native_online_issue_candidate_count_mismatch" in payload["failures"]
+    assert (
+        "native_expected_online_issue_candidate_count_mismatch"
+        in payload["failures"]
+    )

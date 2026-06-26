@@ -7785,6 +7785,16 @@ def check_premap_lab_preflight_summary(
         "passed": True,
         "default_contract_passed": True,
         "prefetch_lab_default_gate_passed": True,
+        "payload_cache_online_native_producer_boundary_gap_required": True,
+        "payload_cache_online_native_producer_boundary_gap_acknowledged": True,
+        "payload_cache_online_native_producer_boundary_gap_ready_for_lab_runtime_gate": (
+            False
+        ),
+        "payload_cache_online_native_producer_boundary_gap_runtime_passed": False,
+        "payload_cache_online_native_producer_boundary_gap_lab_gate_passed": False,
+        "payload_cache_online_native_producer_boundary_gap_next_required_boundary": (
+            "inprocess_vllm_replay_visible_native_producer_op"
+        ),
         "prefetch_lab_default_gate_decision_status": "passed",
         "prefetch_lab_default_full_fetch_decision": (
             "blocked_by_ready_time_measured_copy"
@@ -9149,9 +9159,21 @@ def check_premap_lab_preflight_summary(
         passed_count = _int_metric(optional, "passed_count")
         if required_count is None or required_count <= 0:
             failures.append("optional_evidence_required_count_invalid")
-        if required_count is not None and present_count != required_count:
+        if present_count is None or present_count < 0:
+            failures.append("optional_evidence_present_count_invalid")
+        if passed_count is None or passed_count < 0:
+            failures.append("optional_evidence_passed_count_invalid")
+        if (
+            required_count is not None
+            and present_count is not None
+            and present_count > required_count
+        ):
             failures.append("optional_evidence_present_count_mismatch")
-        if required_count is not None and passed_count != required_count:
+        if (
+            present_count is not None
+            and passed_count is not None
+            and passed_count != present_count
+        ):
             failures.append("optional_evidence_passed_count_mismatch")
 
     return {
