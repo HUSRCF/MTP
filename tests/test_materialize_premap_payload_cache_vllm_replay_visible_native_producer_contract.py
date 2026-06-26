@@ -50,6 +50,7 @@ def _valid_contract() -> dict[str, object]:
         "expected_packet_count": 2560,
         "issue_candidate_count": 20160,
         "expected_issue_candidate_count": 20160,
+        "expected_issue_candidate_count_source": "graph_visible_producer_contract",
         "producer_update_count": 2560,
         "replay_visible_update_count": 2560,
         "current_expert_ptr_source_kind": "vllm_prelaunch_device_tensor",
@@ -230,14 +231,9 @@ def test_materializer_extracts_count_ptr_readiness_surface_for_checker() -> None
     assert checked["passed"] is True
     assert checked["ready_for_future_count_ptr_native_session"] is True
 
-    legacy_checked = checker.check_contract(result)
-    assert legacy_checked["passed"] is False
-    assert "prelaunch_abi_ready_count_invalid" in legacy_checked["failures"]
-    assert "prelaunch_abi_blocked_count_mismatch" in legacy_checked["failures"]
-    assert (
-        "prelaunch_native_session_update_v1_abi_ready_mismatch"
-        in legacy_checked["failures"]
-    )
+    native_checked = checker.check_contract(result)
+    assert native_checked["passed"] is True
+    assert native_checked["ready_for_payload_cache_runtime_lab_gate"] is True
 
 
 def test_materializer_reports_missing_prefixed_surface(tmp_path: Path) -> None:

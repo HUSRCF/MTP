@@ -34,6 +34,10 @@ REQUIRED_SHA_FIELDS = [
     "default_kernel_consumer_arg_slot_standalone_evidence_sha256",
     "default_kernel_consumer_wna16_side_variant_evidence_sha256",
 ]
+EXPECTED_REQUIRED_EVIDENCE_COUNT = 66
+VLLM_REPLAY_VISIBLE_NATIVE_PRODUCER_REQUIRED_LABEL = (
+    "payload_cache_vllm_replay_visible_native_producer_contract_json"
+)
 REQUIRED_LAYOUT_CHECKS = {
     "default_kernel_consumer_kernel_arg_packet_layout_reported": True,
     "default_kernel_consumer_kernel_entry_summary_layout_reported": True,
@@ -7795,6 +7799,25 @@ def check_premap_lab_preflight_summary(
         "payload_cache_online_native_producer_boundary_gap_next_required_boundary": (
             "inprocess_vllm_replay_visible_native_producer_op"
         ),
+        "payload_cache_vllm_replay_visible_native_producer_required": True,
+        "payload_cache_vllm_replay_visible_native_producer_present": True,
+        "payload_cache_vllm_replay_visible_native_producer_passed": True,
+        "payload_cache_vllm_replay_visible_native_producer_ready_for_lab_gate": True,
+        "payload_cache_vllm_replay_visible_native_producer_source_kind": (
+            "vllm_prelaunch_inprocess_native_producer"
+        ),
+        "payload_cache_vllm_replay_visible_native_producer_contract_boundary": (
+            "inprocess_vllm_replay_visible_native_producer_op"
+        ),
+        "payload_cache_vllm_replay_visible_native_producer_prelaunch_callable_native_session": (
+            True
+        ),
+        "payload_cache_vllm_replay_visible_native_producer_payload_bytes": 0,
+        "payload_cache_vllm_replay_visible_native_producer_kernel_arg_pass": False,
+        "payload_cache_vllm_replay_visible_native_producer_passed_to_kernel": False,
+        "payload_cache_vllm_replay_visible_native_producer_changes_kernel_launch_args": (
+            False
+        ),
         "prefetch_lab_default_gate_decision_status": "passed",
         "prefetch_lab_default_full_fetch_decision": (
             "blocked_by_ready_time_measured_copy"
@@ -9132,6 +9155,14 @@ def check_premap_lab_preflight_summary(
         if summary.get(key) != expected:
             failures.append(f"{key}_mismatch")
 
+    for key in (
+        "payload_cache_vllm_replay_visible_native_producer_packet_count",
+        "payload_cache_vllm_replay_visible_native_producer_issue_candidate_count",
+    ):
+        value = _int_metric(summary, key)
+        if value is None or value <= 0:
+            failures.append(f"{key}_invalid")
+
     for key in REQUIRED_SHA_FIELDS:
         if not _is_hex64(summary.get(key)):
             failures.append(f"{key}_invalid")
@@ -9145,10 +9176,20 @@ def check_premap_lab_preflight_summary(
         passed_count = _int_metric(required, "passed_count")
         if required_count is None or required_count <= 0:
             failures.append("required_evidence_required_count_invalid")
+        elif required_count != EXPECTED_REQUIRED_EVIDENCE_COUNT:
+            failures.append("required_evidence_required_count_mismatch")
         if required_count is not None and present_count != required_count:
             failures.append("required_evidence_present_count_mismatch")
         if required_count is not None and passed_count != required_count:
             failures.append("required_evidence_passed_count_mismatch")
+        evidence_map = required.get("evidence")
+        if not isinstance(evidence_map, dict):
+            failures.append("required_evidence_map_missing")
+        elif VLLM_REPLAY_VISIBLE_NATIVE_PRODUCER_REQUIRED_LABEL not in evidence_map:
+            failures.append(
+                "required_evidence_"
+                f"{VLLM_REPLAY_VISIBLE_NATIVE_PRODUCER_REQUIRED_LABEL}_missing"
+            )
 
     optional = summary.get("optional_evidence")
     if not isinstance(optional, dict):

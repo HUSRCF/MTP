@@ -42,6 +42,12 @@ SAFETY_FALSE_FIELDS = (
     "measures_tpot",
     "measures_vllm_latency",
 )
+UNEXPECTED_RUNTIME_PASS_FIELDS = (
+    "runtime_ready",
+    "runtime_passed",
+    "lab_gate_passed",
+    "ready_for_payload_cache_runtime",
+)
 
 
 def _load_json(path: Path) -> dict[str, Any]:
@@ -116,6 +122,10 @@ def check_contract(payload: dict[str, Any]) -> dict[str, Any]:
     for key in SAFETY_FALSE_FIELDS:
         if payload.get(key) is not False:
             failures.append(f"{key}_not_false")
+    for key in UNEXPECTED_RUNTIME_PASS_FIELDS:
+        value = payload.get(key)
+        if value is not None and value is not False:
+            failures.append(f"{key}_unexpectedly_true")
     if expected_packet_count is None or expected_packet_count <= 0:
         failures.append("expected_packet_count_invalid")
     if prelaunch_probe_count is None or prelaunch_probe_count <= 0:

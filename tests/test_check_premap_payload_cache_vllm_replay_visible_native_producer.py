@@ -27,6 +27,7 @@ def _payload() -> dict[str, object]:
         "expected_packet_count": 2560,
         "issue_candidate_count": 20160,
         "expected_issue_candidate_count": 20160,
+        "expected_issue_candidate_count_source": "graph_visible_producer_contract",
         "producer_update_count": 2560,
         "replay_visible_update_count": 2560,
         "prelaunch_probe_count": 2560,
@@ -74,6 +75,86 @@ def test_vllm_replay_visible_native_producer_accepts_valid_contract():
     assert result["payload_bytes"] == 0
     assert result["kernel_arg_pass"] is False
     assert result["passed_to_kernel"] is False
+
+
+def test_vllm_replay_visible_native_producer_accepts_count_ptr_contract():
+    payload = _payload()
+    payload["prelaunch_abi_ready_count"] = 0
+    payload["prelaunch_abi_blocked_count"] = 2560
+    payload["prelaunch_current_count_host_scalar_available_count"] = 0
+    payload["prelaunch_current_count_device_tensor_count"] = 2560
+    payload["prelaunch_current_count_device_scalar_int32_count"] = 2560
+    payload["prelaunch_native_session_update_v1_abi_ready"] = False
+    payload["prelaunch_native_session_update_count_ptr_v1_abi_ready_count"] = 2560
+    payload["prelaunch_native_session_update_count_ptr_v1_abi_blocked_count"] = 0
+    payload["prelaunch_native_session_update_count_ptr_v1_abi_ready"] = True
+
+    result = checker.check_contract(payload)
+
+    assert result["passed"] is True
+    assert result["ready_for_payload_cache_runtime_lab_gate"] is True
+
+
+def test_vllm_replay_visible_native_producer_rejects_missing_issue_count_source():
+    payload = _payload()
+    payload.pop("expected_issue_candidate_count_source")
+
+    result = checker.check_contract(payload)
+
+    assert result["passed"] is False
+    assert "expected_issue_candidate_count_source_mismatch" in result["failures"]
+
+
+def test_vllm_replay_visible_native_producer_accepts_independent_issue_denominator():
+    payload = _payload()
+    payload["expected_issue_candidate_count_source"] = (
+        "prelaunch_independent_previous_nonempty_issue_candidate_count"
+    )
+    payload["prelaunch_independent_previous_nonempty_packet_count"] = 2520
+    payload["prelaunch_independent_previous_nonempty_issue_candidate_count"] = 20160
+    payload["native_session_previous_nonempty_packet_count"] = 2520
+
+    result = checker.check_contract(payload)
+
+    assert result["passed"] is True
+    assert (
+        result["prelaunch_independent_previous_nonempty_packet_count"] == 2520
+    )
+    assert (
+        result["prelaunch_independent_previous_nonempty_issue_candidate_count"]
+        == 20160
+    )
+    assert result["native_session_previous_nonempty_packet_count"] == 2520
+
+
+def test_vllm_replay_visible_native_producer_rejects_independent_native_packet_mismatch():
+    payload = _payload()
+    payload["expected_issue_candidate_count_source"] = (
+        "prelaunch_independent_previous_nonempty_issue_candidate_count"
+    )
+    payload["prelaunch_independent_previous_nonempty_packet_count"] = 2520
+    payload["prelaunch_independent_previous_nonempty_issue_candidate_count"] = 20160
+    payload["native_session_previous_nonempty_packet_count"] = 99
+
+    result = checker.check_contract(payload)
+
+    assert result["passed"] is False
+    assert (
+        "native_session_previous_nonempty_packet_count_mismatch"
+        in result["failures"]
+    )
+
+
+def test_vllm_replay_visible_native_producer_keeps_legacy_independent_packet_source_compatible():
+    payload = _payload()
+    payload["expected_issue_candidate_count_source"] = (
+        "prelaunch_independent_previous_nonempty_packet_count"
+    )
+    payload["prelaunch_independent_previous_nonempty_packet_count"] = 2520
+
+    result = checker.check_contract(payload)
+
+    assert result["passed"] is True
 
 
 def test_vllm_replay_visible_native_producer_rejects_boundary_gap_artifact():
@@ -148,11 +229,7 @@ def test_vllm_replay_visible_native_producer_rejects_prelaunch_abi_blocker():
     result = checker.check_contract(payload)
 
     assert result["passed"] is False
-    assert "prelaunch_abi_ready_count_invalid" in result["failures"]
-    assert "prelaunch_abi_blocked_count_mismatch" in result["failures"]
-    assert "prelaunch_native_session_update_v1_abi_ready_mismatch" in result[
-        "failures"
-    ]
+    assert "prelaunch_native_session_update_abi_not_ready" in result["failures"]
 
 
 def test_vllm_replay_visible_native_producer_rejects_device_current_count():
@@ -162,9 +239,7 @@ def test_vllm_replay_visible_native_producer_rejects_device_current_count():
     result = checker.check_contract(payload)
 
     assert result["passed"] is False
-    assert "prelaunch_current_count_device_tensor_count_mismatch" in result[
-        "failures"
-    ]
+    assert "prelaunch_native_session_update_abi_not_ready" in result["failures"]
 
 
 def test_vllm_replay_visible_native_producer_rejects_wrong_source_kind():
@@ -193,3 +268,27 @@ def test_vllm_replay_visible_native_producer_rejects_numeric_bool_standins():
     assert "inprocess_native_op_mismatch" in result["failures"]
     assert "vllm_replay_visible_mismatch" in result["failures"]
     assert "native_graph_replay_mismatch" in result["failures"]
+
+
+def test_vllm_replay_visible_native_producer_rejects_extra_runtime_pass_claims():
+    payload = _payload()
+    payload["runtime_passed"] = True
+    payload["lab_gate_passed"] = 1
+    payload["ready_for_payload_cache_runtime"] = 0
+
+    result = checker.check_contract(payload)
+
+    assert result["passed"] is False
+    assert "runtime_passed_unexpectedly_true" in result["failures"]
+    assert "lab_gate_passed_unexpectedly_true" in result["failures"]
+    assert "ready_for_payload_cache_runtime_unexpectedly_true" in result["failures"]
+
+
+def test_vllm_replay_visible_native_producer_rejects_float_falsey_runtime_claim():
+    payload = _payload()
+    payload["runtime_ready"] = 0.0
+
+    result = checker.check_contract(payload)
+
+    assert result["passed"] is False
+    assert "runtime_ready_unexpectedly_true" in result["failures"]

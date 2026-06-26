@@ -37,6 +37,9 @@ from scripts.check_premap_payload_cache_vllm_replay_visible_count_ptr_readiness 
     CONTRACT_BOUNDARY as VLLM_REPLAY_VISIBLE_COUNT_PTR_READINESS_CONTRACT_BOUNDARY,
     CONTRACT_MODE as VLLM_REPLAY_VISIBLE_COUNT_PTR_READINESS_CONTRACT_MODE,
 )
+from scripts.check_premap_payload_cache_vllm_replay_visible_native_producer import (
+    check_contract as check_vllm_replay_visible_native_producer_contract,
+)
 from scripts.check_premap_payload_cache_packet_stream_native_canary import (
     check_packet_stream_native_canary,
 )
@@ -347,6 +350,7 @@ REQUIRED_DEFAULT_GATE_EVIDENCE_JSON_LABELS = {
     "payload_cache_producer_state_packet_stream_native_canary_check_json",
     "payload_cache_producer_state_inprocess_native_session_online_contract_json",
     "payload_cache_online_native_producer_boundary_gap_json",
+    "payload_cache_vllm_replay_visible_native_producer_contract_json",
     "payload_cache_vllm_replay_visible_count_ptr_readiness_json",
     "future_kernel_native_dispatch_consumer_online_artifact_check_32_128export_json",
     "future_kernel_native_dispatch_consumer_online_runner_32_128export_json",
@@ -5696,6 +5700,7 @@ def _validate_required_evidence_payload(
         "payload_cache_producer_state_stream_online_contract_json",
         "payload_cache_online_inside_graph_producer_boundary_contract_json",
         "payload_cache_online_native_producer_boundary_gap_json",
+        "payload_cache_vllm_replay_visible_native_producer_contract_json",
         "payload_cache_vllm_replay_visible_count_ptr_readiness_json",
         "payload_cache_stream_producer_production_ab_bridge_json",
         "payload_cache_stream_producer_production_ab_bridge_check_json",
@@ -5725,6 +5730,16 @@ def _validate_required_evidence_payload(
         return [
             f"{evidence_label}:{failure}"
             for failure in _validate_payload_cache_vllm_replay_visible_count_ptr_readiness_evidence(
+                evidence
+            )
+        ]
+    if (
+        evidence_label
+        == "payload_cache_vllm_replay_visible_native_producer_contract_json"
+    ):
+        return [
+            f"{evidence_label}:{failure}"
+            for failure in _validate_payload_cache_vllm_replay_visible_native_producer_evidence(
                 evidence
             )
         ]
@@ -12089,9 +12104,20 @@ def _validate_payload_cache_vllm_replay_visible_count_ptr_readiness_evidence(
         "lab_gate_passed",
         "ready_for_payload_cache_runtime",
     ):
-        if payload.get(key) is True:
+        value = payload.get(key)
+        if value is not None and value is not False:
             failures.append(f"{key}_unexpectedly_true")
     return failures
+
+
+def _validate_payload_cache_vllm_replay_visible_native_producer_evidence(
+    payload: dict[str, Any],
+    *,
+    failure_prefix: str = "payload_cache_vllm_replay_visible_native_producer_contract",
+) -> list[str]:
+    check = check_vllm_replay_visible_native_producer_contract(payload)
+    failures = list(check.get("failures") or [])
+    return [f"{failure_prefix}_{failure}" for failure in failures]
 
 
 def _validate_payload_cache_producer_state_inprocess_native_session_online_contract_evidence(
@@ -15393,6 +15419,23 @@ def run_premap_lab_preflight(
         default_gate_required_evidence_check,
         online_native_producer_boundary_gap_label,
         root=root,
+    )
+    vllm_replay_visible_native_producer_label = (
+        "payload_cache_vllm_replay_visible_native_producer_contract_json"
+    )
+    vllm_replay_visible_native_producer_row = _find_evidence_row(
+        default_gate_required_evidence_check,
+        vllm_replay_visible_native_producer_label,
+    )
+    vllm_replay_visible_native_producer_passed = _evidence_row_passed(
+        vllm_replay_visible_native_producer_row
+    )
+    vllm_replay_visible_native_producer_payload = (
+        _load_evidence_payload_from_check(
+            default_gate_required_evidence_check,
+            vllm_replay_visible_native_producer_label,
+            root=root,
+        )
     )
     dispatch_runner_evidence_label = (
         "future_kernel_native_dispatch_consumer_online_runner_32_128export_json"
@@ -25044,6 +25087,52 @@ def run_premap_lab_preflight(
         ),
         "payload_cache_online_native_producer_boundary_gap_next_required_boundary": (
             online_native_producer_boundary_gap_payload.get("next_required_boundary")
+        ),
+        "payload_cache_vllm_replay_visible_native_producer_required": True,
+        "payload_cache_vllm_replay_visible_native_producer_present": (
+            vllm_replay_visible_native_producer_row.get("exists") is True
+        ),
+        "payload_cache_vllm_replay_visible_native_producer_passed": bool(
+            vllm_replay_visible_native_producer_passed
+        ),
+        "payload_cache_vllm_replay_visible_native_producer_ready_for_lab_gate": (
+            vllm_replay_visible_native_producer_payload.get(
+                "ready_for_payload_cache_runtime_lab_gate"
+            )
+        ),
+        "payload_cache_vllm_replay_visible_native_producer_source_kind": (
+            vllm_replay_visible_native_producer_payload.get("source_kind")
+        ),
+        "payload_cache_vllm_replay_visible_native_producer_contract_boundary": (
+            vllm_replay_visible_native_producer_payload.get("contract_boundary")
+        ),
+        "payload_cache_vllm_replay_visible_native_producer_packet_count": (
+            _int_metric(vllm_replay_visible_native_producer_payload, "packet_count")
+        ),
+        "payload_cache_vllm_replay_visible_native_producer_issue_candidate_count": (
+            _int_metric(
+                vllm_replay_visible_native_producer_payload,
+                "issue_candidate_count",
+            )
+        ),
+        "payload_cache_vllm_replay_visible_native_producer_prelaunch_callable_native_session": (
+            vllm_replay_visible_native_producer_payload.get(
+                "prelaunch_callable_native_session"
+            )
+        ),
+        "payload_cache_vllm_replay_visible_native_producer_payload_bytes": (
+            _int_metric(vllm_replay_visible_native_producer_payload, "payload_bytes")
+        ),
+        "payload_cache_vllm_replay_visible_native_producer_kernel_arg_pass": (
+            vllm_replay_visible_native_producer_payload.get("kernel_arg_pass")
+        ),
+        "payload_cache_vllm_replay_visible_native_producer_passed_to_kernel": (
+            vllm_replay_visible_native_producer_payload.get("passed_to_kernel")
+        ),
+        "payload_cache_vllm_replay_visible_native_producer_changes_kernel_launch_args": (
+            vllm_replay_visible_native_producer_payload.get(
+                "changes_kernel_launch_args"
+            )
         ),
         "deferred_online_prelaunch_runner_evidence": bool(
             defer_online_prelaunch_runner_evidence

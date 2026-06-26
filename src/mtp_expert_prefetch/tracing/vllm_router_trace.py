@@ -3133,6 +3133,15 @@ def _add_premap_payload_cache_vllm_replay_visible_native_producer_contract_to_pe
     native_session_issue_candidate_count = int(
         recorder._premap_payload_cache_vllm_replay_visible_native_session_issue_candidate_count
     )
+    native_session_previous_nonempty_packet_count = int(
+        recorder._premap_payload_cache_vllm_replay_visible_native_session_previous_nonempty_packet_count
+    )
+    prelaunch_independent_previous_nonempty_packet_count = int(
+        recorder._premap_payload_cache_vllm_replay_visible_prelaunch_previous_nonempty_packet_count
+    )
+    prelaunch_independent_previous_nonempty_issue_candidate_count = int(
+        recorder._premap_payload_cache_vllm_replay_visible_prelaunch_previous_nonempty_issue_candidate_count
+    )
     native_session_ready_update_count = int(
         recorder._premap_payload_cache_vllm_replay_visible_native_session_ready_update_count
     )
@@ -3183,6 +3192,22 @@ def _add_premap_payload_cache_vllm_replay_visible_native_producer_contract_to_pe
         # pass: present/passed and update counts remain fail-closed below.
         expected_packet_count = prelaunch_probe_count
         expected_packet_count_source = "prelaunch_probe_count"
+    expected_issue_candidate_count_source = (
+        "graph_visible_producer_contract"
+        if expected_issue_candidate_count > 0
+        else "missing"
+    )
+    if expected_issue_candidate_count <= 0 and expected_packet_count > 0:
+        expected_issue_candidate_count = int(
+            prelaunch_independent_previous_nonempty_issue_candidate_count
+        )
+        expected_issue_candidate_count_source = (
+            "prelaunch_independent_previous_nonempty_issue_candidate_count"
+        )
+    independent_issue_fallback = (
+        expected_issue_candidate_count_source
+        == "prelaunch_independent_previous_nonempty_issue_candidate_count"
+    )
     legacy_abi_ready = bool(
         source_present
         and prelaunch_probe_count == expected_packet_count
@@ -3190,6 +3215,14 @@ def _add_premap_payload_cache_vllm_replay_visible_native_producer_contract_to_pe
         and prelaunch_abi_blocked_count == 0
         and expected_packet_count > 0
     )
+    count_ptr_abi_ready = bool(
+        source_present
+        and prelaunch_probe_count == expected_packet_count
+        and prelaunch_count_ptr_ready_count == expected_packet_count
+        and prelaunch_count_ptr_blocked_count == 0
+        and expected_packet_count > 0
+    )
+    native_session_update_abi_ready = bool(legacy_abi_ready or count_ptr_abi_ready)
     python_transition_skipped = bool(
         recorder.shadow_premap_payload_cache_graph_visible_producer_skip_python_transition
     )
@@ -3198,12 +3231,17 @@ def _add_premap_payload_cache_vllm_replay_visible_native_producer_contract_to_pe
         enabled
         and native_session_enabled
         and source_present
-        and legacy_abi_ready
+        and native_session_update_abi_ready
         and python_transition_skipped
         and expected_packet_count > 0
         and native_session_update_count == expected_packet_count
         and native_session_packet_count == expected_packet_count
         and native_session_issue_candidate_count == expected_issue_candidate_count
+        and (
+            not independent_issue_fallback
+            or native_session_previous_nonempty_packet_count
+            == prelaunch_independent_previous_nonempty_packet_count
+        )
         and native_session_ready_update_count == expected_packet_count
         and native_session_result_abi_ready_count == expected_packet_count
         and native_session_result_passed_count == expected_packet_count
@@ -3257,6 +3295,14 @@ def _add_premap_payload_cache_vllm_replay_visible_native_producer_contract_to_pe
                 failures.append("native_session_packet_count_mismatch")
             if native_session_issue_candidate_count != expected_issue_candidate_count:
                 failures.append("native_session_issue_candidate_count_mismatch")
+            if (
+                independent_issue_fallback
+                and native_session_previous_nonempty_packet_count
+                != prelaunch_independent_previous_nonempty_packet_count
+            ):
+                failures.append(
+                    "native_session_previous_nonempty_packet_count_mismatch"
+                )
             if native_session_ready_update_count != expected_packet_count:
                 failures.append("native_session_ready_update_count_mismatch")
             if native_session_result_abi_ready_count != expected_packet_count:
@@ -3292,8 +3338,8 @@ def _add_premap_payload_cache_vllm_replay_visible_native_producer_contract_to_pe
                 failures.append("native_session_update_failed")
             if not python_transition_skipped:
                 failures.append("python_transition_not_skipped")
-        if source_present and not legacy_abi_ready:
-            failures.append("native_session_update_v1_abi_not_ready")
+        if source_present and not native_session_update_abi_ready:
+            failures.append("native_session_update_abi_not_ready")
 
     performance[f"{contract_prefix}enabled"] = bool(enabled)
     performance[f"{contract_prefix}present"] = bool(native_session_present)
@@ -3343,6 +3389,9 @@ def _add_premap_payload_cache_vllm_replay_visible_native_producer_contract_to_pe
     performance[f"{contract_prefix}expected_issue_candidate_count"] = int(
         expected_issue_candidate_count
     )
+    performance[f"{contract_prefix}expected_issue_candidate_count_source"] = (
+        expected_issue_candidate_count_source
+    )
     performance[f"{contract_prefix}producer_update_count"] = int(
         native_session_update_count
     )
@@ -3363,6 +3412,12 @@ def _add_premap_payload_cache_vllm_replay_visible_native_producer_contract_to_pe
         if prelaunch_probe_summary_run_sample_count is None
         else int(prelaunch_probe_summary_run_sample_count)
     )
+    performance[
+        f"{contract_prefix}prelaunch_independent_previous_nonempty_packet_count"
+    ] = int(prelaunch_independent_previous_nonempty_packet_count)
+    performance[
+        f"{contract_prefix}prelaunch_independent_previous_nonempty_issue_candidate_count"
+    ] = int(prelaunch_independent_previous_nonempty_issue_candidate_count)
     performance[f"{contract_prefix}prelaunch_abi_ready_count"] = int(
         prelaunch_abi_ready_count
     )
@@ -4824,6 +4879,27 @@ class VllmRouterRecorder:
     _premap_payload_cache_vllm_replay_visible_prelaunch_last_current_count_source_kind: (
         str | None
     ) = field(default=None, init=False, repr=False)
+    _premap_payload_cache_vllm_replay_visible_prelaunch_seen_layers: set[int] = field(
+        default_factory=set,
+        init=False,
+        repr=False,
+    )
+    _premap_payload_cache_vllm_replay_visible_prelaunch_previous_current_count_by_layer: dict[
+        int, int
+    ] = field(default_factory=dict, init=False, repr=False)
+    _premap_payload_cache_vllm_replay_visible_prelaunch_issue_state_key: (
+        tuple[str, int, int, int] | None
+    ) = field(default=None, init=False, repr=False)
+    _premap_payload_cache_vllm_replay_visible_prelaunch_previous_nonempty_packet_count: int = field(
+        default=0,
+        init=False,
+        repr=False,
+    )
+    _premap_payload_cache_vllm_replay_visible_prelaunch_previous_nonempty_issue_candidate_count: int = field(
+        default=0,
+        init=False,
+        repr=False,
+    )
     _premap_payload_cache_vllm_replay_visible_native_session_state: dict[str, Any] = field(
         default_factory=dict,
         init=False,
@@ -5270,6 +5346,17 @@ class VllmRouterRecorder:
         self._premap_payload_cache_vllm_replay_visible_prelaunch_last_block_size = 0
         self._premap_payload_cache_vllm_replay_visible_prelaunch_last_current_count_source_kind = (
             None
+        )
+        self._premap_payload_cache_vllm_replay_visible_prelaunch_seen_layers.clear()
+        self._premap_payload_cache_vllm_replay_visible_prelaunch_previous_current_count_by_layer.clear()
+        self._premap_payload_cache_vllm_replay_visible_prelaunch_issue_state_key = (
+            None
+        )
+        self._premap_payload_cache_vllm_replay_visible_prelaunch_previous_nonempty_packet_count = (
+            0
+        )
+        self._premap_payload_cache_vllm_replay_visible_prelaunch_previous_nonempty_issue_candidate_count = (
+            0
         )
         self._destroy_premap_payload_cache_vllm_native_session()
         self._premap_payload_cache_vllm_replay_visible_native_session_update_count = 0
@@ -7983,6 +8070,7 @@ class VllmRouterRecorder:
         self,
         *,
         available: bool,
+        layer_id: int,
         expert_ids: torch.Tensor | None,
         num_tokens_post_padded: torch.Tensor | None,
         block_size: int,
@@ -8003,8 +8091,9 @@ class VllmRouterRecorder:
             return
 
         self._premap_payload_cache_vllm_replay_visible_prelaunch_probe_count += 1
+        block_size_int = max(1, int(block_size))
         self._premap_payload_cache_vllm_replay_visible_prelaunch_last_block_size = (
-            max(1, int(block_size))
+            block_size_int
         )
 
         failures: list[str] = []
@@ -8073,6 +8162,7 @@ class VllmRouterRecorder:
             torch.int64,
             torch.uint8,
         }
+        shadow_current_count: int | None = None
         if not isinstance(num_tokens_post_padded, torch.Tensor):
             current_count_source_kind = "missing"
             failures.append("current_count_tensor_missing")
@@ -8121,9 +8211,77 @@ class VllmRouterRecorder:
                     self._premap_payload_cache_vllm_replay_visible_prelaunch_current_count_host_scalar_available_count += (
                         1
                     )
+            if (
+                isinstance(expert_ids, torch.Tensor)
+                and int(expert_ids.ndim) == 1
+                and int(expert_ids.numel()) > 0
+                and int(num_tokens_post_padded.numel()) == 1
+                and num_tokens_post_padded.dtype in integer_dtypes
+            ):
+                try:
+                    raw_padded = int(
+                        num_tokens_post_padded.detach().reshape(-1)[0].cpu().item()
+                    )
+                    shadow_current_count = min(
+                        int(expert_ids.numel()),
+                        max(0, (int(raw_padded) + block_size_int - 1) // block_size_int),
+                    )
+                except Exception:  # pragma: no cover - best-effort shadow metric
+                    shadow_current_count = None
         self._premap_payload_cache_vllm_replay_visible_prelaunch_last_current_count_source_kind = (
             current_count_source_kind
         )
+
+        if (
+            bool(available)
+            and isinstance(expert_ids, torch.Tensor)
+            and int(expert_ids.ndim) == 1
+            and int(expert_ids.numel()) > 0
+            and shadow_current_count is not None
+            and int(shadow_current_count) >= 0
+        ):
+            layer_int = int(layer_id)
+            transition_topk_count = int(
+                self.shadow_transition_topk_count
+                if self.shadow_transition_topk_count is not None
+                else 0
+            )
+            issue_state_key = (
+                str(expert_ids.device),
+                max(1024, layer_int + 1),
+                int(expert_ids.numel()),
+                int(transition_topk_count),
+            )
+            seen_layers = (
+                self._premap_payload_cache_vllm_replay_visible_prelaunch_seen_layers
+            )
+            previous_count_by_layer = (
+                self._premap_payload_cache_vllm_replay_visible_prelaunch_previous_current_count_by_layer
+            )
+            if (
+                self._premap_payload_cache_vllm_replay_visible_prelaunch_issue_state_key
+                != issue_state_key
+            ):
+                seen_layers.clear()
+                previous_count_by_layer.clear()
+                self._premap_payload_cache_vllm_replay_visible_prelaunch_issue_state_key = (
+                    issue_state_key
+                )
+            previous_count = int(previous_count_by_layer.get(layer_int, 0) or 0)
+            if previous_count > 0:
+                self._premap_payload_cache_vllm_replay_visible_prelaunch_previous_nonempty_packet_count += (
+                    1
+                )
+                issue_per_packet = (
+                    min(previous_count, transition_topk_count)
+                    if transition_topk_count > 0
+                    else previous_count
+                )
+                self._premap_payload_cache_vllm_replay_visible_prelaunch_previous_nonempty_issue_candidate_count += (
+                    int(issue_per_packet)
+                )
+            seen_layers.add(layer_int)
+            previous_count_by_layer[layer_int] = int(shadow_current_count)
 
         if not count_ptr_failures:
             self._premap_payload_cache_vllm_replay_visible_prelaunch_count_ptr_abi_ready_count += (
@@ -8237,6 +8395,22 @@ class VllmRouterRecorder:
                 ctypes.POINTER(_PremapPayloadCacheNativeSessionUpdateResultV1),
             ]
             update.restype = ctypes.c_int
+            try:
+                update_count_ptr = (
+                    lib.premap_payload_cache_inprocess_producer_session_update_count_ptr_v1
+                )
+            except AttributeError:
+                update_count_ptr = None
+            else:
+                update_count_ptr.argtypes = [
+                    ctypes.c_uint64,
+                    ctypes.c_uint32,
+                    ctypes.c_void_p,
+                    ctypes.c_void_p,
+                    ctypes.c_uint32,
+                    ctypes.POINTER(_PremapPayloadCacheNativeSessionUpdateResultV1),
+                ]
+                update_count_ptr.restype = ctypes.c_int
             destroy = lib.premap_payload_cache_inprocess_producer_session_destroy_v1
             destroy.argtypes = [ctypes.c_uint64]
             destroy.restype = ctypes.c_int
@@ -8270,6 +8444,7 @@ class VllmRouterRecorder:
                 "library": str(library_path.resolve()),
                 "lib": lib,
                 "update": update,
+                "update_count_ptr": update_count_ptr,
                 "destroy": destroy,
                 "handle": int(handle.value),
                 "layers": int(layers),
@@ -8329,11 +8504,49 @@ class VllmRouterRecorder:
                 "num_tokens_post_padded_missing"
             )
             return
-        if bool(num_tokens_post_padded.is_cuda):
+        if int(num_tokens_post_padded.numel()) != 1:
             self._premap_payload_cache_vllm_native_session_blocked(
-                "current_count_host_scalar_not_available"
+                "current_count_not_scalar"
             )
             return
+        block_size_int = max(1, int(block_size))
+        use_count_ptr = bool(num_tokens_post_padded.is_cuda)
+        current_count = 0
+        current_count_ptr = 0
+        count_ptr_tensor: torch.Tensor | None = None
+        if use_count_ptr:
+            if num_tokens_post_padded.device != expert_ids.device:
+                self._premap_payload_cache_vllm_native_session_blocked(
+                    "current_count_device_mismatch"
+                )
+                return
+            if num_tokens_post_padded.dtype != torch.int32:
+                self._premap_payload_cache_vllm_native_session_blocked(
+                    "current_count_device_scalar_not_int32"
+                )
+                return
+            try:
+                count_ptr_tensor = torch.div(
+                    num_tokens_post_padded + (block_size_int - 1),
+                    block_size_int,
+                    rounding_mode="floor",
+                )
+                count_ptr_tensor = torch.clamp(
+                    count_ptr_tensor,
+                    min=0,
+                    max=int(expert_ids.numel()),
+                ).contiguous()
+            except Exception as exc:  # pragma: no cover - defensive tensor boundary
+                self._premap_payload_cache_vllm_native_session_blocked(
+                    f"current_count_device_scalar_prepare_failed:{type(exc).__name__}"
+                )
+                return
+            current_count_ptr = int(count_ptr_tensor.data_ptr())
+            if current_count_ptr == 0:
+                self._premap_payload_cache_vllm_native_session_blocked(
+                    "current_count_device_scalar_ptr_zero"
+                )
+                return
         integer_dtypes = {
             torch.int8,
             torch.int16,
@@ -8341,33 +8554,30 @@ class VllmRouterRecorder:
             torch.int64,
             torch.uint8,
         }
-        if int(num_tokens_post_padded.numel()) != 1:
-            self._premap_payload_cache_vllm_native_session_blocked(
-                "current_count_not_scalar"
+        if not use_count_ptr:
+            if num_tokens_post_padded.dtype not in integer_dtypes:
+                self._premap_payload_cache_vllm_native_session_blocked(
+                    "current_count_dtype_not_integer"
+                )
+                return
+            try:
+                raw_padded = int(
+                    num_tokens_post_padded.detach().reshape(-1)[0].cpu().item()
+                )
+            except Exception as exc:  # pragma: no cover - defensive tensor boundary
+                self._premap_payload_cache_vllm_native_session_blocked(
+                    f"current_count_extract_failed:{type(exc).__name__}"
+                )
+                return
+            current_count = min(
+                int(expert_ids.numel()),
+                max(0, (int(raw_padded) + block_size_int - 1) // block_size_int),
             )
-            return
-        if num_tokens_post_padded.dtype not in integer_dtypes:
-            self._premap_payload_cache_vllm_native_session_blocked(
-                "current_count_dtype_not_integer"
-            )
-            return
-        try:
-            raw_padded = int(num_tokens_post_padded.detach().reshape(-1)[0].cpu().item())
-        except Exception as exc:  # pragma: no cover - defensive tensor boundary
-            self._premap_payload_cache_vllm_native_session_blocked(
-                f"current_count_extract_failed:{type(exc).__name__}"
-            )
-            return
-        block_size_int = max(1, int(block_size))
-        current_count = min(
-            int(expert_ids.numel()),
-            max(0, (int(raw_padded) + block_size_int - 1) // block_size_int),
-        )
-        if current_count <= 0:
-            self._premap_payload_cache_vllm_native_session_blocked(
-                "current_count_nonpositive"
-            )
-            return
+            if current_count <= 0:
+                self._premap_payload_cache_vllm_native_session_blocked(
+                    "current_count_nonpositive"
+                )
+                return
         device_index = expert_ids.device.index
         state, blocked = self._ensure_premap_payload_cache_vllm_native_session(
             layer_id=int(layer_id),
@@ -8380,30 +8590,49 @@ class VllmRouterRecorder:
             )
             return
         update = state.get("update")
+        update_count_ptr = state.get("update_count_ptr")
         handle = int(state.get("handle", 0) or 0)
         if update is None or handle == 0:
             self._premap_payload_cache_vllm_native_session_blocked(
                 "native_session_update_function_missing"
             )
             return
+        if use_count_ptr and update_count_ptr is None:
+            self._premap_payload_cache_vllm_native_session_blocked(
+                "native_session_update_count_ptr_function_missing"
+            )
+            return
         result = _PremapPayloadCacheNativeSessionUpdateResultV1()
         try:
-            native_returncode = int(
-                update(
-                    ctypes.c_uint64(handle),
-                    ctypes.c_uint32(int(layer_id)),
-                    ctypes.c_void_p(int(expert_ids.data_ptr())),
-                    ctypes.c_uint32(int(current_count)),
-                    ctypes.c_uint32(
-                        0
-                        if bool(
-                            self.shadow_premap_payload_cache_vllm_replay_visible_native_session_disable_vectorized_copy
-                        )
-                        else 1
-                    ),
-                    ctypes.byref(result),
+            vectorized_copy = ctypes.c_uint32(
+                0
+                if bool(
+                    self.shadow_premap_payload_cache_vllm_replay_visible_native_session_disable_vectorized_copy
                 )
+                else 1
             )
+            if use_count_ptr:
+                native_returncode = int(
+                    update_count_ptr(
+                        ctypes.c_uint64(handle),
+                        ctypes.c_uint32(int(layer_id)),
+                        ctypes.c_void_p(int(expert_ids.data_ptr())),
+                        ctypes.c_void_p(int(current_count_ptr)),
+                        vectorized_copy,
+                        ctypes.byref(result),
+                    )
+                )
+            else:
+                native_returncode = int(
+                    update(
+                        ctypes.c_uint64(handle),
+                        ctypes.c_uint32(int(layer_id)),
+                        ctypes.c_void_p(int(expert_ids.data_ptr())),
+                        ctypes.c_uint32(int(current_count)),
+                        vectorized_copy,
+                        ctypes.byref(result),
+                    )
+                )
         except Exception as exc:  # pragma: no cover - defensive native boundary
             self._premap_payload_cache_vllm_replay_visible_native_session_update_failed_count += (
                 1
@@ -12864,6 +13093,7 @@ class VllmRouterRecorder:
         )
         self._record_premap_payload_cache_vllm_replay_visible_prelaunch_probe(
             available=bool(available),
+            layer_id=int(layer_id),
             expert_ids=expert_ids,
             num_tokens_post_padded=num_tokens_post_padded,
             block_size=int(block_size),

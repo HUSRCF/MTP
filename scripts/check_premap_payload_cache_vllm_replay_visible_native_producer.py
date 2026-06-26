@@ -33,6 +33,12 @@ SAFETY_FALSE_FIELDS = (
     "measures_tpot",
     "measures_vllm_latency",
 )
+UNEXPECTED_RUNTIME_PASS_FIELDS = (
+    "runtime_ready",
+    "runtime_passed",
+    "lab_gate_passed",
+    "ready_for_payload_cache_runtime",
+)
 
 
 def _load_json(path: Path) -> dict[str, Any]:
@@ -85,11 +91,28 @@ def check_contract(payload: dict[str, Any]) -> dict[str, Any]:
     for key in SAFETY_FALSE_FIELDS:
         if payload.get(key) is not False:
             failures.append(f"{key}_not_false")
+    for key in UNEXPECTED_RUNTIME_PASS_FIELDS:
+        value = payload.get(key)
+        if value is not None and value is not False:
+            failures.append(f"{key}_unexpectedly_true")
 
     packet_count = _int_metric(payload, "packet_count")
     expected_packet_count = _int_metric(payload, "expected_packet_count")
     issue_count = _int_metric(payload, "issue_candidate_count")
     expected_issue_count = _int_metric(payload, "expected_issue_candidate_count")
+    expected_issue_source = payload.get("expected_issue_candidate_count_source")
+    prelaunch_independent_previous_nonempty = _int_metric(
+        payload,
+        "prelaunch_independent_previous_nonempty_packet_count",
+    )
+    prelaunch_independent_previous_nonempty_issue_count = _int_metric(
+        payload,
+        "prelaunch_independent_previous_nonempty_issue_candidate_count",
+    )
+    native_session_previous_nonempty = _int_metric(
+        payload,
+        "native_session_previous_nonempty_packet_count",
+    )
     update_count = _int_metric(payload, "producer_update_count")
     replay_update_count = _int_metric(payload, "replay_visible_update_count")
     prelaunch_probe_count = _int_metric(payload, "prelaunch_probe_count")
@@ -109,6 +132,18 @@ def check_contract(payload: dict[str, Any]) -> dict[str, Any]:
     prelaunch_current_count_device_tensor_count = _int_metric(
         payload,
         "prelaunch_current_count_device_tensor_count",
+    )
+    prelaunch_current_count_device_scalar_int32_count = _int_metric(
+        payload,
+        "prelaunch_current_count_device_scalar_int32_count",
+    )
+    prelaunch_count_ptr_ready_count = _int_metric(
+        payload,
+        "prelaunch_native_session_update_count_ptr_v1_abi_ready_count",
+    )
+    prelaunch_count_ptr_blocked_count = _int_metric(
+        payload,
+        "prelaunch_native_session_update_count_ptr_v1_abi_blocked_count",
     )
     for key, value in (
         ("packet_count", packet_count),
@@ -132,6 +167,47 @@ def check_contract(payload: dict[str, Any]) -> dict[str, Any]:
         and issue_count != expected_issue_count
     ):
         failures.append("issue_candidate_count_mismatch")
+    if expected_issue_source not in {
+        "graph_visible_producer_contract",
+        "prelaunch_independent_previous_nonempty_packet_count",
+        "prelaunch_independent_previous_nonempty_issue_candidate_count",
+    }:
+        failures.append("expected_issue_candidate_count_source_mismatch")
+    elif expected_issue_source in {
+        "prelaunch_independent_previous_nonempty_packet_count",
+        "prelaunch_independent_previous_nonempty_issue_candidate_count",
+    }:
+        if (
+            prelaunch_independent_previous_nonempty is None
+            or prelaunch_independent_previous_nonempty <= 0
+        ):
+            failures.append(
+                "prelaunch_independent_previous_nonempty_packet_count_invalid"
+            )
+        if expected_issue_source == "prelaunch_independent_previous_nonempty_issue_candidate_count":
+            if (
+                prelaunch_independent_previous_nonempty_issue_count is None
+                or prelaunch_independent_previous_nonempty_issue_count <= 0
+            ):
+                failures.append(
+                    "prelaunch_independent_previous_nonempty_issue_candidate_count_invalid"
+                )
+            elif (
+                expected_issue_count is not None
+                and prelaunch_independent_previous_nonempty_issue_count
+                != expected_issue_count
+            ):
+                failures.append(
+                    "prelaunch_independent_previous_nonempty_issue_candidate_count_mismatch"
+                )
+            if (
+                native_session_previous_nonempty is not None
+                and native_session_previous_nonempty
+                != prelaunch_independent_previous_nonempty
+            ):
+                failures.append(
+                    "native_session_previous_nonempty_packet_count_mismatch"
+                )
     if (
         update_count is not None
         and expected_packet_count is not None
@@ -146,31 +222,94 @@ def check_contract(payload: dict[str, Any]) -> dict[str, Any]:
         failures.append("replay_visible_update_count_mismatch")
     for key, value in (
         ("prelaunch_probe_count", prelaunch_probe_count),
-        ("prelaunch_abi_ready_count", prelaunch_abi_ready_count),
         ("prelaunch_device_tensor_count", prelaunch_device_tensor_count),
         ("prelaunch_int32_count", prelaunch_int32_count),
-        (
-            "prelaunch_current_count_host_scalar_available_count",
-            prelaunch_current_count_host_scalar_available_count,
-        ),
     ):
         if value is None or value <= 0:
             failures.append(f"{key}_invalid")
         elif expected_packet_count is not None and value != expected_packet_count:
             failures.append(f"{key}_mismatch")
+    legacy_update_ready = bool(
+        expected_packet_count is not None
+        and expected_packet_count > 0
+        and prelaunch_abi_ready_count == expected_packet_count
+        and prelaunch_abi_blocked_count == 0
+        and prelaunch_current_count_host_scalar_available_count
+        == expected_packet_count
+        and prelaunch_current_count_device_tensor_count == 0
+        and payload.get("prelaunch_native_session_update_v1_abi_ready") is True
+    )
+    count_ptr_update_ready = bool(
+        expected_packet_count is not None
+        and expected_packet_count > 0
+        and prelaunch_count_ptr_ready_count == expected_packet_count
+        and prelaunch_count_ptr_blocked_count == 0
+        and prelaunch_current_count_device_tensor_count == expected_packet_count
+        and prelaunch_current_count_device_scalar_int32_count == expected_packet_count
+        and prelaunch_current_count_host_scalar_available_count == 0
+        and payload.get("prelaunch_native_session_update_count_ptr_v1_abi_ready")
+        is True
+    )
+    if not legacy_update_ready and not count_ptr_update_ready:
+        failures.append("prelaunch_native_session_update_abi_not_ready")
+    if legacy_update_ready:
+        if prelaunch_abi_ready_count is None or prelaunch_abi_ready_count <= 0:
+            failures.append("prelaunch_abi_ready_count_invalid")
+        elif (
+            expected_packet_count is not None
+            and prelaunch_abi_ready_count != expected_packet_count
+        ):
+            failures.append("prelaunch_abi_ready_count_mismatch")
+        if (
+            prelaunch_current_count_host_scalar_available_count is None
+            or prelaunch_current_count_host_scalar_available_count <= 0
+        ):
+            failures.append(
+                "prelaunch_current_count_host_scalar_available_count_invalid"
+            )
+        elif (
+            expected_packet_count is not None
+            and prelaunch_current_count_host_scalar_available_count
+            != expected_packet_count
+        ):
+            failures.append(
+                "prelaunch_current_count_host_scalar_available_count_mismatch"
+            )
+    if count_ptr_update_ready:
+        for key, value in (
+            (
+                "prelaunch_current_count_device_tensor_count",
+                prelaunch_current_count_device_tensor_count,
+            ),
+            (
+                "prelaunch_current_count_device_scalar_int32_count",
+                prelaunch_current_count_device_scalar_int32_count,
+            ),
+            (
+                "prelaunch_native_session_update_count_ptr_v1_abi_ready_count",
+                prelaunch_count_ptr_ready_count,
+            ),
+        ):
+            if value is None or value <= 0:
+                failures.append(f"{key}_invalid")
+            elif (
+                expected_packet_count is not None and value != expected_packet_count
+            ):
+                failures.append(f"{key}_mismatch")
+        if (
+            prelaunch_count_ptr_blocked_count is None
+            or prelaunch_count_ptr_blocked_count != 0
+        ):
+            failures.append(
+                "prelaunch_native_session_update_count_ptr_v1_abi_blocked_count_mismatch"
+            )
     if prelaunch_abi_blocked_count is None or prelaunch_abi_blocked_count != 0:
-        failures.append("prelaunch_abi_blocked_count_mismatch")
+        if legacy_update_ready:
+            failures.append("prelaunch_abi_blocked_count_mismatch")
     if prelaunch_host_tensor_count is None or prelaunch_host_tensor_count != 0:
         failures.append("prelaunch_host_tensor_count_mismatch")
     if prelaunch_dtype_mismatch_count is None or prelaunch_dtype_mismatch_count != 0:
         failures.append("prelaunch_dtype_mismatch_count_mismatch")
-    if (
-        prelaunch_current_count_device_tensor_count is None
-        or prelaunch_current_count_device_tensor_count != 0
-    ):
-        failures.append("prelaunch_current_count_device_tensor_count_mismatch")
-    if payload.get("prelaunch_native_session_update_v1_abi_ready") is not True:
-        failures.append("prelaunch_native_session_update_v1_abi_ready_mismatch")
 
     source_kind = payload.get("source_kind")
     if source_kind != "vllm_prelaunch_inprocess_native_producer":
@@ -198,6 +337,16 @@ def check_contract(payload: dict[str, Any]) -> dict[str, Any]:
         "expected_packet_count": int(expected_packet_count or 0),
         "issue_candidate_count": int(issue_count or 0),
         "expected_issue_candidate_count": int(expected_issue_count or 0),
+        "expected_issue_candidate_count_source": expected_issue_source,
+        "prelaunch_independent_previous_nonempty_packet_count": int(
+            prelaunch_independent_previous_nonempty or 0
+        ),
+        "prelaunch_independent_previous_nonempty_issue_candidate_count": int(
+            prelaunch_independent_previous_nonempty_issue_count or 0
+        ),
+        "native_session_previous_nonempty_packet_count": int(
+            native_session_previous_nonempty or 0
+        ),
         "producer_update_count": int(update_count or 0),
         "replay_visible_update_count": int(replay_update_count or 0),
         "prelaunch_probe_count": int(prelaunch_probe_count or 0),

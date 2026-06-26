@@ -2085,7 +2085,6 @@ def test_premap_payload_cache_vllm_replay_visible_count_ptr_ready_surface_keeps_
         "native_runtime_not_connected",
         "inprocess_native_op_not_connected",
         "vllm_replay_visible_updates_missing",
-        "native_session_update_v1_abi_not_ready",
     ]
     assert performance[f"{replay_prefix}source_kind"] == (
         "vllm_prelaunch_inprocess_native_producer"
@@ -2285,6 +2284,335 @@ def test_premap_payload_cache_vllm_replay_visible_native_session_counters_can_pa
     assert checked["passed"] is True
 
 
+def test_premap_payload_cache_vllm_replay_visible_native_session_uses_independent_issue_denominator_without_graph_expected():
+    recorder = VllmRouterRecorder(
+        top_k=2,
+        shadow_outcome_sink=None,
+        shadow_num_experts=8,
+        shadow_transition_topk_count=2,
+        shadow_premap_payload_cache_graph_visible_producer_skip_python_transition=True,
+        shadow_premap_payload_cache_vllm_replay_visible_native_producer_enabled=True,
+        shadow_premap_payload_cache_vllm_replay_visible_native_session_enabled=True,
+        shadow_premap_payload_cache_vllm_replay_visible_native_session_library="/tmp/native_session.so",
+    )
+    recorder._premap_payload_cache_vllm_replay_visible_prelaunch_probe_count = 4
+    recorder._premap_payload_cache_vllm_replay_visible_prelaunch_abi_ready_count = 0
+    recorder._premap_payload_cache_vllm_replay_visible_prelaunch_abi_blocked_count = 4
+    recorder._premap_payload_cache_vllm_replay_visible_prelaunch_device_tensor_count = 4
+    recorder._premap_payload_cache_vllm_replay_visible_prelaunch_host_tensor_count = 0
+    recorder._premap_payload_cache_vllm_replay_visible_prelaunch_int32_count = 4
+    recorder._premap_payload_cache_vllm_replay_visible_prelaunch_dtype_mismatch_count = 0
+    recorder._premap_payload_cache_vllm_replay_visible_prelaunch_current_count_device_tensor_count = 4
+    recorder._premap_payload_cache_vllm_replay_visible_prelaunch_current_count_device_scalar_int32_count = 4
+    recorder._premap_payload_cache_vllm_replay_visible_prelaunch_count_ptr_abi_ready_count = 4
+    recorder._premap_payload_cache_vllm_replay_visible_prelaunch_count_ptr_abi_blocked_count = 0
+    recorder._premap_payload_cache_vllm_replay_visible_prelaunch_last_current_count_source_kind = (
+        "num_tokens_post_padded_device_tensor"
+    )
+    recorder._premap_payload_cache_vllm_replay_visible_prelaunch_last_expert_dtype = (
+        "torch.int32"
+    )
+    recorder._premap_payload_cache_vllm_replay_visible_prelaunch_last_expert_device = (
+        "cuda:0"
+    )
+    recorder._premap_payload_cache_vllm_replay_visible_prelaunch_last_expert_ndim = 1
+    recorder._premap_payload_cache_vllm_replay_visible_prelaunch_last_expert_numel = 8
+    recorder._premap_payload_cache_vllm_replay_visible_prelaunch_previous_nonempty_packet_count = (
+        3
+    )
+    recorder._premap_payload_cache_vllm_replay_visible_prelaunch_previous_nonempty_issue_candidate_count = (
+        6
+    )
+    recorder._premap_payload_cache_vllm_replay_visible_native_session_update_count = 4
+    recorder._premap_payload_cache_vllm_replay_visible_native_session_packet_count = 4
+    recorder._premap_payload_cache_vllm_replay_visible_native_session_ready_update_count = 4
+    recorder._premap_payload_cache_vllm_replay_visible_native_session_issue_candidate_count = 6
+    recorder._premap_payload_cache_vllm_replay_visible_native_session_previous_nonempty_packet_count = (
+        3
+    )
+    recorder._premap_payload_cache_vllm_replay_visible_native_session_result_abi_ready_count = 4
+    recorder._premap_payload_cache_vllm_replay_visible_native_session_result_passed_count = 4
+    recorder._premap_payload_cache_vllm_replay_visible_native_session_native_stub_invoked_count = 4
+    recorder._premap_payload_cache_vllm_replay_visible_native_session_handle_nonzero_count = 4
+    recorder._premap_payload_cache_vllm_replay_visible_native_session_current_expert_ptr_nonzero_count = 4
+    recorder._premap_payload_cache_vllm_replay_visible_native_session_persistent_state_on_device_count = 4
+    recorder._premap_payload_cache_vllm_replay_visible_native_session_issue_generation_on_device_count = 4
+    recorder._premap_payload_cache_vllm_replay_visible_native_session_prelaunch_callable_count = 4
+    performance: dict[str, object] = {}
+
+    _add_premap_payload_cache_vllm_replay_visible_native_producer_contract_to_performance(
+        performance,
+        recorder,
+        prefix="runtime_shadow_premap_payload_cache_direct_",
+    )
+
+    replay_prefix = (
+        "runtime_shadow_premap_payload_cache_direct_"
+        "vllm_replay_visible_native_producer_contract_"
+    )
+    assert performance[f"{replay_prefix}expected_packet_count"] == 4
+    assert performance[f"{replay_prefix}expected_packet_count_source"] == (
+        "prelaunch_probe_count"
+    )
+    assert performance[f"{replay_prefix}expected_issue_candidate_count"] == 6
+    assert performance[f"{replay_prefix}expected_issue_candidate_count_source"] == (
+        "prelaunch_independent_previous_nonempty_issue_candidate_count"
+    )
+    assert (
+        performance[
+            f"{replay_prefix}prelaunch_independent_previous_nonempty_packet_count"
+        ]
+        == 3
+    )
+    assert (
+        performance[
+            f"{replay_prefix}prelaunch_independent_previous_nonempty_issue_candidate_count"
+        ]
+        == 6
+    )
+    assert (
+        performance[f"{replay_prefix}native_session_previous_nonempty_packet_count"]
+        == 3
+    )
+    assert performance[f"{replay_prefix}passed"] is True
+
+
+def test_premap_payload_cache_vllm_replay_visible_native_session_rejects_independent_packet_mismatch():
+    recorder = VllmRouterRecorder(
+        top_k=2,
+        shadow_outcome_sink=None,
+        shadow_num_experts=8,
+        shadow_transition_topk_count=2,
+        shadow_premap_payload_cache_graph_visible_producer_skip_python_transition=True,
+        shadow_premap_payload_cache_vllm_replay_visible_native_producer_enabled=True,
+        shadow_premap_payload_cache_vllm_replay_visible_native_session_enabled=True,
+        shadow_premap_payload_cache_vllm_replay_visible_native_session_library="/tmp/native_session.so",
+    )
+    recorder._premap_payload_cache_vllm_replay_visible_prelaunch_probe_count = 4
+    recorder._premap_payload_cache_vllm_replay_visible_prelaunch_abi_ready_count = 0
+    recorder._premap_payload_cache_vllm_replay_visible_prelaunch_abi_blocked_count = 4
+    recorder._premap_payload_cache_vllm_replay_visible_prelaunch_device_tensor_count = 4
+    recorder._premap_payload_cache_vllm_replay_visible_prelaunch_host_tensor_count = 0
+    recorder._premap_payload_cache_vllm_replay_visible_prelaunch_int32_count = 4
+    recorder._premap_payload_cache_vllm_replay_visible_prelaunch_dtype_mismatch_count = 0
+    recorder._premap_payload_cache_vllm_replay_visible_prelaunch_current_count_device_tensor_count = 4
+    recorder._premap_payload_cache_vllm_replay_visible_prelaunch_current_count_device_scalar_int32_count = 4
+    recorder._premap_payload_cache_vllm_replay_visible_prelaunch_count_ptr_abi_ready_count = 4
+    recorder._premap_payload_cache_vllm_replay_visible_prelaunch_count_ptr_abi_blocked_count = 0
+    recorder._premap_payload_cache_vllm_replay_visible_prelaunch_last_current_count_source_kind = (
+        "num_tokens_post_padded_device_tensor"
+    )
+    recorder._premap_payload_cache_vllm_replay_visible_prelaunch_last_expert_dtype = (
+        "torch.int32"
+    )
+    recorder._premap_payload_cache_vllm_replay_visible_prelaunch_last_expert_device = (
+        "cuda:0"
+    )
+    recorder._premap_payload_cache_vllm_replay_visible_prelaunch_last_expert_ndim = 1
+    recorder._premap_payload_cache_vllm_replay_visible_prelaunch_last_expert_numel = 8
+    recorder._premap_payload_cache_vllm_replay_visible_prelaunch_previous_nonempty_packet_count = (
+        3
+    )
+    recorder._premap_payload_cache_vllm_replay_visible_prelaunch_previous_nonempty_issue_candidate_count = (
+        6
+    )
+    recorder._premap_payload_cache_vllm_replay_visible_native_session_update_count = 4
+    recorder._premap_payload_cache_vllm_replay_visible_native_session_packet_count = 4
+    recorder._premap_payload_cache_vllm_replay_visible_native_session_ready_update_count = 4
+    recorder._premap_payload_cache_vllm_replay_visible_native_session_issue_candidate_count = 6
+    recorder._premap_payload_cache_vllm_replay_visible_native_session_previous_nonempty_packet_count = (
+        99
+    )
+    recorder._premap_payload_cache_vllm_replay_visible_native_session_result_abi_ready_count = 4
+    recorder._premap_payload_cache_vllm_replay_visible_native_session_result_passed_count = 4
+    recorder._premap_payload_cache_vllm_replay_visible_native_session_native_stub_invoked_count = 4
+    recorder._premap_payload_cache_vllm_replay_visible_native_session_handle_nonzero_count = 4
+    recorder._premap_payload_cache_vllm_replay_visible_native_session_current_expert_ptr_nonzero_count = 4
+    recorder._premap_payload_cache_vllm_replay_visible_native_session_persistent_state_on_device_count = 4
+    recorder._premap_payload_cache_vllm_replay_visible_native_session_issue_generation_on_device_count = 4
+    recorder._premap_payload_cache_vllm_replay_visible_native_session_prelaunch_callable_count = 4
+    performance: dict[str, object] = {}
+
+    _add_premap_payload_cache_vllm_replay_visible_native_producer_contract_to_performance(
+        performance,
+        recorder,
+        prefix="runtime_shadow_premap_payload_cache_direct_",
+    )
+
+    replay_prefix = (
+        "runtime_shadow_premap_payload_cache_direct_"
+        "vllm_replay_visible_native_producer_contract_"
+    )
+    assert performance[f"{replay_prefix}passed"] is False
+    assert (
+        "native_session_previous_nonempty_packet_count_mismatch"
+        in performance[f"{replay_prefix}failures"]
+    )
+
+
+def test_premap_payload_cache_vllm_replay_visible_independent_issue_denominator_resets_on_session_key_change():
+    recorder = VllmRouterRecorder(
+        top_k=2,
+        shadow_outcome_sink=None,
+        shadow_num_experts=8,
+        shadow_transition_topk_count=2,
+        shadow_premap_payload_cache_vllm_replay_visible_native_producer_enabled=True,
+    )
+
+    for width in (4, 4, 8, 8):
+        recorder._record_premap_payload_cache_vllm_replay_visible_prelaunch_probe(
+            available=True,
+            layer_id=0,
+            expert_ids=torch.arange(width, dtype=torch.int32),
+            num_tokens_post_padded=torch.tensor([width * 16], dtype=torch.int32),
+            block_size=16,
+        )
+
+    assert recorder._premap_payload_cache_vllm_replay_visible_prelaunch_probe_count == 4
+    assert (
+        recorder._premap_payload_cache_vllm_replay_visible_prelaunch_previous_nonempty_packet_count
+        == 2
+    )
+    assert (
+        recorder._premap_payload_cache_vllm_replay_visible_prelaunch_previous_nonempty_issue_candidate_count
+        == 4
+    )
+
+
+def test_premap_payload_cache_vllm_replay_visible_independent_issue_denominator_weights_mixed_widths():
+    recorder = VllmRouterRecorder(
+        top_k=2,
+        shadow_outcome_sink=None,
+        shadow_num_experts=8,
+        shadow_transition_topk_count=0,
+        shadow_premap_payload_cache_vllm_replay_visible_native_producer_enabled=True,
+    )
+
+    for width in (4, 4, 8, 8):
+        recorder._record_premap_payload_cache_vllm_replay_visible_prelaunch_probe(
+            available=True,
+            layer_id=0,
+            expert_ids=torch.arange(width, dtype=torch.int32),
+            num_tokens_post_padded=torch.tensor([width * 16], dtype=torch.int32),
+            block_size=16,
+        )
+
+    assert recorder._premap_payload_cache_vllm_replay_visible_prelaunch_probe_count == 4
+    assert (
+        recorder._premap_payload_cache_vllm_replay_visible_prelaunch_previous_nonempty_packet_count
+        == 2
+    )
+    assert (
+        recorder._premap_payload_cache_vllm_replay_visible_prelaunch_previous_nonempty_issue_candidate_count
+        == 12
+    )
+
+    recorder._premap_payload_cache_vllm_replay_visible_prelaunch_device_tensor_count = 4
+    recorder._premap_payload_cache_vllm_replay_visible_prelaunch_int32_count = 4
+    recorder._premap_payload_cache_vllm_replay_visible_prelaunch_count_ptr_ready_count = 4
+    recorder._premap_payload_cache_vllm_replay_visible_prelaunch_count_ptr_blocked_count = 0
+    recorder._premap_payload_cache_vllm_replay_visible_native_session_update_count = 4
+    recorder._premap_payload_cache_vllm_replay_visible_native_session_packet_count = 4
+    recorder._premap_payload_cache_vllm_replay_visible_native_session_ready_update_count = 4
+    recorder._premap_payload_cache_vllm_replay_visible_native_session_issue_candidate_count = 12
+    recorder._premap_payload_cache_vllm_replay_visible_native_session_result_abi_ready_count = 4
+    recorder._premap_payload_cache_vllm_replay_visible_native_session_result_passed_count = 4
+    recorder._premap_payload_cache_vllm_replay_visible_native_session_native_stub_invoked_count = 4
+    recorder._premap_payload_cache_vllm_replay_visible_native_session_handle_nonzero_count = 4
+    recorder._premap_payload_cache_vllm_replay_visible_native_session_current_expert_ptr_nonzero_count = 4
+    recorder._premap_payload_cache_vllm_replay_visible_native_session_persistent_state_on_device_count = 4
+    recorder._premap_payload_cache_vllm_replay_visible_native_session_issue_generation_on_device_count = 4
+    recorder._premap_payload_cache_vllm_replay_visible_native_session_prelaunch_callable_count = 4
+    performance: dict[str, object] = {}
+
+    _add_premap_payload_cache_vllm_replay_visible_native_producer_contract_to_performance(
+        performance,
+        recorder,
+        prefix="runtime_shadow_premap_payload_cache_direct_",
+    )
+
+    replay_prefix = (
+        "runtime_shadow_premap_payload_cache_direct_"
+        "vllm_replay_visible_native_producer_contract_"
+    )
+    assert performance[f"{replay_prefix}expected_packet_count"] == 4
+    assert performance[f"{replay_prefix}expected_issue_candidate_count"] == 12
+    assert performance[f"{replay_prefix}issue_candidate_count"] == 12
+    assert performance[f"{replay_prefix}expected_issue_candidate_count_source"] == (
+        "prelaunch_independent_previous_nonempty_issue_candidate_count"
+    )
+    assert (
+        performance[
+            f"{replay_prefix}prelaunch_independent_previous_nonempty_issue_candidate_count"
+        ]
+        == 12
+    )
+
+
+def test_premap_payload_cache_vllm_replay_visible_independent_issue_denominator_uses_previous_current_count():
+    recorder = VllmRouterRecorder(
+        top_k=2,
+        shadow_outcome_sink=None,
+        shadow_num_experts=8,
+        shadow_transition_topk_count=0,
+        shadow_premap_payload_cache_vllm_replay_visible_native_producer_enabled=True,
+    )
+
+    for _ in range(2):
+        recorder._record_premap_payload_cache_vllm_replay_visible_prelaunch_probe(
+            available=True,
+            layer_id=0,
+            expert_ids=torch.arange(8, dtype=torch.int32),
+            num_tokens_post_padded=torch.tensor([4 * 16], dtype=torch.int32),
+            block_size=16,
+        )
+
+    assert recorder._premap_payload_cache_vllm_replay_visible_prelaunch_probe_count == 2
+    assert (
+        recorder._premap_payload_cache_vllm_replay_visible_prelaunch_previous_nonempty_packet_count
+        == 1
+    )
+    assert (
+        recorder._premap_payload_cache_vllm_replay_visible_prelaunch_previous_nonempty_issue_candidate_count
+        == 4
+    )
+
+
+def test_premap_payload_cache_vllm_replay_visible_independent_issue_denominator_accepts_zero_current_update():
+    recorder = VllmRouterRecorder(
+        top_k=2,
+        shadow_outcome_sink=None,
+        shadow_num_experts=8,
+        shadow_transition_topk_count=0,
+        shadow_premap_payload_cache_vllm_replay_visible_native_producer_enabled=True,
+    )
+
+    for current_count in (4, 0, 4):
+        recorder._record_premap_payload_cache_vllm_replay_visible_prelaunch_probe(
+            available=True,
+            layer_id=0,
+            expert_ids=torch.arange(8, dtype=torch.int32),
+            num_tokens_post_padded=torch.tensor([current_count * 16], dtype=torch.int32),
+            block_size=16,
+        )
+
+    assert recorder._premap_payload_cache_vllm_replay_visible_prelaunch_probe_count == 3
+    assert (
+        recorder._premap_payload_cache_vllm_replay_visible_prelaunch_previous_nonempty_packet_count
+        == 1
+    )
+    assert (
+        recorder._premap_payload_cache_vllm_replay_visible_prelaunch_previous_nonempty_issue_candidate_count
+        == 4
+    )
+    assert (
+        recorder._premap_payload_cache_vllm_replay_visible_prelaunch_previous_current_count_by_layer[
+            0
+        ]
+        == 4
+    )
+
+
 def test_premap_payload_cache_vllm_replay_visible_native_session_requires_result_capabilities():
     recorder = VllmRouterRecorder(
         top_k=2,
@@ -2363,13 +2691,15 @@ def test_premap_payload_cache_vllm_replay_visible_native_session_rejects_host_te
     )
 
 
-def test_premap_payload_cache_vllm_replay_visible_native_session_rejects_device_count_before_native_call():
+def test_premap_payload_cache_vllm_replay_visible_native_session_accepts_device_count_ptr_abi_path():
     source = inspect.getsource(
         VllmRouterRecorder._apply_premap_payload_cache_vllm_replay_visible_native_session_update
     )
 
     assert 'bool(num_tokens_post_padded.is_cuda)' in source
-    assert 'current_count_host_scalar_not_available' in source
+    assert 'update_count_ptr' in source
+    assert 'num_tokens_post_padded.device != expert_ids.device' in source
+    assert 'current_count_device_scalar_not_int32' in source
     assert 'current_count_not_scalar' in source
     assert 'current_count_dtype_not_integer' in source
 

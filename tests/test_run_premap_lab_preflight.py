@@ -6272,6 +6272,9 @@ def _write_gate(
     payload_cache_online_native_producer_boundary_gap_path = (
         f"reports/{name}_payload_cache_online_native_producer_boundary_gap.json"
     )
+    payload_cache_vllm_replay_visible_native_producer_contract_path = (
+        f"reports/{name}_payload_cache_vllm_replay_visible_native_producer_contract.json"
+    )
     payload_cache_vllm_replay_visible_count_ptr_readiness_path = (
         f"reports/{name}_payload_cache_vllm_replay_visible_count_ptr_readiness.json"
     )
@@ -7354,6 +7357,10 @@ def _write_gate(
             + "\n",
         )
         _write(
+            root / payload_cache_vllm_replay_visible_native_producer_contract_path,
+            json.dumps(_vllm_replay_visible_native_producer_payload()) + "\n",
+        )
+        _write(
             root / payload_cache_vllm_replay_visible_count_ptr_readiness_path,
             json.dumps(_vllm_replay_visible_count_ptr_readiness_payload()) + "\n",
         )
@@ -7766,6 +7773,8 @@ def _write_gate(
             f"{payload_cache_producer_state_inprocess_native_session_online_contract_path}\n"
             "  payload_cache_online_native_producer_boundary_gap_json: "
             f"{payload_cache_online_native_producer_boundary_gap_path}\n"
+            "  payload_cache_vllm_replay_visible_native_producer_contract_json: "
+            f"{payload_cache_vllm_replay_visible_native_producer_contract_path}\n"
             "  payload_cache_vllm_replay_visible_count_ptr_readiness_json: "
             f"{payload_cache_vllm_replay_visible_count_ptr_readiness_path}\n"
             "  future_kernel_wna16_adjacent_typed_slot_standalone_canary_json: "
@@ -7874,7 +7883,7 @@ def test_premap_lab_preflight_accepts_default_readonly_wiring(tmp_path: Path):
     assert result["passed"] is True
     assert result["failures"] == []
     assert result["runtime_gate_evidence_scan"]["gate_count"] == 5
-    assert result["runtime_gate_evidence_scan"]["evidence_path_count"] == 150
+    assert result["runtime_gate_evidence_scan"]["evidence_path_count"] == 152
     assert result["default_readonly_gate_required_evidence_check"]["passed"] is True
     summary = result["lab_gate_status_summary"]
     assert summary["passed"] is True
@@ -10088,9 +10097,9 @@ def test_premap_lab_preflight_accepts_default_readonly_wiring(tmp_path: Path):
     assert summary["payload_bytes_required"] == 0
     assert summary["passed_to_kernel_required"] is False
     assert summary["changes_kernel_launch_args_required"] is False
-    assert summary["required_evidence"]["required_count"] == 65
-    assert summary["required_evidence"]["present_count"] == 65
-    assert summary["required_evidence"]["passed_count"] == 65
+    assert summary["required_evidence"]["required_count"] == 66
+    assert summary["required_evidence"]["present_count"] == 66
+    assert summary["required_evidence"]["passed_count"] == 66
     assert summary["optional_evidence"]["required_count"] == 15
     assert summary["optional_evidence"]["present_count"] == 13
     assert summary["optional_evidence"]["passed_count"] == 13
@@ -10118,6 +10127,62 @@ def test_premap_lab_preflight_accepts_default_readonly_wiring(tmp_path: Path):
             "payload_cache_online_native_producer_boundary_gap_next_required_boundary"
         ]
         == "inprocess_vllm_replay_visible_native_producer_op"
+    )
+    assert (
+        summary["payload_cache_vllm_replay_visible_native_producer_required"]
+        is True
+    )
+    assert (
+        summary["payload_cache_vllm_replay_visible_native_producer_present"]
+        is True
+    )
+    assert (
+        summary["payload_cache_vllm_replay_visible_native_producer_passed"]
+        is True
+    )
+    assert (
+        summary[
+            "payload_cache_vllm_replay_visible_native_producer_ready_for_lab_gate"
+        ]
+        is True
+    )
+    assert (
+        summary["payload_cache_vllm_replay_visible_native_producer_source_kind"]
+        == "vllm_prelaunch_inprocess_native_producer"
+    )
+    assert (
+        summary[
+            "payload_cache_vllm_replay_visible_native_producer_contract_boundary"
+        ]
+        == "inprocess_vllm_replay_visible_native_producer_op"
+    )
+    assert summary["payload_cache_vllm_replay_visible_native_producer_packet_count"] == 8
+    assert (
+        summary[
+            "payload_cache_vllm_replay_visible_native_producer_issue_candidate_count"
+        ]
+        == 64
+    )
+    assert (
+        summary[
+            "payload_cache_vllm_replay_visible_native_producer_prelaunch_callable_native_session"
+        ]
+        is True
+    )
+    assert summary["payload_cache_vllm_replay_visible_native_producer_payload_bytes"] == 0
+    assert (
+        summary["payload_cache_vllm_replay_visible_native_producer_kernel_arg_pass"]
+        is False
+    )
+    assert (
+        summary["payload_cache_vllm_replay_visible_native_producer_passed_to_kernel"]
+        is False
+    )
+    assert (
+        summary[
+            "payload_cache_vllm_replay_visible_native_producer_changes_kernel_launch_args"
+        ]
+        is False
     )
     assert (
         summary["required_evidence"]["evidence"][
@@ -11476,7 +11541,7 @@ def test_premap_lab_preflight_rejects_missing_optional_future_args_coverage(
         "default_kernel_consumer_future_kernel_args_total_mirror_coverage_incomplete"
         in result["failures"]
     )
-    assert summary["required_evidence"]["passed_count"] == 65
+    assert summary["required_evidence"]["passed_count"] == 66
     assert summary["default_optional_evidence_passed"] is True
     assert (
         summary[
@@ -13582,6 +13647,7 @@ def test_premap_lab_preflight_rejects_default_gate_without_typed_evidence(
         "payload_cache_producer_state_packet_stream_native_canary_check_json:missing_evidence_path",
         "payload_cache_producer_state_inprocess_native_session_online_contract_json:missing_evidence_path",
         "payload_cache_online_native_producer_boundary_gap_json:missing_evidence_path",
+        "payload_cache_vllm_replay_visible_native_producer_contract_json:missing_evidence_path",
         "payload_cache_vllm_replay_visible_count_ptr_readiness_json:missing_evidence_path",
         "strict_live_connected_readonly_128_gate_json:missing_evidence_path",
         "strict_native_typed_consumer_bridge_128_gate_json:missing_evidence_path",
@@ -19012,9 +19078,9 @@ def test_premap_lab_preflight_can_defer_self_referential_runner_evidence(
     assert summary["deferred_online_prelaunch_artifact_evidence"] is False
     assert summary["runtime_gate_evidence_deferred_count"] == 10
     assert summary["strict_default_gate_evidence_deferred_count"] == 5
-    assert summary["required_evidence"]["required_count"] == 65
-    assert summary["required_evidence"]["present_count"] == 63
-    assert summary["required_evidence"]["passed_count"] == 63
+    assert summary["required_evidence"]["required_count"] == 66
+    assert summary["required_evidence"]["present_count"] == 64
+    assert summary["required_evidence"]["passed_count"] == 64
     assert summary["optional_evidence"]["passed_count"] == 13
     for label in (
         "future_kernel_args_compatible_path_16_128export_artifact_check_json",
@@ -19589,7 +19655,7 @@ def test_premap_lab_preflight_cli_writes_summary(tmp_path: Path):
     assert result["runtime_gate_evidence_scan"]["passed"] is True
     assert result["lab_gate_status_summary"]["passed"] is True
     assert (
-        result["lab_gate_status_summary"]["required_evidence"]["passed_count"] == 65
+        result["lab_gate_status_summary"]["required_evidence"]["passed_count"] == 66
     )
 
 
@@ -19625,7 +19691,7 @@ def test_premap_lab_preflight_cli_summary_only_writes_status_block(tmp_path: Pat
     assert exit_code == 0
     assert result["passed"] is True
     assert result["default_readonly_gate_path"] == default_gate
-    assert result["required_evidence"]["passed_count"] == 65
+    assert result["required_evidence"]["passed_count"] == 66
     assert result["optional_evidence"]["passed_count"] == 13
     assert "lab_gate_status_summary" not in result
 
@@ -19990,6 +20056,91 @@ def test_readonly_live_trusted_refs_check_evidence_rejects_nested_counter_mismat
     assert "readonly_live_trusted_refs_live_counter_summary_mismatch" in failures
 
 
+def _vllm_replay_visible_native_producer_payload() -> dict[str, object]:
+    return {
+        "ok": True,
+        "enabled": True,
+        "present": True,
+        "passed": True,
+        "failures": [],
+        "mode": "payload_cache_vllm_replay_visible_native_producer_contract",
+        "contract_boundary": "inprocess_vllm_replay_visible_native_producer_op",
+        "native_runtime": True,
+        "inprocess_native_op": True,
+        "vllm_replay_visible": True,
+        "prelaunch_callable_native_session": True,
+        "post_export_native_replay": False,
+        "standalone_native_replay": False,
+        "native_graph_replay": False,
+        "transition_state_on_device": True,
+        "persistent_state_on_device": True,
+        "issue_generation_on_device": True,
+        "python_transition_skipped": True,
+        "packet_count": 8,
+        "expected_packet_count": 8,
+        "issue_candidate_count": 64,
+        "expected_issue_candidate_count": 64,
+        "expected_issue_candidate_count_source": "graph_visible_producer_contract",
+        "producer_update_count": 8,
+        "replay_visible_update_count": 8,
+        "prelaunch_probe_count": 8,
+        "prelaunch_abi_ready_count": 8,
+        "prelaunch_abi_blocked_count": 0,
+        "prelaunch_device_tensor_count": 8,
+        "prelaunch_host_tensor_count": 0,
+        "prelaunch_int32_count": 8,
+        "prelaunch_dtype_mismatch_count": 0,
+        "prelaunch_current_count_device_tensor_count": 0,
+        "prelaunch_current_count_host_scalar_available_count": 8,
+        "prelaunch_native_session_update_v1_abi_ready": True,
+        "source_kind": "vllm_prelaunch_inprocess_native_producer",
+        "current_expert_ptr_source_kind": "vllm_prelaunch_device_tensor",
+        "source_is_online_stream_contract": True,
+        "source_is_raw_vllm_performance_summary": False,
+        "ready_for_payload_cache_runtime_lab_gate": True,
+        "payload_bytes": 0,
+        "payload_transfer_enabled": False,
+        "payload_deref_allowed": False,
+        "ready_credit": False,
+        "ready_before_demand_credit": False,
+        "real_ready_credit_granted": False,
+        "kernel_arg_pass": False,
+        "kernel_arg_pass_allowed": False,
+        "passed_to_kernel": False,
+        "changes_kernel_launch_args": False,
+        "current_wna16_arg_compatible": False,
+        "uses_current_wna16_args": False,
+        "passes_current_wna16_args": False,
+        "measures_tpot": False,
+        "measures_vllm_latency": False,
+    }
+
+
+def test_vllm_replay_visible_native_producer_contract_evidence_accepts_online_session_gate():
+    failures = _validate_required_evidence_payload(
+        "payload_cache_vllm_replay_visible_native_producer_contract_json",
+        _vllm_replay_visible_native_producer_payload(),
+    )
+
+    assert failures == []
+
+
+def test_vllm_replay_visible_native_producer_contract_evidence_rejects_kernel_pass():
+    payload = _vllm_replay_visible_native_producer_payload()
+    payload["passed_to_kernel"] = True
+
+    failures = _validate_required_evidence_payload(
+        "payload_cache_vllm_replay_visible_native_producer_contract_json",
+        payload,
+    )
+
+    assert (
+        "payload_cache_vllm_replay_visible_native_producer_contract_json:"
+        "payload_cache_vllm_replay_visible_native_producer_contract_"
+        "passed_to_kernel_not_false"
+    ) in failures
+
+
 def _vllm_replay_visible_count_ptr_readiness_payload() -> dict[str, object]:
     return {
         "passed": True,
@@ -20122,7 +20273,8 @@ def test_vllm_replay_visible_count_ptr_readiness_evidence_rejects_wrong_input_so
 
 def test_vllm_replay_visible_count_ptr_readiness_evidence_rejects_lab_pass_claim():
     payload = _vllm_replay_visible_count_ptr_readiness_payload()
-    payload["lab_gate_passed"] = True
+    payload["lab_gate_passed"] = 1
+    payload["runtime_ready"] = 0
 
     failures = _validate_required_evidence_payload(
         "payload_cache_vllm_replay_visible_count_ptr_readiness_json",
@@ -20132,4 +20284,8 @@ def test_vllm_replay_visible_count_ptr_readiness_evidence_rejects_lab_pass_claim
     assert (
         "payload_cache_vllm_replay_visible_count_ptr_readiness_json:"
         "lab_gate_passed_unexpectedly_true"
+    ) in failures
+    assert (
+        "payload_cache_vllm_replay_visible_count_ptr_readiness_json:"
+        "runtime_ready_unexpectedly_true"
     ) in failures

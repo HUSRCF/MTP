@@ -100,6 +100,18 @@ def test_count_ptr_readiness_rejects_payload_or_kernel_enablement() -> None:
     assert "kernel_arg_pass_not_false" in result["failures"]
 
 
+def test_count_ptr_readiness_rejects_runtime_pass_claim_standins() -> None:
+    payload = _payload()
+    payload["lab_gate_passed"] = 1
+    payload["runtime_ready"] = 0
+
+    result = checker.check_contract(payload)
+
+    assert result["passed"] is False
+    assert "lab_gate_passed_unexpectedly_true" in result["failures"]
+    assert "runtime_ready_unexpectedly_true" in result["failures"]
+
+
 def test_count_ptr_readiness_rejects_wrong_provenance() -> None:
     payload = _payload()
     payload["contract_boundary"] = "standalone_native_replay"

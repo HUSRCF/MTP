@@ -598,6 +598,27 @@ def _summary() -> dict[str, object]:
         "payload_cache_online_native_producer_boundary_gap_next_required_boundary": (
             "inprocess_vllm_replay_visible_native_producer_op"
         ),
+        "payload_cache_vllm_replay_visible_native_producer_required": True,
+        "payload_cache_vllm_replay_visible_native_producer_present": True,
+        "payload_cache_vllm_replay_visible_native_producer_passed": True,
+        "payload_cache_vllm_replay_visible_native_producer_ready_for_lab_gate": True,
+        "payload_cache_vllm_replay_visible_native_producer_source_kind": (
+            "vllm_prelaunch_inprocess_native_producer"
+        ),
+        "payload_cache_vllm_replay_visible_native_producer_contract_boundary": (
+            "inprocess_vllm_replay_visible_native_producer_op"
+        ),
+        "payload_cache_vllm_replay_visible_native_producer_packet_count": 8,
+        "payload_cache_vllm_replay_visible_native_producer_issue_candidate_count": 64,
+        "payload_cache_vllm_replay_visible_native_producer_prelaunch_callable_native_session": (
+            True
+        ),
+        "payload_cache_vllm_replay_visible_native_producer_payload_bytes": 0,
+        "payload_cache_vllm_replay_visible_native_producer_kernel_arg_pass": False,
+        "payload_cache_vllm_replay_visible_native_producer_passed_to_kernel": False,
+        "payload_cache_vllm_replay_visible_native_producer_changes_kernel_launch_args": (
+            False
+        ),
         "default_kernel_consumer_schema_passed": True,
         "default_kernel_consumer_schema_row_field_names": [
             "descriptor_ptr",
@@ -1561,10 +1582,15 @@ def _summary() -> dict[str, object]:
         "default_kernel_consumer_dispatch_ptr_standalone_evidence_sha256": HEX,
         "default_kernel_consumer_arg_slot_standalone_evidence_sha256": HEX,
         "required_evidence": {
-            "required_count": 18,
-            "present_count": 18,
-            "passed_count": 18,
-            "evidence": {},
+            "required_count": 66,
+            "present_count": 66,
+            "passed_count": 66,
+            "evidence": {
+                "payload_cache_vllm_replay_visible_native_producer_contract_json": {
+                    "exists": True,
+                    "passed": True,
+                },
+            },
         },
         "optional_evidence": {
             "required_count": 19,
@@ -5037,6 +5063,34 @@ def test_check_premap_lab_preflight_summary_accepts_valid_summary() -> None:
     assert result["online_merged_mirror_field"] == "scale_metadata_handle"
 
 
+def test_check_premap_lab_preflight_summary_rejects_stale_required_evidence_count() -> None:
+    summary = _summary()
+    summary["required_evidence"]["required_count"] = 65
+    summary["required_evidence"]["present_count"] = 65
+    summary["required_evidence"]["passed_count"] = 65
+
+    result = check_premap_lab_preflight_summary(summary)
+
+    assert result["passed"] is False
+    assert "required_evidence_required_count_mismatch" in result["failures"]
+
+
+def test_check_premap_lab_preflight_summary_rejects_missing_vllm_native_evidence_label() -> None:
+    summary = _summary()
+    summary["required_evidence"]["evidence"].pop(
+        "payload_cache_vllm_replay_visible_native_producer_contract_json"
+    )
+
+    result = check_premap_lab_preflight_summary(summary)
+
+    assert result["passed"] is False
+    assert (
+        "required_evidence_"
+        "payload_cache_vllm_replay_visible_native_producer_contract_json_missing"
+        in result["failures"]
+    )
+
+
 def test_check_premap_lab_preflight_summary_accepts_missing_optional_evidence() -> None:
     summary = _summary()
     summary["optional_evidence"]["required_count"] = 15
@@ -5076,6 +5130,43 @@ def test_check_premap_lab_preflight_summary_rejects_boundary_gap_runtime_pass() 
     )
     assert (
         "payload_cache_online_native_producer_boundary_gap_lab_gate_passed_mismatch"
+        in result["failures"]
+    )
+
+
+def test_check_premap_lab_preflight_summary_rejects_missing_vllm_native_producer_gate() -> None:
+    summary = _summary()
+    for key in tuple(summary):
+        if key.startswith("payload_cache_vllm_replay_visible_native_producer_"):
+            summary.pop(key)
+
+    result = check_premap_lab_preflight_summary(summary)
+
+    assert result["passed"] is False
+    assert (
+        "payload_cache_vllm_replay_visible_native_producer_required_mismatch"
+        in result["failures"]
+    )
+    assert (
+        "payload_cache_vllm_replay_visible_native_producer_packet_count_invalid"
+        in result["failures"]
+    )
+
+
+def test_check_premap_lab_preflight_summary_rejects_vllm_native_producer_kernel_pass() -> None:
+    summary = _summary()
+    summary["payload_cache_vllm_replay_visible_native_producer_kernel_arg_pass"] = True
+    summary["payload_cache_vllm_replay_visible_native_producer_passed_to_kernel"] = True
+
+    result = check_premap_lab_preflight_summary(summary)
+
+    assert result["passed"] is False
+    assert (
+        "payload_cache_vllm_replay_visible_native_producer_kernel_arg_pass_mismatch"
+        in result["failures"]
+    )
+    assert (
+        "payload_cache_vllm_replay_visible_native_producer_passed_to_kernel_mismatch"
         in result["failures"]
     )
 
