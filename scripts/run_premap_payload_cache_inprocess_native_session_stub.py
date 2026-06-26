@@ -522,12 +522,19 @@ def _payload_from_updates(
         not bool(args.native_generated_current)
         and not packet_stream_input
     )
-    device_current_count = bool(getattr(args, "device_current_count", False))
-    current_count_source_kind = (
-        "device_tensor_int32_bits_as_uint32"
-        if device_current_count
-        else "host_scalar_uint32"
+    native_generated_current = bool(args.native_generated_current) and not (
+        packet_stream_input
     )
+    device_current_count = bool(getattr(args, "device_current_count", False)) and not (
+        native_generated_current
+    )
+    host_scalar_current_count = not native_generated_current and not device_current_count
+    if native_generated_current:
+        current_count_source_kind = "native_generated_internal_scalar"
+    elif device_current_count:
+        current_count_source_kind = "device_tensor_int32_bits_as_uint32"
+    else:
+        current_count_source_kind = "host_scalar_uint32"
     ready_for_external_pointer_smoke = bool(ok and external_current_expert_ptr_source)
     ready_for_vllm_prelaunch_canary = bool(
         ok and current_expert_ptr_source_kind == "vllm_prelaunch_device_tensor"
@@ -595,7 +602,7 @@ def _payload_from_updates(
         "current_expert_ptr_source_kind": current_expert_ptr_source_kind,
         "current_count_source_kind": current_count_source_kind,
         "current_count_device_ptr_passed": device_current_count,
-        "current_count_host_scalar_passed": not device_current_count,
+        "current_count_host_scalar_passed": host_scalar_current_count,
         "external_current_expert_ptr_source": external_current_expert_ptr_source,
         "payload_bytes": 0,
         "payload_transfer_enabled": False,
@@ -621,7 +628,9 @@ def _payload_from_updates(
         "requested_experts_per_layer": int(args.experts_per_layer),
         "requested_transition_topk_count": int(args.transition_topk_count),
         "requested_disable_vectorized_copy": bool(args.disable_vectorized_copy),
-        "requested_device_current_count": bool(device_current_count),
+        "requested_device_current_count": bool(
+            getattr(args, "device_current_count", False)
+        ),
     }
 
 
@@ -857,8 +866,10 @@ def _build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help=(
             "Pass current_count as a device uint32 pointer to the native "
-            "session update ABI. This exercises the future vLLM prelaunch path "
-            "where the native producer should not require a host scalar count."
+            "session update ABI. The runner materializes the count as an int32 "
+            "device tensor with identical positive-count bits. This exercises "
+            "the future vLLM prelaunch path where the native producer should "
+            "not require a host scalar count."
         ),
     )
     parser.add_argument(

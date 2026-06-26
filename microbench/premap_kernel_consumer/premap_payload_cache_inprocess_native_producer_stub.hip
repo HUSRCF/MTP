@@ -113,6 +113,7 @@ struct InprocessLayerResult {
   uint32_t packet_count;
   uint32_t previous_nonempty_packet_count;
   uint32_t current_nonempty_packet_count;
+  uint32_t current_count;
   uint32_t issue_candidate_count;
   uint32_t error_count;
   uint32_t vectorized_copy_used;
@@ -236,6 +237,7 @@ __global__ void inprocess_transition_step_kernel(
     result->packet_count += 1;
     result->previous_nonempty_packet_count += previous_count > 0 ? 1 : 0;
     result->current_nonempty_packet_count += 1;
+    result->current_count = experts_per_layer;
     result->issue_candidate_count += local_issue_count;
     result->vectorized_copy_used =
         result->vectorized_copy_used || vectorized_copy_seen ? 1 : 0;
@@ -298,10 +300,20 @@ __global__ void inprocess_session_update_layer_kernel(
     uint32_t experts_per_layer,
     uint32_t transition_topk_count,
     uint32_t use_vectorized_copy) {
+  if (blockIdx.x != 0 || layer >= layer_count) {
+    return;
+  }
   const uint32_t effective_current_count =
       current_count_device == nullptr ? current_count : *current_count_device;
-  if (blockIdx.x != 0 || layer >= layer_count ||
-      effective_current_count > experts_per_layer) {
+  InprocessLayerResult* result = layer_results + layer;
+  if (effective_current_count > experts_per_layer) {
+    if (threadIdx.x == 0) {
+      result->checked = 1;
+      result->packet_count += 1;
+      result->current_count = effective_current_count;
+      result->error_count += 1;
+      result->ready = 0;
+    }
     return;
   }
 
@@ -316,7 +328,6 @@ __global__ void inprocess_session_update_layer_kernel(
 
   int32_t* previous_base = previous_expert_state + layer * experts_per_layer;
   uint32_t* previous_count_ptr = previous_count_state + layer;
-  InprocessLayerResult* result = layer_results + layer;
 
   if (threadIdx.x == 0) {
     previous_count = *previous_count_ptr;
@@ -381,6 +392,7 @@ __global__ void inprocess_session_update_layer_kernel(
     result->previous_nonempty_packet_count += previous_count > 0 ? 1 : 0;
     result->current_nonempty_packet_count +=
         effective_current_count > 0 ? 1 : 0;
+    result->current_count = effective_current_count;
     result->issue_candidate_count += local_issue_count;
     result->vectorized_copy_used =
         result->vectorized_copy_used || vectorized_copy_seen ? 1 : 0;
@@ -662,24 +674,9 @@ static int premap_payload_cache_inprocess_producer_session_update_common_v1(
     out->native_returncode = 232;
     return 232;
   }
-  uint32_t effective_current_count = current_count;
-  if (current_count_device != nullptr) {
-    if (hipSetDevice(session->device) != hipSuccess) {
-      out->native_returncode = 234;
-      return 234;
-    }
-    if (hipMemcpy(
-            &effective_current_count,
-            current_count_device,
-            sizeof(uint32_t),
-            hipMemcpyDeviceToHost) != hipSuccess) {
-      out->native_returncode = 246;
-      return 246;
-    }
-  }
-  out->current_count = effective_current_count;
   if (layer >= session->layers ||
-      effective_current_count > session->experts_per_layer) {
+      (current_count_device == nullptr &&
+       current_count > session->experts_per_layer)) {
     out->native_returncode = 233;
     return 233;
   }
@@ -731,7 +728,7 @@ static int premap_payload_cache_inprocess_producer_session_update_common_v1(
       0,
       session->stream,
       current_experts_device,
-      effective_current_count,
+      current_count,
       current_count_device,
       session->d_previous_state,
       session->d_previous_count,
@@ -776,6 +773,7 @@ static int premap_payload_cache_inprocess_producer_session_update_common_v1(
   const uint32_t error_delta =
       layer_result.error_count - before_layer_result.error_count;
   out->previous_count_before = previous_count_before;
+  out->current_count = layer_result.current_count;
   out->packet_count = packet_delta;
   out->previous_nonempty_packet_count = previous_nonempty_delta;
   out->current_nonempty_packet_count = current_nonempty_delta;
@@ -791,7 +789,7 @@ static int premap_payload_cache_inprocess_producer_session_update_common_v1(
       layer_result.checked != 0 && layer_result.ready != 0 &&
       error_delta == 0 && packet_delta == 1 &&
       previous_nonempty_delta == (previous_count_before > 0 ? 1U : 0U) &&
-      current_nonempty_delta == (effective_current_count > 0 ? 1U : 0U) &&
+      current_nonempty_delta == (layer_result.current_count > 0 ? 1U : 0U) &&
       issue_delta == expected_issue_per_update;
   out->ok = ok ? 1 : 0;
   out->passed = ok ? 1 : 0;

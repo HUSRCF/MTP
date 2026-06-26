@@ -32,6 +32,7 @@ def test_inprocess_native_stub_source_preserves_payloadless_contract() -> None:
         "extern \"C\" int "
         "premap_payload_cache_inprocess_producer_session_update_count_ptr_v1"
     ) in source
+    assert "&effective_current_count" not in source
     assert "current_wna16_arg_compatible = 0" in source
     assert "uses_current_wna16_args = 0" in source
     assert "passes_current_wna16_args = 0" in source
@@ -519,7 +520,41 @@ def test_inprocess_native_session_payload_disambiguates_native_generated_current
     assert payload["ready_for_vllm_prelaunch_canary"] is False
     assert payload["current_expert_ptr_source"] == "native_generated_device_scratch"
     assert payload["current_expert_ptr_source_kind"] == "native_scratch_smoke"
+    assert payload["current_count_source_kind"] == "native_generated_internal_scalar"
+    assert payload["current_count_device_ptr_passed"] is False
+    assert payload["current_count_host_scalar_passed"] is False
     assert payload["external_current_expert_ptr_source"] is False
+
+
+def test_inprocess_native_session_payload_does_not_overstate_device_count_for_native_generated(
+    tmp_path: Path,
+) -> None:
+    args = argparse.Namespace(
+        **{
+            **vars(_session_args()),
+            "native_generated_current": True,
+            "device_current_count": True,
+        }
+    )
+    update_results = [
+        (0, _valid_session_update_result(previous_count_before=0)),
+        (0, _valid_session_update_result(previous_count_before=0)),
+    ]
+
+    payload = session_runner._payload_from_updates(
+        args=argparse.Namespace(**{**vars(args), "steps": 1}),
+        library=tmp_path / "producer.so",
+        create_returncode=0,
+        destroy_returncode=0,
+        handle=1234,
+        update_results=update_results,
+    )
+
+    assert payload["ok"] is True
+    assert payload["requested_device_current_count"] is True
+    assert payload["current_count_source_kind"] == "native_generated_internal_scalar"
+    assert payload["current_count_device_ptr_passed"] is False
+    assert payload["current_count_host_scalar_passed"] is False
 
 
 def test_inprocess_native_session_payload_rejects_kernel_arg_pass(
@@ -652,6 +687,9 @@ def test_inprocess_native_session_payload_accepts_packet_stream_source(
     assert payload["current_expert_ptr_source_kind"] == (
         "online_packet_stream_device_tensor_smoke"
     )
+    assert payload["current_count_source_kind"] == "host_scalar_uint32"
+    assert payload["current_count_device_ptr_passed"] is False
+    assert payload["current_count_host_scalar_passed"] is True
     assert payload["external_current_expert_ptr_source"] is False
     assert payload["ready_for_external_pointer_smoke"] is False
     assert payload["ready_for_vllm_prelaunch_canary"] is False
@@ -663,6 +701,57 @@ def test_inprocess_native_session_payload_accepts_packet_stream_source(
     assert payload["kernel_arg_pass_allowed"] is False
     assert payload["uses_current_wna16_args"] is False
     assert payload["passes_current_wna16_args"] is False
+
+
+def test_inprocess_native_session_packet_stream_count_source_overrides_native_flag(
+    tmp_path: Path,
+) -> None:
+    args = argparse.Namespace(
+        **{
+            **vars(_session_args()),
+            "steps": 1,
+            "layers": 1,
+            "experts_per_layer": 3,
+            "transition_topk_count": 2,
+            "packet_stream_input": True,
+            "packet_stream_bin": tmp_path / "packets.bin",
+            "packet_stream_state_override_count": 0,
+            "expected_packet_count": 1,
+            "expected_previous_nonempty_packet_count": 0,
+            "expected_issue_candidate_count": 0,
+            "native_generated_current": True,
+            "device_current_count": True,
+        }
+    )
+    update = _valid_session_update_result(
+        previous_count_before=0,
+        first_issue_expert=-1,
+        last_issue_expert=-1,
+    )
+    update.layer_id = 0
+    update.layers = 1
+    update.experts_per_layer = 3
+    update.transition_topk_count = 2
+    update.current_count = 3
+
+    payload = session_runner._payload_from_updates(
+        args=args,
+        library=tmp_path / "producer.so",
+        create_returncode=0,
+        destroy_returncode=0,
+        handle=1234,
+        update_results=[(0, update)],
+    )
+
+    assert payload["ok"] is True
+    assert payload["packet_stream_input"] is True
+    assert payload["current_expert_ptr_source"] == "packet_stream_torch_device_tensor"
+    assert payload["current_count_source_kind"] == "device_tensor_int32_bits_as_uint32"
+    assert payload["current_count_device_ptr_passed"] is True
+    assert payload["current_count_host_scalar_passed"] is False
+    assert payload["requested_device_current_count"] is True
+    assert payload["payload_bytes"] == 0
+    assert payload["kernel_arg_pass"] is False
 
 
 def test_inprocess_native_session_payload_rejects_packet_layer_mismatch(
