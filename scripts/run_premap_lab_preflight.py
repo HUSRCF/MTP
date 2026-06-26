@@ -12057,6 +12057,31 @@ def _validate_payload_cache_vllm_replay_visible_count_ptr_readiness_evidence(
         failures.append(
             "prelaunch_native_session_update_count_ptr_v1_abi_blocked_count_mismatch"
         )
+    expected_packet_count_source = payload.get("expected_packet_count_source")
+    if expected_packet_count_source not in {
+        "graph_visible_producer_contract",
+        "prelaunch_probe_count",
+    }:
+        failures.append("expected_packet_count_source_invalid")
+    graph_expected_present = payload.get("graph_visible_expected_packet_count_present")
+    if type(graph_expected_present) is not bool:
+        failures.append("graph_visible_expected_packet_count_present_invalid")
+    summary_scope = payload.get("prelaunch_probe_summary_scope")
+    if summary_scope not in {
+        "recorder_current_window",
+        "last_router_sample",
+        "run_aggregate",
+    }:
+        failures.append("prelaunch_probe_summary_scope_invalid")
+    summary_run_sample_count = payload.get(
+        "prelaunch_probe_summary_run_sample_count"
+    )
+    if (
+        isinstance(summary_run_sample_count, bool)
+        or not isinstance(summary_run_sample_count, int)
+        or int(summary_run_sample_count) < 0
+    ):
+        failures.append("prelaunch_probe_summary_run_sample_count_invalid")
     for key in (
         "ready_for_payload_cache_runtime_lab_gate",
         "runtime_ready",

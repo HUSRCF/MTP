@@ -19994,7 +19994,11 @@ def _vllm_replay_visible_count_ptr_readiness_payload() -> dict[str, object]:
             "num_tokens_post_padded_device_tensor"
         ),
         "expected_packet_count": 8,
+        "expected_packet_count_source": "prelaunch_probe_count",
+        "graph_visible_expected_packet_count_present": False,
         "prelaunch_probe_count": 8,
+        "prelaunch_probe_summary_scope": "last_router_sample",
+        "prelaunch_probe_summary_run_sample_count": 1,
         "prelaunch_current_count_device_scalar_int32_count": 8,
         "prelaunch_native_session_update_count_ptr_v1_abi_ready_count": 8,
         "prelaunch_native_session_update_count_ptr_v1_abi_blocked_count": 0,
@@ -20053,6 +20057,36 @@ def test_vllm_replay_visible_count_ptr_readiness_evidence_rejects_count_mismatch
     assert (
         "payload_cache_vllm_replay_visible_count_ptr_readiness_json:"
         "prelaunch_native_session_update_count_ptr_v1_abi_ready_count_mismatch"
+    ) in failures
+
+
+def test_vllm_replay_visible_count_ptr_readiness_evidence_rejects_missing_provenance():
+    payload = _vllm_replay_visible_count_ptr_readiness_payload()
+    payload.pop("expected_packet_count_source")
+    payload.pop("graph_visible_expected_packet_count_present")
+    payload.pop("prelaunch_probe_summary_scope")
+    payload.pop("prelaunch_probe_summary_run_sample_count")
+
+    failures = _validate_required_evidence_payload(
+        "payload_cache_vllm_replay_visible_count_ptr_readiness_json",
+        payload,
+    )
+
+    assert (
+        "payload_cache_vllm_replay_visible_count_ptr_readiness_json:"
+        "expected_packet_count_source_invalid"
+    ) in failures
+    assert (
+        "payload_cache_vllm_replay_visible_count_ptr_readiness_json:"
+        "graph_visible_expected_packet_count_present_invalid"
+    ) in failures
+    assert (
+        "payload_cache_vllm_replay_visible_count_ptr_readiness_json:"
+        "prelaunch_probe_summary_scope_invalid"
+    ) in failures
+    assert (
+        "payload_cache_vllm_replay_visible_count_ptr_readiness_json:"
+        "prelaunch_probe_summary_run_sample_count_invalid"
     ) in failures
 
 

@@ -73,6 +73,10 @@ def _valid_contract() -> dict[str, object]:
         "measures_tpot": False,
         "measures_vllm_latency": False,
         "prelaunch_probe_count": 2560,
+        "prelaunch_probe_summary_scope": "run_aggregate",
+        "prelaunch_probe_summary_run_sample_count": 128,
+        "expected_packet_count_source": "graph_visible_producer_contract",
+        "graph_visible_expected_packet_count_present": True,
         "prelaunch_abi_ready_count": 2560,
         "prelaunch_abi_blocked_count": 0,
         "prelaunch_device_tensor_count": 2560,
@@ -201,6 +205,10 @@ def test_materializer_extracts_future_positive_contract_for_checker() -> None:
     assert result["passed"] is True
     assert result["failures"] == []
     assert result["prelaunch_probe_count"] == 2560
+    assert result["prelaunch_probe_summary_scope"] == "run_aggregate"
+    assert result["prelaunch_probe_summary_run_sample_count"] == 128
+    assert result["expected_packet_count_source"] == "graph_visible_producer_contract"
+    assert result["graph_visible_expected_packet_count_present"] is True
     assert result["prelaunch_native_session_update_v1_abi_ready"] is True
 
     checked = checker.check_contract(result)

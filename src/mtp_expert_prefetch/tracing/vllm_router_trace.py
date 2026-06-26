@@ -2964,6 +2964,8 @@ def _add_premap_payload_cache_vllm_replay_visible_native_producer_contract_to_pe
     recorder: VllmRouterRecorder,
     *,
     prefix: str,
+    prelaunch_probe_summary_scope: str = "recorder_current_window",
+    prelaunch_probe_summary_run_sample_count: int | None = None,
 ) -> None:
     """Expose the future in-process native producer boundary fail-closed.
 
@@ -2977,12 +2979,77 @@ def _add_premap_payload_cache_vllm_replay_visible_native_producer_contract_to_pe
     enabled = bool(
         recorder.shadow_premap_payload_cache_vllm_replay_visible_native_producer_enabled
     )
-    expected_packet_count = int(
-        performance.get(f"{graph_prefix}expected_packet_count", 0) or 0
+    graph_expected_packet_count_present = (
+        f"{graph_prefix}expected_packet_count" in performance
     )
+    expected_packet_count = int(performance.get(f"{graph_prefix}expected_packet_count", 0) or 0)
     expected_issue_candidate_count = int(
         performance.get(f"{graph_prefix}expected_issue_candidate_count", 0) or 0
     )
+    expected_packet_count_source = (
+        "graph_visible_producer_contract"
+        if expected_packet_count > 0
+        else "missing"
+    )
+    prelaunch_probe_count = int(
+        recorder._premap_payload_cache_vllm_replay_visible_prelaunch_probe_count
+    )
+    prelaunch_abi_ready_count = int(
+        recorder._premap_payload_cache_vllm_replay_visible_prelaunch_abi_ready_count
+    )
+    prelaunch_abi_blocked_count = int(
+        recorder._premap_payload_cache_vllm_replay_visible_prelaunch_abi_blocked_count
+    )
+    prelaunch_device_tensor_count = int(
+        recorder._premap_payload_cache_vllm_replay_visible_prelaunch_device_tensor_count
+    )
+    prelaunch_int32_count = int(
+        recorder._premap_payload_cache_vllm_replay_visible_prelaunch_int32_count
+    )
+    prelaunch_count_ptr_ready_count = int(
+        recorder._premap_payload_cache_vllm_replay_visible_prelaunch_count_ptr_abi_ready_count
+    )
+    prelaunch_count_ptr_blocked_count = int(
+        recorder._premap_payload_cache_vllm_replay_visible_prelaunch_count_ptr_abi_blocked_count
+    )
+    source_present = bool(
+        enabled
+        and prelaunch_probe_count > 0
+        and prelaunch_device_tensor_count == prelaunch_probe_count
+        and prelaunch_int32_count == prelaunch_probe_count
+    )
+    if expected_packet_count <= 0 and source_present:
+        # Direct vLLM performance summaries may not also emit the graph-visible
+        # producer contract.  In that case the prelaunch probe count is the
+        # conservative consistency denominator for the read-only count-pointer
+        # readiness surface.  This does not make the runtime producer contract
+        # pass: present/passed and update counts remain fail-closed below.
+        expected_packet_count = prelaunch_probe_count
+        expected_packet_count_source = "prelaunch_probe_count"
+    legacy_abi_ready = bool(
+        source_present
+        and prelaunch_probe_count == expected_packet_count
+        and prelaunch_abi_ready_count == expected_packet_count
+        and prelaunch_abi_blocked_count == 0
+        and expected_packet_count > 0
+    )
+    source_kind = (
+        "vllm_prelaunch_inprocess_native_producer"
+        if source_present
+        else "missing_vllm_prelaunch_inprocess_native_producer"
+    )
+    if (
+        source_present
+        and prelaunch_device_tensor_count == prelaunch_probe_count
+        and prelaunch_int32_count == prelaunch_probe_count
+    ):
+        current_expert_ptr_source_kind: str | None = "vllm_prelaunch_device_tensor"
+    elif source_present and prelaunch_device_tensor_count > 0:
+        current_expert_ptr_source_kind = "vllm_prelaunch_device_tensor_partial"
+    elif source_present:
+        current_expert_ptr_source_kind = "vllm_prelaunch_non_device_tensor"
+    else:
+        current_expert_ptr_source_kind = None
     failures: list[str] = []
     if not enabled:
         failures.append("vllm_replay_visible_native_producer_disabled")
@@ -2994,6 +3061,8 @@ def _add_premap_payload_cache_vllm_replay_visible_native_producer_contract_to_pe
                 "vllm_replay_visible_updates_missing",
             ]
         )
+        if source_present and not legacy_abi_ready:
+            failures.append("native_session_update_v1_abi_not_ready")
 
     performance[f"{contract_prefix}enabled"] = bool(enabled)
     performance[f"{contract_prefix}present"] = False
@@ -3005,9 +3074,7 @@ def _add_premap_payload_cache_vllm_replay_visible_native_producer_contract_to_pe
     performance[f"{contract_prefix}contract_boundary"] = (
         "inprocess_vllm_replay_visible_native_producer_op"
     )
-    performance[f"{contract_prefix}source_kind"] = (
-        "missing_vllm_prelaunch_inprocess_native_producer"
-    )
+    performance[f"{contract_prefix}source_kind"] = source_kind
     performance[f"{contract_prefix}native_runtime"] = False
     performance[f"{contract_prefix}inprocess_native_op"] = False
     performance[f"{contract_prefix}vllm_replay_visible"] = False
@@ -3023,31 +3090,45 @@ def _add_premap_payload_cache_vllm_replay_visible_native_producer_contract_to_pe
     performance[f"{contract_prefix}expected_packet_count"] = int(
         expected_packet_count
     )
+    performance[f"{contract_prefix}expected_packet_count_source"] = (
+        expected_packet_count_source
+    )
+    performance[f"{contract_prefix}graph_visible_expected_packet_count_present"] = (
+        bool(graph_expected_packet_count_present)
+    )
     performance[f"{contract_prefix}issue_candidate_count"] = 0
     performance[f"{contract_prefix}expected_issue_candidate_count"] = int(
         expected_issue_candidate_count
     )
     performance[f"{contract_prefix}producer_update_count"] = 0
     performance[f"{contract_prefix}replay_visible_update_count"] = 0
-    performance[f"{contract_prefix}current_expert_ptr_source_kind"] = None
+    performance[f"{contract_prefix}current_expert_ptr_source_kind"] = (
+        current_expert_ptr_source_kind
+    )
     performance[f"{contract_prefix}prelaunch_probe_count"] = int(
-        recorder._premap_payload_cache_vllm_replay_visible_prelaunch_probe_count
+        prelaunch_probe_count
+    )
+    performance[f"{contract_prefix}prelaunch_probe_summary_scope"] = str(
+        prelaunch_probe_summary_scope
+    )
+    performance[f"{contract_prefix}prelaunch_probe_summary_run_sample_count"] = (
+        0
+        if prelaunch_probe_summary_run_sample_count is None
+        else int(prelaunch_probe_summary_run_sample_count)
     )
     performance[f"{contract_prefix}prelaunch_abi_ready_count"] = int(
-        recorder._premap_payload_cache_vllm_replay_visible_prelaunch_abi_ready_count
+        prelaunch_abi_ready_count
     )
     performance[f"{contract_prefix}prelaunch_abi_blocked_count"] = int(
-        recorder._premap_payload_cache_vllm_replay_visible_prelaunch_abi_blocked_count
+        prelaunch_abi_blocked_count
     )
     performance[f"{contract_prefix}prelaunch_device_tensor_count"] = int(
-        recorder._premap_payload_cache_vllm_replay_visible_prelaunch_device_tensor_count
+        prelaunch_device_tensor_count
     )
     performance[f"{contract_prefix}prelaunch_host_tensor_count"] = int(
         recorder._premap_payload_cache_vllm_replay_visible_prelaunch_host_tensor_count
     )
-    performance[f"{contract_prefix}prelaunch_int32_count"] = int(
-        recorder._premap_payload_cache_vllm_replay_visible_prelaunch_int32_count
-    )
+    performance[f"{contract_prefix}prelaunch_int32_count"] = int(prelaunch_int32_count)
     performance[f"{contract_prefix}prelaunch_dtype_mismatch_count"] = int(
         recorder._premap_payload_cache_vllm_replay_visible_prelaunch_dtype_mismatch_count
     )
@@ -3061,22 +3142,15 @@ def _add_premap_payload_cache_vllm_replay_visible_native_producer_contract_to_pe
         recorder._premap_payload_cache_vllm_replay_visible_prelaunch_current_count_host_scalar_available_count
     )
     performance[f"{contract_prefix}prelaunch_native_session_update_count_ptr_v1_abi_ready_count"] = int(
-        recorder._premap_payload_cache_vllm_replay_visible_prelaunch_count_ptr_abi_ready_count
+        prelaunch_count_ptr_ready_count
     )
     performance[f"{contract_prefix}prelaunch_native_session_update_count_ptr_v1_abi_blocked_count"] = int(
-        recorder._premap_payload_cache_vllm_replay_visible_prelaunch_count_ptr_abi_blocked_count
+        prelaunch_count_ptr_blocked_count
     )
     performance[f"{contract_prefix}prelaunch_native_session_update_count_ptr_v1_abi_ready"] = (
-        int(
-            recorder._premap_payload_cache_vllm_replay_visible_prelaunch_count_ptr_abi_ready_count
-        )
-        == int(
-            recorder._premap_payload_cache_vllm_replay_visible_prelaunch_probe_count
-        )
-        and int(
-            recorder._premap_payload_cache_vllm_replay_visible_prelaunch_probe_count
-        )
-        > 0
+        prelaunch_count_ptr_ready_count == prelaunch_probe_count
+        and prelaunch_count_ptr_blocked_count == 0
+        and prelaunch_probe_count > 0
     )
     performance[f"{contract_prefix}prelaunch_native_session_update_v1_abi_ready"] = (
         int(
@@ -3118,7 +3192,9 @@ def _add_premap_payload_cache_vllm_replay_visible_native_producer_contract_to_pe
     performance[f"{contract_prefix}prelaunch_last_current_count_source_kind"] = (
         recorder._premap_payload_cache_vllm_replay_visible_prelaunch_last_current_count_source_kind
     )
-    performance[f"{contract_prefix}source_is_online_stream_contract"] = False
+    performance[f"{contract_prefix}source_is_online_stream_contract"] = bool(
+        source_present
+    )
     performance[f"{contract_prefix}source_is_raw_vllm_performance_summary"] = False
     performance[f"{contract_prefix}ready_for_payload_cache_runtime_lab_gate"] = False
     performance[f"{contract_prefix}next_boundary"] = (
@@ -23538,6 +23614,7 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
         output_dir=output_dir,
         project_root=project_root,
     )
+    performance_summary_router_recorder: VllmRouterRecorder | None = None
     runtime_shadow_path = (
         runtime_shadow_controller.logger.path
         if runtime_shadow_controller is not None
@@ -25421,6 +25498,7 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
                                 )
                             ),
                         )
+                        performance_summary_router_recorder = recorder
                         for sample_idx, record, input_ids, prompt in chunk:
                             recorder.clear()
                             recorder.request_id = _shadow_request_id(
@@ -25644,6 +25722,21 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
         )
     if decode_workload_collector is not None:
         performance["decode_workload_trace"] = decode_workload_collector.stats()
+    if (
+        performance_summary_router_recorder is not None
+        and bool(
+            performance_summary_router_recorder.shadow_premap_payload_cache_vllm_replay_visible_native_producer_enabled
+        )
+    ):
+        _add_premap_payload_cache_vllm_replay_visible_native_producer_contract_to_performance(
+            performance,
+            performance_summary_router_recorder,
+            prefix="runtime_shadow_premap_payload_cache_direct_",
+            prelaunch_probe_summary_scope="last_router_sample",
+            prelaunch_probe_summary_run_sample_count=int(
+                performance.get("sample_count", 0) or 0
+            ),
+        )
     _add_premap_payload_cache_manager_snapshot_to_performance(
         performance,
         premap_live_config_without_router_recorder,

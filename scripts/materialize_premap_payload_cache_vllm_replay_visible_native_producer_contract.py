@@ -79,6 +79,10 @@ CONTRACT_FIELDS = (
 )
 OPTIONAL_CONTRACT_FIELDS = (
     "prelaunch_probe_count",
+    "prelaunch_probe_summary_scope",
+    "prelaunch_probe_summary_run_sample_count",
+    "expected_packet_count_source",
+    "graph_visible_expected_packet_count_present",
     "prelaunch_abi_ready_count",
     "prelaunch_abi_blocked_count",
     "prelaunch_device_tensor_count",

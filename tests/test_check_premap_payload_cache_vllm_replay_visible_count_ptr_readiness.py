@@ -14,7 +14,11 @@ def _payload() -> dict[str, object]:
         "source_is_online_stream_contract": True,
         "source_is_raw_vllm_performance_summary": False,
         "expected_packet_count": 8,
+        "expected_packet_count_source": "prelaunch_probe_count",
+        "graph_visible_expected_packet_count_present": False,
         "prelaunch_probe_count": 8,
+        "prelaunch_probe_summary_scope": "last_router_sample",
+        "prelaunch_probe_summary_run_sample_count": 1,
         "prelaunch_device_tensor_count": 8,
         "prelaunch_host_tensor_count": 0,
         "prelaunch_int32_count": 8,
@@ -52,6 +56,10 @@ def test_count_ptr_readiness_accepts_device_scalar_int32_surface() -> None:
 
     assert result["passed"] is True
     assert result["ready_for_future_count_ptr_native_session"] is True
+    assert result["expected_packet_count_source"] == "prelaunch_probe_count"
+    assert result["graph_visible_expected_packet_count_present"] is False
+    assert result["prelaunch_probe_summary_scope"] == "last_router_sample"
+    assert result["prelaunch_probe_summary_run_sample_count"] == 1
     assert result["payload_bytes"] == 0
     assert result["kernel_arg_pass"] is False
 
@@ -106,6 +114,22 @@ def test_count_ptr_readiness_rejects_wrong_provenance() -> None:
     assert "source_kind_mismatch" in result["failures"]
     assert "source_is_online_stream_contract_mismatch" in result["failures"]
     assert "source_is_raw_vllm_performance_summary_mismatch" in result["failures"]
+
+
+def test_count_ptr_readiness_rejects_missing_probe_provenance() -> None:
+    payload = _payload()
+    payload.pop("expected_packet_count_source")
+    payload.pop("graph_visible_expected_packet_count_present")
+    payload.pop("prelaunch_probe_summary_scope")
+    payload.pop("prelaunch_probe_summary_run_sample_count")
+
+    result = checker.check_contract(payload)
+
+    assert result["passed"] is False
+    assert "expected_packet_count_source_invalid" in result["failures"]
+    assert "graph_visible_expected_packet_count_present_invalid" in result["failures"]
+    assert "prelaunch_probe_summary_scope_invalid" in result["failures"]
+    assert "prelaunch_probe_summary_run_sample_count_invalid" in result["failures"]
 
 
 def test_count_ptr_readiness_rejects_contradictory_negative_counters() -> None:

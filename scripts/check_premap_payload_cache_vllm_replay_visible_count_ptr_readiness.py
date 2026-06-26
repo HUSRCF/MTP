@@ -90,6 +90,14 @@ def check_contract(payload: dict[str, Any]) -> dict[str, Any]:
         payload,
         "prelaunch_native_session_update_count_ptr_v1_abi_blocked_count",
     )
+    expected_packet_count_source = payload.get("expected_packet_count_source")
+    graph_visible_expected_packet_count_present = payload.get(
+        "graph_visible_expected_packet_count_present"
+    )
+    prelaunch_probe_summary_scope = payload.get("prelaunch_probe_summary_scope")
+    prelaunch_probe_summary_run_sample_count = payload.get(
+        "prelaunch_probe_summary_run_sample_count"
+    )
 
     if payload.get("mode") != INPUT_MODE:
         failures.append("mode_mismatch")
@@ -158,6 +166,25 @@ def check_contract(payload: dict[str, Any]) -> dict[str, Any]:
         failures.append("prelaunch_last_current_count_source_kind_mismatch")
     if payload.get("prelaunch_native_session_update_count_ptr_v1_abi_ready") is not True:
         failures.append("prelaunch_native_session_update_count_ptr_v1_abi_ready_mismatch")
+    if expected_packet_count_source not in {
+        "graph_visible_producer_contract",
+        "prelaunch_probe_count",
+    }:
+        failures.append("expected_packet_count_source_invalid")
+    if type(graph_visible_expected_packet_count_present) is not bool:
+        failures.append("graph_visible_expected_packet_count_present_invalid")
+    if prelaunch_probe_summary_scope not in {
+        "recorder_current_window",
+        "last_router_sample",
+        "run_aggregate",
+    }:
+        failures.append("prelaunch_probe_summary_scope_invalid")
+    if (
+        isinstance(prelaunch_probe_summary_run_sample_count, bool)
+        or not isinstance(prelaunch_probe_summary_run_sample_count, int)
+        or int(prelaunch_probe_summary_run_sample_count) < 0
+    ):
+        failures.append("prelaunch_probe_summary_run_sample_count_invalid")
 
     passed = not failures
     return {
@@ -169,6 +196,16 @@ def check_contract(payload: dict[str, Any]) -> dict[str, Any]:
         "input_mode": payload.get("mode"),
         "input_contract_boundary": payload.get("contract_boundary"),
         "source_kind": payload.get("source_kind"),
+        "expected_packet_count_source": payload.get("expected_packet_count_source"),
+        "graph_visible_expected_packet_count_present": payload.get(
+            "graph_visible_expected_packet_count_present"
+        ),
+        "prelaunch_probe_summary_scope": payload.get(
+            "prelaunch_probe_summary_scope"
+        ),
+        "prelaunch_probe_summary_run_sample_count": payload.get(
+            "prelaunch_probe_summary_run_sample_count"
+        ),
         "prelaunch_last_current_count_source_kind": payload.get(
             "prelaunch_last_current_count_source_kind"
         ),
