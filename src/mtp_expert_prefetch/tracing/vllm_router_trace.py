@@ -2959,6 +2959,100 @@ def _add_premap_payload_cache_online_inside_graph_producer_boundary_contract_to_
     performance[f"{contract_prefix}measures_vllm_latency"] = False
 
 
+def _add_premap_payload_cache_vllm_replay_visible_native_producer_contract_to_performance(
+    performance: dict[str, Any],
+    recorder: VllmRouterRecorder,
+    *,
+    prefix: str,
+) -> None:
+    """Expose the future in-process native producer boundary fail-closed.
+
+    The graph-visible tensor canary and standalone HIP replay are useful
+    evidence, but neither is the real vLLM replay-visible native producer op.
+    This contract makes that next boundary explicit in online summaries.
+    """
+
+    graph_prefix = f"{prefix}graph_visible_producer_contract_"
+    contract_prefix = f"{prefix}vllm_replay_visible_native_producer_contract_"
+    enabled = bool(
+        recorder.shadow_premap_payload_cache_vllm_replay_visible_native_producer_enabled
+    )
+    expected_packet_count = int(
+        performance.get(f"{graph_prefix}expected_packet_count", 0) or 0
+    )
+    expected_issue_candidate_count = int(
+        performance.get(f"{graph_prefix}expected_issue_candidate_count", 0) or 0
+    )
+    failures: list[str] = []
+    if not enabled:
+        failures.append("vllm_replay_visible_native_producer_disabled")
+    else:
+        failures.extend(
+            [
+                "native_runtime_not_connected",
+                "inprocess_native_op_not_connected",
+                "vllm_replay_visible_updates_missing",
+            ]
+        )
+
+    performance[f"{contract_prefix}enabled"] = bool(enabled)
+    performance[f"{contract_prefix}present"] = False
+    performance[f"{contract_prefix}passed"] = False
+    performance[f"{contract_prefix}failures"] = failures
+    performance[f"{contract_prefix}mode"] = (
+        "payload_cache_vllm_replay_visible_native_producer_contract"
+    )
+    performance[f"{contract_prefix}contract_boundary"] = (
+        "inprocess_vllm_replay_visible_native_producer_op"
+    )
+    performance[f"{contract_prefix}source_kind"] = (
+        "missing_vllm_prelaunch_inprocess_native_producer"
+    )
+    performance[f"{contract_prefix}native_runtime"] = False
+    performance[f"{contract_prefix}inprocess_native_op"] = False
+    performance[f"{contract_prefix}vllm_replay_visible"] = False
+    performance[f"{contract_prefix}prelaunch_callable_native_session"] = False
+    performance[f"{contract_prefix}post_export_native_replay"] = False
+    performance[f"{contract_prefix}standalone_native_replay"] = False
+    performance[f"{contract_prefix}native_graph_replay"] = False
+    performance[f"{contract_prefix}transition_state_on_device"] = False
+    performance[f"{contract_prefix}persistent_state_on_device"] = False
+    performance[f"{contract_prefix}issue_generation_on_device"] = False
+    performance[f"{contract_prefix}python_transition_skipped"] = False
+    performance[f"{contract_prefix}packet_count"] = 0
+    performance[f"{contract_prefix}expected_packet_count"] = int(
+        expected_packet_count
+    )
+    performance[f"{contract_prefix}issue_candidate_count"] = 0
+    performance[f"{contract_prefix}expected_issue_candidate_count"] = int(
+        expected_issue_candidate_count
+    )
+    performance[f"{contract_prefix}producer_update_count"] = 0
+    performance[f"{contract_prefix}replay_visible_update_count"] = 0
+    performance[f"{contract_prefix}current_expert_ptr_source_kind"] = None
+    performance[f"{contract_prefix}source_is_online_stream_contract"] = False
+    performance[f"{contract_prefix}source_is_raw_vllm_performance_summary"] = False
+    performance[f"{contract_prefix}ready_for_payload_cache_runtime_lab_gate"] = False
+    performance[f"{contract_prefix}next_boundary"] = (
+        "payload_cache_manager_payloadless_ab_or_full_fetch_canary"
+    )
+    performance[f"{contract_prefix}payload_bytes"] = 0
+    performance[f"{contract_prefix}payload_transfer_enabled"] = False
+    performance[f"{contract_prefix}payload_deref_allowed"] = False
+    performance[f"{contract_prefix}ready_credit"] = False
+    performance[f"{contract_prefix}ready_before_demand_credit"] = False
+    performance[f"{contract_prefix}real_ready_credit_granted"] = False
+    performance[f"{contract_prefix}kernel_arg_pass"] = False
+    performance[f"{contract_prefix}kernel_arg_pass_allowed"] = False
+    performance[f"{contract_prefix}passed_to_kernel"] = False
+    performance[f"{contract_prefix}changes_kernel_launch_args"] = False
+    performance[f"{contract_prefix}current_wna16_arg_compatible"] = False
+    performance[f"{contract_prefix}uses_current_wna16_args"] = False
+    performance[f"{contract_prefix}passes_current_wna16_args"] = False
+    performance[f"{contract_prefix}measures_tpot"] = False
+    performance[f"{contract_prefix}measures_vllm_latency"] = False
+
+
 def _add_premap_payload_cache_manager_snapshot_to_performance(
     performance: dict[str, Any],
     recorder: VllmRouterRecorder | None,
@@ -2977,7 +3071,13 @@ def _add_premap_payload_cache_manager_snapshot_to_performance(
         return
     manager = recorder._shadow_premap_payload_cache_manager
     if manager is None:
-        if bool(recorder.shadow_emit_premap_payload_cache_manager_counters):
+        emit_manager_contracts = bool(
+            recorder.shadow_emit_premap_payload_cache_manager_counters
+        )
+        emit_vllm_replay_visible_contract = bool(
+            recorder.shadow_premap_payload_cache_vllm_replay_visible_native_producer_enabled
+        )
+        if emit_manager_contracts:
             performance[f"{prefix}snapshot_present"] = False
             performance[f"{prefix}snapshot_source"] = str(source)
             _add_premap_payload_cache_online_stream_contract_to_performance(
@@ -2991,6 +3091,12 @@ def _add_premap_payload_cache_manager_snapshot_to_performance(
                 prefix=prefix,
             )
             _add_premap_payload_cache_online_inside_graph_producer_boundary_contract_to_performance(
+                performance,
+                recorder,
+                prefix=prefix,
+            )
+        if emit_manager_contracts or emit_vllm_replay_visible_contract:
+            _add_premap_payload_cache_vllm_replay_visible_native_producer_contract_to_performance(
                 performance,
                 recorder,
                 prefix=prefix,
@@ -3182,6 +3288,11 @@ def _add_premap_payload_cache_manager_snapshot_to_performance(
         prefix=prefix,
     )
     _add_premap_payload_cache_online_inside_graph_producer_boundary_contract_to_performance(
+        performance,
+        recorder,
+        prefix=prefix,
+    )
+    _add_premap_payload_cache_vllm_replay_visible_native_producer_contract_to_performance(
         performance,
         recorder,
         prefix=prefix,
@@ -3859,6 +3970,9 @@ class VllmRouterRecorder:
     shadow_premap_payload_cache_transition_state_owner: str = "consumer"
     shadow_premap_payload_cache_graph_visible_producer_enabled: bool = False
     shadow_premap_payload_cache_graph_visible_producer_skip_python_transition: (
+        bool
+    ) = False
+    shadow_premap_payload_cache_vllm_replay_visible_native_producer_enabled: (
         bool
     ) = False
     shadow_premap_payload_cache_manager_mode: str = "resident"
@@ -22369,13 +22483,20 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
                     False,
                 )
             )
+            or bool(
+                runtime_shadow_options.get(
+                    "premap_payload_cache_vllm_replay_visible_native_producer_enabled",
+                    False,
+                )
+            )
         ):
             msg = (
                 "trace.allow_premap_live_config_without_router_recorder=True "
                 "requires runtime_shadow.premap_kernel_arg_handoff_live_enabled=True "
                 "or runtime_shadow.emit_premap_consumer_mapping=True "
                 "or runtime_shadow.emit_premap_payload_cache_manager_counters=True "
-                "or runtime_shadow.premap_kernel_arg_handoff_gpu_assignment_prelaunch_pointer_source_canary_enabled=True."
+                "or runtime_shadow.premap_kernel_arg_handoff_gpu_assignment_prelaunch_pointer_source_canary_enabled=True "
+                "or runtime_shadow.premap_payload_cache_vllm_replay_visible_native_producer_enabled=True."
             )
             raise ValueError(msg)
         # This is a lightweight config/producer object, not a router recorder:
@@ -22504,6 +22625,12 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
             shadow_premap_payload_cache_graph_visible_producer_skip_python_transition=bool(
                 runtime_shadow_options.get(
                     "premap_payload_cache_graph_visible_producer_skip_python_transition",
+                    False,
+                )
+            ),
+            shadow_premap_payload_cache_vllm_replay_visible_native_producer_enabled=bool(
+                runtime_shadow_options.get(
+                    "premap_payload_cache_vllm_replay_visible_native_producer_enabled",
                     False,
                 )
             ),
@@ -24206,6 +24333,12 @@ def trace_router_mtp_vllm(config_path: str | Path) -> Path:
                             shadow_premap_payload_cache_graph_visible_producer_skip_python_transition=bool(
                                 runtime_shadow_options.get(
                                     "premap_payload_cache_graph_visible_producer_skip_python_transition",
+                                    False,
+                                )
+                            ),
+                            shadow_premap_payload_cache_vllm_replay_visible_native_producer_enabled=bool(
+                                runtime_shadow_options.get(
+                                    "premap_payload_cache_vllm_replay_visible_native_producer_enabled",
                                     False,
                                 )
                             ),

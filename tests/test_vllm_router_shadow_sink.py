@@ -1477,6 +1477,43 @@ def test_premap_payload_cache_graph_visible_producer_contract_counts_stream():
     assert performance[f"{boundary_prefix}passed_to_kernel"] is False
     assert performance[f"{boundary_prefix}changes_kernel_launch_args"] is False
 
+    replay_prefix = (
+        "runtime_shadow_premap_payload_cache_direct_"
+        "vllm_replay_visible_native_producer_contract_"
+    )
+    assert performance[f"{replay_prefix}enabled"] is False
+    assert performance[f"{replay_prefix}present"] is False
+    assert performance[f"{replay_prefix}passed"] is False
+    assert performance[f"{replay_prefix}mode"] == (
+        "payload_cache_vllm_replay_visible_native_producer_contract"
+    )
+    assert performance[f"{replay_prefix}contract_boundary"] == (
+        "inprocess_vllm_replay_visible_native_producer_op"
+    )
+    assert performance[f"{replay_prefix}source_kind"] == (
+        "missing_vllm_prelaunch_inprocess_native_producer"
+    )
+    assert "vllm_replay_visible_native_producer_disabled" in performance[
+        f"{replay_prefix}failures"
+    ]
+    assert performance[f"{replay_prefix}native_runtime"] is False
+    assert performance[f"{replay_prefix}inprocess_native_op"] is False
+    assert performance[f"{replay_prefix}vllm_replay_visible"] is False
+    assert performance[f"{replay_prefix}expected_packet_count"] == 8
+    assert performance[f"{replay_prefix}expected_issue_candidate_count"] == 12
+    assert performance[f"{replay_prefix}packet_count"] == 0
+    assert performance[f"{replay_prefix}issue_candidate_count"] == 0
+    assert performance[f"{replay_prefix}payload_bytes"] == 0
+    assert performance[f"{replay_prefix}ready_credit"] is False
+    assert performance[f"{replay_prefix}kernel_arg_pass"] is False
+    assert performance[f"{replay_prefix}passed_to_kernel"] is False
+    assert performance[f"{replay_prefix}changes_kernel_launch_args"] is False
+    assert performance[f"{replay_prefix}payload_deref_allowed"] is False
+    assert performance[f"{replay_prefix}ready_before_demand_credit"] is False
+    assert performance[f"{replay_prefix}real_ready_credit_granted"] is False
+    assert performance[f"{replay_prefix}kernel_arg_pass_allowed"] is False
+    assert performance[f"{replay_prefix}measures_vllm_latency"] is False
+
 
 def test_premap_payload_cache_inside_graph_producer_boundary_skips_python_transition():
     recorder = VllmRouterRecorder(
@@ -1562,6 +1599,175 @@ def test_premap_payload_cache_inside_graph_producer_boundary_skips_python_transi
     assert performance[f"{online_prefix}present"] is False
     assert performance[f"{online_prefix}passed"] is False
     assert recorder._premap_payload_cache_transition_native_packet_count == 0
+
+
+def test_premap_payload_cache_vllm_replay_visible_native_producer_contract_fails_closed_when_enabled_without_backend():
+    recorder = VllmRouterRecorder(
+        top_k=2,
+        shadow_outcome_sink=None,
+        shadow_num_experts=8,
+        shadow_emit_premap_payload_cache_manager_counters=True,
+        shadow_premap_payload_cache_manager_capacity=4,
+        shadow_premap_payload_cache_transition_state_owner="producer",
+        shadow_premap_payload_cache_graph_visible_producer_enabled=True,
+        shadow_premap_payload_cache_graph_visible_producer_skip_python_transition=True,
+        shadow_premap_payload_cache_vllm_replay_visible_native_producer_enabled=True,
+        shadow_transition_topk_count=2,
+    )
+
+    per_step_experts = (
+        ((1, 2), (3, 4)),
+        ((2, 5), (4, 6)),
+        ((5, 7), (0, 6)),
+        ((1, 7), (0, 3)),
+    )
+    for step_layers in per_step_experts:
+        for layer_id, experts in enumerate(step_layers):
+            recorder.maybe_reorder_prepared_expert_assignment(
+                layer_id=layer_id,
+                sorted_token_ids=torch.tensor([0, 1], dtype=torch.long),
+                expert_ids=torch.tensor(list(experts), dtype=torch.long),
+                num_tokens_post_padded=torch.tensor([2], dtype=torch.long),
+                block_size=1,
+            )
+    performance = {
+        "sample_count": 1,
+        "requested_output_token_count": 4,
+    }
+
+    _add_premap_payload_cache_manager_snapshot_to_performance(
+        performance,
+        recorder,
+        source="unit_test_vllm_replay_visible_native_producer_contract",
+    )
+
+    graph_prefix = (
+        "runtime_shadow_premap_payload_cache_direct_"
+        "graph_visible_producer_contract_"
+    )
+    assert performance[f"{graph_prefix}passed"] is True
+
+    boundary_prefix = (
+        "runtime_shadow_premap_payload_cache_direct_"
+        "online_inside_graph_producer_boundary_contract_"
+    )
+    assert performance[f"{boundary_prefix}passed"] is True
+
+    replay_prefix = (
+        "runtime_shadow_premap_payload_cache_direct_"
+        "vllm_replay_visible_native_producer_contract_"
+    )
+    assert performance[f"{replay_prefix}enabled"] is True
+    assert performance[f"{replay_prefix}present"] is False
+    assert performance[f"{replay_prefix}passed"] is False
+    assert performance[f"{replay_prefix}failures"] == [
+        "native_runtime_not_connected",
+        "inprocess_native_op_not_connected",
+        "vllm_replay_visible_updates_missing",
+    ]
+    assert performance[f"{replay_prefix}mode"] == (
+        "payload_cache_vllm_replay_visible_native_producer_contract"
+    )
+    assert performance[f"{replay_prefix}contract_boundary"] == (
+        "inprocess_vllm_replay_visible_native_producer_op"
+    )
+    assert performance[f"{replay_prefix}source_kind"] == (
+        "missing_vllm_prelaunch_inprocess_native_producer"
+    )
+    assert performance[f"{replay_prefix}native_runtime"] is False
+    assert performance[f"{replay_prefix}inprocess_native_op"] is False
+    assert performance[f"{replay_prefix}vllm_replay_visible"] is False
+    assert performance[f"{replay_prefix}prelaunch_callable_native_session"] is False
+    assert performance[f"{replay_prefix}post_export_native_replay"] is False
+    assert performance[f"{replay_prefix}standalone_native_replay"] is False
+    assert performance[f"{replay_prefix}native_graph_replay"] is False
+    assert performance[f"{replay_prefix}transition_state_on_device"] is False
+    assert performance[f"{replay_prefix}persistent_state_on_device"] is False
+    assert performance[f"{replay_prefix}issue_generation_on_device"] is False
+    assert performance[f"{replay_prefix}python_transition_skipped"] is False
+    assert performance[f"{replay_prefix}expected_packet_count"] == 8
+    assert performance[f"{replay_prefix}expected_issue_candidate_count"] == 12
+    assert performance[f"{replay_prefix}packet_count"] == 0
+    assert performance[f"{replay_prefix}issue_candidate_count"] == 0
+    assert performance[f"{replay_prefix}producer_update_count"] == 0
+    assert performance[f"{replay_prefix}replay_visible_update_count"] == 0
+    assert performance[f"{replay_prefix}payload_bytes"] == 0
+    assert performance[f"{replay_prefix}payload_transfer_enabled"] is False
+    assert performance[f"{replay_prefix}ready_credit"] is False
+    assert performance[f"{replay_prefix}ready_before_demand_credit"] is False
+    assert performance[f"{replay_prefix}real_ready_credit_granted"] is False
+    assert performance[f"{replay_prefix}payload_deref_allowed"] is False
+    assert performance[f"{replay_prefix}kernel_arg_pass"] is False
+    assert performance[f"{replay_prefix}kernel_arg_pass_allowed"] is False
+    assert performance[f"{replay_prefix}passed_to_kernel"] is False
+    assert performance[f"{replay_prefix}changes_kernel_launch_args"] is False
+    assert performance[f"{replay_prefix}current_wna16_arg_compatible"] is False
+    assert performance[f"{replay_prefix}uses_current_wna16_args"] is False
+    assert performance[f"{replay_prefix}passes_current_wna16_args"] is False
+    assert performance[f"{replay_prefix}measures_tpot"] is False
+    assert performance[f"{replay_prefix}measures_vllm_latency"] is False
+
+
+def test_premap_payload_cache_vllm_replay_visible_native_producer_contract_emits_without_manager_counters():
+    recorder = VllmRouterRecorder(
+        top_k=2,
+        shadow_outcome_sink=None,
+        shadow_num_experts=8,
+        shadow_emit_premap_payload_cache_manager_counters=False,
+        shadow_premap_payload_cache_vllm_replay_visible_native_producer_enabled=True,
+    )
+    performance = {
+        "sample_count": 1,
+        "requested_output_token_count": 4,
+    }
+
+    _add_premap_payload_cache_manager_snapshot_to_performance(
+        performance,
+        recorder,
+        source="unit_test_vllm_replay_visible_no_manager_counters",
+    )
+
+    assert "runtime_shadow_premap_payload_cache_direct_snapshot_present" not in performance
+    graph_prefix = (
+        "runtime_shadow_premap_payload_cache_direct_"
+        "graph_visible_producer_contract_"
+    )
+    assert f"{graph_prefix}enabled" not in performance
+
+    replay_prefix = (
+        "runtime_shadow_premap_payload_cache_direct_"
+        "vllm_replay_visible_native_producer_contract_"
+    )
+    assert performance[f"{replay_prefix}enabled"] is True
+    assert performance[f"{replay_prefix}present"] is False
+    assert performance[f"{replay_prefix}passed"] is False
+    assert performance[f"{replay_prefix}failures"] == [
+        "native_runtime_not_connected",
+        "inprocess_native_op_not_connected",
+        "vllm_replay_visible_updates_missing",
+    ]
+    assert performance[f"{replay_prefix}expected_packet_count"] == 0
+    assert performance[f"{replay_prefix}expected_issue_candidate_count"] == 0
+    assert performance[f"{replay_prefix}packet_count"] == 0
+    assert performance[f"{replay_prefix}issue_candidate_count"] == 0
+    assert performance[f"{replay_prefix}source_kind"] == (
+        "missing_vllm_prelaunch_inprocess_native_producer"
+    )
+    assert performance[f"{replay_prefix}payload_bytes"] == 0
+    assert performance[f"{replay_prefix}payload_transfer_enabled"] is False
+    assert performance[f"{replay_prefix}payload_deref_allowed"] is False
+    assert performance[f"{replay_prefix}ready_credit"] is False
+    assert performance[f"{replay_prefix}ready_before_demand_credit"] is False
+    assert performance[f"{replay_prefix}real_ready_credit_granted"] is False
+    assert performance[f"{replay_prefix}kernel_arg_pass"] is False
+    assert performance[f"{replay_prefix}kernel_arg_pass_allowed"] is False
+    assert performance[f"{replay_prefix}passed_to_kernel"] is False
+    assert performance[f"{replay_prefix}changes_kernel_launch_args"] is False
+    assert performance[f"{replay_prefix}current_wna16_arg_compatible"] is False
+    assert performance[f"{replay_prefix}uses_current_wna16_args"] is False
+    assert performance[f"{replay_prefix}passes_current_wna16_args"] is False
+    assert performance[f"{replay_prefix}measures_tpot"] is False
+    assert performance[f"{replay_prefix}measures_vllm_latency"] is False
 
 
 def test_premap_payload_cache_inside_graph_producer_boundary_accepts_empty_issue_candidates():
