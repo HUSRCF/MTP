@@ -33,6 +33,10 @@ from scripts.check_premap_kernel_consumer_schema import (
     FUTURE_KERNEL_NATIVE_CONSUMER_LAUNCH_ABI_LAYOUT_FIELDS,
     check_kernel_consumer_schema_artifact,
 )
+from scripts.check_premap_payload_cache_vllm_replay_visible_count_ptr_readiness import (
+    CONTRACT_BOUNDARY as VLLM_REPLAY_VISIBLE_COUNT_PTR_READINESS_CONTRACT_BOUNDARY,
+    CONTRACT_MODE as VLLM_REPLAY_VISIBLE_COUNT_PTR_READINESS_CONTRACT_MODE,
+)
 from scripts.check_premap_payload_cache_packet_stream_native_canary import (
     check_packet_stream_native_canary,
 )
@@ -347,6 +351,7 @@ REQUIRED_DEFAULT_GATE_EVIDENCE_JSON_LABELS = {
     "future_kernel_native_dispatch_consumer_online_runner_32_128export_json",
 }
 OPTIONAL_DEFAULT_GATE_EVIDENCE_JSON_LABELS = {
+    "payload_cache_vllm_replay_visible_count_ptr_readiness_json",
     "payload_cache_producer_state_inprocess_native_online_contract_json",
     "payload_cache_producer_state_inprocess_native_session_canary_json",
     "future_kernel_args_aux_metadata_mirror_canary_json",
@@ -5691,6 +5696,7 @@ def _validate_required_evidence_payload(
         "payload_cache_producer_state_stream_online_contract_json",
         "payload_cache_online_inside_graph_producer_boundary_contract_json",
         "payload_cache_online_native_producer_boundary_gap_json",
+        "payload_cache_vllm_replay_visible_count_ptr_readiness_json",
         "payload_cache_stream_producer_production_ab_bridge_json",
         "payload_cache_stream_producer_production_ab_bridge_check_json",
         "future_kernel_native_arg_slot_packed_weight_mirror_canary_json",
@@ -5712,6 +5718,13 @@ def _validate_required_evidence_payload(
         return [
             f"{evidence_label}:{failure}"
             for failure in _validate_readonly_live_trusted_refs_check_evidence(
+                evidence
+            )
+        ]
+    if evidence_label == "payload_cache_vllm_replay_visible_count_ptr_readiness_json":
+        return [
+            f"{evidence_label}:{failure}"
+            for failure in _validate_payload_cache_vllm_replay_visible_count_ptr_readiness_evidence(
                 evidence
             )
         ]
@@ -11980,6 +11993,76 @@ def _validate_payload_cache_producer_state_inprocess_native_session_canary_evide
     for path_key in ("shared_library", "source", "abi_header"):
         if not isinstance(evidence.get(path_key), str) or not evidence.get(path_key):
             failures.append(f"{failure_prefix}_{path_key}_missing")
+    return failures
+
+
+def _validate_payload_cache_vllm_replay_visible_count_ptr_readiness_evidence(
+    payload: dict[str, Any],
+) -> list[str]:
+    failures: list[str] = []
+    expected_values = {
+        "passed": True,
+        "ok": True,
+        "failures": [],
+        "mode": VLLM_REPLAY_VISIBLE_COUNT_PTR_READINESS_CONTRACT_MODE,
+        "contract_boundary": (
+            VLLM_REPLAY_VISIBLE_COUNT_PTR_READINESS_CONTRACT_BOUNDARY
+        ),
+        "input_mode": "payload_cache_vllm_replay_visible_native_producer_contract",
+        "input_contract_boundary": "inprocess_vllm_replay_visible_native_producer_op",
+        "source_kind": "vllm_prelaunch_inprocess_native_producer",
+        "ready_for_future_count_ptr_native_session": True,
+        "payload_bytes": 0,
+        "payload_transfer_enabled": False,
+        "payload_deref_allowed": False,
+        "ready_credit": False,
+        "ready_before_demand_credit": False,
+        "real_ready_credit_granted": False,
+        "kernel_arg_pass": False,
+        "kernel_arg_pass_allowed": False,
+        "passed_to_kernel": False,
+        "changes_kernel_launch_args": False,
+        "current_wna16_arg_compatible": False,
+        "uses_current_wna16_args": False,
+        "passes_current_wna16_args": False,
+        "measures_tpot": False,
+        "measures_vllm_latency": False,
+    }
+    for key, expected_value in expected_values.items():
+        actual_value = payload.get(key)
+        if type(actual_value) is not type(expected_value) or actual_value != expected_value:
+            failures.append(f"{key}_mismatch")
+
+    expected_packet_count = _int_metric(payload, "expected_packet_count")
+    for key in (
+        "expected_packet_count",
+        "prelaunch_probe_count",
+        "prelaunch_current_count_device_scalar_int32_count",
+        "prelaunch_native_session_update_count_ptr_v1_abi_ready_count",
+    ):
+        value = _int_metric(payload, key)
+        if value is None or value <= 0:
+            failures.append(f"{key}_invalid")
+        elif expected_packet_count is not None and value != expected_packet_count:
+            failures.append(f"{key}_mismatch")
+
+    blocked_count = _int_metric(
+        payload,
+        "prelaunch_native_session_update_count_ptr_v1_abi_blocked_count",
+    )
+    if blocked_count is None or blocked_count != 0:
+        failures.append(
+            "prelaunch_native_session_update_count_ptr_v1_abi_blocked_count_mismatch"
+        )
+    for key in (
+        "ready_for_payload_cache_runtime_lab_gate",
+        "runtime_ready",
+        "runtime_passed",
+        "lab_gate_passed",
+        "ready_for_payload_cache_runtime",
+    ):
+        if payload.get(key) is True:
+            failures.append(f"{key}_unexpectedly_true")
     return failures
 
 
