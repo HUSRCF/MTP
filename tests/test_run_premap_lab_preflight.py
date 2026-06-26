@@ -2657,6 +2657,9 @@ def _payload_cache_producer_state_inprocess_native_session_canary_payload() -> d
         "abi_name": "premap_payload_cache_producer_transition_state_abi_v1",
         "changes_kernel_launch_args": False,
         "create_returncode": 0,
+        "current_count_device_ptr_passed": False,
+        "current_count_host_scalar_passed": True,
+        "current_count_source_kind": "host_scalar_uint32",
         "current_expert_ptr_passed": True,
         "current_expert_ptr_source": "torch_device_tensor",
         "current_expert_ptr_source_kind": "external_torch_device_tensor_smoke",
@@ -2712,6 +2715,7 @@ def _payload_cache_producer_state_inprocess_native_session_canary_payload() -> d
         "ready_update_count": 2560,
         "real_ready_credit_granted": False,
         "requested_disable_vectorized_copy": False,
+        "requested_device_current_count": False,
         "requested_experts_per_layer": 8,
         "requested_layers": 40,
         "requested_steps": 64,
@@ -17042,6 +17046,9 @@ def test_premap_lab_preflight_accepts_payload_cache_producer_state_inprocess_ses
     payload = _payload_cache_producer_state_inprocess_native_session_canary_payload()
     payload["current_expert_ptr_source"] = "native_generated_device_scratch"
     payload["current_expert_ptr_source_kind"] = "native_scratch_smoke"
+    payload["current_count_source_kind"] = "native_generated_internal_scalar"
+    payload["current_count_device_ptr_passed"] = False
+    payload["current_count_host_scalar_passed"] = False
     payload["external_current_expert_ptr_source"] = False
     payload["ready_for_external_pointer_smoke"] = False
     payload["ready_for_vllm_prelaunch_canary"] = False
@@ -17053,10 +17060,84 @@ def test_premap_lab_preflight_accepts_payload_cache_producer_state_inprocess_ses
     assert failures == []
 
 
+def test_premap_lab_preflight_accepts_payload_cache_producer_state_inprocess_session_device_count():
+    payload = _payload_cache_producer_state_inprocess_native_session_packet_stream_payload()
+    payload["current_count_source_kind"] = "device_tensor_int32_bits_as_uint32"
+    payload["current_count_device_ptr_passed"] = True
+    payload["current_count_host_scalar_passed"] = False
+    payload["requested_device_current_count"] = True
+
+    failures = _validate_payload_cache_producer_state_inprocess_native_session_canary_evidence(
+        payload
+    )
+
+    assert failures == []
+
+
+def test_premap_lab_preflight_rejects_payload_cache_producer_state_inprocess_session_native_count_mislabel():
+    payload = _payload_cache_producer_state_inprocess_native_session_canary_payload()
+    payload["current_expert_ptr_source"] = "packet_stream_torch_device_tensor"
+    payload["current_expert_ptr_source_kind"] = "online_packet_stream_device_tensor_smoke"
+    payload["packet_stream_input"] = True
+    payload["external_current_expert_ptr_source"] = False
+    payload["ready_for_external_pointer_smoke"] = False
+    payload["current_count_source_kind"] = "native_generated_internal_scalar"
+    payload["current_count_device_ptr_passed"] = False
+    payload["current_count_host_scalar_passed"] = False
+
+    failures = _validate_payload_cache_producer_state_inprocess_native_session_canary_evidence(
+        payload
+    )
+
+    assert (
+        "payload_cache_producer_state_inprocess_native_session_canary_"
+        "current_count_native_source_mismatch"
+    ) in failures
+
+
+def test_premap_lab_preflight_rejects_payload_cache_producer_state_inprocess_session_host_count_requested_device():
+    payload = _payload_cache_producer_state_inprocess_native_session_canary_payload()
+    payload["requested_device_current_count"] = True
+
+    failures = _validate_payload_cache_producer_state_inprocess_native_session_canary_evidence(
+        payload
+    )
+
+    assert (
+        "payload_cache_producer_state_inprocess_native_session_canary_"
+        "requested_device_current_count_mismatch"
+    ) in failures
+
+
+def test_premap_lab_preflight_rejects_payload_cache_producer_state_inprocess_session_native_count_requested_device():
+    payload = _payload_cache_producer_state_inprocess_native_session_canary_payload()
+    payload["current_expert_ptr_source"] = "native_generated_device_scratch"
+    payload["current_expert_ptr_source_kind"] = "native_scratch_smoke"
+    payload["current_count_source_kind"] = "native_generated_internal_scalar"
+    payload["current_count_device_ptr_passed"] = False
+    payload["current_count_host_scalar_passed"] = False
+    payload["requested_device_current_count"] = True
+    payload["external_current_expert_ptr_source"] = False
+    payload["ready_for_external_pointer_smoke"] = False
+    payload["ready_for_vllm_prelaunch_canary"] = False
+
+    failures = _validate_payload_cache_producer_state_inprocess_native_session_canary_evidence(
+        payload
+    )
+
+    assert (
+        "payload_cache_producer_state_inprocess_native_session_canary_"
+        "requested_device_current_count_mismatch"
+    ) in failures
+
+
 def test_premap_lab_preflight_rejects_payload_cache_producer_state_inprocess_session_native_generated_claims_vllm_pointer():
     payload = _payload_cache_producer_state_inprocess_native_session_canary_payload()
     payload["current_expert_ptr_source"] = "native_generated_device_scratch"
     payload["current_expert_ptr_source_kind"] = "native_scratch_smoke"
+    payload["current_count_source_kind"] = "native_generated_internal_scalar"
+    payload["current_count_device_ptr_passed"] = False
+    payload["current_count_host_scalar_passed"] = False
     payload["external_current_expert_ptr_source"] = True
     payload["ready_for_external_pointer_smoke"] = True
     payload["ready_for_vllm_prelaunch_canary"] = True

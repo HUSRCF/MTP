@@ -11692,6 +11692,12 @@ def _validate_payload_cache_producer_state_inprocess_native_session_canary_evide
     ready_for_vllm_prelaunch_canary = evidence.get(
         "ready_for_vllm_prelaunch_canary"
     )
+    current_count_source_kind = evidence.get("current_count_source_kind")
+    current_count_device_ptr_passed = evidence.get("current_count_device_ptr_passed")
+    current_count_host_scalar_passed = evidence.get(
+        "current_count_host_scalar_passed"
+    )
+    requested_device_current_count = evidence.get("requested_device_current_count")
     packet_stream_input = evidence.get("packet_stream_input")
     if packet_stream_input not in (True, False, None):
         failures.append(f"{failure_prefix}_packet_stream_input_invalid")
@@ -11730,6 +11736,41 @@ def _validate_payload_cache_producer_state_inprocess_native_session_canary_evide
             failures.append(f"{failure_prefix}_ready_for_external_pointer_smoke_mismatch")
         if ready_for_vllm_prelaunch_canary is not False:
             failures.append(f"{failure_prefix}_ready_for_vllm_prelaunch_canary_mismatch")
+    if current_count_source_kind not in (
+        "host_scalar_uint32",
+        "device_tensor_int32_bits_as_uint32",
+        "native_generated_internal_scalar",
+    ):
+        failures.append(f"{failure_prefix}_current_count_source_kind_invalid")
+    if current_count_device_ptr_passed not in (True, False):
+        failures.append(f"{failure_prefix}_current_count_device_ptr_passed_invalid")
+    if current_count_host_scalar_passed not in (True, False):
+        failures.append(f"{failure_prefix}_current_count_host_scalar_passed_invalid")
+    if requested_device_current_count not in (True, False):
+        failures.append(f"{failure_prefix}_requested_device_current_count_invalid")
+    if current_count_source_kind == "native_generated_internal_scalar":
+        if current_expert_ptr_source != "native_generated_device_scratch":
+            failures.append(f"{failure_prefix}_current_count_native_source_mismatch")
+        if current_count_device_ptr_passed is not False:
+            failures.append(f"{failure_prefix}_current_count_device_ptr_passed_mismatch")
+        if current_count_host_scalar_passed is not False:
+            failures.append(f"{failure_prefix}_current_count_host_scalar_passed_mismatch")
+        if requested_device_current_count is not False:
+            failures.append(f"{failure_prefix}_requested_device_current_count_mismatch")
+    elif current_count_source_kind == "device_tensor_int32_bits_as_uint32":
+        if current_count_device_ptr_passed is not True:
+            failures.append(f"{failure_prefix}_current_count_device_ptr_passed_mismatch")
+        if current_count_host_scalar_passed is not False:
+            failures.append(f"{failure_prefix}_current_count_host_scalar_passed_mismatch")
+        if requested_device_current_count is not True:
+            failures.append(f"{failure_prefix}_requested_device_current_count_mismatch")
+    elif current_count_source_kind == "host_scalar_uint32":
+        if current_count_device_ptr_passed is not False:
+            failures.append(f"{failure_prefix}_current_count_device_ptr_passed_mismatch")
+        if current_count_host_scalar_passed is not True:
+            failures.append(f"{failure_prefix}_current_count_host_scalar_passed_mismatch")
+        if requested_device_current_count is not False:
+            failures.append(f"{failure_prefix}_requested_device_current_count_mismatch")
 
     update_returncodes = evidence.get("native_update_returncodes")
     if update_returncodes != [0]:
