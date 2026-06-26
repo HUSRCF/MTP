@@ -17,7 +17,11 @@ from mtp_expert_prefetch.runtime.cache_manager import (
     PREMAP_KERNEL_SIDE_TYPED_CONSUMER_SCHEMA_HASH,
     PREMAP_KERNEL_SIDE_TYPED_CONSUMER_SCHEMA_NAME,
 )
-from scripts.run_premap_lab_preflight import main, run_premap_lab_preflight
+from scripts.run_premap_lab_preflight import (
+    _build_parser,
+    main,
+    run_premap_lab_preflight,
+)
 from scripts.run_premap_lab_preflight import _program_iteration_hash
 from scripts.run_premap_lab_preflight import (
     _source_context_identities_from_merged_output,
@@ -26,6 +30,34 @@ from scripts.run_premap_lab_preflight import (
     _validate_payload_cache_packet_export_manifest_evidence,
     _validate_payload_cache_shifted_issue_runtime_shadow_gate_evidence,
     _validate_payload_cache_producer_state_native_canary_evidence,
+    _validate_payload_cache_producer_state_packet_stream_native_canary_check_evidence,
+    _validate_payload_cache_producer_state_packet_stream_native_canary_evidence,
+    _validate_payload_cache_producer_state_inprocess_native_canary_evidence,
+    _validate_payload_cache_producer_state_inprocess_native_online_contract_evidence,
+    _validate_payload_cache_producer_state_inprocess_native_session_canary_evidence,
+    _validate_payload_cache_producer_state_inprocess_native_session_online_contract_evidence,
+    _validate_payload_cache_producer_state_stream_native_canary_evidence,
+    _validate_payload_cache_producer_state_stream_online_contract_evidence,
+    _validate_payload_cache_online_inside_graph_producer_boundary_contract_evidence,
+    _validate_payload_cache_online_native_producer_boundary_gap_evidence,
+    _validate_prelaunch_pointer_source_observer_check_evidence,
+    _validate_readonly_live_trusted_refs_check_evidence,
+    _validate_payload_cache_stream_producer_production_ab_bridge_evidence,
+    _validate_payload_cache_stream_producer_production_ab_bridge_check_evidence,
+)
+from scripts.check_premap_prelaunch_pointer_source_observer import (
+    HANDOFF_BOOL_PREFIX as PRELAUNCH_POINTER_SOURCE_OBSERVER_HANDOFF_BOOL_PREFIX,
+    LIVE_MUTATION_COUNTER_PREFIX as PRELAUNCH_POINTER_SOURCE_OBSERVER_LIVE_MUTATION_COUNTER_PREFIX,
+    REQUIRED_BOOL_KEYS as PRELAUNCH_POINTER_SOURCE_OBSERVER_REQUIRED_BOOL_KEYS,
+    REQUIRED_INT_KEYS as PRELAUNCH_POINTER_SOURCE_OBSERVER_REQUIRED_INT_KEYS,
+    ZERO_INT_KEYS as PRELAUNCH_POINTER_SOURCE_OBSERVER_ZERO_INT_KEYS,
+)
+from scripts.check_premap_readonly_live_trusted_refs import (
+    ALLOWED_NONZERO_LIVE_MUTATION_COUNTER_KEYS as READONLY_LIVE_TRUSTED_REFS_ALLOWED_NONZERO_COUNTERS,
+    EXPECTED_STRING_VALUES as READONLY_LIVE_TRUSTED_REFS_EXPECTED_STRING_VALUES,
+    EXPECTED_TRUE_BOOL_KEYS as READONLY_LIVE_TRUSTED_REFS_EXPECTED_TRUE_BOOL_KEYS,
+    REQUIRED_FALSE_BOOL_KEYS as READONLY_LIVE_TRUSTED_REFS_REQUIRED_FALSE_BOOL_KEYS,
+    REQUIRED_INT_KEYS as READONLY_LIVE_TRUSTED_REFS_REQUIRED_INT_KEYS,
 )
 from scripts.check_premap_kernel_consumer_schema import (
     FUTURE_KERNEL_CONSUMER_ARGS_LAYOUT_EXPECTED,
@@ -60,6 +92,14 @@ from scripts.check_premap_kernel_consumer_schema import (
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
+
+
+def test_premap_lab_preflight_parser_defaults_to_gpu1_prefetch_gate() -> None:
+    args = _build_parser().parse_args([])
+
+    assert args.prefetch_lab_default_gate == (
+        "configs/runtime/prefetch_lab_default_gate_gpu1.yaml"
+    )
 
 
 def _write(path: Path, text: str) -> None:
@@ -2399,6 +2439,801 @@ def _payload_cache_producer_state_nonempty_issue_stub_payload() -> dict[str, obj
     ):
         payload.pop(key, None)
     return payload
+
+
+def _payload_cache_producer_state_stream_native_canary_payload() -> dict[str, object]:
+    return {
+        "abi_field_count": 9,
+        "abi_name": "premap_payload_cache_producer_transition_state_abi_v1",
+        "changes_kernel_launch_args": False,
+        "current_nonempty_packet_count": 2560,
+        "current_wna16_arg_compatible": False,
+        "error_count": 0,
+        "expected_issue_candidate_count": 20160,
+        "experts_per_layer": 8,
+        "failures": [],
+        "first_issue_expert": 0,
+        "gpu_elapsed_ms": 12.189861,
+        "issue_candidate_count": 20160,
+        "issue_candidate_hash": "22488eda926276f7",
+        "issue_generation_on_device": True,
+        "last_issue_expert": 220,
+        "layers": 40,
+        "mode": "payload_cache_producer_transition_state_stream_native_canary",
+        "native_graph_replay": True,
+        "native_returncode": 0,
+        "native_stub_invoked": True,
+        "ok": True,
+        "packet_count": 2560,
+        "passed": True,
+        "passed_to_kernel": False,
+        "kernel_arg_pass": False,
+        "kernel_arg_pass_allowed": False,
+        "passes_current_wna16_args": False,
+        "payload_bytes": 0,
+        "persistent_state_on_device": True,
+        "previous_nonempty_packet_count": 2520,
+        "ready_credit": False,
+        "ready_layer_count": 40,
+        "requested_disable_vectorized_copy": False,
+        "requested_graph_replay": True,
+        "requested_experts_per_layer": 8,
+        "requested_layers": 40,
+        "requested_steps": 64,
+        "requested_transition_topk_count": 8,
+        "steps": 64,
+        "transition_topk_count": 8,
+        "uses_current_wna16_args": False,
+        "vectorized_copy_requested": True,
+        "vectorized_copy_used": True,
+    }
+
+
+def _payload_cache_producer_state_inprocess_native_canary_payload() -> dict[str, object]:
+    return {
+        "abi_field_count": 9,
+        "abi_header": "microbench/premap_kernel_consumer/premap_typed_consumer_abi_v1.h",
+        "abi_name": "premap_payload_cache_producer_transition_state_abi_v1",
+        "changes_kernel_launch_args": False,
+        "current_nonempty_packet_count": 2560,
+        "current_wna16_arg_compatible": False,
+        "error_count": 0,
+        "expected_issue_candidate_count": 20160,
+        "experts_per_layer": 8,
+        "failures": [],
+        "first_issue_expert": 0,
+        "gpu_elapsed_ms": 4.25,
+        "inprocess_native_op": True,
+        "issue_candidate_count": 20160,
+        "issue_candidate_hash": "22488eda926276f7",
+        "issue_generation_on_device": True,
+        "kernel_arg_pass": False,
+        "kernel_arg_pass_allowed": False,
+        "last_issue_expert": 220,
+        "layers": 40,
+        "measures_tpot": False,
+        "measures_vllm_latency": False,
+        "mode": "payload_cache_producer_transition_state_inprocess_native_canary",
+        "native_graph_replay": True,
+        "native_result_returncode": 0,
+        "native_returncode": 0,
+        "native_runtime": True,
+        "native_shared_library": True,
+        "native_stub_invoked": True,
+        "ok": True,
+        "packet_count": 2560,
+        "passed": True,
+        "passed_to_kernel": False,
+        "passes_current_wna16_args": False,
+        "payload_bytes": 0,
+        "payload_deref_allowed": False,
+        "payload_transfer_enabled": False,
+        "persistent_state_on_device": True,
+        "previous_nonempty_packet_count": 2520,
+        "ready_before_demand_credit": False,
+        "ready_credit": False,
+        "ready_for_vllm_prelaunch_canary": True,
+        "ready_layer_count": 40,
+        "real_ready_credit_granted": False,
+        "requested_disable_vectorized_copy": False,
+        "requested_graph_replay": True,
+        "requested_experts_per_layer": 8,
+        "requested_layers": 40,
+        "requested_steps": 64,
+        "requested_transition_topk_count": 8,
+        "shared_library": "microbench/premap_kernel_consumer/build/inprocess.so",
+        "source": (
+            "microbench/premap_kernel_consumer/"
+            "premap_payload_cache_inprocess_native_producer_stub.hip"
+        ),
+        "steps": 64,
+        "torch_graph_replay_visible": False,
+        "transition_topk_count": 8,
+        "uses_current_wna16_args": False,
+        "vectorized_copy_requested": True,
+        "vectorized_copy_used": True,
+        "vllm_replay_visible": False,
+    }
+
+
+def _payload_cache_producer_state_inprocess_native_online_contract_payload() -> dict[str, object]:
+    native = _payload_cache_producer_state_inprocess_native_canary_payload()
+    return {
+        "changes_kernel_launch_args": False,
+        "contract_dimension_consistency_failures": [],
+        "contract_dimension_sources": {
+            "all_expert_sources_match": True,
+            "all_layer_sources_match": True,
+            "expert_source_count": 2,
+            "expert_sources": {
+                "runtime_shadow_premap_payload_cache_direct_online_stream_contract_experts_per_layer": 8,
+                "runtime_shadow_premap_payload_cache_direct_transition_native_packet_last_current_count": 8,
+            },
+            "layer_source_count": 2,
+            "layer_sources": {
+                "decoder_layer_count": 40,
+                "runtime_shadow_premap_payload_cache_direct_transition_native_packet_unique_layer_count": 40,
+            },
+            "optional_expert_source_keys": [
+                "runtime_shadow_premap_payload_cache_direct_online_stream_contract_experts_per_layer"
+            ],
+            "optional_layer_source_keys": [
+                "decoder_layer_count",
+                "runtime_shadow_premap_payload_cache_direct_online_stream_contract_layers",
+            ],
+            "required_expert_source_keys": [
+                "runtime_shadow_premap_payload_cache_direct_transition_native_packet_last_current_count"
+            ],
+            "required_layer_source_keys": [
+                "runtime_shadow_premap_payload_cache_direct_transition_native_packet_unique_layer_count"
+            ],
+        },
+        "contract_expected_issue_candidate_count": 20160,
+        "contract_expected_packet_count": 2560,
+        "contract_expected_previous_nonempty_packet_count": 2520,
+        "contract_experts_per_layer": 8,
+        "contract_layers": 40,
+        "contract_steps": 64,
+        "contract_transition_topk_count": 8,
+        "current_wna16_arg_compatible": False,
+        "embedded_online_stream_contract_issue_candidate_count": 20160,
+        "embedded_online_stream_contract_passed": True,
+        "embedded_online_stream_contract_present": True,
+        "failures": [],
+        "inprocess_native_op": True,
+        "issue_generation_on_device": True,
+        "measures_tpot": False,
+        "measures_vllm_latency": False,
+        "mode": "payload_cache_producer_state_inprocess_native_online_contract",
+        "native": native,
+        "native_graph_replay": True,
+        "native_graph_replay_required": True,
+        "native_inprocess_expected_issue_candidate_count": 20160,
+        "native_inprocess_gpu_elapsed_ms": 4.25,
+        "native_inprocess_issue_candidate_count": 20160,
+        "native_inprocess_output_json": "reports/inprocess_native.json",
+        "native_inprocess_packet_count": 2560,
+        "native_inprocess_previous_nonempty_packet_count": 2520,
+        "native_runtime": True,
+        "native_shared_library": True,
+        "native_stub_invoked": True,
+        "ok": True,
+        "online_observed_issue_candidate_count": 20160,
+        "online_observed_packet_count": 2560,
+        "online_observed_previous_nonempty_packet_count": 2520,
+        "online_producer_update_count": 2560,
+        "online_transition_state_owner": "producer",
+        "passed": True,
+        "passed_to_kernel": False,
+        "passes_current_wna16_args": False,
+        "payload_bytes": 0,
+        "payload_deref_allowed": False,
+        "payload_transfer_enabled": False,
+        "performance_summary": "reports/performance_summary.json",
+        "persistent_state_on_device": True,
+        "ready_before_demand_credit": False,
+        "ready_credit": False,
+        "ready_for_vllm_prelaunch_native_op": True,
+        "real_ready_credit_granted": False,
+        "requested_output_token_count": 2048,
+        "sample_count": 32,
+        "source_is_online_stream_contract": True,
+        "source_is_raw_vllm_performance_summary": False,
+        "source_kind": "derived_payload_cache_producer_state_stream_online_contract",
+        "source_stream_online_contract_failures": [],
+        "source_stream_online_contract_passed": True,
+        "torch_graph_replay_visible": False,
+        "uses_current_wna16_args": False,
+        "vllm_replay_visible": False,
+    }
+
+
+def _payload_cache_producer_state_inprocess_native_session_canary_payload() -> dict[str, object]:
+    return {
+        "abi_field_count": 9,
+        "abi_header": "microbench/premap_kernel_consumer/premap_typed_consumer_abi_v1.h",
+        "abi_name": "premap_payload_cache_producer_transition_state_abi_v1",
+        "changes_kernel_launch_args": False,
+        "create_returncode": 0,
+        "current_expert_ptr_passed": True,
+        "current_expert_ptr_source": "torch_device_tensor",
+        "current_expert_ptr_source_kind": "external_torch_device_tensor_smoke",
+        "current_stream_on_device": True,
+        "current_wna16_arg_compatible": False,
+        "destroy_returncode": 0,
+        "error_count": 0,
+        "external_current_expert_ptr_source": True,
+        "expected_issue_candidate_count": 20160,
+        "expected_previous_nonempty_packet_count": 2520,
+        "experts_per_layer": 8,
+        "failures": [],
+        "first_issue_expert": 0,
+        "gpu_elapsed_ms": 4.25,
+        "graph_visible": False,
+        "inprocess_native_op": True,
+        "issue_candidate_count": 20160,
+        "issue_candidate_hash": "22488eda926276f7",
+        "issue_generation_on_device": True,
+        "last_issue_expert": 220,
+        "layers": 40,
+        "measures_tpot": False,
+        "measures_vllm_latency": False,
+        "mode": "payload_cache_producer_state_inprocess_native_session_canary",
+        "native_graph_replay": False,
+        "native_runtime": True,
+        "native_shared_library": True,
+        "native_stub_invoked": True,
+        "native_update_returncodes": [0],
+        "ok": True,
+        "packet_stream_input": False,
+        "packet_stream_state_override_count": 0,
+        "packet_stream_state_restore_count": 0,
+        "packet_stream_state_restore_returncodes": [],
+        "packet_stream_state_restore_supported": True,
+        "packet_count": 2560,
+        "passed": True,
+        "passed_to_kernel": False,
+        "kernel_arg_pass": False,
+        "kernel_arg_pass_allowed": False,
+        "passes_current_wna16_args": False,
+        "payload_bytes": 0,
+        "payload_deref_allowed": False,
+        "payload_transfer_enabled": False,
+        "persistent_state_on_device": True,
+        "prelaunch_callable_native_session": True,
+        "previous_nonempty_packet_count": 2520,
+        "ready_before_demand_credit": False,
+        "ready_credit": False,
+        "ready_for_native_session_smoke": True,
+        "ready_for_external_pointer_smoke": True,
+        "ready_for_vllm_prelaunch_canary": False,
+        "ready_update_count": 2560,
+        "real_ready_credit_granted": False,
+        "requested_disable_vectorized_copy": False,
+        "requested_experts_per_layer": 8,
+        "requested_layers": 40,
+        "requested_steps": 64,
+        "requested_transition_topk_count": 8,
+        "session_handle_nonzero": True,
+        "shared_library": "microbench/premap_kernel_consumer/build/session.so",
+        "source": (
+            "microbench/premap_kernel_consumer/"
+            "premap_payload_cache_inprocess_native_producer_stub.hip"
+        ),
+        "steps": 64,
+        "torch_graph_replay_visible": False,
+        "transition_topk_count": 8,
+        "uses_current_wna16_args": False,
+        "vectorized_copy_requested": True,
+        "vectorized_copy_used": True,
+        "vllm_replay_visible": False,
+    }
+
+
+def _payload_cache_producer_state_inprocess_native_session_packet_stream_payload() -> dict[str, object]:
+    return {
+        **_payload_cache_producer_state_inprocess_native_session_canary_payload(),
+        "current_expert_ptr_source": "packet_stream_torch_device_tensor",
+        "current_expert_ptr_source_kind": "online_packet_stream_device_tensor_smoke",
+        "external_current_expert_ptr_source": False,
+        "ready_for_external_pointer_smoke": False,
+        "packet_stream_input": True,
+        "packet_stream_bin": "reports/shifted_packets.bin",
+        "packet_stream_state_override_count": 31,
+        "packet_stream_state_restore_count": 31,
+        "packet_stream_state_restore_returncodes": [0],
+        "steps": 32,
+        "layers": 1,
+        "experts_per_layer": 174,
+        "transition_topk_count": 8,
+        "packet_count": 32,
+        "previous_nonempty_packet_count": 28,
+        "expected_previous_nonempty_packet_count": 28,
+        "issue_candidate_count": 224,
+        "expected_issue_candidate_count": 224,
+        "issue_candidate_hash": "0affb14eca44e751",
+        "ready_update_count": 32,
+        "requested_steps": 32,
+        "requested_layers": 1,
+        "requested_experts_per_layer": 174,
+        "requested_transition_topk_count": 8,
+        "vectorized_copy_used": False,
+    }
+
+
+def _payload_cache_producer_state_inprocess_native_session_online_contract_payload() -> dict[str, object]:
+    native = _payload_cache_producer_state_inprocess_native_session_canary_payload()
+    return {
+        "changes_kernel_launch_args": False,
+        "contract_dimension_consistency_failures": [],
+        "contract_dimension_sources": {
+            "all_expert_sources_match": True,
+            "all_layer_sources_match": True,
+        },
+        "contract_expected_issue_candidate_count": 20160,
+        "contract_expected_packet_count": 2560,
+        "contract_expected_previous_nonempty_packet_count": 2520,
+        "contract_experts_per_layer": 8,
+        "contract_layers": 40,
+        "contract_steps": 64,
+        "contract_transition_topk_count": 8,
+        "current_expert_ptr_source": "torch_device_tensor",
+        "current_expert_ptr_source_kind": "external_torch_device_tensor_smoke",
+        "current_wna16_arg_compatible": False,
+        "embedded_online_stream_contract_issue_candidate_count": 20160,
+        "embedded_online_stream_contract_passed": True,
+        "embedded_online_stream_contract_present": True,
+        "external_current_expert_ptr_source": True,
+        "failures": [],
+        "graph_visible": False,
+        "inprocess_native_op": True,
+        "issue_generation_on_device": True,
+        "measures_tpot": False,
+        "measures_vllm_latency": False,
+        "mode": "payload_cache_producer_state_inprocess_native_session_online_contract",
+        "native": native,
+        "native_graph_replay": False,
+        "native_runtime": True,
+        "native_session_expected_issue_candidate_count": 20160,
+        "native_session_gpu_elapsed_ms": 4.25,
+        "native_session_issue_candidate_count": 20160,
+        "native_session_output_json": "reports/native_session.json",
+        "native_session_packet_count": 2560,
+        "native_session_previous_nonempty_packet_count": 2520,
+        "native_shared_library": True,
+        "native_stub_invoked": True,
+        "ok": True,
+        "online_observed_issue_candidate_count": 20160,
+        "online_observed_packet_count": 2560,
+        "online_observed_previous_nonempty_packet_count": 2520,
+        "online_producer_update_count": 2560,
+        "online_transition_state_owner": "producer",
+        "passed": True,
+        "passed_to_kernel": False,
+        "passes_current_wna16_args": False,
+        "payload_bytes": 0,
+        "payload_deref_allowed": False,
+        "payload_transfer_enabled": False,
+        "performance_summary": "reports/stream_online_contract.json",
+        "persistent_state_on_device": True,
+        "prelaunch_callable_native_session": True,
+        "ready_before_demand_credit": False,
+        "ready_credit": False,
+        "ready_for_native_session_smoke": True,
+        "ready_for_external_pointer_smoke": True,
+        "ready_for_vllm_prelaunch_canary": False,
+        "real_ready_credit_granted": False,
+        "requested_output_token_count": 2048,
+        "sample_count": 32,
+        "source_is_online_stream_contract": True,
+        "source_is_raw_vllm_performance_summary": False,
+        "source_kind": "derived_payload_cache_producer_state_stream_online_contract",
+        "source_stream_online_contract_failures": [],
+        "source_stream_online_contract_passed": True,
+        "torch_graph_replay_visible": False,
+        "uses_current_wna16_args": False,
+        "vllm_replay_visible": False,
+    }
+
+
+def _payload_cache_producer_state_packet_stream_native_canary_payload() -> dict[str, object]:
+    native = {
+        "abi_field_count": 9,
+        "abi_name": "premap_payload_cache_producer_transition_state_abi_v1",
+        "changes_kernel_launch_args": False,
+        "current_nonempty_packet_count": 32,
+        "current_wna16_arg_compatible": False,
+        "error_count": 0,
+        "expected_issue_candidate_count": 224,
+        "expected_state_override_count": 31,
+        "experts_per_layer": 174,
+        "failures": [],
+        "gpu_elapsed_ms": 13.548086,
+        "issue_candidate_count": 224,
+        "issue_candidate_hash": "83a1a8065edf2ddd",
+        "issue_expert_mismatch_count": 0,
+        "issue_generation_on_device": True,
+        "kernel_arg_pass": False,
+        "kernel_arg_pass_allowed": False,
+        "layers": 1,
+        "max_experts_per_packet": 174,
+        "max_num_experts": 256,
+        "measures_tpot": False,
+        "measures_vllm_latency": False,
+        "mode": "payload_cache_producer_transition_state_packet_stream_native_canary",
+        "native_graph_replay": True,
+        "native_returncode": 0,
+        "native_stub_invoked": True,
+        "ok": True,
+        "packet_count": 32,
+        "packet_stream_input": True,
+        "passed": True,
+        "passed_to_kernel": False,
+        "passes_current_wna16_args": False,
+        "payload_bytes": 0,
+        "payload_deref_allowed": False,
+        "payload_transfer_enabled": False,
+        "persistent_state_on_device": True,
+        "previous_nonempty_packet_count": 28,
+        "ready_before_demand_credit": False,
+        "ready_credit": False,
+        "real_ready_credit_granted": False,
+        "state_mismatch_count": 0,
+        "state_override_count": 31,
+        "steps": 32,
+        "transition_topk_count": 8,
+        "uses_current_wna16_args": False,
+    }
+    return {
+        "changes_kernel_launch_args": False,
+        "comparisons": {
+            "expected_issue_candidate_count_match": True,
+            "issue_candidate_count_match": True,
+            "issue_candidate_hash_match": True,
+            "issue_expert_mismatch_count_zero": True,
+            "packet_count_match": True,
+            "previous_nonempty_packet_count_match": True,
+            "state_mismatch_count_zero": True,
+            "state_override_count_match": True,
+        },
+        "current_wna16_arg_compatible": False,
+        "failures": [],
+        "materialized": {
+            "expected_issue_candidate_count": 224,
+            "expected_issue_candidate_hash": "83a1a8065edf2ddd",
+            "expected_previous_nonempty_packet_count": 28,
+            "failures": [],
+            "layer_count": 1,
+            "max_experts_per_packet": 174,
+            "max_num_experts": 256,
+            "packet_count": 32,
+            "passed": True,
+            "state_override_count": 31,
+            "transition_topk_count": 8,
+        },
+        "measures_tpot": False,
+        "measures_vllm_latency": False,
+        "mode": "payload_cache_producer_state_packet_stream_native_canary",
+        "native": native,
+        "ok": True,
+        "kernel_arg_pass": False,
+        "kernel_arg_pass_allowed": False,
+        "passed": True,
+        "passed_to_kernel": False,
+        "passes_current_wna16_args": False,
+        "payload_bytes": 0,
+        "payload_deref_allowed": False,
+        "payload_transfer_enabled": False,
+        "ready_before_demand_credit": False,
+        "ready_credit": False,
+        "real_ready_credit_granted": False,
+        "uses_current_wna16_args": False,
+    }
+
+
+def _payload_cache_producer_state_packet_stream_native_canary_check_payload() -> dict[str, object]:
+    return {
+        "changes_kernel_launch_args": False,
+        "expected_issue_candidate_count": 224,
+        "expected_issue_candidate_hash": "83a1a8065edf2ddd",
+        "failures": [],
+        "issue_candidate_count": 224,
+        "issue_candidate_hash": "83a1a8065edf2ddd",
+        "issue_expert_mismatch_count": 0,
+        "materialized_expected_issue_candidate_count": 224,
+        "materialized_expected_issue_candidate_hash": "83a1a8065edf2ddd",
+        "materialized_expected_previous_nonempty_packet_count": 28,
+        "materialized_packet_count": 32,
+        "materialized_state_override_count": 31,
+        "min_issue_candidate_count": 1,
+        "min_packet_count": 1,
+        "mode": "premap_payload_cache_packet_stream_native_canary_check",
+        "native_graph_replay": True,
+        "native_runtime_blocked": None,
+        "packet_count": 32,
+        "passed": True,
+        "passed_to_kernel": False,
+        "passes_current_wna16_args": False,
+        "kernel_arg_pass": False,
+        "kernel_arg_pass_allowed": False,
+        "payload_bytes": 0,
+        "previous_nonempty_packet_count": 28,
+        "ready_credit": False,
+        "state_mismatch_count": 0,
+        "state_override_count": 31,
+        "uses_current_wna16_args": False,
+    }
+
+
+def _payload_cache_producer_state_stream_online_contract_payload() -> dict[str, object]:
+    expected_issue_count = 20160
+    return {
+        "passed": True,
+        "ok": True,
+        "failures": [],
+        "mode": "payload_cache_producer_state_stream_online_contract",
+        "performance_summary": "reports/performance_summary.json",
+        "native_stream_output_json": "reports/native_stream.json",
+        "sample_count": 32,
+        "requested_output_token_count": 2048,
+        "online_transition_state_owner": "producer",
+        "online_transition_native_packet_count": 40,
+        "online_transition_native_packet_ready_count": 40,
+        "online_transition_native_packet_last_current_count": 8,
+        "online_transition_issue_previous_nonempty_count": 0,
+        "online_transition_issue_descriptor_count": 0,
+        "online_python_prelaunch_state_empty": True,
+        "contract_steps": 64,
+        "contract_layers": 40,
+        "contract_experts_per_layer": 8,
+        "contract_transition_topk_count": 8,
+        "contract_expected_issue_candidate_count": expected_issue_count,
+        "embedded_online_stream_contract_present": True,
+        "embedded_online_stream_contract_passed": True,
+        "embedded_online_stream_contract_failures": [],
+        "embedded_online_stream_contract_expected_issue_candidate_count": (
+            expected_issue_count
+        ),
+        "embedded_online_stream_contract_issue_candidate_count": expected_issue_count,
+        "contract_dimension_sources": {
+            "layer_sources": {
+                "runtime_shadow_premap_payload_cache_direct_transition_native_packet_unique_layer_count": 40,
+                "runtime_shadow_premap_payload_cache_direct_online_stream_contract_layers": 40,
+            },
+            "expert_sources": {
+                "runtime_shadow_premap_payload_cache_direct_transition_native_packet_last_current_count": 8,
+                "runtime_shadow_premap_payload_cache_direct_online_stream_contract_experts_per_layer": 8,
+            },
+            "required_layer_source_keys": [
+                "runtime_shadow_premap_payload_cache_direct_transition_native_packet_unique_layer_count",
+            ],
+            "required_expert_source_keys": [
+                "runtime_shadow_premap_payload_cache_direct_transition_native_packet_last_current_count",
+            ],
+            "optional_layer_source_keys": [
+                "decoder_layer_count",
+                "runtime_shadow_premap_payload_cache_direct_online_stream_contract_layers",
+            ],
+            "optional_expert_source_keys": [
+                "runtime_shadow_premap_payload_cache_direct_online_stream_contract_experts_per_layer",
+            ],
+            "all_layer_sources_match": True,
+            "all_expert_sources_match": True,
+        },
+        "contract_dimension_consistency_failures": [],
+        "native_stream_issue_candidate_count": expected_issue_count,
+        "native_stream_previous_nonempty_packet_count": 2520,
+        "native_stream_packet_count": 2560,
+        "native_stream_graph_replay_required": True,
+        "native_stream_graph_replay": True,
+        "native_stream_requested_graph_replay": True,
+        "native_stream_vectorized_copy_used": True,
+        "native_stream_persistent_state_on_device": True,
+        "native_stream_issue_generation_on_device": True,
+        "native_stream_gpu_elapsed_ms": 12.0,
+        "payload_bytes": 0,
+        "ready_credit": False,
+        "kernel_arg_pass": False,
+        "passed_to_kernel": False,
+        "changes_kernel_launch_args": False,
+        "uses_current_wna16_args": False,
+        "passes_current_wna16_args": False,
+        "production_like_ab_ready": True,
+        "benchmark_is_current_wna16_fused_moe": False,
+        "measures_tpot": False,
+        "native_stream_is_current_wna16_fused_moe": False,
+        "native_stream_measures_tpot": False,
+    }
+
+
+def _payload_cache_online_inside_graph_producer_boundary_contract_payload() -> (
+    dict[str, object]
+):
+    return {
+        "passed": True,
+        "ok": True,
+        "failures": [],
+        "mode": "payload_cache_online_inside_graph_producer_boundary_contract",
+        "performance_summary": "reports/performance_summary.json",
+        "embedded_graph_visible_contract_passed": True,
+        "embedded_graph_visible_contract_enabled": True,
+        "embedded_graph_visible_contract_present": True,
+        "embedded_graph_visible_contract_capture_once_per_layer_suspected": False,
+        "embedded_graph_visible_contract_replay_update_status": (
+            "complete_replay_updates_observed"
+        ),
+        "embedded_inside_graph_boundary_contract_passed": True,
+        "embedded_inside_graph_boundary_contract_failures": [],
+        "contract_boundary": "online_inside_graph_tensor_producer",
+        "transition_state_on_device": True,
+        "issue_generation_on_device": True,
+        "python_transition_skipped": True,
+        "graph_observed_packet_count": 2560,
+        "graph_expected_packet_count": 2560,
+        "graph_observed_previous_nonempty_packet_count": 2520,
+        "graph_expected_previous_nonempty_packet_count": 2520,
+        "graph_observed_issue_candidate_count": 20160,
+        "graph_expected_issue_candidate_count": 20160,
+        "graph_last_issue_candidate_count": 8,
+        "graph_last_issue_candidate_first_expert": 1,
+        "graph_last_issue_candidate_last_expert": 7,
+        "graph_issue_candidate_expert_sum": 123456,
+        "native_runtime": False,
+        "inprocess_native_op": False,
+        "post_export_native_replay": False,
+        "payload_bytes": 0,
+        "ready_credit": False,
+        "kernel_arg_pass": False,
+        "passed_to_kernel": False,
+        "changes_kernel_launch_args": False,
+        "uses_current_wna16_args": False,
+        "passes_current_wna16_args": False,
+        "measures_tpot": False,
+        "measures_vllm_latency": False,
+    }
+
+
+def _payload_cache_online_native_producer_boundary_gap_payload() -> dict[str, object]:
+    return {
+        "passed": True,
+        "ok": True,
+        "failures": [],
+        "mode": "payload_cache_online_native_producer_boundary_gap_report",
+        "native_graph_replay_json": "reports/native_graph_replay.json",
+        "online_inside_graph_contract_json": "reports/online_capture_only.json",
+        "native_graph_replay_passed": True,
+        "native_persistent_state_on_device": True,
+        "native_issue_generation_on_device": True,
+        "native_issue_candidate_count": 48,
+        "native_expected_issue_candidate_count": 48,
+        "online_tensor_producer_passed": False,
+        "online_capture_once_per_layer_suspected": True,
+        "online_replay_update_status": "capture_once_per_layer_no_replay_updates",
+        "ready_for_inprocess_native_op_work": True,
+        "ready_for_lab_runtime_gate": False,
+        "runtime_passed": False,
+        "lab_gate_passed": False,
+        "next_required_boundary": "inprocess_vllm_replay_visible_native_producer_op",
+        "payload_bytes": 0,
+        "ready_credit": False,
+        "kernel_arg_pass": False,
+        "passed_to_kernel": False,
+        "changes_kernel_launch_args": False,
+        "uses_current_wna16_args": False,
+        "passes_current_wna16_args": False,
+        "measures_tpot": False,
+        "measures_vllm_latency": False,
+    }
+
+
+def test_payload_cache_online_native_producer_boundary_gap_evidence_accepts_boundary_report():
+    failures = _validate_payload_cache_online_native_producer_boundary_gap_evidence(
+        _payload_cache_online_native_producer_boundary_gap_payload()
+    )
+
+    assert failures == []
+
+
+def test_payload_cache_online_native_producer_boundary_gap_evidence_rejects_lab_gate_pass():
+    payload = _payload_cache_online_native_producer_boundary_gap_payload()
+    payload["ready_for_lab_runtime_gate"] = True
+    payload["lab_gate_passed"] = True
+
+    failures = _validate_payload_cache_online_native_producer_boundary_gap_evidence(
+        payload
+    )
+
+    assert (
+        "payload_cache_online_native_producer_boundary_gap_ready_for_lab_runtime_gate_mismatch"
+        in failures
+    )
+    assert (
+        "payload_cache_online_native_producer_boundary_gap_lab_gate_passed_mismatch"
+        in failures
+    )
+
+
+def test_payload_cache_online_native_producer_boundary_gap_evidence_rejects_extra_runtime_positive_fields():
+    payload = _payload_cache_online_native_producer_boundary_gap_payload()
+    payload["kernel_arg_pass_allowed"] = True
+    payload["kernel_arg_pass"] = True
+    payload["payload_transfer_enabled"] = True
+
+    failures = _validate_payload_cache_online_native_producer_boundary_gap_evidence(
+        payload
+    )
+
+    assert (
+        "payload_cache_online_native_producer_boundary_gap_kernel_arg_pass_allowed_unexpectedly_enabled"
+        in failures
+    )
+    assert "payload_cache_online_native_producer_boundary_gap_kernel_arg_pass_mismatch" in failures
+    assert (
+        "payload_cache_online_native_producer_boundary_gap_payload_transfer_enabled_unexpectedly_enabled"
+        in failures
+    )
+
+
+def _payload_cache_stream_producer_production_ab_bridge_payload() -> dict[str, object]:
+    return {
+        "passed": True,
+        "ok": True,
+        "failures": [],
+        "mode": "payload_cache_stream_producer_production_like_ab_report",
+        "baseline_tpot_s": 0.0032532496713867185,
+        "candidate_tpot_s": 0.003245981701171875,
+        "candidate_overhead_ratio": -0.0022340646888455717,
+        "max_overhead_ratio": 0.02,
+        "online_contract_passed": True,
+        "benchmark_is_current_wna16_fused_moe": True,
+        "measures_tpot": True,
+        "native_stream_is_current_wna16_fused_moe": False,
+        "native_stream_measures_tpot": False,
+        "payload_bytes": 0,
+        "candidate_payload_bytes": 0,
+        "ready_credit": False,
+        "passed_to_kernel": False,
+        "changes_kernel_launch_args": False,
+        "uses_current_wna16_args": False,
+        "passes_current_wna16_args": False,
+        "candidate_kernel_arg_pass": False,
+        "candidate_changes_kernel_launch_args": False,
+        "online_contract_expected_issue_candidate_count": 20160,
+        "native_stream_issue_candidate_count": 20160,
+        "native_stream_graph_replay_required": True,
+        "native_stream_graph_replay": True,
+        "native_stream_requested_graph_replay": True,
+        "native_stream_persistent_state_on_device": True,
+        "native_stream_issue_generation_on_device": True,
+    }
+
+
+def _payload_cache_stream_producer_production_ab_bridge_check_payload() -> dict[str, object]:
+    return {
+        "passed": True,
+        "failures": [],
+        "mode": "premap_payload_cache_stream_producer_ab_bridge_check",
+        "candidate_overhead_ratio": -0.0022340646888455717,
+        "max_overhead_ratio": 0.02,
+        "native_stream_issue_candidate_count": 20160,
+        "online_contract_expected_issue_candidate_count": 20160,
+        "payload_bytes": 0,
+        "candidate_payload_bytes": 0,
+        "ready_credit": False,
+        "passed_to_kernel": False,
+        "changes_kernel_launch_args": False,
+        "uses_current_wna16_args": False,
+        "passes_current_wna16_args": False,
+        "candidate_kernel_arg_pass": False,
+        "candidate_changes_kernel_launch_args": False,
+        "native_stream_is_current_wna16_fused_moe": False,
+        "native_stream_measures_tpot": False,
+        "native_stream_graph_replay_required": True,
+        "native_stream_graph_replay": True,
+        "native_stream_requested_graph_replay": True,
+        "native_stream_persistent_state_on_device": True,
+        "native_stream_issue_generation_on_device": True,
+    }
 
 
 def _payload_cache_shifted_issue_runtime_shadow_gate_payload() -> dict[str, object]:
@@ -5213,6 +6048,12 @@ def _write_gate(
     native_online_perf_path = (
         f"reports/{name}_native_online_prelaunch_export_performance.json"
     )
+    prelaunch_pointer_source_observer_check_path = (
+        f"reports/{name}_prelaunch_pointer_source_observer_check.json"
+    )
+    readonly_live_trusted_refs_check_path = (
+        f"reports/{name}_readonly_live_trusted_refs_check.json"
+    )
     native_online_runner_path = (
         f"reports/{name}_native_online_prelaunch_canary_runner.json"
     )
@@ -5330,6 +6171,30 @@ def _write_gate(
     )
     payload_cache_producer_state_nonempty_issue_stub_path = (
         f"reports/{name}_payload_cache_producer_state_nonempty_issue_stub.json"
+    )
+    payload_cache_producer_state_stream_native_canary_path = (
+        f"reports/{name}_payload_cache_producer_state_stream_native_canary.json"
+    )
+    payload_cache_producer_state_packet_stream_native_canary_path = (
+        f"reports/{name}_payload_cache_producer_state_packet_stream_native_canary.json"
+    )
+    payload_cache_producer_state_packet_stream_native_canary_check_path = (
+        f"reports/{name}_payload_cache_producer_state_packet_stream_native_canary_check.json"
+    )
+    payload_cache_producer_state_stream_online_contract_path = (
+        f"reports/{name}_payload_cache_producer_state_stream_online_contract.json"
+    )
+    payload_cache_producer_state_inprocess_native_session_online_contract_path = (
+        f"reports/{name}_payload_cache_producer_state_inprocess_native_session_online_contract.json"
+    )
+    payload_cache_stream_producer_production_ab_bridge_path = (
+        f"reports/{name}_payload_cache_stream_producer_production_ab_bridge.json"
+    )
+    payload_cache_stream_producer_production_ab_bridge_check_path = (
+        f"reports/{name}_payload_cache_stream_producer_production_ab_bridge_check.json"
+    )
+    payload_cache_online_native_producer_boundary_gap_path = (
+        f"reports/{name}_payload_cache_online_native_producer_boundary_gap.json"
     )
     standalone_wna16_adjacent_typed_slot_canary_path = (
         f"reports/{name}_future_native_wna16_adjacent_typed_slot_standalone_canary.json"
@@ -5465,6 +6330,14 @@ def _write_gate(
         _write(root / lab_native_bridge_path, json.dumps(lab_payload) + "\n")
         _write(root / native_bridge_path, json.dumps(lab_payload) + "\n")
         _write(root / lab_native_stub_path, json.dumps(lab_payload) + "\n")
+        _write(
+            root / prelaunch_pointer_source_observer_check_path,
+            json.dumps(_prelaunch_pointer_source_observer_check_payload()) + "\n",
+        )
+        _write(
+            root / readonly_live_trusted_refs_check_path,
+            json.dumps(_readonly_live_trusted_refs_check_payload()) + "\n",
+        )
         _write(
             root / native_bridge_input_path,
             json.dumps(_native_bridge_input_payload()) + "\n",
@@ -6353,6 +7226,54 @@ def _write_gate(
             json.dumps(_payload_cache_producer_state_nonempty_issue_stub_payload())
             + "\n",
         )
+        _write(
+            root / payload_cache_producer_state_stream_native_canary_path,
+            json.dumps(_payload_cache_producer_state_stream_native_canary_payload())
+            + "\n",
+        )
+        _write(
+            root / payload_cache_producer_state_packet_stream_native_canary_path,
+            json.dumps(
+                _payload_cache_producer_state_packet_stream_native_canary_payload()
+            )
+            + "\n",
+        )
+        _write(
+            root / payload_cache_producer_state_packet_stream_native_canary_check_path,
+            json.dumps(
+                _payload_cache_producer_state_packet_stream_native_canary_check_payload()
+            )
+            + "\n",
+        )
+        _write(
+            root / payload_cache_producer_state_stream_online_contract_path,
+            json.dumps(_payload_cache_producer_state_stream_online_contract_payload())
+            + "\n",
+        )
+        _write(
+            root / payload_cache_producer_state_inprocess_native_session_online_contract_path,
+            json.dumps(
+                _payload_cache_producer_state_inprocess_native_session_online_contract_payload()
+            )
+            + "\n",
+        )
+        _write(
+            root / payload_cache_stream_producer_production_ab_bridge_path,
+            json.dumps(_payload_cache_stream_producer_production_ab_bridge_payload())
+            + "\n",
+        )
+        _write(
+            root / payload_cache_stream_producer_production_ab_bridge_check_path,
+            json.dumps(
+                _payload_cache_stream_producer_production_ab_bridge_check_payload()
+            )
+            + "\n",
+        )
+        _write(
+            root / payload_cache_online_native_producer_boundary_gap_path,
+            json.dumps(_payload_cache_online_native_producer_boundary_gap_payload())
+            + "\n",
+        )
         for mirror_field, runner_path in (
             ("descriptor_ptr", online_merged_arg_slot_descriptor_ptr_runner_path),
             (
@@ -6752,9 +7673,30 @@ def _write_gate(
             f"{payload_cache_producer_state_native_canary_path}\n"
             "  payload_cache_producer_state_nonempty_issue_stub_json: "
             f"{payload_cache_producer_state_nonempty_issue_stub_path}\n"
+            "  payload_cache_producer_state_stream_native_canary_json: "
+            f"{payload_cache_producer_state_stream_native_canary_path}\n"
+            "  payload_cache_producer_state_packet_stream_native_canary_json: "
+            f"{payload_cache_producer_state_packet_stream_native_canary_path}\n"
+            "  payload_cache_producer_state_packet_stream_native_canary_check_json: "
+            f"{payload_cache_producer_state_packet_stream_native_canary_check_path}\n"
+            "  payload_cache_online_native_producer_boundary_gap_json: "
+            f"{payload_cache_online_native_producer_boundary_gap_path}\n"
             "  future_kernel_wna16_adjacent_typed_slot_standalone_canary_json: "
             f"{standalone_wna16_adjacent_typed_slot_canary_path}\n"
+            "  prelaunch_pointer_source_observer_check_json: "
+            f"{prelaunch_pointer_source_observer_check_path}\n"
+            "  readonly_live_trusted_refs_check_json: "
+            f"{readonly_live_trusted_refs_check_path}\n"
+            "diagnostic_evidence_paths:\n"
+            "  payload_cache_producer_state_stream_online_contract_json: "
+            f"{payload_cache_producer_state_stream_online_contract_path}\n"
+            "  payload_cache_stream_producer_production_ab_bridge_json: "
+            f"{payload_cache_stream_producer_production_ab_bridge_path}\n"
+            "  payload_cache_stream_producer_production_ab_bridge_check_json: "
+            f"{payload_cache_stream_producer_production_ab_bridge_check_path}\n"
             "optional_evidence_paths:\n"
+            "  payload_cache_producer_state_inprocess_native_session_online_contract_json: "
+            f"{payload_cache_producer_state_inprocess_native_session_online_contract_path}\n"
             "  future_kernel_args_aux_metadata_mirror_canary_json: "
             f"{future_kernel_args_aux_metadata_canary_path}\n"
             "  future_kernel_args_compatible_path_16_128export_artifact_check_json: "
@@ -6847,7 +7789,7 @@ def test_premap_lab_preflight_accepts_default_readonly_wiring(tmp_path: Path):
     assert result["passed"] is True
     assert result["failures"] == []
     assert result["runtime_gate_evidence_scan"]["gate_count"] == 5
-    assert result["runtime_gate_evidence_scan"]["evidence_path_count"] == 134
+    assert result["runtime_gate_evidence_scan"]["evidence_path_count"] == 146
     assert result["default_readonly_gate_required_evidence_check"]["passed"] is True
     summary = result["lab_gate_status_summary"]
     assert summary["passed"] is True
@@ -6863,6 +7805,7 @@ def test_premap_lab_preflight_accepts_default_readonly_wiring(tmp_path: Path):
         ]
         == len(_ALL_FIELD_ENTRY_ARGS_PTR_MIRROR_FIELDS)
     )
+
     assert (
         summary[
             "default_kernel_consumer_future_wna16_payloadless_useful_repeat_benchmark_useful_work_units"
@@ -9060,12 +10003,49 @@ def test_premap_lab_preflight_accepts_default_readonly_wiring(tmp_path: Path):
     assert summary["payload_bytes_required"] == 0
     assert summary["passed_to_kernel_required"] is False
     assert summary["changes_kernel_launch_args_required"] is False
-    assert summary["required_evidence"]["required_count"] == 57
-    assert summary["required_evidence"]["present_count"] == 57
-    assert summary["required_evidence"]["passed_count"] == 57
-    assert summary["optional_evidence"]["required_count"] == 13
-    assert summary["optional_evidence"]["present_count"] == 13
-    assert summary["optional_evidence"]["passed_count"] == 13
+    assert summary["required_evidence"]["required_count"] == 63
+    assert summary["required_evidence"]["present_count"] == 63
+    assert summary["required_evidence"]["passed_count"] == 63
+    assert summary["optional_evidence"]["required_count"] == 16
+    assert summary["optional_evidence"]["present_count"] == 14
+    assert summary["optional_evidence"]["passed_count"] == 14
+    assert summary["payload_cache_online_native_producer_boundary_gap_required"] is True
+    assert (
+        summary["payload_cache_online_native_producer_boundary_gap_acknowledged"]
+        is True
+    )
+    assert (
+        summary[
+            "payload_cache_online_native_producer_boundary_gap_ready_for_lab_runtime_gate"
+        ]
+        is False
+    )
+    assert (
+        summary["payload_cache_online_native_producer_boundary_gap_runtime_passed"]
+        is False
+    )
+    assert (
+        summary["payload_cache_online_native_producer_boundary_gap_lab_gate_passed"]
+        is False
+    )
+    assert (
+        summary[
+            "payload_cache_online_native_producer_boundary_gap_next_required_boundary"
+        ]
+        == "inprocess_vllm_replay_visible_native_producer_op"
+    )
+    assert (
+        summary["required_evidence"]["evidence"][
+            "prelaunch_pointer_source_observer_check_json"
+        ]["passed"]
+        is True
+    )
+    assert (
+        summary["required_evidence"]["evidence"][
+            "readonly_live_trusted_refs_check_json"
+        ]["passed"]
+        is True
+    )
     assert (
         summary["required_evidence"]["evidence"][
             "future_kernel_native_arg_slot_multiprogram_canary_json"
@@ -9075,6 +10055,12 @@ def test_premap_lab_preflight_accepts_default_readonly_wiring(tmp_path: Path):
     assert (
         summary["optional_evidence"]["evidence"][
             "native_typed_consumer_stub_online_prelaunch_input_per_field_canary_json"
+        ]["passed"]
+        is True
+    )
+    assert (
+        summary["required_evidence"]["evidence"][
+            "payload_cache_online_native_producer_boundary_gap_json"
         ]["passed"]
         is True
     )
@@ -9202,6 +10188,74 @@ def test_premap_lab_preflight_accepts_default_readonly_wiring(tmp_path: Path):
     )
     assert result["trace_config_checks"][0]["passed"] is True
     assert result["trace_config_checks"][0]["readonly_gate_path_label"] == default_gate
+
+
+def test_premap_lab_preflight_requires_prelaunch_pointer_source_observer_check(
+    tmp_path: Path,
+):
+    default_gate = _write_gate(tmp_path, "default_gate", "default_gate.json")
+    canary_gate = _write_gate(tmp_path, "canary_gate", "canary_gate.json")
+    gate_path = tmp_path / default_gate
+    gate_text = gate_path.read_text(encoding="utf-8")
+    gate_text = gate_text.replace(
+        "  prelaunch_pointer_source_observer_check_json: "
+        "reports/default_gate_prelaunch_pointer_source_observer_check.json\n",
+        "",
+    )
+    gate_path.write_text(gate_text, encoding="utf-8")
+    trace_config = _write_trace_config(
+        tmp_path,
+        "longrun",
+        readonly_gate_path=default_gate,
+    )
+
+    result = run_premap_lab_preflight(
+        root=tmp_path,
+        runtime_pattern="configs/runtime/*.yaml",
+        trace_configs=[trace_config],
+        default_readonly_gate=default_gate,
+        canary_gate=canary_gate,
+    )
+
+    assert result["passed"] is False
+    assert (
+        "prelaunch_pointer_source_observer_check_json:missing_evidence_path"
+        in result["default_readonly_gate_required_evidence_check"]["failures"]
+    )
+
+
+def test_premap_lab_preflight_requires_readonly_live_trusted_refs_check(
+    tmp_path: Path,
+):
+    default_gate = _write_gate(tmp_path, "default_gate", "default_gate.json")
+    canary_gate = _write_gate(tmp_path, "canary_gate", "canary_gate.json")
+    gate_path = tmp_path / default_gate
+    gate_text = gate_path.read_text(encoding="utf-8")
+    gate_text = gate_text.replace(
+        "  readonly_live_trusted_refs_check_json: "
+        "reports/default_gate_readonly_live_trusted_refs_check.json\n",
+        "",
+    )
+    gate_path.write_text(gate_text, encoding="utf-8")
+    trace_config = _write_trace_config(
+        tmp_path,
+        "longrun",
+        readonly_gate_path=default_gate,
+    )
+
+    result = run_premap_lab_preflight(
+        root=tmp_path,
+        runtime_pattern="configs/runtime/*.yaml",
+        trace_configs=[trace_config],
+        default_readonly_gate=default_gate,
+        canary_gate=canary_gate,
+    )
+
+    assert result["passed"] is False
+    assert (
+        "readonly_live_trusted_refs_check_json:missing_evidence_path"
+        in result["default_readonly_gate_required_evidence_check"]["failures"]
+    )
 
 
 def test_premap_lab_preflight_rejects_payloadless_useful_repeat_seed_only(
@@ -10331,7 +11385,7 @@ def test_premap_lab_preflight_rejects_missing_optional_future_args_coverage(
         "default_kernel_consumer_future_kernel_args_total_mirror_coverage_incomplete"
         in result["failures"]
     )
-    assert summary["required_evidence"]["passed_count"] == 57
+    assert summary["required_evidence"]["passed_count"] == 63
     assert summary["default_optional_evidence_passed"] is True
     assert (
         summary[
@@ -12432,6 +13486,10 @@ def test_premap_lab_preflight_rejects_default_gate_without_typed_evidence(
         "payload_cache_packet_export_manifest_json:missing_evidence_path",
         "payload_cache_producer_state_online_nonempty_issue_canary_json:missing_evidence_path",
         "payload_cache_producer_state_nonempty_issue_stub_json:missing_evidence_path",
+        "payload_cache_producer_state_stream_native_canary_json:missing_evidence_path",
+        "payload_cache_producer_state_packet_stream_native_canary_json:missing_evidence_path",
+        "payload_cache_producer_state_packet_stream_native_canary_check_json:missing_evidence_path",
+        "payload_cache_online_native_producer_boundary_gap_json:missing_evidence_path",
         "strict_live_connected_readonly_128_gate_json:missing_evidence_path",
         "strict_native_typed_consumer_bridge_128_gate_json:missing_evidence_path",
         "strict_kernel_side_typed_consumer_object_128_gate_json:missing_evidence_path",
@@ -12442,6 +13500,8 @@ def test_premap_lab_preflight_rejects_default_gate_without_typed_evidence(
         "descriptor_ptr_single_field_handle_handoff_canary_smoke_json:missing_evidence_path",
         "packed_weight_single_field_handle_handoff_canary_smoke_json:missing_evidence_path",
         "native_typed_consumer_stub_endpoint_ptr_canary_json:missing_evidence_path",
+        "prelaunch_pointer_source_observer_check_json:missing_evidence_path",
+        "readonly_live_trusted_refs_check_json:missing_evidence_path",
     }
 
 
@@ -15453,6 +16513,1235 @@ def test_premap_lab_preflight_accepts_payload_cache_producer_state_nonempty_issu
     assert failures == []
 
 
+def test_premap_lab_preflight_accepts_payload_cache_producer_state_stream_native_canary():
+    failures = _validate_payload_cache_producer_state_stream_native_canary_evidence(
+        _payload_cache_producer_state_stream_native_canary_payload()
+    )
+
+    assert failures == []
+
+
+def test_premap_lab_preflight_dispatch_accepts_payload_cache_producer_state_stream_native_canary():
+    failures = _validate_required_evidence_payload(
+        "payload_cache_producer_state_stream_native_canary_json",
+        _payload_cache_producer_state_stream_native_canary_payload(),
+    )
+
+    assert failures == []
+
+
+def test_premap_lab_preflight_rejects_payload_cache_producer_state_stream_without_vectorized_copy():
+    payload = _payload_cache_producer_state_stream_native_canary_payload()
+    payload["vectorized_copy_used"] = False
+
+    failures = _validate_payload_cache_producer_state_stream_native_canary_evidence(
+        payload
+    )
+
+    assert (
+        "payload_cache_producer_state_stream_native_canary_"
+        "vectorized_copy_expected_but_not_used"
+    ) in failures
+
+
+def test_premap_lab_preflight_rejects_payload_cache_producer_state_stream_without_graph_replay():
+    payload = _payload_cache_producer_state_stream_native_canary_payload()
+    payload["native_graph_replay"] = False
+    payload["requested_graph_replay"] = False
+
+    failures = _validate_payload_cache_producer_state_stream_native_canary_evidence(
+        payload
+    )
+
+    assert (
+        "payload_cache_producer_state_stream_native_canary_"
+        "native_graph_replay_mismatch"
+    ) in failures
+    assert (
+        "payload_cache_producer_state_stream_native_canary_"
+        "requested_graph_replay_not_enabled"
+    ) in failures
+
+
+def test_premap_lab_preflight_rejects_payload_cache_producer_state_stream_issue_mismatch():
+    payload = _payload_cache_producer_state_stream_native_canary_payload()
+    payload["issue_candidate_count"] = 1
+
+    failures = _validate_payload_cache_producer_state_stream_native_canary_evidence(
+        payload
+    )
+
+    assert (
+        "payload_cache_producer_state_stream_native_canary_"
+        "issue_candidate_count_mismatch"
+    ) in failures
+
+
+def test_premap_lab_preflight_rejects_payload_cache_producer_state_stream_issue_formula_mismatch():
+    payload = _payload_cache_producer_state_stream_native_canary_payload()
+    payload["issue_candidate_count"] = 8
+    payload["expected_issue_candidate_count"] = 8
+
+    failures = _validate_payload_cache_producer_state_stream_native_canary_evidence(
+        payload
+    )
+
+    assert (
+        "payload_cache_producer_state_stream_native_canary_"
+        "expected_issue_candidate_count_formula_mismatch"
+    ) in failures
+    assert (
+        "payload_cache_producer_state_stream_native_canary_"
+        "issue_candidate_count_formula_mismatch"
+    ) in failures
+
+
+def test_premap_lab_preflight_dispatch_rejects_payload_cache_producer_state_stream_payload_mutation():
+    payload = _payload_cache_producer_state_stream_native_canary_payload()
+    payload["payload_bytes"] = 4
+
+    failures = _validate_required_evidence_payload(
+        "payload_cache_producer_state_stream_native_canary_json",
+        payload,
+    )
+
+    assert (
+        "payload_cache_producer_state_stream_native_canary_json:"
+        "payload_cache_producer_state_stream_native_canary_payload_bytes_mismatch"
+    ) in failures
+
+
+def test_premap_lab_preflight_accepts_payload_cache_producer_state_inprocess_native_canary():
+    failures = _validate_payload_cache_producer_state_inprocess_native_canary_evidence(
+        _payload_cache_producer_state_inprocess_native_canary_payload()
+    )
+
+    assert failures == []
+
+
+def test_premap_lab_preflight_dispatch_accepts_payload_cache_producer_state_inprocess_native_canary():
+    failures = _validate_required_evidence_payload(
+        "payload_cache_producer_state_inprocess_native_canary_json",
+        _payload_cache_producer_state_inprocess_native_canary_payload(),
+    )
+
+    assert failures == []
+
+
+def test_premap_lab_preflight_rejects_payload_cache_producer_state_inprocess_without_graph_replay():
+    payload = _payload_cache_producer_state_inprocess_native_canary_payload()
+    payload["native_graph_replay"] = False
+    payload["requested_graph_replay"] = False
+
+    failures = _validate_payload_cache_producer_state_inprocess_native_canary_evidence(
+        payload
+    )
+
+    assert (
+        "payload_cache_producer_state_inprocess_native_canary_"
+        "native_graph_replay_mismatch"
+    ) in failures
+    assert (
+        "payload_cache_producer_state_inprocess_native_canary_"
+        "requested_graph_replay_not_enabled"
+    ) in failures
+
+
+def test_premap_lab_preflight_rejects_payload_cache_producer_state_inprocess_kernel_arg_pass():
+    payload = _payload_cache_producer_state_inprocess_native_canary_payload()
+    payload["passed_to_kernel"] = True
+    payload["changes_kernel_launch_args"] = True
+
+    failures = _validate_required_evidence_payload(
+        "payload_cache_producer_state_inprocess_native_canary_json",
+        payload,
+    )
+
+    assert (
+        "payload_cache_producer_state_inprocess_native_canary_json:"
+        "payload_cache_producer_state_inprocess_native_canary_"
+        "passed_to_kernel_mismatch"
+    ) in failures
+    assert (
+        "payload_cache_producer_state_inprocess_native_canary_json:"
+        "payload_cache_producer_state_inprocess_native_canary_"
+        "changes_kernel_launch_args_mismatch"
+    ) in failures
+
+
+def test_premap_lab_preflight_rejects_payload_cache_producer_state_inprocess_bool_int_type_confusion():
+    payload = _payload_cache_producer_state_inprocess_native_canary_payload()
+    payload["payload_bytes"] = False
+    payload["passed_to_kernel"] = 0
+    payload["vllm_replay_visible"] = 0
+    payload["native_graph_replay"] = 1
+
+    failures = _validate_payload_cache_producer_state_inprocess_native_canary_evidence(
+        payload
+    )
+
+    assert (
+        "payload_cache_producer_state_inprocess_native_canary_payload_bytes_mismatch"
+        in failures
+    )
+    assert (
+        "payload_cache_producer_state_inprocess_native_canary_passed_to_kernel_mismatch"
+        in failures
+    )
+    assert (
+        "payload_cache_producer_state_inprocess_native_canary_vllm_replay_visible_mismatch"
+        in failures
+    )
+    assert (
+        "payload_cache_producer_state_inprocess_native_canary_native_graph_replay_mismatch"
+        in failures
+    )
+
+
+def test_premap_lab_preflight_accepts_payload_cache_producer_state_inprocess_online_contract():
+    failures = _validate_payload_cache_producer_state_inprocess_native_online_contract_evidence(
+        _payload_cache_producer_state_inprocess_native_online_contract_payload()
+    )
+
+    assert failures == []
+
+
+def test_premap_lab_preflight_dispatch_accepts_payload_cache_producer_state_inprocess_online_contract():
+    failures = _validate_required_evidence_payload(
+        "payload_cache_producer_state_inprocess_native_online_contract_json",
+        _payload_cache_producer_state_inprocess_native_online_contract_payload(),
+    )
+
+    assert failures == []
+
+
+def test_premap_lab_preflight_rejects_inprocess_online_contract_vllm_replay_visible():
+    payload = _payload_cache_producer_state_inprocess_native_online_contract_payload()
+    payload["vllm_replay_visible"] = True
+    payload["native"]["vllm_replay_visible"] = True
+
+    failures = _validate_required_evidence_payload(
+        "payload_cache_producer_state_inprocess_native_online_contract_json",
+        payload,
+    )
+
+    assert (
+        "payload_cache_producer_state_inprocess_native_online_contract_json:"
+        "payload_cache_producer_state_inprocess_native_online_contract_"
+        "vllm_replay_visible_mismatch"
+    ) in failures
+    assert (
+        "payload_cache_producer_state_inprocess_native_online_contract_json:"
+        "payload_cache_producer_state_inprocess_native_online_contract_native_"
+        "vllm_replay_visible_mismatch"
+    ) in failures
+
+
+def test_premap_lab_preflight_rejects_inprocess_online_contract_kernel_arg_pass():
+    payload = _payload_cache_producer_state_inprocess_native_online_contract_payload()
+    payload["passed_to_kernel"] = True
+    payload["changes_kernel_launch_args"] = True
+    payload["native"]["passed_to_kernel"] = True
+
+    failures = _validate_required_evidence_payload(
+        "payload_cache_producer_state_inprocess_native_online_contract_json",
+        payload,
+    )
+
+    assert (
+        "payload_cache_producer_state_inprocess_native_online_contract_json:"
+        "payload_cache_producer_state_inprocess_native_online_contract_"
+        "passed_to_kernel_mismatch"
+    ) in failures
+    assert (
+        "payload_cache_producer_state_inprocess_native_online_contract_json:"
+        "payload_cache_producer_state_inprocess_native_online_contract_"
+        "changes_kernel_launch_args_mismatch"
+    ) in failures
+    assert (
+        "payload_cache_producer_state_inprocess_native_online_contract_json:"
+        "payload_cache_producer_state_inprocess_native_online_contract_native_"
+        "passed_to_kernel_mismatch"
+    ) in failures
+
+
+def test_premap_lab_preflight_rejects_inprocess_online_contract_issue_mismatch():
+    payload = _payload_cache_producer_state_inprocess_native_online_contract_payload()
+    payload["online_observed_issue_candidate_count"] = 1
+    payload["native_inprocess_issue_candidate_count"] = 2
+
+    failures = _validate_payload_cache_producer_state_inprocess_native_online_contract_evidence(
+        payload
+    )
+
+    assert (
+        "payload_cache_producer_state_inprocess_native_online_contract_"
+        "online_observed_issue_candidate_count_mismatch"
+    ) in failures
+    assert (
+        "payload_cache_producer_state_inprocess_native_online_contract_"
+        "native_inprocess_issue_candidate_count_mismatch"
+    ) in failures
+
+
+def test_premap_lab_preflight_rejects_inprocess_online_contract_unpassed_source():
+    payload = _payload_cache_producer_state_inprocess_native_online_contract_payload()
+    payload["source_stream_online_contract_passed"] = False
+    payload["source_stream_online_contract_failures"] = ["source_failed"]
+
+    failures = _validate_payload_cache_producer_state_inprocess_native_online_contract_evidence(
+        payload
+    )
+
+    assert (
+        "payload_cache_producer_state_inprocess_native_online_contract_"
+        "source_stream_online_contract_passed_mismatch"
+    ) in failures
+    assert (
+        "payload_cache_producer_state_inprocess_native_online_contract_"
+        "source_stream_online_contract_failures_mismatch"
+    ) in failures
+
+
+def test_premap_lab_preflight_rejects_inprocess_online_contract_raw_summary_source_kind():
+    payload = _payload_cache_producer_state_inprocess_native_online_contract_payload()
+    payload["source_kind"] = "raw_vllm_performance_summary"
+    payload["source_is_online_stream_contract"] = False
+    payload["source_is_raw_vllm_performance_summary"] = True
+
+    failures = _validate_payload_cache_producer_state_inprocess_native_online_contract_evidence(
+        payload
+    )
+
+    assert (
+        "payload_cache_producer_state_inprocess_native_online_contract_"
+        "source_kind_mismatch"
+    ) in failures
+    assert (
+        "payload_cache_producer_state_inprocess_native_online_contract_"
+        "source_is_online_stream_contract_mismatch"
+    ) in failures
+    assert (
+        "payload_cache_producer_state_inprocess_native_online_contract_"
+        "source_is_raw_vllm_performance_summary_mismatch"
+    ) in failures
+
+
+def test_premap_lab_preflight_accepts_payload_cache_producer_state_inprocess_session_canary():
+    failures = _validate_payload_cache_producer_state_inprocess_native_session_canary_evidence(
+        _payload_cache_producer_state_inprocess_native_session_canary_payload()
+    )
+
+    assert failures == []
+
+
+def test_premap_lab_preflight_accepts_payload_cache_producer_state_inprocess_session_packet_stream_restore():
+    failures = _validate_payload_cache_producer_state_inprocess_native_session_canary_evidence(
+        _payload_cache_producer_state_inprocess_native_session_packet_stream_payload()
+    )
+
+    assert failures == []
+
+
+def test_premap_lab_preflight_rejects_payload_cache_producer_state_inprocess_session_packet_stream_restore_count_mismatch():
+    payload = _payload_cache_producer_state_inprocess_native_session_packet_stream_payload()
+    payload["packet_stream_state_restore_count"] = 30
+
+    failures = _validate_payload_cache_producer_state_inprocess_native_session_canary_evidence(
+        payload
+    )
+
+    assert (
+        "payload_cache_producer_state_inprocess_native_session_canary_"
+        "packet_stream_state_restore_count_mismatch"
+    ) in failures
+
+
+def test_premap_lab_preflight_rejects_payload_cache_producer_state_inprocess_session_packet_stream_restore_returncode():
+    payload = _payload_cache_producer_state_inprocess_native_session_packet_stream_payload()
+    payload["packet_stream_state_restore_returncodes"] = [0, 262]
+
+    failures = _validate_payload_cache_producer_state_inprocess_native_session_canary_evidence(
+        payload
+    )
+
+    assert (
+        "payload_cache_producer_state_inprocess_native_session_canary_"
+        "packet_stream_state_restore_returncodes_mismatch"
+    ) in failures
+
+
+def test_premap_lab_preflight_rejects_payload_cache_producer_state_inprocess_session_packet_source_without_input_flag():
+    payload = _payload_cache_producer_state_inprocess_native_session_packet_stream_payload()
+    payload["packet_stream_input"] = False
+
+    failures = _validate_payload_cache_producer_state_inprocess_native_session_canary_evidence(
+        payload
+    )
+
+    assert (
+        "payload_cache_producer_state_inprocess_native_session_canary_"
+        "packet_stream_input_required"
+    ) in failures
+
+
+def test_premap_lab_preflight_rejects_payload_cache_producer_state_inprocess_session_packet_issue_count_mismatch():
+    payload = _payload_cache_producer_state_inprocess_native_session_packet_stream_payload()
+    payload["issue_candidate_count"] = 1
+
+    failures = _validate_payload_cache_producer_state_inprocess_native_session_canary_evidence(
+        payload
+    )
+
+    assert (
+        "payload_cache_producer_state_inprocess_native_session_canary_"
+        "issue_candidate_count_mismatch"
+    ) in failures
+
+
+def test_premap_lab_preflight_rejects_payload_cache_producer_state_inprocess_session_packet_issue_hash_mismatch():
+    payload = _payload_cache_producer_state_inprocess_native_session_packet_stream_payload()
+    payload["expected_issue_candidate_hash"] = "ffffffffffffffff"
+
+    failures = _validate_payload_cache_producer_state_inprocess_native_session_canary_evidence(
+        payload
+    )
+
+    assert (
+        "payload_cache_producer_state_inprocess_native_session_canary_"
+        "issue_candidate_hash_mismatch"
+    ) in failures
+
+
+def test_premap_lab_preflight_rejects_payload_cache_producer_state_inprocess_session_torch_smoke_claiming_vllm_prelaunch():
+    payload = _payload_cache_producer_state_inprocess_native_session_canary_payload()
+    payload["current_expert_ptr_source"] = "torch_device_tensor"
+    payload["current_expert_ptr_source_kind"] = "external_torch_device_tensor_smoke"
+    payload["external_current_expert_ptr_source"] = True
+    payload["ready_for_external_pointer_smoke"] = True
+    payload["ready_for_vllm_prelaunch_canary"] = True
+
+    failures = _validate_payload_cache_producer_state_inprocess_native_session_canary_evidence(
+        payload
+    )
+
+    assert (
+        "payload_cache_producer_state_inprocess_native_session_canary_"
+        "ready_for_vllm_prelaunch_canary_mismatch"
+    ) in failures
+
+
+def test_premap_lab_preflight_dispatch_accepts_payload_cache_producer_state_inprocess_session_canary():
+    failures = _validate_required_evidence_payload(
+        "payload_cache_producer_state_inprocess_native_session_canary_json",
+        _payload_cache_producer_state_inprocess_native_session_canary_payload(),
+    )
+
+    assert failures == []
+
+
+def test_premap_lab_preflight_rejects_payload_cache_producer_state_inprocess_session_graph_visible():
+    payload = _payload_cache_producer_state_inprocess_native_session_canary_payload()
+    payload["graph_visible"] = True
+    payload["torch_graph_replay_visible"] = True
+
+    failures = _validate_payload_cache_producer_state_inprocess_native_session_canary_evidence(
+        payload
+    )
+
+    assert (
+        "payload_cache_producer_state_inprocess_native_session_canary_"
+        "graph_visible_mismatch"
+    ) in failures
+    assert (
+        "payload_cache_producer_state_inprocess_native_session_canary_"
+        "torch_graph_replay_visible_mismatch"
+    ) in failures
+
+
+def test_premap_lab_preflight_accepts_payload_cache_producer_state_inprocess_session_native_generated_current():
+    payload = _payload_cache_producer_state_inprocess_native_session_canary_payload()
+    payload["current_expert_ptr_source"] = "native_generated_device_scratch"
+    payload["current_expert_ptr_source_kind"] = "native_scratch_smoke"
+    payload["external_current_expert_ptr_source"] = False
+    payload["ready_for_external_pointer_smoke"] = False
+    payload["ready_for_vllm_prelaunch_canary"] = False
+
+    failures = _validate_payload_cache_producer_state_inprocess_native_session_canary_evidence(
+        payload
+    )
+
+    assert failures == []
+
+
+def test_premap_lab_preflight_rejects_payload_cache_producer_state_inprocess_session_native_generated_claims_vllm_pointer():
+    payload = _payload_cache_producer_state_inprocess_native_session_canary_payload()
+    payload["current_expert_ptr_source"] = "native_generated_device_scratch"
+    payload["current_expert_ptr_source_kind"] = "native_scratch_smoke"
+    payload["external_current_expert_ptr_source"] = True
+    payload["ready_for_external_pointer_smoke"] = True
+    payload["ready_for_vllm_prelaunch_canary"] = True
+
+    failures = _validate_payload_cache_producer_state_inprocess_native_session_canary_evidence(
+        payload
+    )
+
+    assert (
+        "payload_cache_producer_state_inprocess_native_session_canary_"
+        "external_current_expert_ptr_source_mismatch"
+    ) in failures
+    assert (
+        "payload_cache_producer_state_inprocess_native_session_canary_"
+        "ready_for_vllm_prelaunch_canary_mismatch"
+    ) in failures
+
+
+def test_premap_lab_preflight_rejects_payload_cache_producer_state_inprocess_session_kernel_arg_pass():
+    payload = _payload_cache_producer_state_inprocess_native_session_canary_payload()
+    payload["passed_to_kernel"] = True
+    payload["changes_kernel_launch_args"] = True
+
+    failures = _validate_required_evidence_payload(
+        "payload_cache_producer_state_inprocess_native_session_canary_json",
+        payload,
+    )
+
+    assert (
+        "payload_cache_producer_state_inprocess_native_session_canary_json:"
+        "payload_cache_producer_state_inprocess_native_session_canary_"
+        "passed_to_kernel_mismatch"
+    ) in failures
+    assert (
+        "payload_cache_producer_state_inprocess_native_session_canary_json:"
+        "payload_cache_producer_state_inprocess_native_session_canary_"
+        "changes_kernel_launch_args_mismatch"
+    ) in failures
+
+
+def test_premap_lab_preflight_rejects_payload_cache_producer_state_inprocess_session_issue_count_mismatch():
+    payload = _payload_cache_producer_state_inprocess_native_session_canary_payload()
+    payload["issue_candidate_count"] = 1
+
+    failures = _validate_payload_cache_producer_state_inprocess_native_session_canary_evidence(
+        payload
+    )
+
+    assert (
+        "payload_cache_producer_state_inprocess_native_session_canary_"
+        "issue_count_formula_mismatch"
+    ) in failures
+
+
+def test_premap_lab_preflight_accepts_payload_cache_producer_state_inprocess_session_online_contract():
+    failures = _validate_payload_cache_producer_state_inprocess_native_session_online_contract_evidence(
+        _payload_cache_producer_state_inprocess_native_session_online_contract_payload()
+    )
+
+    assert failures == []
+
+
+def test_premap_lab_preflight_rejects_payload_cache_producer_state_inprocess_session_online_contract_torch_smoke_claiming_vllm_prelaunch():
+    payload = (
+        _payload_cache_producer_state_inprocess_native_session_online_contract_payload()
+    )
+    payload["current_expert_ptr_source"] = "torch_device_tensor"
+    payload["current_expert_ptr_source_kind"] = "external_torch_device_tensor_smoke"
+    payload["external_current_expert_ptr_source"] = True
+    payload["ready_for_external_pointer_smoke"] = True
+    payload["ready_for_vllm_prelaunch_canary"] = True
+    native = payload["native"]
+    assert isinstance(native, dict)
+    native["current_expert_ptr_source"] = "torch_device_tensor"
+    native["current_expert_ptr_source_kind"] = "external_torch_device_tensor_smoke"
+    native["external_current_expert_ptr_source"] = True
+    native["ready_for_external_pointer_smoke"] = True
+    native["ready_for_vllm_prelaunch_canary"] = True
+
+    failures = _validate_payload_cache_producer_state_inprocess_native_session_online_contract_evidence(
+        payload
+    )
+
+    assert (
+        "payload_cache_producer_state_inprocess_native_session_online_contract_"
+        "ready_for_vllm_prelaunch_canary_mismatch"
+    ) in failures
+    assert (
+        "payload_cache_producer_state_inprocess_native_session_online_contract_"
+        "native_ready_for_vllm_prelaunch_canary_mismatch"
+    ) in failures
+
+
+def test_premap_lab_preflight_dispatch_accepts_payload_cache_producer_state_inprocess_session_online_contract():
+    failures = _validate_required_evidence_payload(
+        "payload_cache_producer_state_inprocess_native_session_online_contract_json",
+        _payload_cache_producer_state_inprocess_native_session_online_contract_payload(),
+    )
+
+    assert failures == []
+
+
+def test_premap_lab_preflight_rejects_payload_cache_producer_state_inprocess_session_online_contract_raw_summary_source():
+    payload = (
+        _payload_cache_producer_state_inprocess_native_session_online_contract_payload()
+    )
+    payload["source_kind"] = "raw_vllm_performance_summary"
+    payload["source_is_online_stream_contract"] = False
+    payload["source_is_raw_vllm_performance_summary"] = True
+
+    failures = _validate_payload_cache_producer_state_inprocess_native_session_online_contract_evidence(
+        payload
+    )
+
+    assert (
+        "payload_cache_producer_state_inprocess_native_session_online_contract_"
+        "source_kind_mismatch"
+    ) in failures
+    assert (
+        "payload_cache_producer_state_inprocess_native_session_online_contract_"
+        "source_is_online_stream_contract_mismatch"
+    ) in failures
+    assert (
+        "payload_cache_producer_state_inprocess_native_session_online_contract_"
+        "source_is_raw_vllm_performance_summary_mismatch"
+    ) in failures
+
+
+def test_premap_lab_preflight_rejects_payload_cache_producer_state_inprocess_session_online_contract_unpassed_source():
+    payload = (
+        _payload_cache_producer_state_inprocess_native_session_online_contract_payload()
+    )
+    payload["source_stream_online_contract_passed"] = False
+    payload["source_stream_online_contract_failures"] = ["source_failed"]
+
+    failures = _validate_payload_cache_producer_state_inprocess_native_session_online_contract_evidence(
+        payload
+    )
+
+    assert (
+        "payload_cache_producer_state_inprocess_native_session_online_contract_"
+        "source_stream_online_contract_passed_mismatch"
+    ) in failures
+    assert (
+        "payload_cache_producer_state_inprocess_native_session_online_contract_"
+        "source_stream_online_contract_failures_mismatch"
+    ) in failures
+
+
+def test_premap_lab_preflight_accepts_payload_cache_producer_state_inprocess_session_online_contract_native_generated_current():
+    payload = (
+        _payload_cache_producer_state_inprocess_native_session_online_contract_payload()
+    )
+    payload["current_expert_ptr_source"] = "native_generated_device_scratch"
+    payload["current_expert_ptr_source_kind"] = "native_scratch_smoke"
+    payload["external_current_expert_ptr_source"] = False
+    payload["ready_for_external_pointer_smoke"] = False
+    payload["ready_for_vllm_prelaunch_canary"] = False
+    native = payload["native"]
+    assert isinstance(native, dict)
+    native["current_expert_ptr_source"] = "native_generated_device_scratch"
+    native["current_expert_ptr_source_kind"] = "native_scratch_smoke"
+    native["external_current_expert_ptr_source"] = False
+    native["ready_for_external_pointer_smoke"] = False
+    native["ready_for_vllm_prelaunch_canary"] = False
+
+    failures = _validate_payload_cache_producer_state_inprocess_native_session_online_contract_evidence(
+        payload
+    )
+
+    assert failures == []
+
+
+def test_premap_lab_preflight_rejects_payload_cache_producer_state_inprocess_session_online_contract_native_generated_claims_vllm_pointer():
+    payload = (
+        _payload_cache_producer_state_inprocess_native_session_online_contract_payload()
+    )
+    payload["current_expert_ptr_source"] = "native_generated_device_scratch"
+    payload["current_expert_ptr_source_kind"] = "native_scratch_smoke"
+    payload["external_current_expert_ptr_source"] = True
+    payload["ready_for_external_pointer_smoke"] = True
+    payload["ready_for_vllm_prelaunch_canary"] = True
+    native = payload["native"]
+    assert isinstance(native, dict)
+    native["current_expert_ptr_source"] = "native_generated_device_scratch"
+    native["current_expert_ptr_source_kind"] = "native_scratch_smoke"
+    native["external_current_expert_ptr_source"] = True
+    native["ready_for_external_pointer_smoke"] = True
+    native["ready_for_vllm_prelaunch_canary"] = True
+
+    failures = _validate_payload_cache_producer_state_inprocess_native_session_online_contract_evidence(
+        payload
+    )
+
+    assert (
+        "payload_cache_producer_state_inprocess_native_session_online_contract_"
+        "external_current_expert_ptr_source_mismatch"
+    ) in failures
+    assert (
+        "payload_cache_producer_state_inprocess_native_session_online_contract_"
+        "ready_for_vllm_prelaunch_canary_mismatch"
+    ) in failures
+    assert (
+        "payload_cache_producer_state_inprocess_native_session_online_contract_"
+        "native_external_current_expert_ptr_source_mismatch"
+    ) in failures
+
+
+def test_premap_lab_preflight_rejects_payload_cache_producer_state_inprocess_session_online_contract_issue_count_mismatch():
+    payload = (
+        _payload_cache_producer_state_inprocess_native_session_online_contract_payload()
+    )
+    payload["native_session_issue_candidate_count"] = 1
+
+    failures = _validate_required_evidence_payload(
+        "payload_cache_producer_state_inprocess_native_session_online_contract_json",
+        payload,
+    )
+
+    assert (
+        "payload_cache_producer_state_inprocess_native_session_online_contract_json:"
+        "payload_cache_producer_state_inprocess_native_session_online_contract_"
+        "native_session_issue_candidate_count_mismatch"
+    ) in failures
+
+
+def test_premap_lab_preflight_rejects_payload_cache_producer_state_inprocess_session_online_contract_native_dimension_mismatch_under_topk_cap():
+    payload = (
+        _payload_cache_producer_state_inprocess_native_session_online_contract_payload()
+    )
+    payload["contract_experts_per_layer"] = 225
+    native = payload["native"]
+    assert isinstance(native, dict)
+    native["experts_per_layer"] = 8
+    native["requested_experts_per_layer"] = 8
+    # With topk=8, both 8 and 225 experts/layer produce the same issue count.
+    # The gate must still reject the native session because it did not run the
+    # same envelope as the online contract.
+    assert payload["contract_expected_issue_candidate_count"] == (
+        payload["native_session_issue_candidate_count"]
+    )
+
+    failures = _validate_required_evidence_payload(
+        "payload_cache_producer_state_inprocess_native_session_online_contract_json",
+        payload,
+    )
+
+    assert (
+        "payload_cache_producer_state_inprocess_native_session_online_contract_json:"
+        "payload_cache_producer_state_inprocess_native_session_online_contract_"
+        "native_experts_per_layer_mismatch"
+    ) in failures
+
+
+def test_premap_lab_preflight_accepts_payload_cache_producer_state_packet_stream_native_canary():
+    failures = (
+        _validate_payload_cache_producer_state_packet_stream_native_canary_evidence(
+            _payload_cache_producer_state_packet_stream_native_canary_payload()
+        )
+    )
+
+    assert failures == []
+
+
+def test_premap_lab_preflight_dispatch_accepts_payload_cache_producer_state_packet_stream_native_canary():
+    failures = _validate_required_evidence_payload(
+        "payload_cache_producer_state_packet_stream_native_canary_json",
+        _payload_cache_producer_state_packet_stream_native_canary_payload(),
+    )
+
+    assert failures == []
+
+
+def test_premap_lab_preflight_rejects_payload_cache_producer_state_packet_stream_native_canary_runtime_blocked():
+    payload = _payload_cache_producer_state_packet_stream_native_canary_payload()
+    payload["native_runtime_blocked"] = True
+    payload["passed"] = False
+    payload["failures"] = ["native_runtime_blocked"]
+
+    failures = (
+        _validate_payload_cache_producer_state_packet_stream_native_canary_evidence(
+            payload
+        )
+    )
+
+    assert (
+        "payload_cache_producer_state_packet_stream_native_canary_native_runtime_blocked"
+        in failures
+    )
+
+
+def test_premap_lab_preflight_dispatch_rejects_payload_cache_producer_state_packet_stream_native_canary_runtime_blocked():
+    payload = _payload_cache_producer_state_packet_stream_native_canary_payload()
+    payload["native_runtime_blocked"] = True
+    payload["passed"] = False
+    payload["failures"] = ["native_runtime_blocked"]
+
+    failures = _validate_required_evidence_payload(
+        "payload_cache_producer_state_packet_stream_native_canary_json",
+        payload,
+    )
+
+    assert (
+        "payload_cache_producer_state_packet_stream_native_canary_json:"
+        "payload_cache_producer_state_packet_stream_native_canary_native_runtime_blocked"
+        in failures
+    )
+
+
+def test_premap_lab_preflight_accepts_payload_cache_producer_state_packet_stream_native_canary_check():
+    failures = (
+        _validate_payload_cache_producer_state_packet_stream_native_canary_check_evidence(
+            _payload_cache_producer_state_packet_stream_native_canary_check_payload()
+        )
+    )
+
+    assert failures == []
+
+
+def test_premap_lab_preflight_dispatch_accepts_payload_cache_producer_state_packet_stream_native_canary_check():
+    failures = _validate_required_evidence_payload(
+        "payload_cache_producer_state_packet_stream_native_canary_check_json",
+        _payload_cache_producer_state_packet_stream_native_canary_check_payload(),
+    )
+
+    assert failures == []
+
+
+def test_premap_lab_preflight_rejects_payload_cache_producer_state_packet_stream_native_canary_check_count_mismatch():
+    payload = _payload_cache_producer_state_packet_stream_native_canary_check_payload()
+    payload["issue_candidate_count"] = 223
+
+    failures = (
+        _validate_payload_cache_producer_state_packet_stream_native_canary_check_evidence(
+            payload
+        )
+    )
+
+    assert (
+        "payload_cache_producer_state_packet_stream_native_canary_check_"
+        "issue_candidate_count_mismatch"
+    ) in failures
+
+
+def test_premap_lab_preflight_rejects_payload_cache_producer_state_packet_stream_native_canary_check_hash_mismatch():
+    payload = _payload_cache_producer_state_packet_stream_native_canary_check_payload()
+    payload["issue_candidate_hash"] = "0000000000000001"
+
+    failures = (
+        _validate_payload_cache_producer_state_packet_stream_native_canary_check_evidence(
+            payload
+        )
+    )
+
+    assert (
+        "payload_cache_producer_state_packet_stream_native_canary_check_"
+        "issue_candidate_hash_mismatch"
+    ) in failures
+    assert (
+        "payload_cache_producer_state_packet_stream_native_canary_check_"
+        "materialized_issue_candidate_hash_mismatch"
+    ) in failures
+
+
+def test_premap_lab_preflight_rejects_payload_cache_producer_state_packet_stream_native_canary_check_wrong_hash_kind():
+    payload = _payload_cache_producer_state_packet_stream_native_canary_check_payload()
+    sha_like = "f" * 64
+    payload["issue_candidate_hash"] = sha_like
+    payload["expected_issue_candidate_hash"] = sha_like
+    payload["materialized_expected_issue_candidate_hash"] = sha_like
+
+    failures = (
+        _validate_payload_cache_producer_state_packet_stream_native_canary_check_evidence(
+            payload
+        )
+    )
+
+    assert (
+        "payload_cache_producer_state_packet_stream_native_canary_check_"
+        "issue_candidate_hash_invalid"
+    ) in failures
+    assert (
+        "payload_cache_producer_state_packet_stream_native_canary_check_"
+        "expected_issue_candidate_hash_invalid"
+    ) in failures
+    assert (
+        "payload_cache_producer_state_packet_stream_native_canary_check_"
+        "materialized_expected_issue_candidate_hash_invalid"
+    ) in failures
+
+
+def test_premap_lab_preflight_rejects_payload_cache_producer_state_packet_stream_native_canary_check_bool_payload_bytes():
+    payload = _payload_cache_producer_state_packet_stream_native_canary_check_payload()
+    payload["payload_bytes"] = False
+
+    failures = (
+        _validate_payload_cache_producer_state_packet_stream_native_canary_check_evidence(
+            payload
+        )
+    )
+
+    assert (
+        "payload_cache_producer_state_packet_stream_native_canary_check_"
+        "payload_bytes_type_mismatch"
+    ) in failures
+
+
+def test_premap_lab_preflight_rejects_payload_cache_producer_state_packet_stream_native_canary_check_bool_zero_counts():
+    payload = _payload_cache_producer_state_packet_stream_native_canary_check_payload()
+    payload["state_mismatch_count"] = False
+    payload["issue_expert_mismatch_count"] = False
+
+    failures = (
+        _validate_payload_cache_producer_state_packet_stream_native_canary_check_evidence(
+            payload
+        )
+    )
+
+    assert (
+        "payload_cache_producer_state_packet_stream_native_canary_check_"
+        "state_mismatch_count_type_mismatch"
+    ) in failures
+    assert (
+        "payload_cache_producer_state_packet_stream_native_canary_check_"
+        "issue_expert_mismatch_count_type_mismatch"
+    ) in failures
+
+
+def test_premap_lab_preflight_dispatch_rejects_payload_cache_producer_state_packet_stream_native_canary_check_count_mismatch():
+    payload = _payload_cache_producer_state_packet_stream_native_canary_check_payload()
+    payload["issue_candidate_count"] = 223
+
+    failures = _validate_required_evidence_payload(
+        "payload_cache_producer_state_packet_stream_native_canary_check_json",
+        payload,
+    )
+
+    assert (
+        "payload_cache_producer_state_packet_stream_native_canary_check_json:"
+        "payload_cache_producer_state_packet_stream_native_canary_check_"
+        "issue_candidate_count_mismatch"
+        in failures
+    )
+
+
+def test_premap_lab_preflight_rejects_payload_cache_producer_state_packet_stream_native_canary_check_previous_nonempty_mismatch():
+    payload = _payload_cache_producer_state_packet_stream_native_canary_check_payload()
+    payload["previous_nonempty_packet_count"] = 27
+
+    failures = (
+        _validate_payload_cache_producer_state_packet_stream_native_canary_check_evidence(
+            payload
+        )
+    )
+
+    assert (
+        "payload_cache_producer_state_packet_stream_native_canary_check_"
+        "materialized_previous_nonempty_packet_count_mismatch"
+    ) in failures
+
+
+def test_premap_lab_preflight_accepts_payload_cache_producer_state_stream_online_contract():
+    failures = _validate_payload_cache_producer_state_stream_online_contract_evidence(
+        _payload_cache_producer_state_stream_online_contract_payload()
+    )
+
+    assert failures == []
+
+
+def test_premap_lab_preflight_dispatch_accepts_payload_cache_producer_state_stream_online_contract():
+    failures = _validate_required_evidence_payload(
+        "payload_cache_producer_state_stream_online_contract_json",
+        _payload_cache_producer_state_stream_online_contract_payload(),
+    )
+
+    assert failures == []
+
+
+def test_premap_lab_preflight_accepts_payload_cache_online_inside_graph_boundary_contract():
+    failures = _validate_payload_cache_online_inside_graph_producer_boundary_contract_evidence(
+        _payload_cache_online_inside_graph_producer_boundary_contract_payload()
+    )
+
+    assert failures == []
+
+
+def test_premap_lab_preflight_dispatch_accepts_payload_cache_online_inside_graph_boundary_contract():
+    failures = _validate_required_evidence_payload(
+        "payload_cache_online_inside_graph_producer_boundary_contract_json",
+        _payload_cache_online_inside_graph_producer_boundary_contract_payload(),
+    )
+
+    assert failures == []
+
+
+def test_premap_lab_preflight_accepts_payload_cache_online_inside_graph_boundary_contract_with_empty_issue_candidates():
+    payload = _payload_cache_online_inside_graph_producer_boundary_contract_payload()
+    payload["graph_observed_previous_nonempty_packet_count"] = 0
+    payload["graph_expected_previous_nonempty_packet_count"] = 0
+    payload["graph_observed_issue_candidate_count"] = 0
+    payload["graph_expected_issue_candidate_count"] = 0
+    payload["graph_last_issue_candidate_count"] = 0
+    payload["graph_last_issue_candidate_first_expert"] = -1
+    payload["graph_last_issue_candidate_last_expert"] = -1
+    payload["graph_issue_candidate_expert_sum"] = 0
+
+    failures = _validate_required_evidence_payload(
+        "payload_cache_online_inside_graph_producer_boundary_contract_json",
+        payload,
+    )
+
+    assert failures == []
+
+
+def test_premap_lab_preflight_rejects_payload_cache_online_inside_graph_boundary_contract_without_skip():
+    payload = _payload_cache_online_inside_graph_producer_boundary_contract_payload()
+    payload["python_transition_skipped"] = False
+
+    failures = _validate_required_evidence_payload(
+        "payload_cache_online_inside_graph_producer_boundary_contract_json",
+        payload,
+    )
+
+    assert (
+        "payload_cache_online_inside_graph_producer_boundary_contract_json:"
+        "payload_cache_online_inside_graph_producer_boundary_contract_"
+        "python_transition_skipped_mismatch"
+    ) in failures
+    assert (
+        "payload_cache_online_inside_graph_producer_boundary_contract_json:"
+        "payload_cache_online_inside_graph_producer_boundary_contract_"
+        "python_transition_not_skipped"
+    ) in failures
+
+
+def test_premap_lab_preflight_rejects_payload_cache_online_inside_graph_boundary_contract_capture_only():
+    payload = _payload_cache_online_inside_graph_producer_boundary_contract_payload()
+    payload["embedded_graph_visible_contract_capture_once_per_layer_suspected"] = True
+    payload["embedded_graph_visible_contract_replay_update_status"] = (
+        "capture_once_per_layer_no_replay_updates"
+    )
+
+    failures = _validate_required_evidence_payload(
+        "payload_cache_online_inside_graph_producer_boundary_contract_json",
+        payload,
+    )
+
+    assert (
+        "payload_cache_online_inside_graph_producer_boundary_contract_json:"
+        "payload_cache_online_inside_graph_producer_boundary_contract_"
+        "embedded_graph_visible_contract_capture_once_per_layer_suspected_mismatch"
+    ) in failures
+    assert (
+        "payload_cache_online_inside_graph_producer_boundary_contract_json:"
+        "payload_cache_online_inside_graph_producer_boundary_contract_"
+        "capture_once_per_layer_suspected"
+    ) in failures
+    assert (
+        "payload_cache_online_inside_graph_producer_boundary_contract_json:"
+        "payload_cache_online_inside_graph_producer_boundary_contract_"
+        "replay_updates_not_complete"
+    ) in failures
+
+
+def test_premap_lab_preflight_rejects_payload_cache_online_inside_graph_boundary_contract_wna16_arg_pass():
+    payload = _payload_cache_online_inside_graph_producer_boundary_contract_payload()
+    payload["passes_current_wna16_args"] = True
+    payload["passed_to_kernel"] = True
+
+    failures = _validate_required_evidence_payload(
+        "payload_cache_online_inside_graph_producer_boundary_contract_json",
+        payload,
+    )
+
+    assert (
+        "payload_cache_online_inside_graph_producer_boundary_contract_json:"
+        "payload_cache_online_inside_graph_producer_boundary_contract_"
+        "passes_current_wna16_args_mismatch"
+    ) in failures
+    assert (
+        "payload_cache_online_inside_graph_producer_boundary_contract_json:"
+        "payload_cache_online_inside_graph_producer_boundary_contract_"
+        "passed_to_kernel_mismatch"
+    ) in failures
+
+
+def test_premap_lab_preflight_rejects_payload_cache_online_contract_issue_mismatch():
+    payload = _payload_cache_producer_state_stream_online_contract_payload()
+    payload["native_stream_issue_candidate_count"] = 1
+
+    failures = _validate_required_evidence_payload(
+        "payload_cache_producer_state_stream_online_contract_json",
+        payload,
+    )
+
+    assert (
+        "payload_cache_producer_state_stream_online_contract_json:"
+        "payload_cache_producer_state_stream_online_contract_"
+        "native_issue_candidate_count_mismatch"
+    ) in failures
+
+
+def test_premap_lab_preflight_rejects_payload_cache_online_contract_native_stream_wna16_or_tpot():
+    payload = _payload_cache_producer_state_stream_online_contract_payload()
+    payload["native_stream_is_current_wna16_fused_moe"] = True
+    payload["native_stream_measures_tpot"] = True
+
+    failures = _validate_required_evidence_payload(
+        "payload_cache_producer_state_stream_online_contract_json",
+        payload,
+    )
+
+    assert (
+        "payload_cache_producer_state_stream_online_contract_json:"
+        "payload_cache_producer_state_stream_online_contract_"
+        "native_stream_is_current_wna16_fused_moe_mismatch"
+    ) in failures
+    assert (
+        "payload_cache_producer_state_stream_online_contract_json:"
+        "payload_cache_producer_state_stream_online_contract_"
+        "native_stream_measures_tpot_mismatch"
+    ) in failures
+
+
+def test_premap_lab_preflight_rejects_payload_cache_online_contract_missing_native_stream_flags():
+    payload = _payload_cache_producer_state_stream_online_contract_payload()
+    payload.pop("native_stream_is_current_wna16_fused_moe")
+    payload.pop("native_stream_measures_tpot")
+
+    failures = _validate_required_evidence_payload(
+        "payload_cache_producer_state_stream_online_contract_json",
+        payload,
+    )
+
+    assert (
+        "payload_cache_producer_state_stream_online_contract_json:"
+        "payload_cache_producer_state_stream_online_contract_"
+        "native_stream_is_current_wna16_fused_moe_mismatch"
+    ) in failures
+    assert (
+        "payload_cache_producer_state_stream_online_contract_json:"
+        "payload_cache_producer_state_stream_online_contract_"
+        "native_stream_measures_tpot_mismatch"
+    ) in failures
+
+
+def test_premap_lab_preflight_rejects_payload_cache_online_contract_without_graph_replay():
+    payload = _payload_cache_producer_state_stream_online_contract_payload()
+    payload["native_stream_graph_replay"] = False
+    payload["native_stream_requested_graph_replay"] = False
+
+    failures = _validate_required_evidence_payload(
+        "payload_cache_producer_state_stream_online_contract_json",
+        payload,
+    )
+
+    assert (
+        "payload_cache_producer_state_stream_online_contract_json:"
+        "payload_cache_producer_state_stream_online_contract_"
+        "native_stream_graph_replay_mismatch"
+    ) in failures
+    assert (
+        "payload_cache_producer_state_stream_online_contract_json:"
+        "payload_cache_producer_state_stream_online_contract_"
+        "native_stream_requested_graph_replay_mismatch"
+    ) in failures
+
+
+def test_premap_lab_preflight_accepts_payload_cache_stream_producer_ab_bridge():
+    failures = _validate_payload_cache_stream_producer_production_ab_bridge_evidence(
+        _payload_cache_stream_producer_production_ab_bridge_payload()
+    )
+
+    assert failures == []
+
+
+def test_premap_lab_preflight_dispatch_accepts_payload_cache_stream_producer_ab_bridge():
+    failures = _validate_required_evidence_payload(
+        "payload_cache_stream_producer_production_ab_bridge_json",
+        _payload_cache_stream_producer_production_ab_bridge_payload(),
+    )
+
+    assert failures == []
+
+
+def test_premap_lab_preflight_rejects_payload_cache_stream_producer_ab_payload():
+    payload = _payload_cache_stream_producer_production_ab_bridge_payload()
+    payload["candidate_payload_bytes"] = 1
+
+    failures = _validate_required_evidence_payload(
+        "payload_cache_stream_producer_production_ab_bridge_json",
+        payload,
+    )
+
+    assert (
+        "payload_cache_stream_producer_production_ab_bridge_json:"
+        "payload_cache_stream_producer_production_ab_bridge_"
+        "candidate_payload_bytes_mismatch"
+    ) in failures
+
+
+def test_premap_lab_preflight_rejects_payload_cache_stream_producer_ab_without_graph_replay():
+    payload = _payload_cache_stream_producer_production_ab_bridge_payload()
+    payload["native_stream_graph_replay"] = False
+    payload["native_stream_requested_graph_replay"] = False
+
+    failures = _validate_required_evidence_payload(
+        "payload_cache_stream_producer_production_ab_bridge_json",
+        payload,
+    )
+
+    assert (
+        "payload_cache_stream_producer_production_ab_bridge_json:"
+        "payload_cache_stream_producer_production_ab_bridge_"
+        "native_stream_graph_replay_mismatch"
+    ) in failures
+    assert (
+        "payload_cache_stream_producer_production_ab_bridge_json:"
+        "payload_cache_stream_producer_production_ab_bridge_"
+        "native_stream_requested_graph_replay_mismatch"
+    ) in failures
+
+
+def test_premap_lab_preflight_accepts_payload_cache_stream_producer_ab_bridge_check():
+    failures = (
+        _validate_payload_cache_stream_producer_production_ab_bridge_check_evidence(
+            _payload_cache_stream_producer_production_ab_bridge_check_payload()
+        )
+    )
+
+    assert failures == []
+
+
+def test_premap_lab_preflight_dispatch_accepts_payload_cache_stream_producer_ab_bridge_check():
+    failures = _validate_required_evidence_payload(
+        "payload_cache_stream_producer_production_ab_bridge_check_json",
+        _payload_cache_stream_producer_production_ab_bridge_check_payload(),
+    )
+
+    assert failures == []
+
+
+def test_premap_lab_preflight_rejects_payload_cache_stream_producer_ab_bridge_check_without_graph_replay():
+    payload = _payload_cache_stream_producer_production_ab_bridge_check_payload()
+    payload["native_stream_graph_replay"] = False
+    payload["native_stream_requested_graph_replay"] = False
+
+    failures = _validate_required_evidence_payload(
+        "payload_cache_stream_producer_production_ab_bridge_check_json",
+        payload,
+    )
+
+    assert (
+        "payload_cache_stream_producer_production_ab_bridge_check_json:"
+        "payload_cache_stream_producer_production_ab_bridge_check_"
+        "native_stream_graph_replay_mismatch"
+    ) in failures
+    assert (
+        "payload_cache_stream_producer_production_ab_bridge_check_json:"
+        "payload_cache_stream_producer_production_ab_bridge_check_"
+        "native_stream_requested_graph_replay_mismatch"
+    ) in failures
+
+
 def test_premap_lab_preflight_accepts_payload_cache_producer_state_online_nonempty_issue_canary():
     failures = _validate_payload_cache_producer_state_native_canary_evidence(
         _payload_cache_producer_state_native_canary_payload(),
@@ -16489,10 +18778,10 @@ def test_premap_lab_preflight_can_defer_self_referential_runner_evidence(
     assert summary["deferred_online_prelaunch_artifact_evidence"] is False
     assert summary["runtime_gate_evidence_deferred_count"] == 10
     assert summary["strict_default_gate_evidence_deferred_count"] == 5
-    assert summary["required_evidence"]["required_count"] == 57
-    assert summary["required_evidence"]["present_count"] == 55
-    assert summary["required_evidence"]["passed_count"] == 55
-    assert summary["optional_evidence"]["passed_count"] == 13
+    assert summary["required_evidence"]["required_count"] == 63
+    assert summary["required_evidence"]["present_count"] == 61
+    assert summary["required_evidence"]["passed_count"] == 61
+    assert summary["optional_evidence"]["passed_count"] == 14
     for label in (
         "future_kernel_args_compatible_path_16_128export_artifact_check_json",
         "future_kernel_args_field_refresh_16_128export_artifact_check_json",
@@ -17066,7 +19355,7 @@ def test_premap_lab_preflight_cli_writes_summary(tmp_path: Path):
     assert result["runtime_gate_evidence_scan"]["passed"] is True
     assert result["lab_gate_status_summary"]["passed"] is True
     assert (
-        result["lab_gate_status_summary"]["required_evidence"]["passed_count"] == 57
+        result["lab_gate_status_summary"]["required_evidence"]["passed_count"] == 63
     )
 
 
@@ -17102,8 +19391,8 @@ def test_premap_lab_preflight_cli_summary_only_writes_status_block(tmp_path: Pat
     assert exit_code == 0
     assert result["passed"] is True
     assert result["default_readonly_gate_path"] == default_gate
-    assert result["required_evidence"]["passed_count"] == 57
-    assert result["optional_evidence"]["passed_count"] == 13
+    assert result["required_evidence"]["passed_count"] == 63
+    assert result["optional_evidence"]["passed_count"] == 14
     assert "lab_gate_status_summary" not in result
 
 
@@ -17165,3 +19454,303 @@ def test_premap_lab_preflight_cli_summary_only_reports_prefetch_gate_failure(
     assert result["prefetch_lab_default_full_fetch_failures"] == [
         "ready_time_gate_report_allows_full_fetch"
     ]
+
+
+def _prelaunch_pointer_source_observer_check_payload(**overrides) -> dict:
+    required_bool_values = {
+        key: False for key in PRELAUNCH_POINTER_SOURCE_OBSERVER_REQUIRED_BOOL_KEYS
+    }
+    required_bool_values[
+        "runtime_shadow_premap_live_config_without_router_recorder_enabled"
+    ] = True
+    required_bool_values[
+        "runtime_shadow_premap_kernel_arg_handoff_gpu_assignment_prelaunch_pointer_source_canary_enabled"
+    ] = True
+
+    required_int_values = {
+        key: 0 for key in PRELAUNCH_POINTER_SOURCE_OBSERVER_REQUIRED_INT_KEYS
+    }
+    required_int_values["sample_count"] = 16
+    required_int_values["requested_output_token_count"] = 1024
+    required_int_values[
+        "runtime_shadow_premap_kernel_arg_live_mutation_gpu_assignment_prelaunch_current_expert_ptr_observer_seen_count"
+    ] = 2560
+    required_int_values[
+        "runtime_shadow_premap_kernel_arg_live_mutation_gpu_assignment_prelaunch_current_expert_ptr_observer_available_count"
+    ] = 2560
+    required_int_values[
+        "runtime_shadow_premap_kernel_arg_live_mutation_gpu_assignment_prelaunch_current_expert_ptr_observer_vllm_device_count"
+    ] = 2560
+
+    handoff_bool_values = {
+        key: value
+        for key, value in required_bool_values.items()
+        if key.startswith(PRELAUNCH_POINTER_SOURCE_OBSERVER_HANDOFF_BOOL_PREFIX)
+    }
+    live_mutation_counter_values = {
+        key: value
+        for key, value in required_int_values.items()
+        if key.startswith(
+            PRELAUNCH_POINTER_SOURCE_OBSERVER_LIVE_MUTATION_COUNTER_PREFIX
+        )
+    }
+    zero_counter_values = {
+        key: required_int_values[key]
+        for key in PRELAUNCH_POINTER_SOURCE_OBSERVER_ZERO_INT_KEYS
+    }
+    payload = {
+        "mode": "premap_prelaunch_pointer_source_observer_check",
+        "passed": True,
+        "failures": [],
+        "min_seen": 128,
+        "observer_seen": 2560,
+        "observer_available": 2560,
+        "observer_vllm_device": 2560,
+        "observer_unavailable": 0,
+        "observer_non_device": 0,
+        "min_sample_count": 16,
+        "sample_count": 16,
+        "min_requested_output_tokens": 1024,
+        "requested_output_token_count": 1024,
+        "live_handoff_enabled": False,
+        "live_consumer_connected": False,
+        "kernel_arg_pass_enabled": False,
+        "real_kernel_arg_mutation_enabled": False,
+        "producer_gpu_assignment_envelope_enabled": False,
+        "live_config_without_router_recorder_enabled": True,
+        "prelaunch_pointer_source_canary_enabled": True,
+        "handoff_bool_values": handoff_bool_values,
+        "live_mutation_counter_values": live_mutation_counter_values,
+        "zero_counter_values": zero_counter_values,
+        "required_bool_values": required_bool_values,
+        "required_int_values": required_int_values,
+    }
+    payload.update(overrides)
+    return payload
+
+
+def _readonly_live_trusted_refs_check_payload(**overrides) -> dict:
+    required_bool_values = {
+        key: False
+        for key in (
+            READONLY_LIVE_TRUSTED_REFS_EXPECTED_TRUE_BOOL_KEYS
+            | READONLY_LIVE_TRUSTED_REFS_REQUIRED_FALSE_BOOL_KEYS
+        )
+    }
+    for key in READONLY_LIVE_TRUSTED_REFS_EXPECTED_TRUE_BOOL_KEYS:
+        required_bool_values[key] = True
+
+    handoff_bool_values = {
+        key: value
+        for key, value in required_bool_values.items()
+        if key.startswith("runtime_shadow_premap_kernel_arg_handoff_")
+    }
+    live_mutation_counter_values = {
+        key: 0
+        for key in READONLY_LIVE_TRUSTED_REFS_REQUIRED_INT_KEYS
+        if key.startswith("runtime_shadow_premap_kernel_arg_live_mutation_")
+    }
+    package_seen = 5120
+    for key in READONLY_LIVE_TRUSTED_REFS_ALLOWED_NONZERO_COUNTERS:
+        if key in live_mutation_counter_values:
+            live_mutation_counter_values[key] = package_seen
+    live_mutation_counter_values[
+        "runtime_shadow_premap_kernel_arg_live_mutation_package_producer_future_wna16_typed_slot_envelope_count"
+    ] = package_seen // 2
+    live_mutation_counter_values[
+        "runtime_shadow_premap_kernel_arg_live_mutation_package_producer_gpu_assignment_envelope_count"
+    ] = package_seen // 2
+
+    payload = {
+        "schema_version": 1,
+        "mode": "premap_readonly_live_trusted_refs_check",
+        "passed": True,
+        "failures": [],
+        "min_package_seen": 128,
+        "package_seen": package_seen,
+        "package_pass_through": package_seen,
+        "producer_future_typed_slot_envelope_count": package_seen // 2,
+        "producer_gpu_assignment_envelope_count": package_seen // 2,
+        "gpu_assignment_envelope_seen": package_seen,
+        "trusted_refs_seen": package_seen,
+        "trusted_refs_available": package_seen,
+        "trusted_refs_unavailable": 0,
+        "trusted_ptr_seen": package_seen,
+        "trusted_ptr_available": package_seen,
+        "trusted_ptr_vllm_device": package_seen,
+        "trusted_ptr_mismatch": 0,
+        "observer_seen": package_seen,
+        "observer_available": package_seen,
+        "observer_vllm_device": package_seen,
+        "min_sample_count": 16,
+        "sample_count": 16,
+        "min_requested_output_tokens": 1024,
+        "requested_output_token_count": 1024,
+        "required_bool_values": required_bool_values,
+        "handoff_bool_values": handoff_bool_values,
+        "string_values": dict(READONLY_LIVE_TRUSTED_REFS_EXPECTED_STRING_VALUES),
+        "live_mutation_counter_values": live_mutation_counter_values,
+        "allowed_nonzero_live_mutation_counter_keys": sorted(
+            READONLY_LIVE_TRUSTED_REFS_ALLOWED_NONZERO_COUNTERS
+        ),
+    }
+    payload.update(overrides)
+    return payload
+
+
+def test_prelaunch_pointer_source_observer_check_evidence_accepts_strict_noop():
+    failures = _validate_prelaunch_pointer_source_observer_check_evidence(
+        _prelaunch_pointer_source_observer_check_payload()
+    )
+
+    assert failures == []
+
+
+def test_prelaunch_pointer_source_observer_check_evidence_rejects_handoff_bool_true():
+    payload = _prelaunch_pointer_source_observer_check_payload()
+    payload["handoff_bool_values"][
+        "runtime_shadow_premap_kernel_arg_handoff_minimal_identity_envelope_enabled"
+    ] = True
+
+    failures = _validate_prelaunch_pointer_source_observer_check_evidence(payload)
+
+    assert "prelaunch_pointer_source_observer_handoff_bool_true" in failures
+
+
+def test_prelaunch_pointer_source_observer_check_evidence_rejects_live_counter_nonzero():
+    payload = _prelaunch_pointer_source_observer_check_payload()
+    payload["live_mutation_counter_values"][
+        "runtime_shadow_premap_kernel_arg_live_mutation_future_wna16_typed_slot_native_row_fill_count"
+    ] = 1
+
+    failures = _validate_prelaunch_pointer_source_observer_check_evidence(payload)
+
+    assert "prelaunch_pointer_source_observer_live_counter_nonzero" in failures
+
+
+def test_prelaunch_pointer_source_observer_check_evidence_rejects_truncated_handoff_map():
+    payload = _prelaunch_pointer_source_observer_check_payload()
+    payload["handoff_bool_values"] = {}
+
+    failures = _validate_prelaunch_pointer_source_observer_check_evidence(payload)
+
+    assert "prelaunch_pointer_source_observer_handoff_bool_map_truncated" in failures
+
+
+def test_prelaunch_pointer_source_observer_check_evidence_rejects_missing_required_bools():
+    payload = _prelaunch_pointer_source_observer_check_payload()
+    payload.pop("required_bool_values")
+
+    failures = _validate_prelaunch_pointer_source_observer_check_evidence(payload)
+
+    assert "prelaunch_pointer_source_observer_required_bools_missing" in failures
+
+
+def test_prelaunch_pointer_source_observer_check_evidence_rejects_missing_required_ints():
+    payload = _prelaunch_pointer_source_observer_check_payload()
+    payload.pop("required_int_values")
+
+    failures = _validate_prelaunch_pointer_source_observer_check_evidence(payload)
+
+    assert "prelaunch_pointer_source_observer_required_ints_missing" in failures
+
+
+def test_prelaunch_pointer_source_observer_check_evidence_rejects_truncated_live_counter_map():
+    payload = _prelaunch_pointer_source_observer_check_payload()
+    payload["live_mutation_counter_values"] = {}
+
+    failures = _validate_prelaunch_pointer_source_observer_check_evidence(payload)
+
+    assert "prelaunch_pointer_source_observer_live_counter_map_truncated" in failures
+
+
+def test_prelaunch_pointer_source_observer_check_evidence_rejects_truncated_zero_values():
+    payload = _prelaunch_pointer_source_observer_check_payload()
+    payload["zero_counter_values"] = {}
+
+    failures = _validate_prelaunch_pointer_source_observer_check_evidence(payload)
+
+    assert "prelaunch_pointer_source_observer_zero_values_truncated" in failures
+
+
+def test_prelaunch_pointer_source_observer_check_evidence_rejects_zero_bool():
+    payload = _prelaunch_pointer_source_observer_check_payload()
+    key = next(iter(payload["zero_counter_values"]))
+    payload["zero_counter_values"][key] = False
+
+    failures = _validate_prelaunch_pointer_source_observer_check_evidence(payload)
+
+    assert "prelaunch_pointer_source_observer_zero_value_not_int" in failures
+
+
+def test_prelaunch_pointer_source_observer_check_evidence_rejects_zero_float():
+    payload = _prelaunch_pointer_source_observer_check_payload()
+    key = next(iter(payload["zero_counter_values"]))
+    payload["zero_counter_values"][key] = 0.0
+
+    failures = _validate_prelaunch_pointer_source_observer_check_evidence(payload)
+
+    assert "prelaunch_pointer_source_observer_zero_value_not_int" in failures
+
+
+def test_readonly_live_trusted_refs_check_evidence_accepts_strict_noop():
+    failures = _validate_readonly_live_trusted_refs_check_evidence(
+        _readonly_live_trusted_refs_check_payload()
+    )
+
+    assert failures == []
+
+
+def test_readonly_live_trusted_refs_check_evidence_rejects_kernel_arg_pass():
+    payload = _readonly_live_trusted_refs_check_payload()
+    key = "runtime_shadow_premap_kernel_arg_handoff_kernel_arg_pass_enabled"
+    payload["required_bool_values"][key] = True
+    payload["handoff_bool_values"][key] = True
+
+    failures = _validate_readonly_live_trusted_refs_check_evidence(payload)
+
+    assert "readonly_live_trusted_refs_required_bool_true" in failures
+
+
+def test_readonly_live_trusted_refs_check_evidence_rejects_truncated_false_handoff_map():
+    payload = _readonly_live_trusted_refs_check_payload()
+    key = "runtime_shadow_premap_kernel_arg_handoff_kernel_arg_pass_enabled"
+    assert payload["required_bool_values"][key] is False
+    del payload["handoff_bool_values"][key]
+
+    failures = _validate_readonly_live_trusted_refs_check_evidence(payload)
+
+    assert "readonly_live_trusted_refs_handoff_bool_map_truncated" in failures
+    assert "readonly_live_trusted_refs_handoff_bool_mismatch" in failures
+
+
+def test_readonly_live_trusted_refs_check_evidence_rejects_live_kernel_pass_counter():
+    payload = _readonly_live_trusted_refs_check_payload()
+    payload["live_mutation_counter_values"][
+        "runtime_shadow_premap_kernel_arg_live_mutation_single_field_replacement_live_passed_to_kernel_count"
+    ] = 1
+
+    failures = _validate_readonly_live_trusted_refs_check_evidence(payload)
+
+    assert "readonly_live_trusted_refs_live_counter_nonzero" in failures
+
+
+def test_readonly_live_trusted_refs_check_evidence_rejects_package_mismatch():
+    payload = _readonly_live_trusted_refs_check_payload(
+        package_pass_through=5119,
+    )
+
+    failures = _validate_readonly_live_trusted_refs_check_evidence(payload)
+
+    assert "readonly_live_trusted_refs_package_pass_through_mismatch" in failures
+
+
+def test_readonly_live_trusted_refs_check_evidence_rejects_nested_counter_mismatch():
+    payload = _readonly_live_trusted_refs_check_payload()
+    payload["live_mutation_counter_values"][
+        "runtime_shadow_premap_kernel_arg_live_mutation_package_pass_through_count"
+    ] = 0
+
+    failures = _validate_readonly_live_trusted_refs_check_evidence(payload)
+
+    assert "readonly_live_trusted_refs_live_counter_summary_mismatch" in failures

@@ -2,10 +2,1502 @@
 
 ## Progress Version
 
-- Version: `v1.53-payload-issue-demand-hit-publication-blocked-canary`
-- Updated: 2026-06-22
+- Version: `v1.55.1-packet-stream-inprocess-session-restore-state`
+- Updated: 2026-06-26
 
-## Latest Update: Payload Issue Demand-Hit Publication Blocked Canary
+## Latest Update: Packet-Stream Restore-State To In-Process Native Session Bridge
+
+The materialized packet-stream contract now has a stricter bridge into the
+in-process native producer session runner.  The runner can parse the packet
+stream binary schema used by the native packet-stream canary, validate the
+current/previous/issue expert rows, restore explicit shifted/midstream
+previous-state rows into the persistent native session, and feed current-expert
+rows as device tensor pointers into the session update ABI.
+
+Safety boundary remains unchanged:
+
+```text
+payload_bytes = 0
+ready_credit = false
+kernel_arg_pass = false
+kernel_arg_pass_allowed = false
+passed_to_kernel = false
+changes_kernel_launch_args = false
+uses_current_wna16_args = false
+passes_current_wna16_args = false
+```
+
+The parser now rejects drifted or malformed packet streams before native
+session execution:
+
+```text
+reserved header != 0
+count out of range
+expert id out of range
+state_override_flags > 1
+previous row != carried producer state when state_override = 0
+issue_experts != previous_topk
+```
+
+The session payload now also checks native-reported per-packet metadata:
+
+```text
+layer_id
+current_count
+previous_count_before
+layers
+experts_per_layer
+transition_topk_count
+issue_candidate_hash
+```
+
+The in-process producer native ABI now exposes the same explicit kernel-arg
+safety fields as the packet-stream canary:
+
+```text
+kernel_arg_pass = false
+kernel_arg_pass_allowed = false
+```
+
+Both the non-session producer result and the session update result have pinned
+C++/Python layouts for these fields, preventing silent field skew before any
+future kernel-arg handoff work.
+
+Restore-state support:
+
+```text
+state_override_count > 0 is supported by
+premap_payload_cache_inprocess_producer_session_restore_state_v1.
+```
+
+For packet-stream inputs, the payload gate requires:
+
+```text
+packet_stream_state_restore_count == packet_stream_state_override_count
+all restore return codes == 0
+native previous_count_before == packet previous_count
+```
+
+Validation:
+
+```text
+pytest tests/test_premap_payload_cache_inprocess_native_producer_stub.py \
+       tests/test_run_premap_payload_cache_packet_stream_native_canary.py \
+       tests/test_check_premap_payload_cache_packet_stream_native_canary.py \
+       tests/test_premap_payload_cache_producer_stream_stub.py \
+       tests/test_materialize_premap_payload_cache_packet_export_manifest.py \
+       tests/test_run_premap_lab_preflight.py:
+  391 passed
+
+py_compile scripts/run_premap_payload_cache_inprocess_native_session_stub.py \
+           tests/test_premap_payload_cache_inprocess_native_producer_stub.py:
+  passed
+
+git diff --check for touched bridge/preflight files:
+  passed
+
+HIP shared-library build:
+  microbench/premap_kernel_consumer/build/
+    premap_payload_cache_inprocess_native_producer_81b2e4efba99.so
+  built successfully
+
+External review:
+  GPT-5.5 high static review found no blocker after the ABI fix.  It confirmed
+  C++/Python layout parity for both producer result structs, explicit
+  kernel_arg_pass/kernel_arg_pass_allowed false defaults, payload rejection
+  wiring, and packet-stream parser/hash/state checks.
+```
+
+Runtime smoke note:
+
+```text
+GPU runtime smoke was attempted, but the current PyTorch runtime reported
+"No CUDA GPUs are available" for both tested devices.  This is a hardware /
+runtime visibility blocker, not a packet-stream parser failure.
+```
+
+## Latest Update: Readonly Live Trusted-Refs + Boundary-Gap Preflight
+
+The readonly live-connected typed-slot envelope now installs a producer package
+and the vLLM/AWQ prelaunch consumer explicitly consumes its trusted refs while
+still passing the original WNA16 arguments through unchanged.
+
+This is a lab preflight gate, not a performance claim:
+
+```text
+payload_bytes = 0
+ready_credit = false
+kernel_arg_pass = false
+real_kernel_arg_mutation = false
+single_field_replacement_live = false
+future_wna16_typed_slot_kernel_variant_launch = 0
+```
+
+New required lab-gate artifacts:
+
+```text
+readonly_live_trusted_refs_check_json
+payload_cache_online_native_producer_boundary_gap_json
+```
+
+Default gate path:
+
+```text
+configs/runtime/
+  premap_consumer_readonly_gate_dolly128_gen64_awq_w7900_gpu1_live_connected_readonly.yaml
+```
+
+Evidence artifact:
+
+```text
+outputs/reports/awq_telemetry_ladder/gpu1/
+  readonly_trusted_refs_pointer_source_16sample_20260626/
+    production_batch_premap_readonly_future_wna16_typed_slot_gpu_assignment_envelope_trusted_refs_pointer_source_detailed/
+      repeat_00/premap_readonly_live_trusted_refs.check.json
+```
+
+16-sample / gen64 evidence summary:
+
+```text
+sample_count = 16
+requested_output_token_count = 1024
+package_seen = 5120
+package_pass_through = 5120
+package_missing = 0
+package_layer_mismatch = 0
+package_block_reason_mismatch = 0
+producer_future_wna16_typed_slot_envelope = 2560
+producer_gpu_assignment_envelope = 2560
+trusted_refs_seen = 5120
+trusted_refs_available = 5120
+trusted_refs_unavailable = 0
+trusted_ptr_ready_source_mismatch = 0
+```
+
+Lab preflight now rejects the readonly trusted-ref evidence if it is missing, if
+kernel-arg pass / real mutation / single-field replacement / future WNA16
+variant toggles are enabled, or if unexpected live-mutation counters are
+nonzero.  The default gate therefore requires a live-connected readonly package
+to be consumed at the prelaunch boundary before any future kernel-side handoff
+work proceeds.
+
+The same default gate now also requires a boundary-gap acknowledgement report.
+This report is intentionally a blocked preflight condition rather than a
+pass-to-runtime gate: it verifies that standalone native producer-state graph
+replay passes while the current online vLLM tensor producer remains
+capture-only.
+
+```text
+native_graph_replay_passed = true
+native_persistent_state_on_device = true
+native_issue_generation_on_device = true
+online_tensor_producer_passed = false
+online_replay_update_status = capture_once_per_layer_no_replay_updates
+ready_for_lab_runtime_gate = false
+runtime_passed = false
+lab_gate_passed = false
+next_required_boundary = inprocess_vllm_replay_visible_native_producer_op
+```
+
+This keeps the payload/cache-manager line honest: native replay is available,
+but production-like online producer-state execution still requires a
+replay-visible in-process/native producer op before it can be treated as a
+runtime candidate.
+
+Current default summary-only preflight status:
+
+```text
+passed = true
+required evidence = 63 / 63 present, 63 passed
+optional evidence = 16 / 14 present, 14 passed
+payload_cache_online_native_producer_boundary_gap_required = true
+payload_cache_online_native_producer_boundary_gap_acknowledged = true
+payload_cache_online_native_producer_boundary_gap_ready_for_lab_runtime_gate = false
+payload_cache_online_native_producer_boundary_gap_runtime_passed = false
+payload_cache_online_native_producer_boundary_gap_lab_gate_passed = false
+payload_cache_online_native_producer_boundary_gap_next_required_boundary =
+  inprocess_vllm_replay_visible_native_producer_op
+```
+
+Validation:
+
+```text
+pytest tests/test_materialize_premap_payload_cache_packet_export_manifest.py \
+       tests/test_vllm_router_shadow_sink.py::test_premap_payload_cache_producer_state_packet_export_respects_stride \
+       tests/test_run_premap_payload_cache_packet_stream_native_canary.py \
+       tests/test_build_premap_payload_cache_online_inside_graph_producer_boundary_contract.py \
+       tests/test_check_premap_payload_cache_online_native_producer_boundary.py:
+  50 passed
+
+pytest tests/test_materialize_premap_payload_cache_packet_export_manifest.py \
+       tests/test_vllm_router_shadow_sink.py \
+       tests/test_run_premap_payload_cache_packet_stream_native_canary.py \
+       tests/test_check_premap_payload_cache_packet_stream_native_canary.py \
+       tests/test_build_premap_payload_cache_online_inside_graph_producer_boundary_contract.py \
+       tests/test_check_premap_payload_cache_online_native_producer_boundary.py \
+       tests/test_run_premap_lab_preflight.py:
+  504 passed
+
+scripts/run_premap_lab_preflight.py --summary-only:
+  passed = true
+  failures = []
+
+Regenerated evidence:
+  - GPU1 1x2 online inside-graph producer boundary contract
+    now reads kernel_arg_pass from performance_summary instead of hardcoding false.
+  - Dolly4 shifted-issue packet export/native canary/check artifacts now carry
+    kernel_arg_pass = false through shifted summary, packet, export context,
+    manifest, native output, and checker output.
+
+Packet-stream native canary safety tightening:
+  - _export_context is now required per packet, not optional.
+  - Missing context fails with packet_<idx>_export_context_missing.
+  - Context fields are checked with the same false-safety contract as packet
+    top-level fields; kernel_arg_pass=false remains explicit and cannot be
+    substituted by kernel_arg_pass_allowed=false.
+  - kernel_arg_pass_allowed=false is now enforced across packet top-level,
+    manifest, export context, native stream output, and canary output.
+  - The packet-stream checker also requires kernel_arg_pass_allowed=false for
+    both the top-level canary artifact and its nested native result.
+
+pytest tests/test_run_premap_payload_cache_packet_stream_native_canary.py \
+       tests/test_materialize_premap_payload_cache_packet_export_manifest.py \
+       tests/test_check_premap_payload_cache_packet_stream_native_canary.py:
+  54 passed
+
+pytest tests/test_run_premap_payload_cache_packet_stream_native_canary.py \
+       tests/test_premap_payload_cache_producer_stream_stub.py \
+       tests/test_materialize_premap_payload_cache_packet_export_manifest.py \
+       tests/test_check_premap_payload_cache_packet_stream_native_canary.py:
+  67 passed
+```
+
+## Latest Update: vLLM Prelaunch Pointer-Source Canary
+
+The vLLM prelaunch assignment boundary now has a default-disabled
+pointer-source canary for the real `expert_ids` tensor.  The primary evidence
+path is observer-only and does not install a producer package; the package /
+trusted-refs path remains a separate diagnostic mode.
+
+New runtime option:
+
+```text
+premap_kernel_arg_handoff_gpu_assignment_prelaunch_pointer_source_canary_enabled
+```
+
+When enabled through the observer-only mode, counters record whether the
+prelaunch `expert_ids` pointer is a device tensor.  When enabled through the
+package diagnostic mode, the producer package also records:
+
+```text
+producer_gpu_assignment_current_expert_ptr_source_kind
+producer_gpu_assignment_current_expert_ptr_ready_for_vllm_prelaunch_canary
+producer_gpu_assignment_current_expert_ptr_meta
+```
+
+Semantics:
+
+```text
+vllm_prelaunch_device_tensor:
+  expert_ids is a device tensor observed at the vLLM prelaunch assignment boundary
+  ready_for_vllm_prelaunch_canary = true
+
+vllm_prelaunch_host_tensor:
+  host/CPU fallback or unit-test tensor
+  ready_for_vllm_prelaunch_canary = false
+
+missing:
+  no expert_ids tensor was available
+  ready_for_vllm_prelaunch_canary = false
+```
+
+The trusted-refs consumer side now derives pointer readiness from
+`source_kind == vllm_prelaunch_device_tensor` instead of trusting the package
+ready flag.  A mismatch counter records any package inconsistency:
+
+```text
+runtime_shadow_premap_kernel_arg_live_mutation_gpu_assignment_trusted_refs_prelaunch_current_expert_ptr_ready_source_mismatch_count
+```
+
+There are now two canary modes:
+
+```text
+production_batch_premap_prelaunch_pointer_source_observer_detailed:
+  observer-only provenance smoke
+  live handoff disabled
+  kernel_arg_pass disabled
+  real mutation disabled
+  producer package disabled
+
+production_batch_premap_live_future_wna16_typed_slot_gpu_assignment_envelope_trusted_refs_detailed:
+  package/trusted-refs diagnostic smoke
+  inherits the existing identity live-handoff path
+  not used as no-op pointer-source evidence
+```
+
+The observer-only smoke passed on GPU1:
+
+```text
+outputs/reports/premap_kernel_consumer/
+  prelaunch_pointer_source_observer_smoke_20260626/
+    production_batch_premap_prelaunch_pointer_source_observer_detailed/
+      repeat_00/performance_summary.json
+
+runtime_shadow_premap_live_config_without_router_recorder_enabled = true
+runtime_shadow_premap_kernel_arg_handoff_gpu_assignment_prelaunch_pointer_source_canary_enabled = true
+
+runtime_shadow_premap_kernel_arg_handoff_live_enabled = false
+runtime_shadow_premap_kernel_arg_handoff_kernel_arg_pass_enabled = false
+runtime_shadow_premap_kernel_arg_handoff_real_kernel_arg_mutation_enabled = false
+runtime_shadow_premap_kernel_arg_handoff_producer_gpu_assignment_envelope_enabled = false
+
+observer_seen = 2560
+observer_available = 2560
+observer_vllm_device = 2560
+observer_unavailable = 0
+observer_non_device = 0
+
+package_seen = 0
+producer_gpu_assignment_envelope = 0
+single_field_live_passed_to_kernel = 0
+single_field_live_payload_bytes = 0
+```
+
+The same observer path also passed a 16-sample / gen64 check:
+
+```text
+outputs/reports/premap_kernel_consumer/
+  prelaunch_pointer_source_observer_16sample_20260626/
+    production_batch_premap_prelaunch_pointer_source_observer_detailed/
+      repeat_00/performance_summary.json
+      repeat_00/prelaunch_pointer_source_observer.check.json
+
+check:
+  mode = premap_prelaunch_pointer_source_observer_check
+  passed = true
+  failures = []
+  min_seen = 128
+  observer_seen = 2560
+  observer_available = 2560
+  observer_vllm_device = 2560
+  observer_unavailable = 0
+  observer_non_device = 0
+  live_handoff_enabled = false
+  kernel_arg_pass_enabled = false
+  real_kernel_arg_mutation_enabled = false
+  producer_gpu_assignment_envelope_enabled = false
+  package_seen = 0
+  producer_gpu_assignment_envelope_count = 0
+  single_field_live_passed_to_kernel = 0
+  single_field_live_payload_bytes = 0
+```
+
+New checker:
+
+```text
+scripts/check_premap_prelaunch_pointer_source_observer.py
+tests/test_check_premap_prelaunch_pointer_source_observer.py
+```
+
+The checker is fail-closed:
+
+```text
+missing required bool/int fields -> failure
+wrong bool/int types -> failure
+nonzero package / trusted-refs / WNA16 variant / single-field counters -> failure
+all runtime_shadow_premap_kernel_arg_handoff_* bools are scanned:
+  only pointer-source canary may be true
+all runtime_shadow_premap_kernel_arg_live_mutation_* counters are scanned:
+  only observer seen / available / vllm_device may be nonzero
+sample_count and requested_output_token_count can be gated explicitly
+```
+
+Counter-off / TPOT modes remain unchanged and do not record pointer metadata.
+
+Lab preflight integration:
+
+```text
+evidence_paths.prelaunch_pointer_source_observer_check_json
+  -> outputs/reports/premap_kernel_consumer/
+       prelaunch_pointer_source_observer_16sample_20260626/
+         production_batch_premap_prelaunch_pointer_source_observer_detailed/
+           repeat_00/prelaunch_pointer_source_observer.check.json
+
+preflight summary-only:
+  passed = true
+  required evidence required / present / passed = 61 / 61 / 61
+  optional evidence required / present / passed = 16 / 14 / 14
+  prelaunch_pointer_source_observer_check_json:
+    required = true
+    present = true
+    passed = true
+```
+
+Review follow-up hardened the lab-preflight validator for this required
+artifact.  The preflight no longer trusts a `passed=true` checker artifact if
+the proof maps are truncated:
+
+```text
+required_bool_values:
+  must exist
+  must cover every checker REQUIRED_BOOL_KEYS entry
+  values must be bool
+
+required_int_values:
+  must exist
+  must cover every checker REQUIRED_INT_KEYS entry
+  values must be int and not bool
+
+handoff_bool_values:
+  must cover every required handoff bool key
+  must match required_bool_values
+  only pointer-source canary may be true
+
+live_mutation_counter_values:
+  must cover every required live-mutation counter key
+  must match required_int_values
+  only observer seen / available / vllm_device may be nonzero
+
+zero_counter_values:
+  must cover every checker ZERO_INT_KEYS entry
+  values must be strict int-zero
+  False and 0.0 are rejected
+```
+
+This is now a required lab precondition for the default premap readonly gate.
+
+The online native typed-consumer canary runner can now optionally require this
+observer check before its report can pass:
+
+```text
+scripts/run_premap_online_native_stub_canary.py
+
+new args:
+  --pointer-source-observer-check-json
+  --require-pointer-source-observer-check
+
+report fields:
+  pointer_source_observer_check
+  pointer_source_observer_check_json
+  pointer_source_observer_check_required
+  pointer_source_observer_check_passed
+  pointer_source_observer_gate_passed
+```
+
+The runner separates artifact evidence from gate policy:
+
+```text
+missing optional artifact:
+  pointer_source_observer_check_passed = false
+  pointer_source_observer_gate_passed = true
+
+missing required artifact:
+  pointer_source_observer_check_passed = false
+  pointer_source_observer_gate_passed = false
+
+present malformed artifact:
+  pointer_source_observer_check_passed = false
+  pointer_source_observer_gate_passed = false
+  no crash; report contains a read/parse failure
+  invalid UTF-8 is treated as a failed artifact, not a runner crash
+```
+
+Dry-run cannot bypass a required pointer-source gate.  When this gate is the
+only dry-run failure, the runner reports only:
+
+```text
+pointer_source_observer_check_not_passed
+```
+
+and does not add unrelated native-stub / preflight failures.
+
+The same pointer-source gate is also applied at the runner's final report
+boundary, after artifact/preflight finalization.  This prevents
+`--finalize-existing` or self-finalization from converting a missing / malformed
+required observer artifact into a passing report.
+
+Validation:
+
+```text
+py_compile:
+  pass
+
+pytest tests/test_check_premap_prelaunch_pointer_source_observer.py -q:
+  29 passed
+
+pytest tests/test_check_premap_prelaunch_pointer_source_observer.py \
+       tests/test_run_awq_telemetry_ladder_modes.py \
+       tests/test_vllm_router_shadow_sink.py -q:
+  237 passed
+
+pytest tests/test_check_premap_prelaunch_pointer_source_observer.py \
+       tests/test_run_premap_lab_preflight.py -q:
+  326 passed
+
+pytest tests/test_run_premap_lab_preflight.py -q:
+  297 passed
+
+preflight summary-only:
+  outputs/reports/premap_kernel_consumer/
+    premap_lab_preflight_with_prelaunch_pointer_source_observer_required_20260626.json
+  passed = true
+  required evidence required / present / passed = 61 / 61 / 61
+  optional evidence required / present / passed = 16 / 14 / 14
+  prelaunch_pointer_source_observer_check_json:
+    required = true
+    present = true
+    passed = true
+
+strict artifact checker:
+  16 samples / 1024 requested output tokens
+  passed = true
+  failures = []
+```
+
+native typed-consumer runner pointer-source gate:
+
+```text
+py_compile:
+  scripts/run_premap_online_native_stub_canary.py
+  tests/test_run_premap_online_native_stub_canary.py
+  pass
+
+pytest tests/test_run_premap_online_native_stub_canary.py \
+       tests/test_check_premap_prelaunch_pointer_source_observer.py -q:
+  60 passed
+
+valid observer artifact dry-run:
+  passed = true
+  pointer_source_observer_check_required = true
+  pointer_source_observer_check_passed = true
+  pointer_source_observer_gate_passed = true
+
+missing required observer artifact dry-run:
+  passed = false
+  failures = [pointer_source_observer_check_not_passed]
+
+finalize-existing required observer artifact missing:
+  passed = false
+  failures = [pointer_source_observer_check_not_passed]
+
+stdout summary:
+  includes pointer_source_observer_check_required
+  includes pointer_source_observer_check_passed
+  includes pointer_source_observer_gate_passed
+```
+
+Safety boundary remains unchanged:
+
+```text
+payload_bytes = 0
+ready_credit = false
+passed_to_kernel = false
+changes_kernel_launch_args = false
+current WNA16 args unchanged
+```
+
+This is still not TPOT evidence and not native-session invocation with a real
+vLLM pointer.  It is the source-provenance gate before feeding the real
+prelaunch `expert_ids` pointer into the native session / typed-slot consumer.
+
+## Previous Update: Native Session Pointer-Source Split
+
+The online-bound native session gate now separates three pointer-source
+semantics:
+
+```text
+native_scratch_smoke:
+  current_expert_ptr_source = native_generated_device_scratch
+  external_current_expert_ptr_source = false
+  ready_for_external_pointer_smoke = false
+  ready_for_vllm_prelaunch_canary = false
+
+external_torch_device_tensor_smoke:
+  current_expert_ptr_source = torch_device_tensor
+  external_current_expert_ptr_source = true
+  ready_for_external_pointer_smoke = true
+  ready_for_vllm_prelaunch_canary = false
+
+vllm_prelaunch_device_tensor:
+  reserved for a future real vLLM prelaunch pointer source
+  ready_for_vllm_prelaunch_canary = true only for this source kind
+```
+
+This closes the ambiguity where a generic torch device tensor smoke could be
+misread as real vLLM prelaunch pointer evidence.  The current online-bound
+artifacts remain native-session smoke only:
+
+```text
+current_expert_ptr_source_kind = native_scratch_smoke
+ready_for_native_session_smoke = true
+ready_for_external_pointer_smoke = false
+ready_for_vllm_prelaunch_canary = false
+```
+
+Updated artifacts:
+
+```text
+outputs/reports/premap_kernel_consumer/
+  payload_cache_producer_state_inprocess_native_session_online_contract_fresh32_gpu0_native_generated.json
+  payload_cache_producer_state_inprocess_native_session_online_contract_fresh32_gpu1_native_generated.json
+  premap_lab_preflight_optional_online_session_contract_summary_20260626.json
+```
+
+The lab config now points at the GPU1 regenerated artifact:
+
+```text
+configs/runtime/premap_consumer_readonly_gate_dolly128_gen64_awq_w7900_gpu1_live_connected_readonly.yaml
+  optional_evidence_paths.payload_cache_producer_state_inprocess_native_session_online_contract_json
+```
+
+Validation:
+
+```text
+py_compile:
+  pass
+
+pytest tests/test_premap_payload_cache_inprocess_native_producer_stub.py \
+       tests/test_build_premap_payload_cache_inprocess_native_session_online_contract.py \
+       tests/test_run_premap_lab_preflight.py -q:
+  303 passed
+
+strict lab preflight summary:
+  passed = true
+  default_required_evidence_passed = true
+  default_optional_evidence_passed = true
+  payload_cache_producer_state_inprocess_native_session_online_contract_json:
+    present = true
+    passed = true
+```
+
+This is not TPOT evidence and not real vLLM prelaunch pointer evidence.  It is a
+stricter safety gate before adding an actual vLLM prelaunch current-expert
+device pointer source.
+
+Review:
+
+```text
+GPT-5.5 high review: no blocker.
+
+Confirmed:
+  torch_device_tensor is now only external_torch_device_tensor_smoke
+  native_generated_device_scratch is native_scratch_smoke
+  missing new pointer-source fields fail preflight
+  payload / ready / kernel args / current WNA16 args / TPOT remain disabled
+
+Note:
+  an older non-session inprocess native canary still has
+  ready_for_vllm_prelaunch_canary = true, but the default readonly lab gate now
+  points at the session online-contract artifact, not that legacy path.
+```
+
+## Previous Update: Online-Bound Prelaunch-Callable Native Session
+
+The prelaunch-callable native producer session is now bound to a passed online
+producer-state stream contract.
+
+New artifact builder:
+
+```text
+scripts/build_premap_payload_cache_inprocess_native_session_online_contract.py
+```
+
+It consumes a passed:
+
+```text
+payload_cache_producer_state_stream_online_contract
+```
+
+and derives the online stream dimensions:
+
+```text
+steps
+layers
+experts_per_layer
+transition_topk_count
+packet_count
+previous_nonempty_packet_count
+issue_candidate_count
+```
+
+Then it invokes the persistent in-process native session canary with the same
+envelope.  This is one boundary closer than the whole-stream native replay
+because the native session keeps transition state on device and performs one
+update per packet, while the dimensions and issue envelope are sourced from an
+online vLLM-derived contract.
+
+Safety boundary:
+
+```text
+mode = payload_cache_producer_state_inprocess_native_session_online_contract
+source_kind = derived_payload_cache_producer_state_stream_online_contract
+source_is_online_stream_contract = true
+source_stream_online_contract_passed = true
+source_stream_online_contract_failures = []
+
+prelaunch_callable_native_session = true
+persistent_state_on_device = true
+issue_generation_on_device = true
+
+payload_bytes = 0
+payload_transfer_enabled = false
+payload_deref_allowed = false
+ready_credit = false
+ready_before_demand_credit = false
+real_ready_credit_granted = false
+passed_to_kernel = false
+changes_kernel_launch_args = false
+current_wna16_arg_compatible = false
+uses_current_wna16_args = false
+passes_current_wna16_args = false
+measures_tpot = false
+measures_vllm_latency = false
+```
+
+GPU artifact:
+
+```text
+outputs/reports/premap_kernel_consumer/
+  payload_cache_producer_state_inprocess_native_session_online_contract_fresh32_gpu0_native_generated.json
+
+source:
+  payload_cache_producer_state_stream_online_contract_graph_warmup_dolly32_gen64_fresh32_20260624.json
+
+contract_steps = 64
+contract_layers = 40
+contract_experts_per_layer = 225
+contract_transition_topk_count = 8
+online_observed_packet_count = 2560
+online_observed_previous_nonempty_packet_count = 2520
+online_observed_issue_candidate_count = 20160
+native_session_packet_count = 2560
+native_session_previous_nonempty_packet_count = 2520
+native_session_issue_candidate_count = 20160
+passed = true
+```
+
+The current generated artifact uses:
+
+```text
+current_expert_ptr_source = native_generated_device_scratch
+external_current_expert_ptr_source = false
+ready_for_native_session_smoke = true
+ready_for_vllm_prelaunch_canary = false
+```
+
+This source mode is accepted only as online-contract-bound native session smoke.
+It does not prove that vLLM supplied the current-expert device pointer at the
+prelaunch boundary.
+
+Validation:
+
+```text
+py_compile:
+  pass
+
+preflight validator:
+  payload_cache_producer_state_inprocess_native_session_online_contract_json -> []
+
+pytest tests/test_run_premap_lab_preflight.py:
+  284 passed
+
+pytest tests/test_premap_payload_cache_inprocess_native_producer_stub.py:
+  9 passed
+
+pytest tests/test_build_premap_payload_cache_inprocess_native_session_online_contract.py \
+       tests/test_run_premap_lab_preflight.py \
+       tests/test_premap_payload_cache_inprocess_native_producer_stub.py -q:
+  298 passed
+
+Review fix:
+  The online-session preflight gate now cross-checks the top-level online
+  contract envelope against the nested native session envelope:
+    steps
+    layers
+    experts_per_layer
+    transition_topk_count
+
+  This closes the topk-cap loophole where different experts_per_layer values
+  could produce the same issue_candidate_count.  The builder also now fails raw
+  vLLM performance summaries by default; this artifact must be derived from a
+  passed payload_cache_producer_state_stream_online_contract.
+
+  The builder now treats source contract_steps and contract_transition_topk_count
+  as authoritative as well.  CLI overrides are allowed only when they match the
+  source contract; otherwise the artifact fails.  This prevents a default topk
+  value from silently changing the native session envelope while preserving the
+  same capped issue count.
+
+Lab preflight integration:
+  payload_cache_producer_state_inprocess_native_session_online_contract_json is
+  now wired through optional_evidence_paths in the lab preflight fixture/status
+  path.  It remains optional evidence, not a required lab precondition.
+
+Real gate config smoke:
+  The live-connected readonly lab gate now lists the generated online-session
+  contract artifact under optional_evidence_paths.  A summary-only preflight
+  confirms the optional evidence is discovered and passes:
+
+    outputs/reports/premap_kernel_consumer/
+      premap_lab_preflight_optional_online_session_contract_summary_20260626.json
+
+    optional required/present/passed = 16 / 14 / 14
+    payload_cache_producer_state_inprocess_native_session_online_contract_json:
+      present = true
+      passed = true
+
+git diff --check:
+  pass
+```
+
+This remains not a production benchmark and not a payload/cache-manager latency
+result.  The next gate is to call the persistent native session from the real
+online producer/prelaunch path with an external current-expert device pointer,
+while keeping payload, ready credit, and current WNA16 kernel args disabled.
+
+## Previous Update: Prelaunch-Callable Native Producer Session
+
+The payload-cache transition producer has advanced one boundary closer to the
+online prelaunch path without changing vLLM execution.
+
+New canary:
+
+```text
+scripts/run_premap_payload_cache_inprocess_native_session_stub.py
+```
+
+New native ABI in:
+
+```text
+microbench/premap_kernel_consumer/
+  premap_payload_cache_inprocess_native_producer_stub.hip
+```
+
+The canary creates a persistent native session once, keeps previous expert state
+on device, and then performs one update per `(step, layer)` packet.  Each update
+generates transition issue candidates in native/HIP code and updates the
+persistent state for the next packet.
+
+Safety boundary:
+
+```text
+mode = payload_cache_producer_state_inprocess_native_session_canary
+prelaunch_callable_native_session = true
+persistent_state_on_device = true
+issue_generation_on_device = true
+
+native_graph_replay = false
+graph_visible = false
+vllm_replay_visible = false
+torch_graph_replay_visible = false
+
+payload_bytes = 0
+payload_transfer_enabled = false
+payload_deref_allowed = false
+ready_credit = false
+ready_before_demand_credit = false
+real_ready_credit_granted = false
+passed_to_kernel = false
+changes_kernel_launch_args = false
+current_wna16_arg_compatible = false
+uses_current_wna16_args = false
+passes_current_wna16_args = false
+measures_tpot = false
+measures_vllm_latency = false
+```
+
+GPU artifact:
+
+```text
+outputs/reports/premap_kernel_consumer/
+  payload_cache_producer_state_inprocess_native_session_64x40_gpu0_native_generated.json
+
+steps = 64
+layers = 40
+experts_per_layer = 8
+packet_count = 2560
+previous_nonempty_packet_count = 2520
+issue_candidate_count = 20160
+expected_issue_candidate_count = 20160
+passed = true
+```
+
+The current smoke used:
+
+```text
+current_expert_ptr_source = native_generated_device_scratch
+external_current_expert_ptr_source = false
+ready_for_native_session_smoke = true
+ready_for_vllm_prelaunch_canary = false
+```
+
+because this environment allowed direct HIP execution but reported no
+torch-visible CUDA/HIP device from the runner process.  This generated-current
+path materializes a small current-expert row inside the native library and uses
+the same pointer-update ABI internally.  It is only a native session smoke, not
+device-side vLLM pointer evidence.  The pointer-based ABI remains present for
+future vLLM prelaunch integration, but this artifact must not be described as an
+external vLLM prelaunch pointer-source proof.
+
+Validation:
+
+```text
+preflight validator:
+  payload_cache_producer_state_inprocess_native_session_canary_json -> []
+
+pytest tests/test_premap_payload_cache_inprocess_native_producer_stub.py:
+  9 passed
+
+pytest tests/test_run_premap_lab_preflight.py:
+  276 passed
+
+smoke:
+  old whole-stream in-process native canary still passes
+  new session native-generated canary passes
+```
+
+Review fix:
+
+```text
+The first session runner aggregated issue_candidate_count from Python-side
+previous_count_before.  That could hide a native issue-generation regression.
+It now aggregates native per-update deltas returned by the HIP session update
+path, and the native update ABI checks issue_delta against the expected
+transition_topk limit before marking the update ok.
+
+The generated-current smoke is also source-disambiguated:
+  current_expert_ptr_source = native_generated_device_scratch
+  external_current_expert_ptr_source = false
+  ready_for_vllm_prelaunch_canary = false
+
+The lab preflight validator accepts this only as a native session smoke, not as
+external vLLM prelaunch pointer evidence.
+```
+
+This is still not a production benchmark and not a payload/cache-manager
+latency result.  The next gate is to call the session update from the online
+producer/prelaunch boundary with a real current-expert device pointer, while
+keeping payload, ready credit, and current WNA16 kernel args disabled.
+
+## Previous Update: Online-Derived In-Process Native Producer Contract
+
+The in-process native producer canary is now tied to an online vLLM evidence
+source without claiming graph-visible runtime integration.
+
+New artifact builder:
+
+```text
+scripts/build_premap_payload_cache_inprocess_native_online_contract.py
+```
+
+It consumes a passed:
+
+```text
+payload_cache_producer_state_stream_online_contract
+```
+
+and derives the same stream dimensions:
+
+```text
+steps
+layers
+experts_per_layer
+transition_topk_count
+online packet / previous-nonempty / issue-candidate counts
+```
+
+Then it invokes the in-process HIP shared-library canary and validates that the
+native graph-replay producer reaches the same issue-count envelope.  The output
+is deliberately provenance-tagged:
+
+```text
+mode = payload_cache_producer_state_inprocess_native_online_contract
+source_kind = derived_payload_cache_producer_state_stream_online_contract
+source_is_online_stream_contract = true
+source_stream_online_contract_passed = true
+source_stream_online_contract_failures = []
+```
+
+The contract remains no-op and payloadless:
+
+```text
+inprocess_native_op = true
+native_runtime = true
+native_shared_library = true
+native_graph_replay = true
+persistent_state_on_device = true
+issue_generation_on_device = true
+
+vllm_replay_visible = false
+torch_graph_replay_visible = false
+payload_bytes = 0
+ready_credit = false
+passed_to_kernel = false
+changes_kernel_launch_args = false
+uses_current_wna16_args = false
+passes_current_wna16_args = false
+measures_tpot = false
+measures_vllm_latency = false
+```
+
+GPU1 artifact:
+
+```text
+outputs/reports/premap_kernel_consumer/
+  payload_cache_producer_state_inprocess_native_online_contract_fresh32_gpu1.json
+
+source:
+  payload_cache_producer_state_stream_online_contract_graph_warmup_dolly32_gen64_fresh32_20260624.json
+
+contract_steps = 64
+contract_layers = 40
+contract_experts_per_layer = 225
+online_observed_packet_count = 2560
+online_observed_previous_nonempty_packet_count = 2520
+online_observed_issue_candidate_count = 20160
+native_inprocess_issue_candidate_count = 20160
+native_inprocess_expected_issue_candidate_count = 20160
+passed = true
+```
+
+Validation:
+
+```text
+py_compile:
+  pass
+
+preflight validator on generated artifact:
+  failures = []
+
+pytest tests/test_premap_payload_cache_inprocess_native_producer_stub.py \
+       tests/test_premap_payload_cache_producer_stream_stub.py \
+       tests/test_check_premap_payload_cache_online_native_producer_boundary.py \
+       tests/test_run_premap_lab_preflight.py -q:
+  286 passed
+
+git diff --check:
+  pass
+```
+
+Review fix:
+
+```text
+The builder initially accepted a derived online stream contract without making
+that provenance explicit.  It now records source_kind and requires the source
+stream contract to have passed with empty failures.  The lab preflight validator
+also checks the provenance fields so this cannot be misreported as a raw
+vLLM/PyTorch graph-visible native op.
+```
+
+Boundary:
+
+```text
+This is still not a vLLM graph-replay-visible producer op.  It proves that the
+online stream contract can drive the in-process native producer canary under the
+same dimensions, while payload, ready credit, and current WNA16 kernel args stay
+disabled.
+```
+
+Next gate:
+
+```text
+move from derived-online artifact input to an actual vLLM prelaunch native
+invocation point, while preserving the same no-payload/no-kernel-arg safety
+fields and proving replay-visible updates under graph warmup.
+```
+
+## Previous Update: In-Process Native Producer Canary
+
+The payload-cache transition-state producer has advanced one boundary past the
+standalone HIP binary:
+
+```text
+standalone HIP binary replay:
+  passed previously
+
+in-process HIP shared-library canary:
+  passed now
+
+vLLM/PyTorch graph replay-visible native op:
+  still pending
+```
+
+New files:
+
+```text
+microbench/premap_kernel_consumer/
+  premap_payload_cache_inprocess_native_producer_stub.hip
+
+scripts/
+  run_premap_payload_cache_inprocess_native_producer_stub.py
+```
+
+The new runner builds a HIP shared library and loads it inside the current
+Python process with `ctypes`.  The exported C ABI:
+
+```text
+premap_payload_cache_inprocess_producer_run_v1(...)
+```
+
+keeps transition state in device memory, captures a native HIP graph replay, and
+generates issue candidates from the previous-token expert state.  It remains a
+payloadless safety canary:
+
+```text
+inprocess_native_op = true
+native_runtime = true
+native_shared_library = true
+native_graph_replay = true
+persistent_state_on_device = true
+issue_generation_on_device = true
+
+vllm_replay_visible = false
+torch_graph_replay_visible = false
+payload_bytes = 0
+ready_credit = false
+passed_to_kernel = false
+changes_kernel_launch_args = false
+uses_current_wna16_args = false
+passes_current_wna16_args = false
+measures_tpot = false
+measures_vllm_latency = false
+```
+
+The lab preflight can now validate an explicitly supplied:
+
+```yaml
+payload_cache_producer_state_inprocess_native_canary_json: ...
+```
+
+It requires:
+
+```text
+mode = payload_cache_producer_transition_state_inprocess_native_canary
+inprocess_native_op = true
+native_graph_replay = true
+vllm_replay_visible = false
+torch_graph_replay_visible = false
+issue_candidate_count == expected_issue_candidate_count
+issue_candidate_count > 0
+payload/kernel/ready safety fields all disabled
+```
+
+GPU1 smoke:
+
+```text
+artifact:
+  outputs/reports/premap_kernel_consumer/
+    payload_cache_producer_state_inprocess_native_smoke_gpu1.json
+
+steps/layers/experts:
+  4 / 2 / 8
+packet_count = 8
+previous_nonempty_packet_count = 6
+issue_candidate_count = 48
+expected_issue_candidate_count = 48
+gpu_elapsed_ms ~= 0.56
+passed = true
+```
+
+Scale-aligned canary:
+
+```text
+artifact:
+  outputs/reports/premap_kernel_consumer/
+    payload_cache_producer_state_inprocess_native_graph_replay_64x40_gpu1.json
+
+steps/layers/experts:
+  64 / 40 / 8
+packet_count = 2560
+previous_nonempty_packet_count = 2520
+issue_candidate_count = 20160
+expected_issue_candidate_count = 20160
+gpu_elapsed_ms ~= 1.77
+preflight validator failures = []
+passed = true
+```
+
+Validation:
+
+```text
+pytest tests/test_premap_payload_cache_inprocess_native_producer_stub.py \
+       tests/test_run_premap_lab_preflight.py -q:
+  267 passed
+
+py_compile touched script/test files:
+  pass
+
+git diff --check:
+  pass
+```
+
+Code-review follow-up:
+
+```text
+1. The in-process preflight validator now uses strict type equality for fixed
+   safety fields, so malformed artifacts such as payload_bytes=false or
+   native_graph_replay=1 are rejected.
+
+2. The ctypes ABI layout is pinned by offset/sizeof tests.
+
+3. HIP graph-capture error cleanup now attempts to end an active capture before
+   destroying stream/events/buffers.
+```
+
+Boundary:
+
+```text
+This is an in-process native HIP shared-library canary, not yet a vLLM replay-
+visible producer op.  It should not be promoted to the online lab runtime gate
+until the call is made from a vLLM boundary that executes during graph replay.
+```
+
+Next gate:
+
+```text
+wire this in-process native producer into an online vLLM prelaunch boundary
+without reintroducing Python post-processing, then prove replay-visible updates
+under graph warmup.  Payload, ready credit, and current WNA16 kernel arguments
+remain disabled.
+```
+
+## Previous Update: Online Inside-Graph Producer Boundary
+
+The premap payload-cache producer path now has a stricter online boundary for
+transition-state and issue-generation accounting:
+
+```text
+online Python packet stream:
+  still available as diagnostic/evidence
+
+offline packet-stream native replay:
+  still validates native HIP graph consumption of exported packets
+
+online inside-graph tensor producer canary:
+  attempts to record transition state + issue candidate summary in persistent
+  device tensors
+```
+
+The graph-visible producer state now records:
+
+```text
+previous_expert_state[layer, expert_slot]
+previous_count[layer]
+packet_count[layer]
+previous_nonempty_count[layer]
+issue_candidate_count[layer]
+last_issue_candidate_count[layer]
+last_issue_candidate_first_expert[layer]
+last_issue_candidate_last_expert[layer]
+issue_candidate_expert_sum[layer]
+last_issue_candidate_expert_sum[layer]
+```
+
+A new strict summary contract is emitted:
+
+```text
+runtime_shadow_premap_payload_cache_direct_online_inside_graph_producer_boundary_contract_*
+```
+
+It only passes when:
+
+```text
+graph_visible_producer_contract_passed = true
+transition_state_on_device = true
+issue_generation_on_device = true
+python_transition_skipped = true
+```
+
+This is intentionally honest about the current boundary:
+
+```text
+contract_boundary = online_inside_graph_tensor_producer
+native_runtime = false
+inprocess_native_op = false
+post_export_native_replay = false
+payload_bytes = 0
+ready_credit = false
+passed_to_kernel = false
+changes_kernel_launch_args = false
+uses_current_wna16_args = false
+passes_current_wna16_args = false
+```
+
+The new config switch is:
+
+```yaml
+runtime_shadow:
+  premap_payload_cache_graph_visible_producer_enabled: true
+  premap_payload_cache_graph_visible_producer_skip_python_transition: true
+```
+
+With the switch enabled, the prelaunch hook skips the old Python
+`.detach().cpu().tolist()` producer transition extraction and relies on the
+inside-graph tensor producer state instead.  The online Python packet stream is
+therefore expected to be absent in this mode; the stricter inside-graph boundary
+is the relevant gate.
+
+Artifact/checker support:
+
+```text
+scripts/build_premap_payload_cache_online_inside_graph_producer_boundary_contract.py
+```
+
+This materializes a payloadless evidence artifact from `performance_summary.json`
+with:
+
+```text
+mode = payload_cache_online_inside_graph_producer_boundary_contract
+embedded_graph_visible_contract_passed = true
+embedded_inside_graph_boundary_contract_passed = true
+transition_state_on_device = true
+issue_generation_on_device = true
+python_transition_skipped = true
+native_runtime = false
+inprocess_native_op = false
+post_export_native_replay = false
+payload_bytes = 0
+ready_credit = false
+passed_to_kernel = false
+changes_kernel_launch_args = false
+uses_current_wna16_args = false
+passes_current_wna16_args = false
+```
+
+`scripts/run_premap_lab_preflight.py` can now validate an explicitly supplied:
+
+```yaml
+payload_cache_online_inside_graph_producer_boundary_contract_json: ...
+```
+
+It is not yet part of the default required gate; it must not be promoted until
+a strict online run shows replay-visible updates rather than capture-only
+updates.
+
+Online smoke result:
+
+```text
+mode:
+  production_batch_premap_payload_cache_ready_time_graph_warmup_inside_graph_producer_counter_off
+samples/tokens:
+  1 sample / gen2
+path:
+  outputs/reports/awq_telemetry_ladder/gpu1_inside_graph_producer_smoke_1x2/
+
+graph_visible_producer_contract_passed = false
+replay_update_status = capture_once_per_layer_no_replay_updates
+observed_packet_count = 40
+expected_packet_count = 80
+observed_previous_nonempty_packet_count = 0
+expected_previous_nonempty_packet_count = 40
+observed_issue_candidate_count = 0
+expected_issue_candidate_count = 320
+
+inside_graph_boundary_contract_passed = false
+failure = graph_visible_producer_contract_not_passed
+```
+
+This is an important negative boundary result: the current Python producer hook
+can update persistent device tensors during graph capture, but those updates are
+not replay-visible in the vLLM graph-warmup path.  Therefore the current
+implementation is still a graph-visibility canary and not yet an online
+inside-graph producer op.
+
+Native graph replay contrast:
+
+```text
+script:
+  scripts/run_premap_payload_cache_producer_state_stream_stub.py
+output:
+  outputs/reports/premap_kernel_consumer/producer_state_stream_stub_graph_replay_smoke.json
+
+native_graph_replay = true
+persistent_state_on_device = true
+issue_generation_on_device = true
+packet_count = 8
+previous_nonempty_packet_count = 6
+issue_candidate_count = 48
+expected_issue_candidate_count = 48
+payload_bytes = 0
+ready_credit = false
+passed_to_kernel = false
+changes_kernel_launch_args = false
+uses_current_wna16_args = false
+passes_current_wna16_args = false
+passed = true
+```
+
+This isolates the next engineering step: the native/HIP producer-state logic can
+be graph-replay-visible in a standalone native canary, but it has not yet been
+inserted as an in-process vLLM replay-visible producer op.  Further work should
+target that in-process/native boundary rather than adding more Python prelaunch
+state extraction.
+
+The boundary gap is now materialized as an explicit non-runtime-gate report:
+
+```text
+script:
+  scripts/check_premap_payload_cache_online_native_producer_boundary.py
+artifact:
+  outputs/reports/premap_kernel_consumer/
+    payload_cache_online_native_producer_boundary_gap_report_20260625.json
+
+mode = payload_cache_online_native_producer_boundary_gap_report
+native_graph_replay_passed = true
+online_tensor_producer_passed = false
+online_replay_update_status = capture_once_per_layer_no_replay_updates
+ready_for_inprocess_native_op_work = true
+ready_for_lab_runtime_gate = false
+runtime_passed = false
+lab_gate_passed = false
+next_required_boundary = inprocess_vllm_replay_visible_native_producer_op
+payload_bytes = 0
+passed_to_kernel = false
+changes_kernel_launch_args = false
+uses_current_wna16_args = false
+passes_current_wna16_args = false
+```
+
+Boundary fixes after code review:
+
+```text
+1. Shape growth no longer clears graph-visible producer state.
+   Layer/expert-width resize now copies old counters and previous_expert_state.
+
+2. present now means state tensors exist, not packet_count > 0.
+   has_packets is reported separately.
+
+3. Empty issue candidates are allowed when expected_issue_candidate_count = 0.
+   The contract still requires observed/expected counts to match.
+```
+
+Validation:
+
+```text
+pytest tests/test_build_premap_payload_cache_online_inside_graph_producer_boundary_contract.py tests/test_run_premap_lab_preflight.py tests/test_vllm_router_shadow_sink.py -q:
+  385 passed
+
+pytest tests/test_build_premap_payload_cache_online_inside_graph_producer_boundary_contract.py tests/test_vllm_router_shadow_sink.py tests/test_run_awq_telemetry_ladder_modes.py tests/test_run_premap_lab_preflight.py tests/test_check_prefetch_lab_default_gate.py -q:
+  489 passed
+
+py_compile touched script/source/test files:
+  pass
+
+git diff --check:
+  pass
+```
+
+Remaining boundary:
+
+```text
+This is a tensor-state producer canary, not yet an in-process HIP native
+producer op and not yet replay-visible in vLLM graph execution.  The next gate
+is to move transition-state / issue generation to a true online native producer
+or another vLLM boundary that is executed during graph replay, while preserving
+the same no-payload/no-ready/no-kernel-arg safety contract.
+```
+
+## Previous Update: Payload Issue Demand-Hit Publication Blocked Canary
 
 The payload/cache lab chain now reaches the future consumer-visible
 demand-hit publication boundary:
@@ -44513,4 +46005,2209 @@ Payload-cache queue-budget validation retained:
 # 517 passed
 
 git diff --check
+```
+## 2026-06-24 - Native/GPU-side payload-cache producer state stream canary
+
+Transition-state / issue generation now has a graph-visible native/GPU-side
+producer canary instead of only a Python prelaunch packet check.
+
+New files:
+
+```text
+microbench/premap_kernel_consumer/premap_payload_cache_producer_state_stream_stub.hip
+scripts/run_premap_payload_cache_producer_state_stream_stub.py
+tests/test_premap_payload_cache_producer_stream_stub.py
+```
+
+The canary keeps previous expert state in device memory across decode-like
+steps and generates issue candidates from that persistent state inside the HIP
+kernel.  It remains a payloadless independent producer-state gate:
+
+```text
+payload_bytes = 0
+ready_credit = false
+passed_to_kernel = false
+changes_kernel_launch_args = false
+uses_current_wna16_args = false
+passes_current_wna16_args = false
+current_wna16_arg_compatible = false
+```
+
+GPU smoke:
+
+```text
+artifact:
+  outputs/reports/premap_kernel_consumer/payload_cache_producer_state_stream_stub_smoke.json
+
+mode = payload_cache_producer_transition_state_stream_native_canary
+steps = 64
+layers = 40
+experts_per_layer = 8
+packet_count = 2560
+previous_nonempty_packet_count = 2520
+issue_candidate_count = 20160
+expected_issue_candidate_count = 20160
+persistent_state_on_device = true
+issue_generation_on_device = true
+vectorized_copy_used = true
+gpu_elapsed_ms = 0.918039
+```
+
+This directly addresses the graph-warmup failure mode where Python prelaunch
+callbacks only saw one update per layer and therefore produced empty previous
+state.  The next gate is to connect this native persistent-state producer to the
+online graph-visible producer path without routing through Python per-launch
+state.
+
+The stream canary is now part of the default lab preflight evidence:
+
+```text
+artifact:
+  outputs/reports/premap_kernel_consumer/
+    premap_lab_preflight_with_stream_native_producer_state.json
+
+passed = true
+required_evidence = 58 / 58
+payload_cache_producer_state_stream_native_canary_json = passed
+sha256 = 5065e5733781485f07db4c9a4961024b1cb9fe63b01cc03551fbe35d3b154f7e
+```
+
+Validation:
+
+```bash
+PYTHONNOUSERSITE=1 /home/husrcf/anaconda3/envs/TRY/bin/python -m py_compile \
+  scripts/run_premap_payload_cache_producer_state_stream_stub.py \
+  scripts/run_premap_lab_preflight.py \
+  tests/test_premap_payload_cache_producer_stream_stub.py \
+  tests/test_run_premap_lab_preflight.py
+
+PYTHONNOUSERSITE=1 /home/husrcf/anaconda3/envs/TRY/bin/python -m pytest \
+  tests/test_premap_payload_cache_producer_stream_stub.py \
+  tests/test_run_premap_lab_preflight.py -q
+# 229 passed
+
+HIP_VISIBLE_DEVICES=0 PYTHONNOUSERSITE=1 \
+  /home/husrcf/anaconda3/envs/TRY/bin/python \
+  scripts/run_premap_payload_cache_producer_state_stream_stub.py \
+  --device 0 --hip-visible-devices 0 --steps 64 --layers 40 \
+  --experts-per-layer 8 --transition-topk-count 8 \
+  --output-json \
+  outputs/reports/premap_kernel_consumer/payload_cache_producer_state_stream_stub_smoke.json
+
+PYTHONNOUSERSITE=1 /home/husrcf/anaconda3/envs/TRY/bin/python \
+  scripts/run_premap_lab_preflight.py \
+  --default-readonly-gate \
+  configs/runtime/premap_consumer_readonly_gate_dolly128_gen64_awq_w7900_gpu1_live_connected_readonly.yaml \
+  --output-json \
+  outputs/reports/premap_kernel_consumer/premap_lab_preflight_with_stream_native_producer_state.json
+# passed
+```
+
+## 2026-06-24 - Online producer stream contract and production-like A/B bridge
+
+The native/GPU-side producer-state stream canary is now connected to real
+production-like online evidence through an explicit bridge artifact.
+
+New files:
+
+```text
+scripts/build_premap_payload_cache_producer_state_stream_online_contract.py
+scripts/build_premap_payload_cache_stream_producer_production_ab_report.py
+tests/test_build_premap_payload_cache_producer_state_stream_online_contract.py
+tests/test_build_premap_payload_cache_stream_producer_production_ab_report.py
+```
+
+The online contract reads the graph-warmup producer `performance_summary.json`
+and derives the native stream dimensions:
+
+```text
+artifact:
+  outputs/reports/premap_kernel_consumer/
+    payload_cache_producer_state_stream_online_contract_graph_warmup_dolly32_gen64_v1.json
+
+online_transition_state_owner = producer
+online_transition_native_packet_count = 40
+online_transition_issue_previous_nonempty_count = 0
+online_transition_issue_descriptor_count = 0
+online_python_prelaunch_state_empty = true
+
+contract_steps = 64
+contract_layers = 40
+contract_experts_per_layer = 225
+contract_transition_topk_count = 8
+contract_expected_issue_candidate_count = 20160
+contract_dimension_consistency_failures = []
+contract_dimension_sources.layer_sources:
+  transition_native_packet_count = 40
+  transition_producer_update_count = 40
+contract_dimension_sources.expert_sources:
+  transition_native_packet_last_current_count = 225
+
+native_stream_issue_candidate_count = 20160
+native_stream_previous_nonempty_packet_count = 2520
+native_stream_persistent_state_on_device = true
+native_stream_issue_generation_on_device = true
+native_stream_vectorized_copy_used = false
+```
+
+This makes the boundary explicit:
+
+```text
+Python graph-warmup prelaunch state:
+  previous state empty, issue descriptors = 0
+
+Native/GPU-side persistent producer state:
+  previous state non-empty after first step,
+  issue candidates = 20160 for the same online stream envelope
+```
+
+The production-like A/B bridge combines the existing graph-warmup TPOT run with
+the online native stream contract:
+
+```text
+artifact:
+  outputs/reports/premap_kernel_consumer/
+    payload_cache_stream_producer_production_like_ab_bridge_dolly32_gen64_v1.json
+
+baseline_tpot_s = 0.003263155852050781
+candidate_tpot_s = 0.003265474258789062
+candidate_overhead_percent = 0.07104799290613695
+online_contract_passed = true
+native_stream_issue_candidate_count = 20160
+measures_tpot = true
+native_stream_measures_tpot = false
+payload_bytes = 0
+passed_to_kernel = false
+changes_kernel_launch_args = false
+uses_current_wna16_args = false
+passes_current_wna16_args = false
+```
+
+This is still not a payload/full-fetch speedup claim.  It is the first
+production-like A/B envelope showing that the low-overhead graph-warmup
+participation path can be paired with a native/GPU-side producer-state contract
+that would generate non-empty issue candidates if wired into the graph-visible
+producer path.
+
+The bridge now fails closed if the candidate summary reports any non-noop
+runtime behavior or invalid TPOT metric:
+
+```text
+non-finite or non-positive baseline/candidate TPOT
+missing candidate payload/kernel-arg safety fields
+candidate_payload_bytes_nonzero
+candidate_kernel_arg_pass_enabled
+candidate_changes_kernel_launch_args
+```
+
+This keeps the current report scoped to the payloadless/no-kernel-arg producer
+contract and prevents it from being misread as a native-stream or WNA16
+kernel-argument benchmark.
+
+The online contract also fails closed on layer/expert dimension source mismatch.
+The required layer sources are `transition_native_packet_count` and
+`transition_producer_update_count`; the required expert source is
+`transition_native_packet_last_current_count`.  Missing, non-positive, or
+mismatched required sources fail the contract. In the current artifact, both
+required layer sources agree with the derived contract layer count and the
+required expert source agrees with the derived `experts_per_layer`.
+
+The A/B bridge now has a reusable checker:
+
+```text
+script:
+  scripts/check_premap_payload_cache_stream_producer_ab_bridge.py
+
+artifact:
+  outputs/reports/premap_kernel_consumer/
+    payload_cache_stream_producer_production_like_ab_bridge_dolly32_gen64_v1.check.json
+
+passed = true
+candidate_overhead_ratio = 0.0007104799290613695
+max_overhead_ratio = 0.02
+native_stream_issue_candidate_count = 20160
+online_contract_expected_issue_candidate_count = 20160
+```
+
+A fresh 32-sample production-like A/B smoke was also run on GPU1:
+
+```text
+run:
+  outputs/reports/awq_telemetry_ladder/
+    gpu1_production_ab_payload_cache_graph_warmup_stream_contract_20260624_fresh32
+
+baseline:
+  production_batch_graph_warmup_reuse_llm
+  TPOT = 0.0032402042670898437
+
+candidate:
+  production_batch_premap_payload_cache_ready_time_graph_warmup_producer_counter_off_reuse_llm
+  TPOT = 0.0032268196435546875
+
+A/B bridge artifact:
+  outputs/reports/premap_kernel_consumer/
+    payload_cache_stream_producer_production_like_ab_bridge_dolly32_gen64_fresh32_20260624.json
+
+checker artifact:
+  outputs/reports/premap_kernel_consumer/
+    payload_cache_stream_producer_production_like_ab_bridge_dolly32_gen64_fresh32_20260624.check.json
+
+candidate_overhead_percent = -0.41307962189610636
+candidate_speedup_vs_baseline = 1.0041479304744816
+online_contract_passed = true
+native_stream_issue_candidate_count = 20160
+payload_bytes = 0
+passed_to_kernel = false
+changes_kernel_launch_args = false
+uses_current_wna16_args = false
+passes_current_wna16_args = false
+```
+
+This remains an overhead envelope / contract integration result, not a
+payload-prefetch speedup claim.  The useful work is still gated off; the value
+is that production-like TPOT is not harmed while the native/GPU-side persistent
+producer-state contract is valid for the same stream dimensions.
+
+The producer-state stream contract is now emitted directly in the online
+candidate `performance_summary.json`, instead of being derived only by a
+post-run bridge:
+
+```text
+run:
+  outputs/reports/awq_telemetry_ladder/
+    gpu1_production_ab_payload_cache_graph_warmup_stream_contract_20260624_embedded32
+
+candidate performance_summary embedded fields:
+  runtime_shadow_premap_payload_cache_direct_online_stream_contract_present = true
+  runtime_shadow_premap_payload_cache_direct_online_stream_contract_passed = true
+  runtime_shadow_premap_payload_cache_direct_online_stream_contract_failures = []
+  runtime_shadow_premap_payload_cache_direct_online_stream_contract_source =
+    online_producer_performance_summary
+  runtime_shadow_premap_payload_cache_direct_online_stream_contract_steps = 64
+  runtime_shadow_premap_payload_cache_direct_online_stream_contract_layers = 40
+  runtime_shadow_premap_payload_cache_direct_online_stream_contract_experts_per_layer = 225
+  runtime_shadow_premap_payload_cache_direct_online_stream_contract_packet_count = 2560
+  runtime_shadow_premap_payload_cache_direct_online_stream_contract_previous_nonempty_packet_count = 2520
+  runtime_shadow_premap_payload_cache_direct_online_stream_contract_issue_candidate_count = 20160
+  runtime_shadow_premap_payload_cache_direct_online_stream_contract_expected_issue_candidate_count = 20160
+  runtime_shadow_premap_payload_cache_direct_online_stream_contract_payload_bytes = 0
+  runtime_shadow_premap_payload_cache_direct_online_stream_contract_passed_to_kernel = false
+  runtime_shadow_premap_payload_cache_direct_online_stream_contract_changes_kernel_launch_args = false
+
+contract artifact validating embedded summary against native stub:
+  outputs/reports/premap_kernel_consumer/
+    payload_cache_producer_state_stream_online_contract_graph_warmup_dolly32_gen64_embedded32_20260624.json
+
+A/B bridge artifact:
+  outputs/reports/premap_kernel_consumer/
+    payload_cache_stream_producer_production_like_ab_bridge_dolly32_gen64_embedded32_20260624.json
+
+checker artifact:
+  outputs/reports/premap_kernel_consumer/
+    payload_cache_stream_producer_production_like_ab_bridge_dolly32_gen64_embedded32_20260624.check.json
+
+baseline_tpot_s = 0.0032532496713867185
+candidate_tpot_s = 0.003245981701171875
+candidate_overhead_percent = -0.22340646888455717
+candidate_speedup_vs_baseline = 1.0022390669091632
+online_contract_passed = true
+embedded_online_stream_contract_present = true
+embedded_online_stream_contract_passed = true
+native_stream_issue_candidate_count = 20160
+payload_bytes = 0
+passed_to_kernel = false
+changes_kernel_launch_args = false
+uses_current_wna16_args = false
+passes_current_wna16_args = false
+```
+
+This reduces the post-run bridge role from deriving the stream envelope to
+validating the online producer's emitted contract against the independent native
+stub. The remaining gap before useful runtime work is to replace the
+payloadless/no-kernel-arg accounting path with a guarded payload/cache-manager
+issue executor.
+
+2026-06-24 update:
+the embedded online producer contract is now part of the default lab preflight
+gate instead of being a loose post-run report.  The default readonly gate now
+requires:
+
+```text
+payload_cache_producer_state_stream_online_contract_json
+payload_cache_stream_producer_production_ab_bridge_json
+payload_cache_stream_producer_production_ab_bridge_check_json
+```
+
+The preflight validators require the online contract to be embedded in the
+candidate performance summary, fail closed on raw step / embedded step
+mismatch, require native stream issue count parity, and keep the runtime
+boundary payloadless:
+
+```text
+payload_bytes = 0
+ready_credit = false
+passed_to_kernel = false
+changes_kernel_launch_args = false
+uses_current_wna16_args = false
+passes_current_wna16_args = false
+```
+
+Strict default gate check:
+
+```text
+outputs/reports/premap_kernel_consumer/
+  premap_lab_preflight_payload_cache_stream_online_contract_gate_check_20260624.json
+
+passed = true
+failures = []
+```
+
+The production-like A/B bridge remains a safety/overhead gate only.  It does
+not claim payload/full-fetch speedup; it proves that the online producer
+contract can be present in a production-like run without opening payload,
+ready-credit, or kernel-arg mutation.
+
+The bridge was tightened after review:
+
+```text
+build_premap_payload_cache_stream_producer_production_ab_report.py
+  requires candidate and contract safety fields to be explicit
+  rejects bool/string/negative integer payload byte fields
+
+check_premap_payload_cache_stream_producer_ab_bridge.py
+  carries safety fields into the .check artifact
+
+run_premap_lab_preflight.py
+  independently revalidates .check safety fields
+```
+
+This prevents an incomplete A/B/check artifact from being wrapped as a safe
+payloadless result.
+
+Validation:
+
+```bash
+PYTHONNOUSERSITE=1 /home/husrcf/anaconda3/envs/TRY/bin/python -m py_compile \
+  scripts/build_premap_payload_cache_producer_state_stream_online_contract.py \
+  scripts/build_premap_payload_cache_stream_producer_production_ab_report.py \
+  tests/test_build_premap_payload_cache_producer_state_stream_online_contract.py \
+  tests/test_build_premap_payload_cache_stream_producer_production_ab_report.py
+
+PYTHONNOUSERSITE=1 /home/husrcf/anaconda3/envs/TRY/bin/python -m pytest \
+  tests/test_build_premap_payload_cache_producer_state_stream_online_contract.py \
+  tests/test_build_premap_payload_cache_stream_producer_production_ab_report.py -q
+# 23 passed with the A/B bridge checker tests
+
+PYTHONNOUSERSITE=1 /home/husrcf/anaconda3/envs/TRY/bin/python -m pytest \
+  tests/test_premap_payload_cache_producer_stream_stub.py \
+  tests/test_build_premap_payload_cache_producer_state_stream_online_contract.py \
+  tests/test_build_premap_payload_cache_stream_producer_production_ab_report.py \
+  tests/test_check_premap_payload_cache_stream_producer_ab_bridge.py \
+  tests/test_run_premap_lab_preflight.py::test_premap_lab_preflight_dispatch_accepts_payload_cache_producer_state_stream_native_canary \
+  tests/test_run_premap_lab_preflight.py::test_premap_lab_preflight_dispatch_rejects_payload_cache_producer_state_stream_payload_mutation -q
+# 28 passed
+
+PYTHONNOUSERSITE=1 /home/husrcf/anaconda3/envs/TRY/bin/python -m pytest \
+  tests/test_run_premap_lab_preflight.py -q
+# 232 passed
+
+PYTHONNOUSERSITE=1 /home/husrcf/anaconda3/envs/TRY/bin/python -m pytest \
+  tests/test_build_premap_payload_cache_producer_state_stream_online_contract.py \
+  tests/test_build_premap_payload_cache_stream_producer_production_ab_report.py \
+  tests/test_check_premap_payload_cache_stream_producer_ab_bridge.py \
+  tests/test_run_premap_lab_preflight.py::test_premap_lab_preflight_accepts_payload_cache_producer_state_stream_online_contract \
+  tests/test_run_premap_lab_preflight.py::test_premap_lab_preflight_dispatch_accepts_payload_cache_producer_state_stream_online_contract \
+  tests/test_run_premap_lab_preflight.py::test_premap_lab_preflight_rejects_payload_cache_online_contract_issue_mismatch \
+  tests/test_run_premap_lab_preflight.py::test_premap_lab_preflight_accepts_payload_cache_stream_producer_ab_bridge \
+  tests/test_run_premap_lab_preflight.py::test_premap_lab_preflight_dispatch_accepts_payload_cache_stream_producer_ab_bridge \
+  tests/test_run_premap_lab_preflight.py::test_premap_lab_preflight_rejects_payload_cache_stream_producer_ab_payload \
+  tests/test_run_premap_lab_preflight.py::test_premap_lab_preflight_accepts_payload_cache_stream_producer_ab_bridge_check \
+  tests/test_run_premap_lab_preflight.py::test_premap_lab_preflight_dispatch_accepts_payload_cache_stream_producer_ab_bridge_check -q
+# 38 passed
+
+PYTHONNOUSERSITE=1 /home/husrcf/anaconda3/envs/TRY/bin/python \
+  scripts/run_premap_lab_preflight.py \
+  --default-readonly-gate \
+    configs/runtime/premap_consumer_readonly_gate_dolly128_gen64_awq_w7900_gpu1_live_connected_readonly.yaml \
+  --output-json \
+    outputs/reports/premap_kernel_consumer/premap_lab_preflight_payload_cache_stream_online_contract_gate_check_20260624.json
+# passed = true, failures = []
+```
+
+## v1.55.1 - Packet-Stream Native Session Restore-State ABI
+
+The in-process native producer session can now consume shifted/midstream packet
+streams that carry explicit previous-state overrides.  The runner no longer
+rejects `state_override_count > 0`; instead it restores the per-layer previous
+expert row into the native persistent session before calling the existing
+update path.
+
+New native ABI:
+
+```text
+premap_payload_cache_inprocess_producer_session_restore_state_v1(
+  handle,
+  layer,
+  previous_experts_device,
+  previous_count
+)
+```
+
+Safety boundary remains unchanged:
+
+```text
+payload_bytes = 0
+payload_transfer_enabled = false
+payload_deref_allowed = false
+ready_credit = false
+ready_before_demand_credit = false
+real_ready_credit_granted = false
+passed_to_kernel = false
+changes_kernel_launch_args = false
+kernel_arg_pass = false
+kernel_arg_pass_allowed = false
+uses_current_wna16_args = false
+passes_current_wna16_args = false
+measures_tpot = false
+measures_vllm_latency = false
+```
+
+The Python session bridge now validates:
+
+```text
+native layer_id == packet layer_id
+native current_count == packet current_count
+native previous_count_before == packet previous_count
+native issue count/hash == packet previous top-k issue stream
+restore return codes are all zero
+```
+
+This turns materialized shifted packet streams into a native-session input
+contract instead of a parser-only artifact.  Existing shifted Dolly smoke packet
+streams parse with:
+
+```text
+packet_count = 32
+layer_count = 1
+max_experts_per_packet = 174
+transition_topk_count = 8
+state_override_count = 31
+expected_previous_nonempty_packet_count = 28
+expected_issue_candidate_count = 224
+expected_native_issue_candidate_hash = 83a1a8065edf2ddd
+```
+
+Validation:
+
+```bash
+PYTHONNOUSERSITE=1 /home/husrcf/anaconda3/envs/TRY/bin/python -m pytest \
+  tests/test_premap_payload_cache_inprocess_native_producer_stub.py \
+  tests/test_run_premap_payload_cache_packet_stream_native_canary.py \
+  tests/test_check_premap_payload_cache_packet_stream_native_canary.py \
+  tests/test_premap_payload_cache_producer_stream_stub.py \
+  tests/test_materialize_premap_payload_cache_packet_export_manifest.py -q
+# 86 passed
+
+PYTHONNOUSERSITE=1 /home/husrcf/anaconda3/envs/TRY/bin/python -m py_compile \
+  scripts/run_premap_payload_cache_inprocess_native_session_stub.py \
+  tests/test_premap_payload_cache_inprocess_native_producer_stub.py
+
+PYTHONNOUSERSITE=1 /home/husrcf/anaconda3/envs/TRY/bin/python - <<'PY'
+from scripts import run_premap_payload_cache_inprocess_native_producer_stub as p
+print(p.build(offload_arch='gfx1100', force=True))
+PY
+# microbench/premap_kernel_consumer/build/
+#   premap_payload_cache_inprocess_native_producer_f2ca17140927.so
+```
+
+Runtime smoke note:
+the GPU runtime attempt is currently blocked by environment visibility, not by
+the new restore contract:
+
+```text
+torch._C._cuda_init()
+RuntimeError: No CUDA GPUs are available
+```
+
+Next gate:
+when HIP/PyTorch device visibility is back, rerun the shifted packet-stream
+native session smoke and promote `packet_stream_state_restore_count > 0` to the
+packet-stream native lab preflight requirement.
+
+2026-06-26 follow-up:
+the lab preflight validator now accepts packet-stream session canary evidence
+with `current_expert_ptr_source = packet_stream_torch_device_tensor` and checks
+the restore-state contract explicitly:
+
+```text
+packet_stream_state_restore_supported = true
+packet_stream_state_restore_count == packet_stream_state_override_count
+packet_stream_state_restore_returncodes == [0] when overrides are present
+```
+
+For packet-stream inputs the preflight validator also avoids applying the
+continuous synthetic-stream formulas `(steps - 1) * layers` and
+`(steps - 1) * layers * topk`, because shifted packet streams may contain
+sample-boundary empty-issue packets.  It instead relies on the materialized
+packet stream's expected previous/issue counts plus native-reported
+`previous_count_before` parity.
+
+2026-06-26 hash-gate follow-up:
+the packet-stream native canary now carries the same native issue hash through
+materialization, native replay, checker output, and lab preflight evidence:
+
+```text
+materialized.expected_issue_candidate_hash = 83a1a8065edf2ddd
+native.issue_candidate_hash = 83a1a8065edf2ddd
+check.issue_candidate_hash = 83a1a8065edf2ddd
+check.expected_issue_candidate_hash = 83a1a8065edf2ddd
+check.materialized_expected_issue_candidate_hash = 83a1a8065edf2ddd
+```
+
+This closes the previous count-only packet-stream gate gap: a forged comparison
+flag can no longer hide an issue-stream content/order hash mismatch.  The
+native packet hash is also required to be a strict 16-hex-character hash, so a
+stale 64-char replay/SHA hash cannot satisfy the packet-stream native gate.
+The
+readonly lab gate now points at the v1.55.1 packet-stream canary/check
+artifacts:
+
+```text
+outputs/reports/premap_kernel_consumer/
+  payload_cache_producer_state_packet_stream_native_canary_shifted_issue_dolly4_gen64_v1551.json
+  payload_cache_producer_state_packet_stream_native_canary_shifted_issue_dolly4_gen64_v1551.check.json
+  premap_lab_preflight_packet_stream_restore_v1551_strict.json
+```
+
+Validation after review fixes:
+
+```bash
+PYTHONNOUSERSITE=1 /home/husrcf/anaconda3/envs/TRY/bin/python -m pytest \
+  tests/test_premap_payload_cache_inprocess_native_producer_stub.py \
+  tests/test_run_premap_payload_cache_packet_stream_native_canary.py \
+  tests/test_check_premap_payload_cache_packet_stream_native_canary.py \
+  tests/test_premap_payload_cache_producer_stream_stub.py \
+  tests/test_materialize_premap_payload_cache_packet_export_manifest.py \
+  tests/test_run_premap_lab_preflight.py -q
+# 404 passed in 127.15s
+```
+
+GPT-5.5 high code review found no blocker after the restore-count gate fix.
+
+2026-06-25 follow-up:
+the graph-visible payload-cache producer summary is now explicitly marked as a
+captured tensor visibility canary, not a production producer contract.  The
+real GPU1 graph-warmup smoke showed that this path can update persistent tensor
+state during graph capture but does not replay full per-token producer updates:
+
+```text
+production_batch_graph_warmup_reuse_llm TPOT = 0.003210139249511719 s/token
+graph_visible_producer TPOT = 0.003241461750976563 s/token
+overhead ~= +0.98%
+
+graph_visible_producer_contract_passed = false
+observed_packet_count = 40
+expected_packet_count = 2560
+observed_issue_candidate_count = 0
+expected_issue_candidate_count = 20160
+```
+
+To make this boundary machine-readable, the graph-visible contract summary now
+emits:
+
+```text
+contract_boundary = captured_torch_tensor_state_visibility_canary
+captured_replay_required = <same as graph-visible enabled>
+captured_replay_passed = <same as contract passed>
+capture_once_per_layer_suspected = true/false
+replay_update_status =
+  complete_replay_updates_observed |
+  capture_once_per_layer_no_replay_updates |
+  contract_failed | state_missing | disabled
+production_candidate = <same as contract passed>
+```
+
+After review, the field semantics were tightened:
+
+```text
+captured_replay_required = enabled
+```
+
+so a disabled graph-visible path is not misreported as a failed required replay
+gate.  The capture-once heuristic was also generalized to detect the core
+failure shape:
+
+```text
+enabled
+present
+layers > 0
+observed_packet_count == layers
+observed_packet_count < expected_packet_count
+expected_previous_nonempty_packet_count > 0
+observed_previous_nonempty_packet_count == 0
+```
+
+instead of only the `issue_candidate_count == 0` case.  This keeps the
+diagnostic focused on replay updates that never happened, rather than every
+generic packet-count mismatch.
+
+The intent is fail-closed: a capture-time-only graph-visible state update must
+not be reported as a useful production producer, even if its TPOT overhead is
+small.  The next implementation gate remains a truly graph-replayed native /
+inside-graph producer op, not Python post-processing and not the current
+capture-visible tensor state canary.
+
+Validation:
+
+```bash
+PYTHONNOUSERSITE=1 /home/husrcf/anaconda3/envs/TRY/bin/python -m pytest \
+  tests/test_vllm_router_shadow_sink.py::test_premap_payload_cache_graph_visible_producer_contract_counts_stream \
+  tests/test_vllm_router_shadow_sink.py::test_premap_payload_cache_graph_visible_producer_contract_flags_capture_once_per_layer \
+  tests/test_vllm_router_shadow_sink.py::test_premap_payload_cache_graph_visible_producer_contract_disabled_not_required \
+  tests/test_vllm_router_shadow_sink.py::test_premap_payload_cache_online_stream_contract_rejects_graph_once_per_layer -q
+# 4 passed
+
+PYTHONNOUSERSITE=1 /home/husrcf/anaconda3/envs/TRY/bin/python -m pytest \
+  tests/test_vllm_router_shadow_sink.py \
+  tests/test_run_awq_telemetry_ladder_modes.py \
+  tests/test_run_premap_lab_preflight.py \
+  tests/test_check_prefetch_lab_default_gate.py -q
+# 477 passed
+
+git diff --check
+# clean
+```
+
+GPU1 packet-stream native canary refresh:
+
+```bash
+env HIP_VISIBLE_DEVICES=1 PYTHONNOUSERSITE=1 \
+  /home/husrcf/anaconda3/envs/TRY/bin/python \
+  scripts/run_premap_payload_cache_packet_stream_native_canary.py \
+  --manifest-json \
+    outputs/reports/premap_kernel_consumer/premap_payload_cache_packet_export_manifest_shifted_issue_runtime_shadow_dolly4_gen64_v1.json \
+  --packet-stream-bin \
+    outputs/reports/premap_kernel_consumer/payload_cache_producer_state_packet_stream_shifted_issue_dolly4_gen64_gpu1_20260625.bin \
+  --native-output-json \
+    outputs/reports/premap_kernel_consumer/payload_cache_producer_state_packet_stream_native_canary_shifted_issue_dolly4_gen64_gpu1_20260625.native.json \
+  --output-json \
+    outputs/reports/premap_kernel_consumer/payload_cache_producer_state_packet_stream_native_canary_shifted_issue_dolly4_gen64_gpu1_20260625.json \
+  --device 0
+
+PYTHONNOUSERSITE=1 /home/husrcf/anaconda3/envs/TRY/bin/python \
+  scripts/check_premap_payload_cache_packet_stream_native_canary.py \
+  --canary-json \
+    outputs/reports/premap_kernel_consumer/payload_cache_producer_state_packet_stream_native_canary_shifted_issue_dolly4_gen64_gpu1_20260625.json \
+  --output-json \
+    outputs/reports/premap_kernel_consumer/payload_cache_producer_state_packet_stream_native_canary_shifted_issue_dolly4_gen64_gpu1_20260625.check.json
+```
+
+Result:
+
+```text
+passed = true
+failures = []
+packet_count = 32
+previous_nonempty_packet_count = 28
+issue_candidate_count = 224
+state_override_count = 31
+state_mismatch_count = 0
+issue_expert_mismatch_count = 0
+native_graph_replay = true
+persistent_state_on_device = true
+issue_generation_on_device = true
+vectorized_copy_used = true
+gpu_elapsed_ms = 1.636837
+payload_bytes = 0
+ready_credit = false
+passed_to_kernel = false
+changes_kernel_launch_args = false
+uses_current_wna16_args = false
+```
+
+This refresh keeps the native packet-stream evidence aligned with the current
+GPU1 default posture.  It still remains a native post-export canary, not the
+online vLLM graph-replayed producer itself.
+
+The default GPU1 lab gate now points at this refreshed GPU1 packet-stream
+native evidence:
+
+```text
+configs/runtime/
+  premap_consumer_readonly_gate_dolly128_gen64_awq_w7900_gpu1_live_connected_readonly.yaml
+
+required_evidence_paths:
+  payload_cache_producer_state_packet_stream_native_canary_json:
+    outputs/reports/premap_kernel_consumer/
+      payload_cache_producer_state_packet_stream_native_canary_shifted_issue_dolly4_gen64_gpu1_20260625.json
+  payload_cache_producer_state_packet_stream_native_canary_check_json:
+    outputs/reports/premap_kernel_consumer/
+      payload_cache_producer_state_packet_stream_native_canary_shifted_issue_dolly4_gen64_gpu1_20260625.check.json
+```
+
+Validation:
+
+```bash
+PYTHONNOUSERSITE=1 /home/husrcf/anaconda3/envs/TRY/bin/python \
+  scripts/run_premap_lab_preflight.py \
+  --root . \
+  --output-json \
+    outputs/reports/premap_kernel_consumer/lab_preflight_default_gpu1_packet_stream_native_refresh_20260625.json
+# passed = true
+# failures = []
+# default_readonly_gate_required_evidence_check.passed = true
+# prefetch_lab_default_gate_check.passed = true
+```
+
+## 2026-06-25 GPU default cleanup after PCIe x16 rerun
+
+After the GPU0 PCIe x16 measured-copy refresh, the runtime scripts now keep the
+normal lab path on GPU1 by default and treat the GPU0/x16 copy envelope as an
+explicit override only.
+
+Fixes:
+
+```text
+run_awq_telemetry_ladder.py:
+  --gpu default restored to 1
+  --output-root default restored to outputs/reports/awq_telemetry_ladder/gpu1
+  ready-time measured-copy default restored to the GPU1 measured-copy artifact
+  GPU0/x16 measured-copy is only injected via --premap-payload-cache-measured-copy-json
+
+production_like config generation:
+  drops emit_premap_payload_cache_manager_counters
+  drops all premap_payload_cache_manager_* fields for non payload-cache modes
+  prevents ready_time manager state from leaking into baseline configs
+
+run_premap_lab_preflight.py:
+  default prefetch lab gate restored to configs/runtime/prefetch_lab_default_gate_gpu1.yaml
+
+online producer-state stream contract:
+  programmatic native stub invocation now writes the advertised native_stream_output_json
+  run_stub now tolerates callers without packet_stream_bin
+```
+
+The default GPU1 lab preflight was rerun and passes:
+
+```text
+outputs/reports/premap_kernel_consumer/
+  lab_preflight_default_gpu1_after_gpu0_override_cleanup_20260625.json
+
+passed = true
+failures = []
+prefetch_lab_default_gate_id = prefetch_lab_default_gpu1_measured_copy_premap_descriptor_prep
+sha256 = 728dce06e5ca3b41ae776366f2691488663b196e79269938b279bc851bbf2a09
+```
+
+The online contract sidecar evidence was regenerated:
+
+```text
+outputs/reports/premap_kernel_consumer/
+  payload_cache_producer_state_stream_online_contract_eager_dolly32_gen64_online_identity_graph_replay_required_20260624.json
+  payload_cache_producer_state_stream_online_contract_eager_dolly32_gen64_online_identity_graph_replay_required_20260624.native.json
+
+passed = true
+native_stream_graph_replay = true
+payload_bytes = 0
+ready_credit = false
+passed_to_kernel = false
+changes_kernel_launch_args = false
+uses_current_wna16_args = false
+passes_current_wna16_args = false
+```
+
+Validation:
+
+```bash
+PYTHONNOUSERSITE=1 /home/husrcf/anaconda3/envs/TRY/bin/python -m pytest \
+  tests/test_run_awq_telemetry_ladder_modes.py \
+  tests/test_run_premap_lab_preflight.py \
+  tests/test_check_prefetch_lab_default_gate.py \
+  tests/test_build_premap_payload_cache_producer_state_stream_online_contract.py \
+  tests/test_premap_payload_cache_producer_stream_stub.py -q
+# 376 passed
+
+PYTHONNOUSERSITE=1 /home/husrcf/anaconda3/envs/TRY/bin/python \
+  scripts/run_premap_lab_preflight.py \
+  --root . \
+  --output-json \
+    outputs/reports/premap_kernel_consumer/lab_preflight_default_gpu1_after_gpu0_override_cleanup_20260625.json
+# passed = true, failures = []
+```
+
+GPU1 production-like graph smoke after the cleanup:
+
+```text
+outputs/reports/awq_telemetry_ladder/
+  gpu1_payload_cache_graph_visible_after_cleanup_smoke32_gen64_20260625/
+
+production_batch_graph_warmup_reuse_llm:
+  TPOT = 0.003210139249511719 s/token
+  payload-cache manager measured-copy fields = None
+
+production_batch_premap_payload_cache_ready_time_graph_warmup_graph_visible_producer_counter_off_reuse_llm:
+  TPOT = 0.003241461750976563 s/token
+  overhead vs baseline ~= +0.98%
+  measured-copy path = configs/runtime/premap_payload_cache_gpu1_h2d_smoke_measured_copy.json
+  graph_visible_producer_contract_passed = false
+  observed_packet_count = 40 / expected_packet_count = 2560
+  observed_issue_candidate_count = 0 / expected_issue_candidate_count = 20160
+  online_stream_contract_python_prelaunch_state_empty = true
+```
+
+This confirms the current boundary:
+
+```text
+The graph-visible path is production-like in TPOT cost, but it is not a useful
+payload/cache producer yet because it does not replay the full per-token issue
+stream.  The eager producer path proves the contract but is too slow.  The next
+implementation gate is to move transition state / issue generation into a truly
+captured native/producer boundary rather than Python prelaunch post-processing.
+```
+
+## 2026-06-25 GPU0 PCIe x16 payload/cache ready-time rerun
+
+The earlier measured-copy envelope was invalid for current runtime decisions:
+the W7900 slot had previously been observed at an abnormal PCIe x1 link.  After
+the link was corrected, both GPU0/GPU1 report PCIe 4.0 x16.  The GPU0 H2D
+envelope was remeasured and pinned as a versioned runtime artifact:
+
+```text
+configs/runtime/premap_payload_cache_gpu0_pcie4x16_h2d_measured_copy_20260625.json
+
+device: cuda:0
+expert_bytes: 1,650,000
+p95 @ 8 experts: 496.702us per batch
+per-issue service: 62.088us
+effective bandwidth: 26.575 GB/s
+```
+
+The ready-time/full-fetch model was regenerated from this x16 envelope:
+
+```text
+outputs/reports/premap_kernel_consumer/
+  premap_payload_cache_issue_plan_executor_measured_copy_slack_sweep_gpu0_pcie4x16_20260625.json
+  premap_payload_cache_issue_plan_executor_measured_copy_lookahead_sweep_gpu0_pcie4x16_20260625.json
+  premap_payload_cache_full_fetch_decision_gate_gpu0_pcie4x16_dolly128_gen64_20260625.json
+  premap_payload_cache_full_fetch_decision_gate_gpu0_pcie4x16_dolly128_gen64_model_satisfied_20260625.json
+
+current online envelope:
+  deadline_us = 200
+  lookahead_us = 0
+  decision = block_full_fetch_insufficient_ready_time_and_lookahead
+
+model-satisfied comparison:
+  lookahead_us = 1000
+  decision = model_ready_time_route_satisfied_runtime_still_disabled
+```
+
+This changes the interpretation: full-fetch is no longer bandwidth-impossible
+under the fixed PCIe x16 link, but the current online issue stream still lacks
+the required issue-to-demand slack and real payload runtime remains disabled.
+
+The AWQ/vLLM ladder defaults were updated so GPU0 runs no longer silently reuse
+the old GPU1/x1 measured-copy envelope:
+
+```text
+scripts/run_awq_telemetry_ladder.py
+  --gpu defaults to 0
+  --output-root defaults to outputs/reports/awq_telemetry_ladder/gpu0
+  ready-time payload/cache modes default to the GPU0 PCIe x16 artifact
+  --premap-payload-cache-measured-copy-json is scoped to ready-time modes only
+
+scripts/sweep_premap_payload_cache_issue_plan_executor_slack.py
+scripts/sweep_premap_payload_cache_issue_plan_executor_lookahead.py
+scripts/sweep_premap_payload_cache_issue_stream_executor_lookahead.py
+  default measured-copy artifact now points to the GPU0 PCIe x16 config
+```
+
+Validation:
+
+```bash
+PYTHONNOUSERSITE=1 /home/husrcf/anaconda3/envs/TRY/bin/python -m pytest \
+  tests/test_run_awq_telemetry_ladder_modes.py \
+  tests/test_sweep_premap_payload_cache_issue_plan_executor_slack.py \
+  tests/test_sweep_premap_payload_cache_issue_plan_executor_lookahead.py -q
+# 81 passed
+
+PYTHONNOUSERSITE=1 /home/husrcf/anaconda3/envs/TRY/bin/python -m pytest \
+  tests/test_run_premap_payload_cache_packet_stream_native_canary.py \
+  tests/test_check_premap_payload_cache_packet_stream_native_canary.py \
+  tests/test_run_premap_lab_preflight.py -q
+# 279 passed
+```
+
+GPU0 production-like smoke:
+
+```text
+outputs/reports/awq_telemetry_ladder/
+  gpu0_pcie4x16_payload_cache_ready_time_smoke32_gen64_20260625/
+  gpu0_pcie4x16_payload_cache_ready_time_eager_smoke32_gen64_20260625/
+```
+
+Results:
+
+```text
+graph_warmup baseline:
+  TPOT = 0.0032947 s/token
+
+graph_visible producer ready-time:
+  TPOT = 0.0033007 s/token
+  but contract failed:
+    expected packets = 2560
+    observed packets = 40
+    issue candidates = 0
+
+eager baseline:
+  TPOT = 0.0035381 s/token
+
+eager producer ready-time:
+  TPOT = 0.0069876 s/token
+  contract passed:
+    packets = 2560
+    issue candidates = 20160
+  but the Python/eager producer path is about 1.97x slower than eager baseline.
+```
+
+Current conclusion:
+
+```text
+PCIe x16 removes the old bandwidth blocker.
+The eager producer can generate the full transition issue stream, but it is too
+expensive for production-like TPOT.
+The graph-visible producer path has production-like TPOT, but currently does
+not generate the expected per-token issue stream.
+```
+
+Next gate:
+
+```text
+make transition issue generation graph-visible/inside-graph without falling
+back to Python eager per-token processing, then rerun production-like A/B.
+```
+
+2026-06-25 follow-up:
+the online producer-state stream was converted into explicit A/B gate artifacts
+for both available implementation postures:
+
+```text
+outputs/reports/premap_kernel_consumer/
+  payload_cache_producer_state_stream_online_contract_gpu0_pcie4x16_eager_producer_dolly32_gen64_20260625.json
+  payload_cache_stream_producer_production_like_ab_bridge_gpu0_pcie4x16_eager_producer_dolly32_gen64_20260625.json
+
+  payload_cache_producer_state_stream_online_contract_gpu0_pcie4x16_graph_visible_producer_dolly32_gen64_20260625.json
+  payload_cache_stream_producer_production_like_ab_bridge_gpu0_pcie4x16_graph_visible_producer_dolly32_gen64_20260625.json
+```
+
+The eager producer path is semantically correct:
+
+```text
+online_contract_passed = true
+online packets = 2560
+online issue candidates = 20160
+native graph replay = true
+payload_bytes = 0
+ready_credit = false
+passed_to_kernel = false
+changes_kernel_launch_args = false
+```
+
+but it is not a production candidate:
+
+```text
+eager baseline TPOT = 0.0035381 s/token
+eager producer TPOT = 0.0069876 s/token
+overhead = +97.49%
+AB gate failure = tpot_overhead_over_threshold
+```
+
+The current graph-visible producer path has near-baseline TPOT:
+
+```text
+graph baseline TPOT = 0.0032947 s/token
+graph-visible producer TPOT = 0.0033007 s/token
+overhead = +0.18%
+```
+
+but it does not actually generate the online issue stream:
+
+```text
+expected packets = 2560
+observed packets = 40
+expected issue candidates = 20160
+observed issue candidates = 0
+AB gate failure = online_contract_failed
+```
+
+This confirms the next engineering target:
+
+```text
+the issue-generation state update must move into a truly graph-visible /
+native producer boundary.  A Python prelaunch hook can prove semantics in eager
+mode, but it is too slow; the current tensor-counter canary is not replayed as
+a full per-token issue stream under the production graph posture.
+```
+
+Small compatibility fix:
+`scripts/build_premap_payload_cache_producer_state_stream_online_contract.py`
+now passes `packet_stream_bin=None` into the native stream stub, matching the
+new packet-stream-capable runner ABI.
+
+Validation:
+
+```bash
+PYTHONNOUSERSITE=1 /home/husrcf/anaconda3/envs/TRY/bin/python -m pytest \
+  tests/test_build_premap_payload_cache_producer_state_stream_online_contract.py \
+  tests/test_premap_payload_cache_producer_stream_stub.py -q
+# 22 passed
+```
+
+## 2026-06-25 packet-stream gate fail-closed + PCIe x16 measured-copy refresh
+
+Two follow-up checks tightened the payload-cache packet-stream native gate.
+
+First, the lab preflight packet-stream evidence path is now fail-closed instead
+of shallow:
+
+```text
+payload_cache_producer_state_packet_stream_native_canary_json
+payload_cache_producer_state_packet_stream_native_canary_check_json
+```
+
+Both labels are explicitly routed through `_validate_required_evidence_payload`.
+The canary checker now rejects malformed safety fields such as
+`payload_bytes: false`, and requires materialized/native parity for packet count,
+expected issue-candidate count, state-override count, and previous-nonempty
+packet count.  The check artifact also carries and validates the previous
+non-empty count, so it no longer relies on a forged comparison flag.
+
+Validation:
+
+```bash
+PYTHONNOUSERSITE=1 /home/husrcf/anaconda3/envs/TRY/bin/python -m pytest \
+  tests/test_check_premap_payload_cache_packet_stream_native_canary.py \
+  tests/test_run_premap_payload_cache_packet_stream_native_canary.py \
+  tests/test_premap_payload_cache_producer_stream_stub.py \
+  tests/test_run_premap_lab_preflight.py -q
+# 278 passed before the second fail-closed patch
+
+PYTHONNOUSERSITE=1 /home/husrcf/anaconda3/envs/TRY/bin/python -m pytest \
+  tests/test_check_premap_payload_cache_packet_stream_native_canary.py \
+  tests/test_run_premap_lab_preflight.py -q
+# 260 passed after the second fail-closed patch
+
+PYTHONNOUSERSITE=1 /home/husrcf/anaconda3/envs/TRY/bin/python -m pytest \
+  tests/test_check_premap_payload_cache_packet_stream_native_canary.py \
+  tests/test_run_premap_lab_preflight.py -q
+# 264 passed after the native-count / bool-as-zero fail-closed patch
+
+PYTHONNOUSERSITE=1 /home/husrcf/anaconda3/envs/TRY/bin/python -m pytest \
+  tests/test_run_premap_payload_cache_packet_stream_native_canary.py \
+  tests/test_check_premap_payload_cache_packet_stream_native_canary.py \
+  tests/test_run_premap_lab_preflight.py -q
+# 279 passed after runner native.failures normalization
+
+PYTHONNOUSERSITE=1 /home/husrcf/anaconda3/envs/TRY/bin/python \
+  scripts/run_premap_lab_preflight.py \
+  --default-readonly-gate \
+    configs/runtime/premap_consumer_readonly_gate_dolly128_gen64_awq_w7900_gpu1_live_connected_readonly.yaml \
+  --canary-gate \
+    configs/runtime/premap_consumer_readonly_gate_dolly128_gen64_awq_w7900_gpu1_live_connected_blocked_canary.yaml \
+  --output-json \
+    outputs/reports/premap_kernel_consumer/lab_preflight_default_with_packet_stream_native_gate_failclosed_v4_20260625.json
+# passed = true, failures = []
+```
+
+The final packet-stream raw artifact was regenerated on GPU0 so that the native
+direct-call success path explicitly carries `native.failures = []`, matching the
+fail-closed checker contract:
+
+```text
+outputs/reports/premap_kernel_consumer/
+  payload_cache_producer_state_packet_stream_native_canary_shifted_issue_dolly4_gen64_v1.json
+  payload_cache_producer_state_packet_stream_native_canary_shifted_issue_dolly4_gen64_v1.native.json
+  payload_cache_producer_state_packet_stream_native_canary_shifted_issue_dolly4_gen64_v1.check.json
+
+native.failures = []
+native.gpu_elapsed_ms = 3.891483
+packet_count = 32
+issue_candidate_count = 224
+payload_bytes = 0
+ready_credit = false
+passed_to_kernel = false
+changes_kernel_launch_args = false
+uses_current_wna16_args = false
+```
+
+Second, after the PCIe link was repaired, GPU0 measured-copy was refreshed:
+
+```text
+outputs/reports/prefetch_action_replay/
+  measured_copy_gpu0_expert_transfer_pcie4x16_20260625.json
+
+device: GPU0 / W7900 / PCIe 4.0 x16
+conservative_h2d_gbps: 20.43
+large_batch_p50_h2d_gbps: 28.23
+8-expert pinned p95: 496.70us per batch, 62.09us per issue
+```
+
+This invalidates the old PCIe-x1 payload/full-fetch ready-time conclusion as a
+performance envelope.  The refreshed x16 issue-plan sweeps show that the
+measured-copy model can pass with about 1000us of issue-to-demand lookahead:
+
+```text
+outputs/reports/premap_kernel_consumer/
+  premap_payload_cache_issue_plan_executor_measured_copy_slack_sweep_gpu0_pcie4x16_20260625.json
+  premap_payload_cache_issue_plan_executor_measured_copy_lookahead_sweep_gpu0_pcie4x16_20260625.json
+  premap_payload_cache_full_fetch_decision_gate_gpu0_pcie4x16_dolly128_gen64_20260625.json
+  premap_payload_cache_full_fetch_decision_gate_gpu0_pcie4x16_dolly128_gen64_model_satisfied_20260625.json
+
+current envelope: 200us deadline / 0us lookahead
+decision: block_full_fetch_insufficient_ready_time_and_lookahead
+
+model-satisfied envelope: 200us deadline / 1000us lookahead
+decision: model_ready_time_route_satisfied_runtime_still_disabled
+full_fetch_runtime_allowed: false
+payload_bytes: 0
+ready_credit: false
+passed_to_kernel: false
+changes_kernel_launch_args: false
+```
+
+The updated interpretation is therefore not "PCIe makes full_fetch impossible".
+It is: with PCIe x16, full_fetch becomes plausible only if the producer can issue
+roughly 1000us before demand and a real payload runtime is implemented.  Until
+then, lab default remains premap/descriptor-prep, with full payload fetch
+disabled.
+
+2026-06-24 packet-stream native gate:
+the manifest-backed payload-cache producer-state canary is no longer
+runtime-blocked.  With elevated GPU device access, the online packet export
+manifest was materialized into the v2 binary packet stream and consumed by the
+native HIP graph-replay stub.
+
+Current evidence:
+
+```text
+outputs/reports/premap_kernel_consumer/
+  payload_cache_producer_state_packet_stream_shifted_issue_dolly4_gen64_v1.bin
+  payload_cache_producer_state_packet_stream_native_canary_shifted_issue_dolly4_gen64_v1.json
+  payload_cache_producer_state_packet_stream_native_canary_shifted_issue_dolly4_gen64_v1.native.json
+  payload_cache_producer_state_packet_stream_native_canary_shifted_issue_dolly4_gen64_v1.check.json
+  lab_preflight_default_with_packet_stream_native_gate_20260624.json
+
+packet_count = 32
+state_override_count = 31
+issue_candidate_count = 224
+state_mismatch_count = 0
+issue_expert_mismatch_count = 0
+native_graph_replay = true
+persistent_state_on_device = true
+issue_generation_on_device = true
+payload_bytes = 0
+ready_credit = false
+passed_to_kernel = false
+changes_kernel_launch_args = false
+uses_current_wna16_args = false
+passes_current_wna16_args = false
+passed = true
+failures = []
+```
+
+The default lab gate now treats both packet-stream artifacts as required
+evidence:
+
+```text
+payload_cache_producer_state_packet_stream_native_canary_json
+payload_cache_producer_state_packet_stream_native_canary_check_json
+```
+
+This upgrades the producer-state stream evidence from synthetic dense graph
+replay to a real online packet-manifest replay contract, while still keeping
+the safety boundary closed: no payload transfer, no ready credit, and no current
+WNA16 kernel-arg pass.
+
+Validation:
+
+```bash
+PYTHONNOUSERSITE=1 /home/husrcf/anaconda3/envs/TRY/bin/python \
+  scripts/run_premap_payload_cache_packet_stream_native_canary.py \
+  --manifest-json \
+    outputs/reports/premap_kernel_consumer/premap_payload_cache_packet_export_manifest_shifted_issue_runtime_shadow_dolly4_gen64_v1.json \
+  --packet-stream-bin \
+    outputs/reports/premap_kernel_consumer/payload_cache_producer_state_packet_stream_shifted_issue_dolly4_gen64_v1.bin \
+  --native-output-json \
+    outputs/reports/premap_kernel_consumer/payload_cache_producer_state_packet_stream_native_canary_shifted_issue_dolly4_gen64_v1.native.json \
+  --output-json \
+    outputs/reports/premap_kernel_consumer/payload_cache_producer_state_packet_stream_native_canary_shifted_issue_dolly4_gen64_v1.json \
+  --device 0
+# passed = true, failures = []
+
+PYTHONNOUSERSITE=1 /home/husrcf/anaconda3/envs/TRY/bin/python \
+  scripts/check_premap_payload_cache_packet_stream_native_canary.py \
+  --canary-json \
+    outputs/reports/premap_kernel_consumer/payload_cache_producer_state_packet_stream_native_canary_shifted_issue_dolly4_gen64_v1.json \
+  --output-json \
+    outputs/reports/premap_kernel_consumer/payload_cache_producer_state_packet_stream_native_canary_shifted_issue_dolly4_gen64_v1.check.json
+# passed = true, failures = []
+
+PYTHONNOUSERSITE=1 /home/husrcf/anaconda3/envs/TRY/bin/python -m pytest \
+  tests/test_run_premap_lab_preflight.py \
+  tests/test_check_premap_payload_cache_packet_stream_native_canary.py \
+  tests/test_run_premap_payload_cache_packet_stream_native_canary.py \
+  tests/test_premap_payload_cache_producer_stream_stub.py -q
+# 272 passed
+
+PYTHONNOUSERSITE=1 /home/husrcf/anaconda3/envs/TRY/bin/python \
+  scripts/run_premap_lab_preflight.py \
+  --default-readonly-gate \
+    configs/runtime/premap_consumer_readonly_gate_dolly128_gen64_awq_w7900_gpu1_live_connected_readonly.yaml \
+  --canary-gate \
+    configs/runtime/premap_consumer_readonly_gate_dolly128_gen64_awq_w7900_gpu1_live_connected_blocked_canary.yaml \
+  --output-json \
+    outputs/reports/premap_kernel_consumer/lab_preflight_default_with_packet_stream_native_gate_20260624.json
+# passed = true, required evidence = 60/60
+```
+
+### Manifest-backed native packet-stream producer canary
+
+The native producer-state canary now has a second input mode that consumes the
+real online packet export manifest instead of a synthetic `steps x layers`
+expert stream.  The new path materializes a compact packet stream:
+
+```text
+header:
+  magic / version
+  packet_count
+  layer_count
+  max_experts_per_packet
+  transition_topk_count
+  max_num_experts
+
+arrays:
+  packet_layer_ids[]
+  packet_current_counts[]
+  packet_previous_counts[]
+  packet_issue_counts[]
+  packet_state_override_flags[]
+  packet_current_experts[packet_count][max_experts_per_packet]
+  packet_previous_experts[packet_count][max_experts_per_packet]
+  packet_issue_experts[packet_count][max_experts_per_packet]
+```
+
+`packet_previous_experts` and `packet_issue_experts` are explicit because the
+online export can be sparse/strided.  A count-only replay is not sufficient: the
+native branch must verify that generated issue expert IDs match the online
+packet's previous-topk issue rows.  `packet_state_override_flags` marks packets
+where the sparse export's `previous_experts` does not match the previous
+exported packet's `current_experts`; this prevents the canary from pretending
+that a sampled stream is a contiguous per-token replay.
+
+New entry points:
+
+```text
+scripts/run_premap_payload_cache_packet_stream_native_canary.py
+microbench/premap_kernel_consumer/premap_payload_cache_producer_state_stream_stub.hip
+```
+
+Validation:
+
+```bash
+PYTHONNOUSERSITE=1 /home/husrcf/anaconda3/envs/TRY/bin/python -m py_compile \
+  scripts/run_premap_payload_cache_packet_stream_native_canary.py \
+  scripts/run_premap_payload_cache_producer_state_stream_stub.py \
+  tests/test_run_premap_payload_cache_packet_stream_native_canary.py \
+  tests/test_premap_payload_cache_producer_stream_stub.py
+
+PYTHONNOUSERSITE=1 /home/husrcf/anaconda3/envs/TRY/bin/python -m pytest \
+  tests/test_premap_payload_cache_producer_stream_stub.py \
+  tests/test_run_premap_payload_cache_packet_stream_native_canary.py \
+  tests/test_build_premap_payload_cache_producer_state_stream_online_contract.py \
+  tests/test_build_premap_payload_cache_stream_producer_production_ab_report.py \
+  tests/test_check_premap_payload_cache_stream_producer_ab_bridge.py \
+  tests/test_run_premap_lab_preflight.py -q
+# 295 passed
+
+git diff --check
+# clean
+```
+
+The real manifest materializer produced:
+
+```text
+outputs/reports/premap_kernel_consumer/
+  payload_cache_producer_state_packet_stream_shifted_issue_dolly4_gen64_v1.bin
+  payload_cache_producer_state_packet_stream_native_canary_shifted_issue_dolly4_gen64_v1.json
+  payload_cache_producer_state_packet_stream_native_canary_shifted_issue_dolly4_gen64_v1.native.json
+
+materialized packet_count = 32
+materialized state_override_count = 31
+expected_previous_nonempty_packet_count = 28
+expected_issue_candidate_count = 224
+```
+
+The Python materializer now rejects unsafe manifests/packets with payload,
+ready-credit, current-WNA16 compatibility, out-of-range experts, or issue rows
+that are not equal to `previous_experts[:transition_topk_count]`.  The native
+reader rejects trailing bytes and expert-domain violations.  This addresses the
+review concern that the previous packet-stream canary only proved
+count-compatible replay.
+
+Review follow-up:
+
+```text
+GPT-5.5 high review found the original v1 packet-stream canary insufficient:
+it serialized only current rows, compared aggregate counts, and could miss
+sparse/strided export state pollution.
+
+Fix:
+  packet stream ABI v2 includes previous rows and issue rows.
+  native packet replay validates issue expert IDs.
+  native packet replay validates the full previous row, not only issue top-k.
+  materializer rejects payload/ready/current-WNA unsafe manifests and packets.
+  native output now emits the full safety envelope:
+    payload_transfer_enabled=false
+    payload_deref_allowed=false
+    ready_before_demand_credit=false
+    real_ready_credit_granted=false
+    measures_tpot=false
+    measures_vllm_latency=false
+
+Follow-up review reported no remaining blockers.
+```
+
+The packet-stream canary now also has a dedicated checker:
+
+```text
+scripts/check_premap_payload_cache_packet_stream_native_canary.py
+tests/test_check_premap_payload_cache_packet_stream_native_canary.py
+```
+
+The checker rejects `native_runtime_blocked` artifacts and only accepts a real
+passed native packet-stream run with:
+
+```text
+native_graph_replay = true
+packet_stream_input = true
+persistent_state_on_device = true
+issue_generation_on_device = true
+packet_count_match = true
+previous_nonempty_packet_count_match = true
+issue_candidate_count_match = true
+expected_issue_candidate_count_match = true
+state_override_count_match = true
+state_mismatch_count_zero = true
+issue_expert_mismatch_count_zero = true
+```
+
+The current local artifact is intentionally rejected because HIP runtime is not
+available:
+
+```text
+outputs/reports/premap_kernel_consumer/
+  payload_cache_producer_state_packet_stream_native_canary_shifted_issue_dolly4_gen64_v1.json
+  payload_cache_producer_state_packet_stream_native_canary_shifted_issue_dolly4_gen64_v1.check.json
+
+check passed = false
+failures =
+  report_not_passed
+  report_failures_not_empty
+  native_runtime_blocked
+```
+
+Validation:
+
+```bash
+PYTHONNOUSERSITE=1 /home/husrcf/anaconda3/envs/TRY/bin/python -m pytest \
+  tests/test_check_premap_payload_cache_packet_stream_native_canary.py \
+  tests/test_run_premap_payload_cache_packet_stream_native_canary.py \
+  tests/test_premap_payload_cache_producer_stream_stub.py -q
+# 24 passed
+```
+
+Additional GPT-5.5 review found checker hardening gaps and all were fixed:
+
+```text
+1. The runner now emits a full top-level safety envelope, not only native output.
+2. The checker directly compares native vs materialized counts instead of only
+   trusting the `comparisons` booleans:
+     packet_count
+     previous_nonempty_packet_count
+     issue_candidate_count
+     expected_issue_candidate_count
+     state_override_count
+3. The materializer enforces `checked_packet_count == len(online_packet_export_paths)`
+   before writing the binary packet stream.
+```
+
+Added tests:
+
+```text
+missing top-level safety field -> rejected
+forged comparison booleans with mismatched counts -> rejected
+checked_packet_count mismatch -> rejected
+```
+
+The host-side materialization and HIP compilation path are valid, but the live
+native execution is currently blocked by the local ROCm device visibility:
+
+```text
+hipSetDevice: no ROCm-capable device is detected
+```
+
+So this is not yet a passed runtime canary.  The next retry should rerun the
+same artifact when HIP device initialization is healthy; success requires
+`packet_count`, `previous_nonempty_packet_count`, and `issue_candidate_count` to
+match the manifest while keeping `payload_bytes = 0`, `ready_credit = false`,
+`passed_to_kernel = false`, and current WNA16 args disconnected.
+
+2026-06-24 graph-replay producer-state tightening:
+the default lab gate now treats the native stream producer as the required
+evidence for graph-visible transition-state / issue generation.  The old eager
+and Python online bridge artifacts remain diagnostic-only because they either
+depend on Python prelaunch state or show graph-warmup replay boundary gaps.
+
+The online-contract bridge was updated so any regenerated diagnostic contract
+also invokes the native HIP graph-replay producer by default:
+
+```text
+native_stream_graph_replay_required = true
+native_stream_graph_replay = true
+native_stream_requested_graph_replay = true
+```
+
+`--no-graph-replay` exists only as an explicit diagnostic escape hatch.  The
+preflight validator rejects an online-contract artifact that claims to be
+graph-replay-ready without those fields.  The default readonly lab gate still
+requires only the native graph-replay stream canary, not the old online bridge:
+
+```text
+required evidence rows = 58
+payload_cache_producer_state_stream_native_canary_json = required + passed
+payload_cache_producer_state_stream_online_contract_json = diagnostic-only
+```
+
+New diagnostic evidence:
+
+```text
+outputs/reports/premap_kernel_consumer/
+  payload_cache_producer_state_stream_online_contract_eager_dolly32_gen64_online_identity_graph_replay_required_20260624.json
+  payload_cache_producer_state_stream_online_contract_eager_dolly32_gen64_online_identity_graph_replay_required_20260624.native.json
+
+native_stream_graph_replay = true
+native_stream_requested_graph_replay = true
+native_stream_issue_candidate_count = 20160
+payload_bytes = 0
+ready_credit = false
+passed_to_kernel = false
+changes_kernel_launch_args = false
+uses_current_wna16_args = false
+passes_current_wna16_args = false
+```
+
+Validation:
+
+```bash
+PYTHONNOUSERSITE=1 /home/husrcf/anaconda3/envs/TRY/bin/python -m py_compile \
+  scripts/build_premap_payload_cache_producer_state_stream_online_contract.py \
+  scripts/run_premap_lab_preflight.py \
+  tests/test_build_premap_payload_cache_producer_state_stream_online_contract.py \
+  tests/test_run_premap_lab_preflight.py
+# passed
+
+PYTHONNOUSERSITE=1 /home/husrcf/anaconda3/envs/TRY/bin/python -m pytest \
+  tests/test_build_premap_payload_cache_producer_state_stream_online_contract.py -q
+# 13 passed
+
+PYTHONNOUSERSITE=1 /home/husrcf/anaconda3/envs/TRY/bin/python -m pytest \
+  tests/test_run_premap_lab_preflight.py -q
+# 237 passed
+
+PYTHONNOUSERSITE=1 /home/husrcf/anaconda3/envs/TRY/bin/python \
+  scripts/run_premap_lab_preflight.py \
+  --default-readonly-gate \
+    configs/runtime/premap_consumer_readonly_gate_dolly128_gen64_awq_w7900_gpu1_live_connected_readonly.yaml \
+  --output-json \
+    outputs/reports/premap_kernel_consumer/premap_lab_preflight_graph_replay_stream_native_gate_required_20260624_after_online_bridge_graph_replay.json
+# passed = true, failures = []
+```
+
+GPT-5.5 high review found no blocker or medium/high issue.  Two low-severity
+maintenance items were addressed:
+
+```text
+1. parser behavior is now locked by test:
+   default graph_replay = true
+   --no-graph-replay = false
+   repeated flags follow argparse's last-one-wins behavior
+
+2. the online-contract preflight fixture now matches the builder's dimension
+   source taxonomy:
+   required layer source = transition_native_packet_unique_layer_count
+   online_stream_contract_layers is optional, not a required source
+```
+
+Post-review validation:
+
+```bash
+PYTHONNOUSERSITE=1 /home/husrcf/anaconda3/envs/TRY/bin/python -m pytest \
+  tests/test_build_premap_payload_cache_producer_state_stream_online_contract.py -q
+# 14 passed
+
+PYTHONNOUSERSITE=1 /home/husrcf/anaconda3/envs/TRY/bin/python -m pytest \
+  tests/test_run_premap_lab_preflight.py -q
+# 237 passed
+```
+
+The production-like A/B bridge is also graph-replay-aware now: it requires
+the online stream contract to carry graph-replay native producer evidence before
+it will accept the diagnostic report.
+
+The regenerated eager online-identity bridge remains negative evidence, as
+expected:
+
+```text
+outputs/reports/premap_kernel_consumer/
+  payload_cache_stream_producer_eager_ab_bridge_dolly32_gen64_online_identity_graph_replay_required_20260624.json
+
+online_contract_passed = true
+native_stream_graph_replay = true
+native_stream_requested_graph_replay = true
+payload_bytes = 0
+passed_to_kernel = false
+changes_kernel_launch_args = false
+passed = false
+failures = ["tpot_overhead_over_threshold"]
+candidate_overhead_ratio = 0.9250901245858347
+```
+
+This preserves the current boundary:
+
+```text
+native HIP graph-replay producer-state/issue generation = valid gate evidence
+old eager/Python online producer A/B path = diagnostic negative evidence
+current WNA16 endpoint TPOT claim = not supported by this path
+```
+
+The default readonly gate config now points its diagnostic A/B bridge row to
+that graph-replay-required artifact.  The path remains diagnostic-only; the
+required default gate is unchanged and still passes:
+
+```text
+outputs/reports/premap_kernel_consumer/
+  premap_lab_preflight_graph_replay_stream_native_gate_required_20260624_after_ab_bridge_graph_replay.json
+
+passed = true
+failures = []
+required evidence = 58 / 58 passed
+payload_cache_producer_state_stream_native_canary_json = required + passed
+payload_cache_stream_producer_production_ab_bridge_json = diagnostic-only
+```
+
+Follow-up review found one medium-risk maintenance gap: although the A/B
+report builder rejected non-graph-replay contracts, the downstream A/B checker
+and preflight validator could still accept an old positive A/B artifact without
+graph-replay fields if it were ever promoted to required evidence.  This is now
+closed:
+
+```text
+payload_cache_stream_producer_production_ab_bridge_json requires:
+  native_stream_graph_replay_required = true
+  native_stream_graph_replay = true
+  native_stream_requested_graph_replay = true
+
+payload_cache_stream_producer_production_ab_bridge_check_json also requires
+the same three fields.
+```
+
+The A/B builder now also treats `contract["passed"]` strictly as `is True`;
+string-like truthy values no longer pass.  The regenerated A/B check artifact
+is still negative only because the eager path is too slow:
+
+```text
+outputs/reports/premap_kernel_consumer/
+  payload_cache_stream_producer_eager_ab_bridge_dolly32_gen64_online_identity_graph_replay_required_20260624.check.json
+
+passed = false
+failures = [
+  "report_not_passed",
+  "report_failures_not_empty",
+  "candidate_overhead_ratio_over_threshold"
+]
+native_stream_graph_replay_required = true
+native_stream_graph_replay = true
+native_stream_requested_graph_replay = true
+```
+
+Validation:
+
+```bash
+PYTHONNOUSERSITE=1 /home/husrcf/anaconda3/envs/TRY/bin/python -m pytest \
+  tests/test_build_premap_payload_cache_stream_producer_production_ab_report.py \
+  tests/test_check_premap_payload_cache_stream_producer_ab_bridge.py -q
+# 31 passed
+
+PYTHONNOUSERSITE=1 /home/husrcf/anaconda3/envs/TRY/bin/python -m pytest \
+  tests/test_run_premap_lab_preflight.py -q
+# 239 passed
+
+PYTHONNOUSERSITE=1 /home/husrcf/anaconda3/envs/TRY/bin/python \
+  scripts/run_premap_lab_preflight.py \
+  --default-readonly-gate \
+    configs/runtime/premap_consumer_readonly_gate_dolly128_gen64_awq_w7900_gpu1_live_connected_readonly.yaml \
+  --output-json \
+    outputs/reports/premap_kernel_consumer/premap_lab_preflight_graph_replay_stream_native_gate_required_20260624_after_ab_checker_graph_replay.json
+# passed = true, failures = []
+```
+
+2026-06-24 follow-up:
+the payload/cache producer-state lab gate was re-scoped after the online graph
+visibility checks showed the old eager/Python producer path was not
+production-compatible.  The default lab precondition now treats the native HIP
+graph-replay stream producer canary as the required evidence and keeps the old
+Python/eager stream producer artifacts only as diagnostic negative evidence.
+
+Required evidence:
+
+```text
+payload_cache_producer_state_stream_native_canary_json:
+  outputs/reports/premap_kernel_consumer/
+    payload_cache_producer_state_stream_stub_graph_replay_dolly32_gen64_20260624.json
+
+passed = true
+native_graph_replay = true
+requested_graph_replay = true
+packet_count = 2560
+previous_nonempty_packet_count = 2520
+issue_candidate_count = 20160
+expected_issue_candidate_count = 20160
+payload_bytes = 0
+ready_credit = false
+passed_to_kernel = false
+changes_kernel_launch_args = false
+uses_current_wna16_args = false
+passes_current_wna16_args = false
+```
+
+Diagnostic-only negative evidence:
+
+```text
+payload_cache_producer_state_stream_online_contract_json
+payload_cache_stream_producer_production_ab_bridge_json
+payload_cache_stream_producer_production_ab_bridge_check_json
+```
+
+These remain recorded in `diagnostic_evidence_paths`, but they are no longer
+required lab preconditions because they represent the retired Python/eager path
+whose overhead and graph-boundary behavior are not production-compatible.
+
+Validation:
+
+```bash
+PYTHONNOUSERSITE=1 /home/husrcf/anaconda3/envs/TRY/bin/python -m py_compile \
+  scripts/run_premap_lab_preflight.py \
+  tests/test_run_premap_lab_preflight.py \
+  src/mtp_expert_prefetch/tracing/vllm_router_trace.py \
+  scripts/run_awq_telemetry_ladder.py \
+  scripts/run_premap_payload_cache_producer_state_stream_stub.py
+# passed
+
+PYTHONNOUSERSITE=1 /home/husrcf/anaconda3/envs/TRY/bin/python -m pytest \
+  tests/test_run_premap_lab_preflight.py -q
+# 235 passed
+
+PYTHONNOUSERSITE=1 /home/husrcf/anaconda3/envs/TRY/bin/python \
+  scripts/run_premap_lab_preflight.py \
+  --default-readonly-gate \
+    configs/runtime/premap_consumer_readonly_gate_dolly128_gen64_awq_w7900_gpu1_live_connected_readonly.yaml \
+  --output-json \
+    outputs/reports/premap_kernel_consumer/premap_lab_preflight_graph_replay_stream_native_gate_required_20260624.json
+# passed = true, failures = []
+```
+
+The current boundary remains conservative: the native producer canary updates
+producer transition state and issue generation under HIP graph replay, but it
+does not move payload, grant ready credit, pass current WNA16 kernel args, or
+change kernel launch arguments.
+
+Review follow-up:
+a GPT-5.5 high code-review subagent found no blocker, but flagged that the
+native stream canary validator trusted the artifact-provided
+`expected_issue_candidate_count` without independently recomputing the stream
+formula.  The validator now requires:
+
+```text
+issue_candidate_count
+== expected_issue_candidate_count
+== max(0, steps - 1) * layers * transition_topk_count
+```
+
+and a regression test rejects artifacts where `issue_candidate_count` and
+`expected_issue_candidate_count` are both wrong but equal.
+
+Validation:
+
+```bash
+PYTHONNOUSERSITE=1 /home/husrcf/anaconda3/envs/TRY/bin/python -m pytest \
+  tests/test_run_premap_lab_preflight.py::test_premap_lab_preflight_accepts_payload_cache_producer_state_stream_native_canary \
+  tests/test_run_premap_lab_preflight.py::test_premap_lab_preflight_dispatch_accepts_payload_cache_producer_state_stream_native_canary \
+  tests/test_run_premap_lab_preflight.py::test_premap_lab_preflight_rejects_payload_cache_producer_state_stream_issue_mismatch \
+  tests/test_run_premap_lab_preflight.py::test_premap_lab_preflight_rejects_payload_cache_producer_state_stream_issue_formula_mismatch \
+  tests/test_run_premap_lab_preflight.py::test_premap_lab_preflight_rejects_payload_cache_producer_state_stream_without_graph_replay -q
+# 5 passed
+
+PYTHONNOUSERSITE=1 /home/husrcf/anaconda3/envs/TRY/bin/python -m pytest \
+  tests/test_run_premap_lab_preflight.py -q
+# 236 passed
+```
+
+### 2026-06-24: producer-state graph replay gate tightened again
+
+The old graph-warmup producer evidence is now superseded.  A stricter online
+stream contract compares observed producer packets against the true
+`sample_count * requested_output_tokens_per_sample * layer_count` envelope.
+Under that contract the Python prelaunch producer path is blocked in
+graph-warmup mode:
+
+```text
+outputs/reports/awq_telemetry_ladder/
+  gpu1_payload_cache_producer_online_identity_graph_blocked_dolly32_gen64_20260624/
+    production_batch_premap_payload_cache_ready_time_graph_warmup_producer_counter_off_reuse_llm/
+      repeat_00/performance_summary.json
+
+online_stream_contract_passed = false
+observed_packet_count = 40
+expected_packet_count = 2560
+observed_previous_nonempty_packet_count = 0
+expected_previous_nonempty_packet_count = 2520
+observed_issue_candidate_count = 0
+expected_issue_candidate_count = 20160
+```
+
+The same strict contract passes in eager mode, but that path is not
+production-compatible:
+
+```text
+outputs/reports/awq_telemetry_ladder/
+  gpu1_payload_cache_producer_online_identity_eager_dolly32_gen64_20260624/
+    production_batch_premap_payload_cache_ready_time_producer_counter_off_reuse_llm/
+      repeat_00/performance_summary.json
+
+online_stream_contract_passed = true
+observed_packet_count = 2560
+expected_packet_count = 2560
+observed_previous_nonempty_packet_count = 2520
+expected_previous_nonempty_packet_count = 2520
+observed_issue_candidate_count = 20160
+expected_issue_candidate_count = 20160
+TPOT = 0.006814s/token
+```
+
+A first graph-visible torch tensor producer canary was added and tested in:
+
+```text
+outputs/reports/awq_telemetry_ladder/
+  gpu1_payload_cache_graph_visible_producer_dolly32_gen64_20260624/
+    production_batch_premap_payload_cache_ready_time_graph_warmup_graph_visible_producer_counter_off_reuse_llm/
+      repeat_00/performance_summary.json
+```
+
+It also remains blocked:
+
+```text
+graph_visible_producer_contract_enabled = true
+graph_visible_producer_contract_present = true
+graph_visible_producer_contract_passed = false
+graph_visible_producer_contract_failures =
+  observed_packet_count_mismatch
+  observed_previous_nonempty_packet_count_mismatch
+  observed_issue_candidate_count_mismatch
+
+observed_packet_count = 40
+expected_packet_count = 2560
+observed_previous_nonempty_packet_count = 0
+expected_previous_nonempty_packet_count = 2520
+observed_issue_candidate_count = 0
+expected_issue_candidate_count = 20160
+```
+
+This shows that `_prepare_expert_assignment` / Python prelaunch hooks are outside
+the replayed graph boundary for this vLLM/AWQ path.  Adding torch tensor ops in
+that hook does not make transition state or issue generation graph-visible.
+
+Current gate:
+
+```text
+payload/cache producer state in Python prelaunch:
+  eager semantic contract passes
+  graph replay contract fails
+
+torch tensor graph-visible producer in Python prelaunch:
+  graph replay contract fails
+
+next gate:
+  move transition state / issue generation into a true native or graph-captured
+  producer op inside the execution graph; do not treat the current Python
+  prelaunch producer as production-compatible.
+```
+
+The standalone native stream stub still passes under the same Dolly32/gen64
+shape:
+
+```text
+outputs/reports/premap_kernel_consumer/
+  payload_cache_producer_state_stream_stub_dolly32_gen64_graph_visible_next_gate_20260624.json
+
+passed = true
+packet_count = 2560
+previous_nonempty_packet_count = 2520
+issue_candidate_count = 20160
+expected_issue_candidate_count = 20160
+persistent_state_on_device = true
+issue_generation_on_device = true
+vectorized_copy_used = true
+gpu_elapsed_ms = 0.83839
+payload_bytes = 0
+passed_to_kernel = false
+changes_kernel_launch_args = false
+uses_current_wna16_args = false
+passes_current_wna16_args = false
+```
+
+Combined gap artifact:
+
+```text
+outputs/reports/premap_kernel_consumer/
+  payload_cache_graph_visible_native_producer_gap_dolly32_gen64_20260624.json
+
+passed = false
+status = blocked_until_true_native_or_graph_captured_producer_op
+```
+
+After preserving the graph-visible tensor buffers across recorder `clear()`, the
+online canary was rerun:
+
+```text
+outputs/reports/awq_telemetry_ladder/
+  gpu1_payload_cache_graph_visible_producer_lifetime_fix_dolly32_gen64_20260624/
+    production_batch_premap_payload_cache_ready_time_graph_warmup_graph_visible_producer_counter_off_reuse_llm/
+      repeat_00/performance_summary.json
+
+graph_visible_producer_contract_passed = false
+observed_packet_count = 40
+expected_packet_count = 2560
+observed_previous_nonempty_packet_count = 0
+expected_previous_nonempty_packet_count = 2520
+observed_issue_candidate_count = 0
+expected_issue_candidate_count = 20160
+```
+
+Updated combined gap artifact:
+
+```text
+outputs/reports/premap_kernel_consumer/
+  payload_cache_graph_visible_native_producer_gap_lifetime_fix_dolly32_gen64_20260624.json
+
+passed = false
+lifetime_fix_applied = true
+status = blocked_until_true_native_or_graph_captured_producer_op
+```
+
+Interpretation:
+
+```text
+Native/GPU-side producer-state stream works as an isolated ABI stub.
+The online Python prelaunch hook is outside the replayed graph boundary, even
+after keeping graph-visible tensor buffers alive across clear().
+Therefore the next implementation must be a true native/custom op or a vLLM
+graph-captured producer path, not more Python-hook tensor bookkeeping.
+```
+
+The native producer-state stub now also has an explicit HIP graph replay mode.
+It captures a single-step producer update kernel plus a step-increment kernel,
+then replays the graph 64 times:
+
+```text
+outputs/reports/premap_kernel_consumer/
+  payload_cache_producer_state_stream_stub_graph_replay_dolly32_gen64_20260624.json
+
+passed = true
+native_graph_replay = true
+packet_count = 2560
+previous_nonempty_packet_count = 2520
+issue_candidate_count = 20160
+expected_issue_candidate_count = 20160
+persistent_state_on_device = true
+issue_generation_on_device = true
+vectorized_copy_used = true
+gpu_elapsed_ms = 3.684549
+payload_bytes = 0
+passed_to_kernel = false
+changes_kernel_launch_args = false
+uses_current_wna16_args = false
+passes_current_wna16_args = false
+```
+
+This narrows the implementation gap:
+
+```text
+native producer-state op is graph-replay-capable in isolation;
+vLLM Python prelaunch hook is not graph-replay-visible.
+
+Next gate:
+connect an equivalent native producer op at a vLLM graph-captured boundary,
+or expose an explicit future WNA16/producer-side typed slot where the native op
+is launched as part of the graph, still with payload/kernel-arg mutation off.
+```
+
+2026-06-24 follow-up: the online producer stream contract was tightened after a
+fresh GPU1 Dolly32/gen64 graph-warmup smoke showed that CUDA-graph production
+only observes one producer packet per layer:
+
+```text
+graph-warmup producer observed:
+  transition_native_packet_count = 40
+  requested_output_token_count = 2048
+  steps = 64
+  unique_layer_count = 40
+  expected_packet_count = 2560
+```
+
+The older bridge derived `expected_issue_candidate_count` from decode geometry
+and could incorrectly mark this graph-only observation as a passing online
+stream.  The gate now records real producer packet counters:
+
+```text
+transition_native_packet_unique_layer_count
+transition_native_packet_previous_nonempty_count
+transition_native_packet_issue_candidate_count
+transition_native_packet_last_issue_candidate_{count,first,last,hash}
+
+online_stream_contract_observed_packet_count
+online_stream_contract_expected_packet_count
+online_stream_contract_observed_previous_nonempty_packet_count
+online_stream_contract_expected_previous_nonempty_packet_count
+online_stream_contract_observed_issue_candidate_count
+online_stream_contract_expected_issue_candidate_count
+```
+
+and requires observed packet/previous-nonempty/issue counts to match the decode
+geometry.  With the tightened gate:
+
+```text
+graph-warmup producer stream:
+  passed = false
+  reason = observed packet/previous/issue mismatch
+
+eager producer stream:
+  observed_packet_count = 2560
+  expected_packet_count = 2560
+  observed_previous_nonempty_packet_count = 2520
+  expected_previous_nonempty_packet_count = 2520
+  observed_issue_candidate_count = 20160
+  expected_issue_candidate_count = 20160
+  last_issue_candidate_present = true
+  online/native contract passed = true
+```
+
+Evidence:
+
+```text
+outputs/reports/awq_telemetry_ladder/
+  gpu1_payload_cache_producer_online_identity_dolly32_gen64_20260624/
+  gpu1_payload_cache_producer_online_identity_eager_dolly32_gen64_20260624/
+  gpu1_payload_cache_producer_online_identity_eager_baseline_dolly32_gen64_20260624/
+
+outputs/reports/premap_kernel_consumer/
+  payload_cache_producer_state_stream_online_contract_graph_blocked_dolly32_gen64_20260624.json
+  payload_cache_producer_state_stream_online_contract_graph_blocked_dolly32_gen64_20260624.native.json
+  payload_cache_producer_state_stream_online_contract_eager_dolly32_gen64_online_identity_20260624.json
+  payload_cache_stream_producer_eager_ab_bridge_dolly32_gen64_online_identity_20260624.json
+  payload_cache_stream_producer_eager_ab_bridge_dolly32_gen64_online_identity_20260624.check.json
+  premap_lab_preflight_payload_cache_stream_online_contract_gate_check_eager_blocked_20260624.json
+```
+
+The eager stream proves the online producer issue-state semantics, but it is not
+production-compatible as an execution path:
+
+```text
+eager baseline TPOT   = 0.003540 s/token
+eager producer TPOT   = 0.006814 s/token
+candidate overhead    = +92.5%
+A/B bridge passed     = false
+failure               = tpot_overhead_over_threshold
+```
+
+Current boundary:
+
+```text
+semantic online producer stream: passed in eager
+production graph online stream: not passed; producer state is not invoked per token
+production-like A/B: failed due Python/eager overhead
+payload_bytes = 0
+ready_credit = false
+passed_to_kernel = false
+changes_kernel_launch_args = false
+```
+
+The default readonly lab gate now points at this stricter eager evidence instead
+of the superseded graph-warmup bridge.  As expected, the preflight is currently
+blocked:
+
+```text
+passed = false
+top-level failure = default_readonly_gate_required_evidence_check_failed
+required evidence failures include:
+  payload_cache_producer_state_stream_online_contract_online_python_prelaunch_state_empty_mismatch
+  payload_cache_stream_producer_production_ab_bridge_json:not_passed
+  payload_cache_stream_producer_production_ab_bridge_check_json:not_passed
+```
+
+Next gate: move transition state / issue generation into a graph-visible
+native/producer path, not Python per-token prelaunch hooks.
+
+2026-06-24 second follow-up:
+the lightweight issue identity is now propagated beyond performance_summary into
+the online contract / A-B bridge / check artifact:
+
+```text
+online_transition_issue_last_candidate_present
+online_transition_issue_last_candidate_source
+online_transition_issue_last_candidate_count
+online_transition_issue_last_candidate_first_expert
+online_transition_issue_last_candidate_last_expert
+online_transition_issue_last_candidate_hash
+
+native_stream_first_issue_expert
+native_stream_last_issue_expert
+native_stream_issue_candidate_hash
+```
+
+The online last-candidate hash remains scoped to the most recent real online
+transition issue, not the native stream's full issue-candidate hash.  The native
+stream hash remains a separate independent canary summary.  Existing embedded32
+artifacts show `online_transition_issue_last_candidate_source = "absent"`
+because they were generated from an older performance summary without the new
+online identity fields; new online runs will populate these fields directly.
+
+Review also identified an edge case where manager-side issue failure after
+candidate construction could leave a stale last-candidate identity.  The
+prelaunch transition issue exception path now clears the identity before
+recording the error, and a regression test covers this manager-failure path.
+
+Updated validation:
+
+```bash
+PYTHONNOUSERSITE=1 /home/husrcf/anaconda3/envs/TRY/bin/python -m pytest \
+  tests/test_build_premap_payload_cache_producer_state_stream_online_contract.py \
+  tests/test_build_premap_payload_cache_stream_producer_production_ab_report.py \
+  tests/test_check_premap_payload_cache_stream_producer_ab_bridge.py \
+  tests/test_vllm_router_shadow_sink.py::test_premap_payload_cache_snapshot_embeds_online_stream_contract \
+  tests/test_vllm_router_shadow_sink.py::test_premap_payload_cache_transition_issue_identity_clears_on_non_issue_paths \
+  tests/test_vllm_router_shadow_sink.py::test_premap_payload_cache_transition_issue_identity_clears_on_manager_error \
+  tests/test_vllm_router_shadow_sink.py::test_premap_payload_cache_transition_issue_error_is_recorded \
+  tests/test_run_premap_lab_preflight.py::test_premap_lab_preflight_rejects_payload_cache_online_contract_native_stream_wna16_or_tpot \
+  tests/test_run_premap_lab_preflight.py::test_premap_lab_preflight_rejects_payload_cache_online_contract_missing_native_stream_flags \
+  tests/test_run_premap_lab_preflight.py::test_premap_lab_preflight_accepts_payload_cache_producer_state_stream_online_contract \
+  tests/test_run_premap_lab_preflight.py::test_premap_lab_preflight_dispatch_accepts_payload_cache_producer_state_stream_online_contract -q
+# 43 passed
+
+PYTHONNOUSERSITE=1 /home/husrcf/anaconda3/envs/TRY/bin/python -m pytest \
+  tests/test_run_premap_lab_preflight.py -q
+# 234 passed
+
+PYTHONNOUSERSITE=1 /home/husrcf/anaconda3/envs/TRY/bin/python \
+  scripts/run_premap_lab_preflight.py \
+  --default-readonly-gate \
+    configs/runtime/premap_consumer_readonly_gate_dolly128_gen64_awq_w7900_gpu1_live_connected_readonly.yaml \
+  --output-json \
+    outputs/reports/premap_kernel_consumer/premap_lab_preflight_payload_cache_stream_online_contract_gate_check_20260624.json
+# passed = true, failures = []
+```
+
+2026-06-24 follow-up:
+the online producer stream contract was tightened after review so the native
+stream cannot be silently mistaken for the measured WNA16/TPOT path.  The
+contract artifact now explicitly carries:
+
+```text
+native_stream_is_current_wna16_fused_moe = false
+native_stream_measures_tpot = false
+```
+
+and both the A/B bridge and default lab preflight require these fields to be
+present and false.  The regenerated evidence remains passing:
+
+```text
+outputs/reports/premap_kernel_consumer/
+  payload_cache_producer_state_stream_online_contract_graph_warmup_dolly32_gen64_embedded32_20260624.json
+  payload_cache_stream_producer_production_like_ab_bridge_dolly32_gen64_embedded32_20260624.json
+  payload_cache_stream_producer_production_like_ab_bridge_dolly32_gen64_embedded32_20260624.check.json
+  premap_lab_preflight_payload_cache_stream_online_contract_gate_check_20260624.json
+
+payload_bytes = 0
+ready_credit = false
+passed_to_kernel = false
+changes_kernel_launch_args = false
+uses_current_wna16_args = false
+passes_current_wna16_args = false
+native_stream_is_current_wna16_fused_moe = false
+native_stream_measures_tpot = false
+passed = true
+failures = []
+```
+
+The online performance summary also now exposes a lightweight transition issue
+identity summary:
+
+```text
+transition_issue_last_candidate_count
+transition_issue_last_candidate_first_expert
+transition_issue_last_candidate_last_expert
+transition_issue_last_candidate_hash
+```
+
+These fields are fail-clean: each issue entry clears the previous candidate
+identity before source filtering / empty-input / error handling, and only a real
+non-empty issue candidate writes the hash.  This avoids stale issue identity
+being reported after no-key, disallowed-source, or error paths.
+
+Validation:
+
+```bash
+PYTHONNOUSERSITE=1 /home/husrcf/anaconda3/envs/TRY/bin/python -m pytest \
+  tests/test_build_premap_payload_cache_stream_producer_production_ab_report.py \
+  tests/test_check_premap_payload_cache_stream_producer_ab_bridge.py \
+  tests/test_build_premap_payload_cache_producer_state_stream_online_contract.py \
+  tests/test_run_premap_lab_preflight.py::test_premap_lab_preflight_accepts_payload_cache_producer_state_stream_online_contract \
+  tests/test_run_premap_lab_preflight.py::test_premap_lab_preflight_dispatch_accepts_payload_cache_producer_state_stream_online_contract \
+  tests/test_run_premap_lab_preflight.py::test_premap_lab_preflight_accepts_payload_cache_stream_producer_ab_bridge \
+  tests/test_run_premap_lab_preflight.py::test_premap_lab_preflight_dispatch_accepts_payload_cache_stream_producer_ab_bridge \
+  tests/test_run_premap_lab_preflight.py::test_premap_lab_preflight_accepts_payload_cache_stream_producer_ab_bridge_check \
+  tests/test_run_premap_lab_preflight.py::test_premap_lab_preflight_dispatch_accepts_payload_cache_stream_producer_ab_bridge_check \
+  tests/test_vllm_router_shadow_sink.py::test_premap_payload_cache_prelaunch_observed_transition_issues_before_next_demand \
+  tests/test_vllm_router_shadow_sink.py::test_premap_payload_cache_producer_transition_owner_issues_before_next_demand \
+  tests/test_vllm_router_shadow_sink.py::test_premap_payload_cache_snapshot_embeds_online_stream_contract \
+  tests/test_vllm_router_shadow_sink.py::test_premap_payload_cache_transition_state_clear_is_sample_scoped \
+  tests/test_vllm_router_shadow_sink.py::test_premap_payload_cache_transition_issue_identity_clears_on_non_issue_paths -q
+# 45 passed
+
+PYTHONNOUSERSITE=1 /home/husrcf/anaconda3/envs/TRY/bin/python -m pytest \
+  tests/test_run_premap_lab_preflight.py::test_premap_lab_preflight_rejects_payload_cache_online_contract_native_stream_wna16_or_tpot \
+  tests/test_run_premap_lab_preflight.py::test_premap_lab_preflight_rejects_payload_cache_online_contract_missing_native_stream_flags \
+  tests/test_run_premap_lab_preflight.py::test_premap_lab_preflight_accepts_payload_cache_producer_state_stream_online_contract \
+  tests/test_run_premap_lab_preflight.py::test_premap_lab_preflight_dispatch_accepts_payload_cache_producer_state_stream_online_contract -q
+# 4 passed
+
+PYTHONNOUSERSITE=1 /home/husrcf/anaconda3/envs/TRY/bin/python -m pytest \
+  tests/test_run_premap_lab_preflight.py -q
+# 232 passed
+
+PYTHONNOUSERSITE=1 /home/husrcf/anaconda3/envs/TRY/bin/python \
+  scripts/run_premap_lab_preflight.py \
+  --default-readonly-gate \
+    configs/runtime/premap_consumer_readonly_gate_dolly128_gen64_awq_w7900_gpu1_live_connected_readonly.yaml \
+  --output-json \
+    outputs/reports/premap_kernel_consumer/premap_lab_preflight_payload_cache_stream_online_contract_gate_check_20260624.json
+# passed = true, failures = []
 ```

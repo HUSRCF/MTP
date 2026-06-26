@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import math
 from pathlib import Path
 import sys
 from typing import Any
@@ -31,6 +32,23 @@ from scripts.check_premap_kernel_consumer_schema import (
     FUTURE_KERNEL_NATIVE_CONSUMER_LAUNCH_ABI_LAYOUT_EXPECTED,
     FUTURE_KERNEL_NATIVE_CONSUMER_LAUNCH_ABI_LAYOUT_FIELDS,
     check_kernel_consumer_schema_artifact,
+)
+from scripts.check_premap_payload_cache_packet_stream_native_canary import (
+    check_packet_stream_native_canary,
+)
+from scripts.check_premap_prelaunch_pointer_source_observer import (
+    HANDOFF_BOOL_PREFIX as PRELAUNCH_POINTER_SOURCE_OBSERVER_HANDOFF_BOOL_PREFIX,
+    LIVE_MUTATION_COUNTER_PREFIX as PRELAUNCH_POINTER_SOURCE_OBSERVER_LIVE_MUTATION_COUNTER_PREFIX,
+    REQUIRED_BOOL_KEYS as PRELAUNCH_POINTER_SOURCE_OBSERVER_REQUIRED_BOOL_KEYS,
+    REQUIRED_INT_KEYS as PRELAUNCH_POINTER_SOURCE_OBSERVER_REQUIRED_INT_KEYS,
+    ZERO_INT_KEYS as PRELAUNCH_POINTER_SOURCE_OBSERVER_ZERO_INT_KEYS,
+)
+from scripts.check_premap_readonly_live_trusted_refs import (
+    ALLOWED_NONZERO_LIVE_MUTATION_COUNTER_KEYS as READONLY_LIVE_TRUSTED_REFS_ALLOWED_NONZERO_COUNTERS,
+    EXPECTED_STRING_VALUES as READONLY_LIVE_TRUSTED_REFS_EXPECTED_STRING_VALUES,
+    EXPECTED_TRUE_BOOL_KEYS as READONLY_LIVE_TRUSTED_REFS_EXPECTED_TRUE_BOOL_KEYS,
+    REQUIRED_FALSE_BOOL_KEYS as READONLY_LIVE_TRUSTED_REFS_REQUIRED_FALSE_BOOL_KEYS,
+    REQUIRED_INT_KEYS as READONLY_LIVE_TRUSTED_REFS_REQUIRED_INT_KEYS,
 )
 from scripts.check_gate_evidence_paths import check_gate_evidence_paths
 from scripts.check_prefetch_lab_default_gate import check_prefetch_lab_default_gate
@@ -263,6 +281,8 @@ REQUIRED_RISKY_CANARY_METADATA = {
     "lab_default": False,
 }
 REQUIRED_DEFAULT_GATE_EVIDENCE_JSON_LABELS = {
+    "prelaunch_pointer_source_observer_check_json",
+    "readonly_live_trusted_refs_check_json",
     "strict_live_connected_readonly_128_gate_json",
     "strict_kernel_side_typed_consumer_object_128_gate_json",
     "strict_kernel_side_typed_consumer_object_128_selfcheck_json",
@@ -318,10 +338,17 @@ REQUIRED_DEFAULT_GATE_EVIDENCE_JSON_LABELS = {
     "payload_cache_packet_export_manifest_json",
     "payload_cache_producer_state_online_nonempty_issue_canary_json",
     "payload_cache_producer_state_nonempty_issue_stub_json",
+    "payload_cache_producer_state_stream_native_canary_json",
+    "payload_cache_producer_state_packet_stream_native_canary_json",
+    "payload_cache_producer_state_packet_stream_native_canary_check_json",
+    "payload_cache_online_native_producer_boundary_gap_json",
     "future_kernel_native_dispatch_consumer_online_artifact_check_32_128export_json",
     "future_kernel_native_dispatch_consumer_online_runner_32_128export_json",
 }
 OPTIONAL_DEFAULT_GATE_EVIDENCE_JSON_LABELS = {
+    "payload_cache_producer_state_inprocess_native_online_contract_json",
+    "payload_cache_producer_state_inprocess_native_session_canary_json",
+    "payload_cache_producer_state_inprocess_native_session_online_contract_json",
     "future_kernel_args_aux_metadata_mirror_canary_json",
     "future_kernel_args_compatible_path_16_128export_artifact_check_json",
     "future_kernel_args_compatible_path_canary_json",
@@ -439,6 +466,18 @@ _NATIVE_STUB_METRIC_PREFIX = (
     "premap_consumer_descriptor_prep_consumer_shim_"
     "native_stub_online_invocation_"
 )
+_PRELAUNCH_POINTER_SOURCE_OBSERVER_MODE = (
+    "premap_prelaunch_pointer_source_observer_check"
+)
+_READONLY_LIVE_TRUSTED_REFS_CHECK_MODE = "premap_readonly_live_trusted_refs_check"
+_PRELAUNCH_POINTER_SOURCE_OBSERVER_ALLOWED_NONZERO_COUNTERS = {
+    "runtime_shadow_premap_kernel_arg_live_mutation_gpu_assignment_prelaunch_current_expert_ptr_observer_seen_count",
+    "runtime_shadow_premap_kernel_arg_live_mutation_gpu_assignment_prelaunch_current_expert_ptr_observer_available_count",
+    "runtime_shadow_premap_kernel_arg_live_mutation_gpu_assignment_prelaunch_current_expert_ptr_observer_vllm_device_count",
+}
+_PRELAUNCH_POINTER_SOURCE_OBSERVER_ALLOWED_TRUE_HANDOFF_BOOLS = {
+    "runtime_shadow_premap_kernel_arg_handoff_gpu_assignment_prelaunch_pointer_source_canary_enabled",
+}
 _SINGLE_FIELD_CANARY_METRIC_PREFIX = (
     "premap_consumer_descriptor_prep_consumer_shim_"
     "single_field_handle_handoff_canary_"
@@ -2717,6 +2756,16 @@ def _hex64_metric(metrics: dict[str, Any], key: str) -> int | None:
     return parsed if 0 <= parsed <= _UINT64_MASK else None
 
 
+def _strict_hex64_string(value: Any) -> bool:
+    if not isinstance(value, str) or len(value) != 16:
+        return False
+    try:
+        int(value, 16)
+    except ValueError:
+        return False
+    return True
+
+
 def _sha256_hex_metric(metrics: dict[str, Any], key: str) -> str | None:
     value = metrics.get(key)
     if not isinstance(value, str) or len(value) != 64:
@@ -3377,6 +3426,402 @@ def _check_layout_summary_fields(
             if isinstance(struct_size, int) and not isinstance(struct_size, bool):
                 if value >= struct_size:
                     failures.append(f"{prefix}_{field}_outside_struct")
+    return failures
+
+
+def _validate_prelaunch_pointer_source_observer_check_evidence(
+    evidence: dict[str, Any],
+) -> list[str]:
+    failures: list[str] = []
+    if evidence.get("mode") != _PRELAUNCH_POINTER_SOURCE_OBSERVER_MODE:
+        failures.append("prelaunch_pointer_source_observer_mode_mismatch")
+    if evidence.get("passed") is not True:
+        failures.append("prelaunch_pointer_source_observer_not_passed")
+    if evidence.get("failures") != []:
+        failures.append("prelaunch_pointer_source_observer_failures_not_empty")
+
+    min_seen = _int_metric(evidence, "min_seen")
+    observer_seen = _int_metric(evidence, "observer_seen")
+    sample_count = _int_metric(evidence, "sample_count")
+    min_sample_count = _int_metric(evidence, "min_sample_count")
+    requested_output_token_count = _int_metric(
+        evidence, "requested_output_token_count"
+    )
+    min_requested_output_tokens = _int_metric(
+        evidence, "min_requested_output_tokens"
+    )
+    if min_seen is None or min_seen < 128:
+        failures.append("prelaunch_pointer_source_observer_min_seen_too_low")
+    if observer_seen is None or observer_seen < (min_seen or 128):
+        failures.append("prelaunch_pointer_source_observer_seen_below_min")
+    if min_sample_count is None or min_sample_count < 16:
+        failures.append("prelaunch_pointer_source_observer_min_sample_count_too_low")
+    if sample_count is None or sample_count < (min_sample_count or 16):
+        failures.append("prelaunch_pointer_source_observer_sample_count_below_min")
+    if min_requested_output_tokens is None or min_requested_output_tokens < 1024:
+        failures.append(
+            "prelaunch_pointer_source_observer_min_requested_output_tokens_too_low"
+        )
+    if requested_output_token_count is None or requested_output_token_count < (
+        min_requested_output_tokens or 1024
+    ):
+        failures.append(
+            "prelaunch_pointer_source_observer_requested_output_token_count_below_min"
+        )
+
+    if _int_metric(evidence, "observer_available") != observer_seen:
+        failures.append("prelaunch_pointer_source_observer_available_mismatch")
+    if _int_metric(evidence, "observer_vllm_device") != observer_seen:
+        failures.append("prelaunch_pointer_source_observer_vllm_device_mismatch")
+    if _int_metric(evidence, "observer_unavailable") != 0:
+        failures.append("prelaunch_pointer_source_observer_unavailable_nonzero")
+    if _int_metric(evidence, "observer_non_device") != 0:
+        failures.append("prelaunch_pointer_source_observer_non_device_nonzero")
+
+    for key in (
+        "live_handoff_enabled",
+        "live_consumer_connected",
+        "kernel_arg_pass_enabled",
+        "real_kernel_arg_mutation_enabled",
+        "producer_gpu_assignment_envelope_enabled",
+    ):
+        if evidence.get(key) is not False:
+            failures.append(f"prelaunch_pointer_source_observer_{key}_not_false")
+    if evidence.get("live_config_without_router_recorder_enabled") is not True:
+        failures.append(
+            "prelaunch_pointer_source_observer_live_config_without_router_recorder_not_true"
+        )
+    if evidence.get("prelaunch_pointer_source_canary_enabled") is not True:
+        failures.append("prelaunch_pointer_source_observer_canary_not_true")
+
+    required_bools = evidence.get("required_bool_values")
+    if not isinstance(required_bools, dict):
+        failures.append("prelaunch_pointer_source_observer_required_bools_missing")
+        required_bools = {}
+    required_ints = evidence.get("required_int_values")
+    if not isinstance(required_ints, dict):
+        failures.append("prelaunch_pointer_source_observer_required_ints_missing")
+        required_ints = {}
+
+    for key in PRELAUNCH_POINTER_SOURCE_OBSERVER_REQUIRED_BOOL_KEYS:
+        if key not in required_bools:
+            failures.append("prelaunch_pointer_source_observer_required_bool_missing")
+            continue
+        value = required_bools[key]
+        if not isinstance(value, bool):
+            failures.append("prelaunch_pointer_source_observer_required_bool_not_bool")
+            continue
+        if (
+            key
+            in _PRELAUNCH_POINTER_SOURCE_OBSERVER_ALLOWED_TRUE_HANDOFF_BOOLS
+        ):
+            if not value:
+                failures.append("prelaunch_pointer_source_observer_required_bool_not_true")
+        elif key == "runtime_shadow_premap_live_config_without_router_recorder_enabled":
+            if not value:
+                failures.append("prelaunch_pointer_source_observer_required_bool_not_true")
+        elif value:
+            failures.append("prelaunch_pointer_source_observer_required_bool_true")
+
+    for key in PRELAUNCH_POINTER_SOURCE_OBSERVER_REQUIRED_INT_KEYS:
+        if key not in required_ints:
+            failures.append("prelaunch_pointer_source_observer_required_int_missing")
+            continue
+        value = required_ints[key]
+        if isinstance(value, bool) or not isinstance(value, int):
+            failures.append("prelaunch_pointer_source_observer_required_int_not_int")
+
+    handoff_bools = evidence.get("handoff_bool_values")
+    if not isinstance(handoff_bools, dict):
+        failures.append("prelaunch_pointer_source_observer_handoff_bools_missing")
+    else:
+        expected_handoff_bool_keys = {
+            key
+            for key in PRELAUNCH_POINTER_SOURCE_OBSERVER_REQUIRED_BOOL_KEYS
+            if key.startswith(PRELAUNCH_POINTER_SOURCE_OBSERVER_HANDOFF_BOOL_PREFIX)
+        }
+        missing_handoff_keys = expected_handoff_bool_keys - set(handoff_bools)
+        if missing_handoff_keys:
+            failures.append(
+                "prelaunch_pointer_source_observer_handoff_bool_map_truncated"
+            )
+        for key, value in handoff_bools.items():
+            if not isinstance(value, bool):
+                failures.append(
+                    "prelaunch_pointer_source_observer_handoff_bool_not_bool"
+                )
+                continue
+            required_value = required_bools.get(key)
+            if isinstance(required_value, bool) and value != required_value:
+                failures.append(
+                    "prelaunch_pointer_source_observer_handoff_bool_required_mismatch"
+                )
+            elif (
+                key
+                not in _PRELAUNCH_POINTER_SOURCE_OBSERVER_ALLOWED_TRUE_HANDOFF_BOOLS
+                and value
+            ):
+                failures.append(
+                    "prelaunch_pointer_source_observer_handoff_bool_true"
+                )
+    live_counters = evidence.get("live_mutation_counter_values")
+    if not isinstance(live_counters, dict):
+        failures.append("prelaunch_pointer_source_observer_live_counters_missing")
+    else:
+        expected_live_counter_keys = {
+            key
+            for key in PRELAUNCH_POINTER_SOURCE_OBSERVER_REQUIRED_INT_KEYS
+            if key.startswith(
+                PRELAUNCH_POINTER_SOURCE_OBSERVER_LIVE_MUTATION_COUNTER_PREFIX
+            )
+        }
+        missing_live_counter_keys = expected_live_counter_keys - set(live_counters)
+        if missing_live_counter_keys:
+            failures.append(
+                "prelaunch_pointer_source_observer_live_counter_map_truncated"
+            )
+        for key, value in live_counters.items():
+            if isinstance(value, bool) or not isinstance(value, int):
+                failures.append(
+                    "prelaunch_pointer_source_observer_live_counter_not_int"
+                )
+                continue
+            required_value = required_ints.get(key)
+            if (
+                not isinstance(required_value, bool)
+                and isinstance(required_value, int)
+                and value != required_value
+            ):
+                failures.append(
+                    "prelaunch_pointer_source_observer_live_counter_required_mismatch"
+                )
+            elif (
+                key
+                not in _PRELAUNCH_POINTER_SOURCE_OBSERVER_ALLOWED_NONZERO_COUNTERS
+                and value != 0
+            ):
+                failures.append(
+                    "prelaunch_pointer_source_observer_live_counter_nonzero"
+                )
+    zero_values = evidence.get("zero_counter_values")
+    if not isinstance(zero_values, dict):
+        failures.append("prelaunch_pointer_source_observer_zero_values_missing")
+    else:
+        missing_zero_keys = (
+            set(PRELAUNCH_POINTER_SOURCE_OBSERVER_ZERO_INT_KEYS) - set(zero_values)
+        )
+        if missing_zero_keys:
+            failures.append("prelaunch_pointer_source_observer_zero_values_truncated")
+        for key, value in zero_values.items():
+            if isinstance(value, bool) or not isinstance(value, int):
+                failures.append("prelaunch_pointer_source_observer_zero_value_not_int")
+                continue
+            required_value = required_ints.get(key)
+            if (
+                not isinstance(required_value, bool)
+                and isinstance(required_value, int)
+                and value != required_value
+            ):
+                failures.append(
+                    "prelaunch_pointer_source_observer_zero_value_required_mismatch"
+                )
+                continue
+            if value != 0:
+                failures.append(
+                    "prelaunch_pointer_source_observer_zero_value_nonzero"
+                )
+                continue
+    return failures
+
+
+def _validate_readonly_live_trusted_refs_check_evidence(
+    evidence: dict[str, Any],
+) -> list[str]:
+    failures: list[str] = []
+    if evidence.get("mode") != _READONLY_LIVE_TRUSTED_REFS_CHECK_MODE:
+        failures.append("readonly_live_trusted_refs_mode_mismatch")
+    if evidence.get("passed") is not True:
+        failures.append("readonly_live_trusted_refs_not_passed")
+    if evidence.get("failures") != []:
+        failures.append("readonly_live_trusted_refs_failures_not_empty")
+
+    min_package_seen = _int_metric(evidence, "min_package_seen")
+    package_seen = _int_metric(evidence, "package_seen")
+    min_sample_count = _int_metric(evidence, "min_sample_count")
+    sample_count = _int_metric(evidence, "sample_count")
+    min_requested_output_tokens = _int_metric(
+        evidence, "min_requested_output_tokens"
+    )
+    requested_output_token_count = _int_metric(
+        evidence, "requested_output_token_count"
+    )
+    if min_package_seen is None or min_package_seen < 128:
+        failures.append("readonly_live_trusted_refs_min_package_seen_too_low")
+    if package_seen is None or package_seen < (min_package_seen or 128):
+        failures.append("readonly_live_trusted_refs_package_seen_below_min")
+    if min_sample_count is None or min_sample_count < 16:
+        failures.append("readonly_live_trusted_refs_min_sample_count_too_low")
+    if sample_count is None or sample_count < (min_sample_count or 16):
+        failures.append("readonly_live_trusted_refs_sample_count_below_min")
+    if min_requested_output_tokens is None or min_requested_output_tokens < 1024:
+        failures.append(
+            "readonly_live_trusted_refs_min_requested_output_tokens_too_low"
+        )
+    if requested_output_token_count is None or requested_output_token_count < (
+        min_requested_output_tokens or 1024
+    ):
+        failures.append(
+            "readonly_live_trusted_refs_requested_output_token_count_below_min"
+        )
+
+    package_pass_through = _int_metric(evidence, "package_pass_through")
+    producer_future = _int_metric(
+        evidence, "producer_future_typed_slot_envelope_count"
+    )
+    producer_gpu = _int_metric(evidence, "producer_gpu_assignment_envelope_count")
+    envelope_seen = _int_metric(evidence, "gpu_assignment_envelope_seen")
+    trusted_refs_seen = _int_metric(evidence, "trusted_refs_seen")
+    trusted_refs_available = _int_metric(evidence, "trusted_refs_available")
+    trusted_refs_unavailable = _int_metric(evidence, "trusted_refs_unavailable")
+    trusted_ptr_seen = _int_metric(evidence, "trusted_ptr_seen")
+    trusted_ptr_available = _int_metric(evidence, "trusted_ptr_available")
+    trusted_ptr_vllm = _int_metric(evidence, "trusted_ptr_vllm_device")
+    trusted_ptr_mismatch = _int_metric(evidence, "trusted_ptr_mismatch")
+    observer_seen = _int_metric(evidence, "observer_seen")
+    observer_available = _int_metric(evidence, "observer_available")
+    observer_vllm = _int_metric(evidence, "observer_vllm_device")
+
+    if package_seen is not None:
+        if package_pass_through != package_seen:
+            failures.append("readonly_live_trusted_refs_package_pass_through_mismatch")
+        if envelope_seen != package_seen:
+            failures.append("readonly_live_trusted_refs_envelope_seen_mismatch")
+        if trusted_refs_seen != package_seen:
+            failures.append("readonly_live_trusted_refs_seen_mismatch")
+    if producer_future is None or producer_future <= 0:
+        failures.append("readonly_live_trusted_refs_producer_future_missing")
+    if producer_gpu is None or producer_gpu <= 0:
+        failures.append("readonly_live_trusted_refs_producer_gpu_missing")
+    if producer_future is not None and producer_gpu is not None:
+        if producer_future != producer_gpu:
+            failures.append("readonly_live_trusted_refs_producer_count_mismatch")
+    if trusted_refs_seen is not None:
+        if trusted_refs_available != trusted_refs_seen:
+            failures.append("readonly_live_trusted_refs_available_mismatch")
+        if trusted_ptr_seen != trusted_refs_seen:
+            failures.append("readonly_live_trusted_refs_trusted_ptr_seen_mismatch")
+    if trusted_refs_unavailable != 0:
+        failures.append("readonly_live_trusted_refs_unavailable_nonzero")
+    if trusted_ptr_seen is not None:
+        if trusted_ptr_available != trusted_ptr_seen:
+            failures.append("readonly_live_trusted_refs_trusted_ptr_available_mismatch")
+        if trusted_ptr_vllm != trusted_ptr_seen:
+            failures.append("readonly_live_trusted_refs_trusted_ptr_vllm_mismatch")
+    if trusted_ptr_mismatch != 0:
+        failures.append("readonly_live_trusted_refs_trusted_ptr_mismatch_nonzero")
+    if observer_seen is None or observer_seen <= 0:
+        failures.append("readonly_live_trusted_refs_observer_seen_nonpositive")
+    else:
+        if observer_available != observer_seen:
+            failures.append("readonly_live_trusted_refs_observer_available_mismatch")
+        if observer_vllm != observer_seen:
+            failures.append("readonly_live_trusted_refs_observer_vllm_mismatch")
+
+    required_bools = evidence.get("required_bool_values")
+    if not isinstance(required_bools, dict):
+        failures.append("readonly_live_trusted_refs_required_bools_missing")
+        required_bools = {}
+    handoff_bools = evidence.get("handoff_bool_values")
+    if not isinstance(handoff_bools, dict):
+        failures.append("readonly_live_trusted_refs_handoff_bools_missing")
+        handoff_bools = {}
+    string_values = evidence.get("string_values")
+    if not isinstance(string_values, dict):
+        failures.append("readonly_live_trusted_refs_string_values_missing")
+        string_values = {}
+    live_counters = evidence.get("live_mutation_counter_values")
+    if not isinstance(live_counters, dict):
+        failures.append("readonly_live_trusted_refs_live_counters_missing")
+        live_counters = {}
+
+    expected_handoff_bool_keys = {
+        key
+        for key in (
+            READONLY_LIVE_TRUSTED_REFS_EXPECTED_TRUE_BOOL_KEYS
+            | READONLY_LIVE_TRUSTED_REFS_REQUIRED_FALSE_BOOL_KEYS
+        )
+        if key.startswith("runtime_shadow_premap_kernel_arg_handoff_")
+    }
+    missing_handoff_bool_keys = expected_handoff_bool_keys - set(handoff_bools)
+    if missing_handoff_bool_keys:
+        failures.append("readonly_live_trusted_refs_handoff_bool_map_truncated")
+
+    for key in READONLY_LIVE_TRUSTED_REFS_EXPECTED_TRUE_BOOL_KEYS:
+        value = required_bools.get(key)
+        if not isinstance(value, bool):
+            failures.append("readonly_live_trusted_refs_required_bool_missing")
+            continue
+        if not value:
+            failures.append("readonly_live_trusted_refs_required_bool_not_true")
+        if key.startswith("runtime_shadow_premap_kernel_arg_handoff_"):
+            handoff_value = handoff_bools.get(key)
+            if not isinstance(handoff_value, bool) or handoff_value != value:
+                failures.append("readonly_live_trusted_refs_handoff_bool_mismatch")
+    for key in READONLY_LIVE_TRUSTED_REFS_REQUIRED_FALSE_BOOL_KEYS:
+        value = required_bools.get(key)
+        if not isinstance(value, bool):
+            failures.append("readonly_live_trusted_refs_required_bool_missing")
+            continue
+        if value:
+            failures.append("readonly_live_trusted_refs_required_bool_true")
+        if key.startswith("runtime_shadow_premap_kernel_arg_handoff_"):
+            handoff_value = handoff_bools.get(key)
+            if not isinstance(handoff_value, bool) or handoff_value != value:
+                failures.append("readonly_live_trusted_refs_handoff_bool_mismatch")
+    for key, expected in READONLY_LIVE_TRUSTED_REFS_EXPECTED_STRING_VALUES.items():
+        if string_values.get(key) != expected:
+            failures.append("readonly_live_trusted_refs_string_value_mismatch")
+    expected_live_counter_keys = {
+        key
+        for key in READONLY_LIVE_TRUSTED_REFS_REQUIRED_INT_KEYS
+        if key.startswith("runtime_shadow_premap_kernel_arg_live_mutation_")
+    }
+    missing_counter_keys = expected_live_counter_keys - set(live_counters)
+    if missing_counter_keys:
+        failures.append("readonly_live_trusted_refs_live_counter_map_truncated")
+    for key, value in live_counters.items():
+        if isinstance(value, bool) or not isinstance(value, int):
+            failures.append("readonly_live_trusted_refs_live_counter_not_int")
+            continue
+        if (
+            key not in READONLY_LIVE_TRUSTED_REFS_ALLOWED_NONZERO_COUNTERS
+            and value != 0
+        ):
+            failures.append("readonly_live_trusted_refs_live_counter_nonzero")
+    counter_top_level_pairs = {
+        "runtime_shadow_premap_kernel_arg_live_mutation_package_seen_count": package_seen,
+        "runtime_shadow_premap_kernel_arg_live_mutation_package_pass_through_count": package_pass_through,
+        "runtime_shadow_premap_kernel_arg_live_mutation_package_producer_future_wna16_typed_slot_envelope_count": producer_future,
+        "runtime_shadow_premap_kernel_arg_live_mutation_package_producer_gpu_assignment_envelope_count": producer_gpu,
+        "runtime_shadow_premap_kernel_arg_live_mutation_gpu_assignment_envelope_seen_count": envelope_seen,
+        "runtime_shadow_premap_kernel_arg_live_mutation_gpu_assignment_trusted_refs_seen_count": trusted_refs_seen,
+        "runtime_shadow_premap_kernel_arg_live_mutation_gpu_assignment_trusted_refs_available_count": trusted_refs_available,
+        "runtime_shadow_premap_kernel_arg_live_mutation_gpu_assignment_trusted_refs_unavailable_count": trusted_refs_unavailable,
+        "runtime_shadow_premap_kernel_arg_live_mutation_gpu_assignment_trusted_refs_prelaunch_current_expert_ptr_seen_count": trusted_ptr_seen,
+        "runtime_shadow_premap_kernel_arg_live_mutation_gpu_assignment_trusted_refs_prelaunch_current_expert_ptr_available_count": trusted_ptr_available,
+        "runtime_shadow_premap_kernel_arg_live_mutation_gpu_assignment_trusted_refs_prelaunch_current_expert_ptr_vllm_device_count": trusted_ptr_vllm,
+        "runtime_shadow_premap_kernel_arg_live_mutation_gpu_assignment_trusted_refs_prelaunch_current_expert_ptr_ready_source_mismatch_count": trusted_ptr_mismatch,
+        "runtime_shadow_premap_kernel_arg_live_mutation_gpu_assignment_prelaunch_current_expert_ptr_observer_seen_count": observer_seen,
+        "runtime_shadow_premap_kernel_arg_live_mutation_gpu_assignment_prelaunch_current_expert_ptr_observer_available_count": observer_available,
+        "runtime_shadow_premap_kernel_arg_live_mutation_gpu_assignment_prelaunch_current_expert_ptr_observer_vllm_device_count": observer_vllm,
+    }
+    for key, expected in counter_top_level_pairs.items():
+        if expected is None:
+            continue
+        value = live_counters.get(key)
+        if value != expected:
+            failures.append("readonly_live_trusted_refs_live_counter_summary_mismatch")
+
     return failures
 
 
@@ -5201,6 +5646,8 @@ def _validate_required_evidence_payload(
         "strict_single_field_handle_handoff_canary_128_gate_json",
         "strict_native_stub_online_invocation_canary_128_gate_json",
         "strict_kernel_side_typed_row_consumer_path_128_gate_json",
+        "prelaunch_pointer_source_observer_check_json",
+        "readonly_live_trusted_refs_check_json",
         "aux_metadata_single_field_handle_handoff_canary_smoke_json",
         "descriptor_ptr_single_field_handle_handoff_canary_smoke_json",
         "packed_weight_single_field_handle_handoff_canary_smoke_json",
@@ -5234,6 +5681,18 @@ def _validate_required_evidence_payload(
         "payload_cache_packet_export_manifest_json",
         "payload_cache_producer_state_nonempty_issue_stub_json",
         "payload_cache_producer_state_online_nonempty_issue_canary_json",
+        "payload_cache_producer_state_stream_native_canary_json",
+        "payload_cache_producer_state_inprocess_native_canary_json",
+        "payload_cache_producer_state_inprocess_native_online_contract_json",
+        "payload_cache_producer_state_inprocess_native_session_canary_json",
+        "payload_cache_producer_state_inprocess_native_session_online_contract_json",
+        "payload_cache_producer_state_packet_stream_native_canary_json",
+        "payload_cache_producer_state_packet_stream_native_canary_check_json",
+        "payload_cache_producer_state_stream_online_contract_json",
+        "payload_cache_online_inside_graph_producer_boundary_contract_json",
+        "payload_cache_online_native_producer_boundary_gap_json",
+        "payload_cache_stream_producer_production_ab_bridge_json",
+        "payload_cache_stream_producer_production_ab_bridge_check_json",
         "future_kernel_native_arg_slot_packed_weight_mirror_canary_json",
         *ARG_SLOT_ONLINE_MERGED_MIRROR_RUNNER_LABEL_BY_FIELD.values(),
         *ARG_SLOT_ONLINE_MERGED_MIRROR_STUB_LABEL_BY_FIELD.values(),
@@ -5242,6 +5701,20 @@ def _validate_required_evidence_payload(
         evidence_label not in ONLINE_PRELAUNCH_ARTIFACT_EVIDENCE_LABELS
     ):
         return []
+    if evidence_label == "prelaunch_pointer_source_observer_check_json":
+        return [
+            f"{evidence_label}:{failure}"
+            for failure in _validate_prelaunch_pointer_source_observer_check_evidence(
+                evidence
+            )
+        ]
+    if evidence_label == "readonly_live_trusted_refs_check_json":
+        return [
+            f"{evidence_label}:{failure}"
+            for failure in _validate_readonly_live_trusted_refs_check_evidence(
+                evidence
+            )
+        ]
     if evidence_label == "future_kernel_native_dispatch_ptr_standalone_canary_json":
         return [
             f"{evidence_label}:{failure}"
@@ -6557,6 +7030,102 @@ def _validate_required_evidence_payload(
                 require_online_export=True,
                 require_nonempty_issue=True,
                 require_summary_first_nonempty_issue=True,
+            )
+        ]
+    if evidence_label == "payload_cache_producer_state_stream_native_canary_json":
+        return [
+            f"{evidence_label}:{failure}"
+            for failure in _validate_payload_cache_producer_state_stream_native_canary_evidence(
+                evidence
+            )
+        ]
+    if evidence_label == "payload_cache_producer_state_inprocess_native_canary_json":
+        return [
+            f"{evidence_label}:{failure}"
+            for failure in _validate_payload_cache_producer_state_inprocess_native_canary_evidence(
+                evidence
+            )
+        ]
+    if (
+        evidence_label
+        == "payload_cache_producer_state_inprocess_native_online_contract_json"
+    ):
+        return [
+            f"{evidence_label}:{failure}"
+            for failure in _validate_payload_cache_producer_state_inprocess_native_online_contract_evidence(
+                evidence
+            )
+        ]
+    if evidence_label == "payload_cache_producer_state_inprocess_native_session_canary_json":
+        return [
+            f"{evidence_label}:{failure}"
+            for failure in _validate_payload_cache_producer_state_inprocess_native_session_canary_evidence(
+                evidence
+            )
+        ]
+    if (
+        evidence_label
+        == "payload_cache_producer_state_inprocess_native_session_online_contract_json"
+    ):
+        return [
+            f"{evidence_label}:{failure}"
+            for failure in _validate_payload_cache_producer_state_inprocess_native_session_online_contract_evidence(
+                evidence
+            )
+        ]
+    if evidence_label == "payload_cache_producer_state_packet_stream_native_canary_json":
+        return [
+            f"{evidence_label}:{failure}"
+            for failure in _validate_payload_cache_producer_state_packet_stream_native_canary_evidence(
+                evidence
+            )
+        ]
+    if (
+        evidence_label
+        == "payload_cache_producer_state_packet_stream_native_canary_check_json"
+    ):
+        return [
+            f"{evidence_label}:{failure}"
+            for failure in _validate_payload_cache_producer_state_packet_stream_native_canary_check_evidence(
+                evidence
+            )
+        ]
+    if evidence_label == "payload_cache_producer_state_stream_online_contract_json":
+        return [
+            f"{evidence_label}:{failure}"
+            for failure in _validate_payload_cache_producer_state_stream_online_contract_evidence(
+                evidence
+            )
+        ]
+    if (
+        evidence_label
+        == "payload_cache_online_inside_graph_producer_boundary_contract_json"
+    ):
+        return [
+            f"{evidence_label}:{failure}"
+            for failure in _validate_payload_cache_online_inside_graph_producer_boundary_contract_evidence(
+                evidence
+            )
+        ]
+    if evidence_label == "payload_cache_online_native_producer_boundary_gap_json":
+        return [
+            f"{evidence_label}:{failure}"
+            for failure in _validate_payload_cache_online_native_producer_boundary_gap_evidence(
+                evidence
+            )
+        ]
+    if evidence_label == "payload_cache_stream_producer_production_ab_bridge_json":
+        return [
+            f"{evidence_label}:{failure}"
+            for failure in _validate_payload_cache_stream_producer_production_ab_bridge_evidence(
+                evidence
+            )
+        ]
+    if evidence_label == "payload_cache_stream_producer_production_ab_bridge_check_json":
+        return [
+            f"{evidence_label}:{failure}"
+            for failure in _validate_payload_cache_stream_producer_production_ab_bridge_check_evidence(
+                evidence
             )
         ]
     if evidence_label == "payload_cache_shifted_issue_runtime_shadow_gate_json":
@@ -10452,6 +11021,1851 @@ def _validate_payload_cache_shifted_issue_runtime_shadow_gate_evidence(
     return failures
 
 
+def _validate_payload_cache_producer_state_stream_native_canary_evidence(
+    evidence: dict[str, Any],
+    *,
+    failure_prefix: str = "payload_cache_producer_state_stream_native_canary",
+) -> list[str]:
+    failures: list[str] = []
+    expected_values = {
+        "ok": True,
+        "passed": True,
+        "failures": [],
+        "mode": "payload_cache_producer_transition_state_stream_native_canary",
+        "abi_name": "premap_payload_cache_producer_transition_state_abi_v1",
+        "abi_field_count": 9,
+        "native_stub_invoked": True,
+        "native_returncode": 0,
+        "native_graph_replay": True,
+        "payload_bytes": 0,
+        "ready_credit": False,
+        "passed_to_kernel": False,
+        "changes_kernel_launch_args": False,
+        "current_wna16_arg_compatible": False,
+        "uses_current_wna16_args": False,
+        "passes_current_wna16_args": False,
+        "persistent_state_on_device": True,
+        "issue_generation_on_device": True,
+        "error_count": 0,
+    }
+    for key, expected_value in expected_values.items():
+        if evidence.get(key) != expected_value:
+            failures.append(f"{failure_prefix}_{key}_mismatch")
+
+    steps = _int_metric(evidence, "steps")
+    layers = _int_metric(evidence, "layers")
+    experts_per_layer = _int_metric(evidence, "experts_per_layer")
+    transition_topk_count = _int_metric(evidence, "transition_topk_count")
+    packet_count = _int_metric(evidence, "packet_count")
+    previous_nonempty_packet_count = _int_metric(
+        evidence,
+        "previous_nonempty_packet_count",
+    )
+    current_nonempty_packet_count = _int_metric(
+        evidence,
+        "current_nonempty_packet_count",
+    )
+    issue_candidate_count = _int_metric(evidence, "issue_candidate_count")
+    issue_candidate_hash = evidence.get("issue_candidate_hash")
+    expected_issue_candidate_hash = evidence.get("expected_issue_candidate_hash")
+    expected_issue_candidate_count = _int_metric(
+        evidence,
+        "expected_issue_candidate_count",
+    )
+    ready_layer_count = _int_metric(evidence, "ready_layer_count")
+    requested_steps = _int_metric(evidence, "requested_steps")
+    requested_layers = _int_metric(evidence, "requested_layers")
+    requested_experts_per_layer = _int_metric(
+        evidence,
+        "requested_experts_per_layer",
+    )
+    requested_transition_topk_count = _int_metric(
+        evidence,
+        "requested_transition_topk_count",
+    )
+    requested_graph_replay = evidence.get("requested_graph_replay")
+    gpu_elapsed_ms = _float_metric(evidence, "gpu_elapsed_ms")
+    issue_candidate_hash = _hex64_metric(evidence, "issue_candidate_hash")
+
+    for key, value in (
+        ("steps", steps),
+        ("layers", layers),
+        ("experts_per_layer", experts_per_layer),
+        ("transition_topk_count", transition_topk_count),
+        ("packet_count", packet_count),
+        ("previous_nonempty_packet_count", previous_nonempty_packet_count),
+        ("current_nonempty_packet_count", current_nonempty_packet_count),
+        ("issue_candidate_count", issue_candidate_count),
+        ("expected_issue_candidate_count", expected_issue_candidate_count),
+        ("ready_layer_count", ready_layer_count),
+        ("requested_steps", requested_steps),
+        ("requested_layers", requested_layers),
+        ("requested_experts_per_layer", requested_experts_per_layer),
+        ("requested_transition_topk_count", requested_transition_topk_count),
+    ):
+        if value is None or value < 0:
+            failures.append(f"{failure_prefix}_{key}_invalid")
+
+    if steps is not None and steps <= 1:
+        failures.append(f"{failure_prefix}_steps_not_stream")
+    if layers is not None and layers <= 0:
+        failures.append(f"{failure_prefix}_layers_empty")
+    if experts_per_layer is not None and experts_per_layer <= 0:
+        failures.append(f"{failure_prefix}_experts_per_layer_empty")
+    if gpu_elapsed_ms is None or gpu_elapsed_ms < 0:
+        failures.append(f"{failure_prefix}_gpu_elapsed_ms_invalid")
+    if issue_candidate_hash is None:
+        failures.append(f"{failure_prefix}_issue_candidate_hash_invalid")
+
+    if (
+        steps is not None
+        and layers is not None
+        and packet_count is not None
+        and packet_count != steps * layers
+    ):
+        failures.append(f"{failure_prefix}_packet_count_mismatch")
+    if (
+        steps is not None
+        and layers is not None
+        and previous_nonempty_packet_count is not None
+        and previous_nonempty_packet_count != (steps - 1) * layers
+    ):
+        failures.append(f"{failure_prefix}_previous_nonempty_packet_count_mismatch")
+    if (
+        steps is not None
+        and layers is not None
+        and current_nonempty_packet_count is not None
+        and current_nonempty_packet_count != steps * layers
+    ):
+        failures.append(f"{failure_prefix}_current_nonempty_packet_count_mismatch")
+    if (
+        issue_candidate_count is not None
+        and expected_issue_candidate_count is not None
+        and issue_candidate_count != expected_issue_candidate_count
+    ):
+        failures.append(f"{failure_prefix}_issue_candidate_count_mismatch")
+    if (
+        steps is not None
+        and layers is not None
+        and transition_topk_count is not None
+        and expected_issue_candidate_count is not None
+    ):
+        formula_issue_candidate_count = max(0, steps - 1) * layers * transition_topk_count
+        if expected_issue_candidate_count != formula_issue_candidate_count:
+            failures.append(
+                f"{failure_prefix}_expected_issue_candidate_count_formula_mismatch"
+            )
+        if (
+            issue_candidate_count is not None
+            and issue_candidate_count != formula_issue_candidate_count
+        ):
+            failures.append(f"{failure_prefix}_issue_candidate_count_formula_mismatch")
+    if issue_candidate_count is not None and issue_candidate_count <= 0:
+        failures.append(f"{failure_prefix}_issue_candidate_count_empty")
+    if (
+        ready_layer_count is not None
+        and layers is not None
+        and ready_layer_count != layers
+    ):
+        failures.append(f"{failure_prefix}_ready_layer_count_mismatch")
+    if requested_steps is not None and steps is not None and requested_steps != steps:
+        failures.append(f"{failure_prefix}_requested_steps_mismatch")
+    if requested_layers is not None and layers is not None and requested_layers != layers:
+        failures.append(f"{failure_prefix}_requested_layers_mismatch")
+    if (
+        requested_experts_per_layer is not None
+        and experts_per_layer is not None
+        and requested_experts_per_layer != experts_per_layer
+    ):
+        failures.append(f"{failure_prefix}_requested_experts_per_layer_mismatch")
+    if (
+        requested_transition_topk_count is not None
+        and transition_topk_count is not None
+        and requested_transition_topk_count != transition_topk_count
+    ):
+        failures.append(f"{failure_prefix}_requested_transition_topk_count_mismatch")
+
+    vectorized_requested = evidence.get("vectorized_copy_requested")
+    vectorized_used = evidence.get("vectorized_copy_used")
+    requested_disable_vectorized_copy = evidence.get(
+        "requested_disable_vectorized_copy"
+    )
+    if type(vectorized_requested) is not bool:
+        failures.append(f"{failure_prefix}_vectorized_copy_requested_invalid")
+    if type(vectorized_used) is not bool:
+        failures.append(f"{failure_prefix}_vectorized_copy_used_invalid")
+    if type(requested_disable_vectorized_copy) is not bool:
+        failures.append(f"{failure_prefix}_requested_disable_vectorized_copy_invalid")
+    if type(requested_graph_replay) is not bool:
+        failures.append(f"{failure_prefix}_requested_graph_replay_invalid")
+    elif requested_graph_replay is not True:
+        failures.append(f"{failure_prefix}_requested_graph_replay_not_enabled")
+    if (
+        requested_disable_vectorized_copy is False
+        and experts_per_layer is not None
+        and experts_per_layer % 4 == 0
+        and vectorized_used is not True
+    ):
+        failures.append(f"{failure_prefix}_vectorized_copy_expected_but_not_used")
+    if requested_disable_vectorized_copy is True and vectorized_used is True:
+        failures.append(f"{failure_prefix}_vectorized_copy_used_when_disabled")
+    return failures
+
+
+def _validate_payload_cache_producer_state_inprocess_native_canary_evidence(
+    evidence: dict[str, Any],
+    *,
+    failure_prefix: str = "payload_cache_producer_state_inprocess_native_canary",
+) -> list[str]:
+    failures: list[str] = []
+    expected_values = {
+        "ok": True,
+        "passed": True,
+        "failures": [],
+        "mode": "payload_cache_producer_transition_state_inprocess_native_canary",
+        "abi_name": "premap_payload_cache_producer_transition_state_abi_v1",
+        "abi_field_count": 9,
+        "inprocess_native_op": True,
+        "native_runtime": True,
+        "native_shared_library": True,
+        "native_stub_invoked": True,
+        "native_returncode": 0,
+        "native_result_returncode": 0,
+        "native_graph_replay": True,
+        "vllm_replay_visible": False,
+        "torch_graph_replay_visible": False,
+        "ready_for_vllm_prelaunch_canary": True,
+        "persistent_state_on_device": True,
+        "issue_generation_on_device": True,
+        "payload_bytes": 0,
+        "payload_transfer_enabled": False,
+        "payload_deref_allowed": False,
+        "ready_credit": False,
+        "ready_before_demand_credit": False,
+        "real_ready_credit_granted": False,
+        "passed_to_kernel": False,
+        "changes_kernel_launch_args": False,
+        "kernel_arg_pass": False,
+        "kernel_arg_pass_allowed": False,
+        "current_wna16_arg_compatible": False,
+        "uses_current_wna16_args": False,
+        "passes_current_wna16_args": False,
+        "measures_tpot": False,
+        "measures_vllm_latency": False,
+    }
+    for key, expected_value in expected_values.items():
+        actual_value = evidence.get(key)
+        if type(actual_value) is not type(expected_value) or actual_value != expected_value:
+            failures.append(f"{failure_prefix}_{key}_mismatch")
+
+    steps = _int_metric(evidence, "steps")
+    layers = _int_metric(evidence, "layers")
+    experts_per_layer = _int_metric(evidence, "experts_per_layer")
+    transition_topk_count = _int_metric(evidence, "transition_topk_count")
+    packet_count = _int_metric(evidence, "packet_count")
+    previous_nonempty_packet_count = _int_metric(
+        evidence,
+        "previous_nonempty_packet_count",
+    )
+    current_nonempty_packet_count = _int_metric(
+        evidence,
+        "current_nonempty_packet_count",
+    )
+    issue_candidate_count = _int_metric(evidence, "issue_candidate_count")
+    expected_issue_candidate_count = _int_metric(
+        evidence,
+        "expected_issue_candidate_count",
+    )
+    ready_layer_count = _int_metric(evidence, "ready_layer_count")
+    requested_steps = _int_metric(evidence, "requested_steps")
+    requested_layers = _int_metric(evidence, "requested_layers")
+    requested_experts_per_layer = _int_metric(
+        evidence,
+        "requested_experts_per_layer",
+    )
+    requested_transition_topk_count = _int_metric(
+        evidence,
+        "requested_transition_topk_count",
+    )
+    gpu_elapsed_ms = _float_metric(evidence, "gpu_elapsed_ms")
+    issue_candidate_hash = _hex64_metric(evidence, "issue_candidate_hash")
+
+    for key, value in (
+        ("steps", steps),
+        ("layers", layers),
+        ("experts_per_layer", experts_per_layer),
+        ("transition_topk_count", transition_topk_count),
+        ("packet_count", packet_count),
+        ("previous_nonempty_packet_count", previous_nonempty_packet_count),
+        ("current_nonempty_packet_count", current_nonempty_packet_count),
+        ("issue_candidate_count", issue_candidate_count),
+        ("expected_issue_candidate_count", expected_issue_candidate_count),
+        ("ready_layer_count", ready_layer_count),
+        ("requested_steps", requested_steps),
+        ("requested_layers", requested_layers),
+        ("requested_experts_per_layer", requested_experts_per_layer),
+        ("requested_transition_topk_count", requested_transition_topk_count),
+    ):
+        if value is None or value < 0:
+            failures.append(f"{failure_prefix}_{key}_invalid")
+    if steps is not None and steps <= 1:
+        failures.append(f"{failure_prefix}_steps_not_stream")
+    if layers is not None and layers <= 0:
+        failures.append(f"{failure_prefix}_layers_empty")
+    if experts_per_layer is not None and experts_per_layer <= 0:
+        failures.append(f"{failure_prefix}_experts_per_layer_empty")
+    if gpu_elapsed_ms is None or gpu_elapsed_ms < 0:
+        failures.append(f"{failure_prefix}_gpu_elapsed_ms_invalid")
+    if issue_candidate_hash is None:
+        failures.append(f"{failure_prefix}_issue_candidate_hash_invalid")
+
+    if (
+        steps is not None
+        and layers is not None
+        and packet_count is not None
+        and packet_count != steps * layers
+    ):
+        failures.append(f"{failure_prefix}_packet_count_mismatch")
+    if (
+        steps is not None
+        and layers is not None
+        and previous_nonempty_packet_count is not None
+        and previous_nonempty_packet_count != (steps - 1) * layers
+    ):
+        failures.append(f"{failure_prefix}_previous_nonempty_packet_count_mismatch")
+    if (
+        steps is not None
+        and layers is not None
+        and current_nonempty_packet_count is not None
+        and current_nonempty_packet_count != steps * layers
+    ):
+        failures.append(f"{failure_prefix}_current_nonempty_packet_count_mismatch")
+    if (
+        issue_candidate_count is not None
+        and expected_issue_candidate_count is not None
+        and issue_candidate_count != expected_issue_candidate_count
+    ):
+        failures.append(f"{failure_prefix}_issue_candidate_count_mismatch")
+    if (
+        steps is not None
+        and layers is not None
+        and experts_per_layer is not None
+        and transition_topk_count is not None
+        and expected_issue_candidate_count is not None
+    ):
+        issue_per_packet = (
+            experts_per_layer
+            if transition_topk_count == 0
+            else min(experts_per_layer, transition_topk_count)
+        )
+        expected = (steps - 1) * layers * issue_per_packet
+        if expected_issue_candidate_count != expected:
+            failures.append(
+                f"{failure_prefix}_expected_issue_count_formula_mismatch"
+            )
+        if issue_candidate_count is not None and issue_candidate_count != expected:
+            failures.append(f"{failure_prefix}_issue_count_formula_mismatch")
+    if issue_candidate_count is not None and issue_candidate_count <= 0:
+        failures.append(f"{failure_prefix}_issue_candidate_count_empty")
+    if (
+        ready_layer_count is not None
+        and layers is not None
+        and ready_layer_count != layers
+    ):
+        failures.append(f"{failure_prefix}_ready_layer_count_mismatch")
+    if requested_steps is not None and steps is not None and requested_steps != steps:
+        failures.append(f"{failure_prefix}_requested_steps_mismatch")
+    if requested_layers is not None and layers is not None and requested_layers != layers:
+        failures.append(f"{failure_prefix}_requested_layers_mismatch")
+    if (
+        requested_experts_per_layer is not None
+        and experts_per_layer is not None
+        and requested_experts_per_layer != experts_per_layer
+    ):
+        failures.append(f"{failure_prefix}_requested_experts_per_layer_mismatch")
+    if (
+        requested_transition_topk_count is not None
+        and transition_topk_count is not None
+        and requested_transition_topk_count != transition_topk_count
+    ):
+        failures.append(f"{failure_prefix}_requested_transition_topk_count_mismatch")
+
+    vectorized_requested = evidence.get("vectorized_copy_requested")
+    vectorized_used = evidence.get("vectorized_copy_used")
+    requested_disable_vectorized_copy = evidence.get(
+        "requested_disable_vectorized_copy"
+    )
+    requested_graph_replay = evidence.get("requested_graph_replay")
+    if type(vectorized_requested) is not bool:
+        failures.append(f"{failure_prefix}_vectorized_copy_requested_invalid")
+    if type(vectorized_used) is not bool:
+        failures.append(f"{failure_prefix}_vectorized_copy_used_invalid")
+    if type(requested_disable_vectorized_copy) is not bool:
+        failures.append(f"{failure_prefix}_requested_disable_vectorized_copy_invalid")
+    if type(requested_graph_replay) is not bool:
+        failures.append(f"{failure_prefix}_requested_graph_replay_invalid")
+    elif requested_graph_replay is not True:
+        failures.append(f"{failure_prefix}_requested_graph_replay_not_enabled")
+    if (
+        requested_disable_vectorized_copy is False
+        and experts_per_layer is not None
+        and experts_per_layer % 4 == 0
+        and vectorized_used is not True
+    ):
+        failures.append(f"{failure_prefix}_vectorized_copy_expected_but_not_used")
+    if requested_disable_vectorized_copy is True and vectorized_used is True:
+        failures.append(f"{failure_prefix}_vectorized_copy_used_when_disabled")
+
+    for path_key in ("shared_library", "source", "abi_header"):
+        if not isinstance(evidence.get(path_key), str) or not evidence.get(path_key):
+            failures.append(f"{failure_prefix}_{path_key}_missing")
+    return failures
+
+
+def _validate_payload_cache_producer_state_inprocess_native_online_contract_evidence(
+    evidence: dict[str, Any],
+    *,
+    failure_prefix: str = (
+        "payload_cache_producer_state_inprocess_native_online_contract"
+    ),
+) -> list[str]:
+    failures: list[str] = []
+    expected_values = {
+        "passed": True,
+        "ok": True,
+        "failures": [],
+        "mode": "payload_cache_producer_state_inprocess_native_online_contract",
+        "source_kind": "derived_payload_cache_producer_state_stream_online_contract",
+        "source_is_online_stream_contract": True,
+        "source_stream_online_contract_passed": True,
+        "source_stream_online_contract_failures": [],
+        "source_is_raw_vllm_performance_summary": False,
+        "inprocess_native_op": True,
+        "native_runtime": True,
+        "native_shared_library": True,
+        "native_graph_replay_required": True,
+        "native_graph_replay": True,
+        "native_stub_invoked": True,
+        "persistent_state_on_device": True,
+        "issue_generation_on_device": True,
+        "vllm_replay_visible": False,
+        "torch_graph_replay_visible": False,
+        "payload_bytes": 0,
+        "ready_credit": False,
+        "ready_before_demand_credit": False,
+        "real_ready_credit_granted": False,
+        "payload_transfer_enabled": False,
+        "payload_deref_allowed": False,
+        "passed_to_kernel": False,
+        "changes_kernel_launch_args": False,
+        "current_wna16_arg_compatible": False,
+        "uses_current_wna16_args": False,
+        "passes_current_wna16_args": False,
+        "measures_tpot": False,
+        "measures_vllm_latency": False,
+    }
+    for key, expected_value in expected_values.items():
+        actual_value = evidence.get(key)
+        if type(actual_value) is not type(expected_value) or actual_value != expected_value:
+            failures.append(f"{failure_prefix}_{key}_mismatch")
+
+    for path_key in ("performance_summary", "native_inprocess_output_json"):
+        if not isinstance(evidence.get(path_key), str) or not evidence.get(path_key):
+            failures.append(f"{failure_prefix}_{path_key}_missing")
+
+    steps = _int_metric(evidence, "contract_steps")
+    layers = _int_metric(evidence, "contract_layers")
+    experts_per_layer = _int_metric(evidence, "contract_experts_per_layer")
+    transition_topk_count = _int_metric(evidence, "contract_transition_topk_count")
+    expected_packet_count = _int_metric(evidence, "contract_expected_packet_count")
+    expected_previous_nonempty_packet_count = _int_metric(
+        evidence,
+        "contract_expected_previous_nonempty_packet_count",
+    )
+    expected_issue_candidate_count = _int_metric(
+        evidence,
+        "contract_expected_issue_candidate_count",
+    )
+    online_packet_count = _int_metric(evidence, "online_observed_packet_count")
+    online_producer_update_count = _int_metric(evidence, "online_producer_update_count")
+    online_previous_nonempty = _int_metric(
+        evidence,
+        "online_observed_previous_nonempty_packet_count",
+    )
+    online_issue_count = _int_metric(
+        evidence,
+        "online_observed_issue_candidate_count",
+    )
+    native_packet_count = _int_metric(evidence, "native_inprocess_packet_count")
+    native_previous_nonempty = _int_metric(
+        evidence,
+        "native_inprocess_previous_nonempty_packet_count",
+    )
+    native_issue_count = _int_metric(
+        evidence,
+        "native_inprocess_issue_candidate_count",
+    )
+    native_expected_issue_count = _int_metric(
+        evidence,
+        "native_inprocess_expected_issue_candidate_count",
+    )
+    gpu_elapsed_ms = _float_metric(evidence, "native_inprocess_gpu_elapsed_ms")
+
+    for key, value in (
+        ("contract_steps", steps),
+        ("contract_layers", layers),
+        ("contract_experts_per_layer", experts_per_layer),
+        ("contract_transition_topk_count", transition_topk_count),
+        ("contract_expected_packet_count", expected_packet_count),
+        (
+            "contract_expected_previous_nonempty_packet_count",
+            expected_previous_nonempty_packet_count,
+        ),
+        ("contract_expected_issue_candidate_count", expected_issue_candidate_count),
+        ("online_observed_packet_count", online_packet_count),
+        ("online_producer_update_count", online_producer_update_count),
+        ("online_observed_previous_nonempty_packet_count", online_previous_nonempty),
+        ("online_observed_issue_candidate_count", online_issue_count),
+        ("native_inprocess_packet_count", native_packet_count),
+        (
+            "native_inprocess_previous_nonempty_packet_count",
+            native_previous_nonempty,
+        ),
+        ("native_inprocess_issue_candidate_count", native_issue_count),
+        (
+            "native_inprocess_expected_issue_candidate_count",
+            native_expected_issue_count,
+        ),
+    ):
+        if value is None or value < 0:
+            failures.append(f"{failure_prefix}_{key}_invalid")
+    if steps is not None and steps <= 1:
+        failures.append(f"{failure_prefix}_steps_not_stream")
+    if layers is not None and layers <= 0:
+        failures.append(f"{failure_prefix}_layers_empty")
+    if experts_per_layer is not None and experts_per_layer <= 0:
+        failures.append(f"{failure_prefix}_experts_per_layer_empty")
+    if gpu_elapsed_ms is None or gpu_elapsed_ms < 0:
+        failures.append(f"{failure_prefix}_native_inprocess_gpu_elapsed_ms_invalid")
+    if (
+        steps is not None
+        and layers is not None
+        and expected_packet_count is not None
+        and expected_packet_count != steps * layers
+    ):
+        failures.append(f"{failure_prefix}_expected_packet_count_mismatch")
+    if (
+        steps is not None
+        and layers is not None
+        and expected_previous_nonempty_packet_count is not None
+        and expected_previous_nonempty_packet_count != (steps - 1) * layers
+    ):
+        failures.append(
+            f"{failure_prefix}_expected_previous_nonempty_packet_count_mismatch"
+        )
+    if (
+        steps is not None
+        and layers is not None
+        and experts_per_layer is not None
+        and transition_topk_count is not None
+        and expected_issue_candidate_count is not None
+    ):
+        issue_per_packet = (
+            experts_per_layer
+            if transition_topk_count == 0
+            else min(experts_per_layer, transition_topk_count)
+        )
+        expected = (steps - 1) * layers * issue_per_packet
+        if expected_issue_candidate_count != expected:
+            failures.append(f"{failure_prefix}_expected_issue_count_mismatch")
+    for metric_name, observed_value in (
+        ("online_observed_packet_count", online_packet_count),
+        ("online_producer_update_count", online_producer_update_count),
+        ("native_inprocess_packet_count", native_packet_count),
+    ):
+        if (
+            observed_value is not None
+            and expected_packet_count is not None
+            and observed_value != expected_packet_count
+        ):
+            failures.append(f"{failure_prefix}_{metric_name}_mismatch")
+    for metric_name, observed_value in (
+        ("online_observed_previous_nonempty_packet_count", online_previous_nonempty),
+        (
+            "native_inprocess_previous_nonempty_packet_count",
+            native_previous_nonempty,
+        ),
+    ):
+        if (
+            observed_value is not None
+            and expected_previous_nonempty_packet_count is not None
+            and observed_value != expected_previous_nonempty_packet_count
+        ):
+            failures.append(f"{failure_prefix}_{metric_name}_mismatch")
+    for metric_name, observed_value in (
+        ("online_observed_issue_candidate_count", online_issue_count),
+        ("native_inprocess_issue_candidate_count", native_issue_count),
+        ("native_inprocess_expected_issue_candidate_count", native_expected_issue_count),
+    ):
+        if (
+            observed_value is not None
+            and expected_issue_candidate_count is not None
+            and observed_value != expected_issue_candidate_count
+        ):
+            failures.append(f"{failure_prefix}_{metric_name}_mismatch")
+    dimension_failures = evidence.get("contract_dimension_consistency_failures")
+    if dimension_failures not in ([], None):
+        failures.append(f"{failure_prefix}_dimension_consistency_failures_not_empty")
+    native = evidence.get("native")
+    if not isinstance(native, dict):
+        failures.append(f"{failure_prefix}_native_missing")
+    else:
+        nested_failures = _validate_payload_cache_producer_state_inprocess_native_canary_evidence(
+            native,
+            failure_prefix=f"{failure_prefix}_native",
+        )
+        failures.extend(nested_failures)
+    return failures
+
+
+def _validate_payload_cache_producer_state_inprocess_native_session_canary_evidence(
+    evidence: dict[str, Any],
+    *,
+    failure_prefix: str = "payload_cache_producer_state_inprocess_native_session_canary",
+) -> list[str]:
+    failures: list[str] = []
+    expected_values = {
+        "ok": True,
+        "passed": True,
+        "failures": [],
+        "mode": "payload_cache_producer_state_inprocess_native_session_canary",
+        "abi_name": "premap_payload_cache_producer_transition_state_abi_v1",
+        "abi_field_count": 9,
+        "inprocess_native_op": True,
+        "native_runtime": True,
+        "native_shared_library": True,
+        "native_stub_invoked": True,
+        "native_graph_replay": False,
+        "prelaunch_callable_native_session": True,
+        "persistent_state_on_device": True,
+        "issue_generation_on_device": True,
+        "vllm_replay_visible": False,
+        "torch_graph_replay_visible": False,
+        "graph_visible": False,
+        "create_returncode": 0,
+        "destroy_returncode": 0,
+        "session_handle_nonzero": True,
+        "current_stream_on_device": True,
+        "current_expert_ptr_passed": True,
+        "ready_for_native_session_smoke": True,
+        "payload_bytes": 0,
+        "payload_transfer_enabled": False,
+        "payload_deref_allowed": False,
+        "ready_credit": False,
+        "ready_before_demand_credit": False,
+        "real_ready_credit_granted": False,
+        "passed_to_kernel": False,
+        "changes_kernel_launch_args": False,
+        "kernel_arg_pass": False,
+        "kernel_arg_pass_allowed": False,
+        "current_wna16_arg_compatible": False,
+        "uses_current_wna16_args": False,
+        "passes_current_wna16_args": False,
+        "measures_tpot": False,
+        "measures_vllm_latency": False,
+    }
+    for key, expected_value in expected_values.items():
+        actual_value = evidence.get(key)
+        if type(actual_value) is not type(expected_value) or actual_value != expected_value:
+            failures.append(f"{failure_prefix}_{key}_mismatch")
+
+    current_expert_ptr_source = evidence.get("current_expert_ptr_source")
+    current_expert_ptr_source_kind = evidence.get("current_expert_ptr_source_kind")
+    external_current_expert_ptr_source = evidence.get(
+        "external_current_expert_ptr_source"
+    )
+    ready_for_external_pointer_smoke = evidence.get(
+        "ready_for_external_pointer_smoke"
+    )
+    ready_for_vllm_prelaunch_canary = evidence.get(
+        "ready_for_vllm_prelaunch_canary"
+    )
+    packet_stream_input = evidence.get("packet_stream_input")
+    if packet_stream_input not in (True, False, None):
+        failures.append(f"{failure_prefix}_packet_stream_input_invalid")
+    if current_expert_ptr_source not in (
+        "torch_device_tensor",
+        "native_generated_device_scratch",
+        "packet_stream_torch_device_tensor",
+    ):
+        failures.append(f"{failure_prefix}_current_expert_ptr_source_invalid")
+    if current_expert_ptr_source == "torch_device_tensor":
+        if current_expert_ptr_source_kind != "external_torch_device_tensor_smoke":
+            failures.append(f"{failure_prefix}_current_expert_ptr_source_kind_mismatch")
+        if external_current_expert_ptr_source is not True:
+            failures.append(f"{failure_prefix}_external_current_expert_ptr_source_mismatch")
+        if ready_for_external_pointer_smoke is not True:
+            failures.append(f"{failure_prefix}_ready_for_external_pointer_smoke_mismatch")
+        if ready_for_vllm_prelaunch_canary is not False:
+            failures.append(f"{failure_prefix}_ready_for_vllm_prelaunch_canary_mismatch")
+    elif current_expert_ptr_source == "native_generated_device_scratch":
+        if current_expert_ptr_source_kind != "native_scratch_smoke":
+            failures.append(f"{failure_prefix}_current_expert_ptr_source_kind_mismatch")
+        if external_current_expert_ptr_source is not False:
+            failures.append(f"{failure_prefix}_external_current_expert_ptr_source_mismatch")
+        if ready_for_external_pointer_smoke is not False:
+            failures.append(f"{failure_prefix}_ready_for_external_pointer_smoke_mismatch")
+        if ready_for_vllm_prelaunch_canary is not False:
+            failures.append(f"{failure_prefix}_ready_for_vllm_prelaunch_canary_mismatch")
+    elif current_expert_ptr_source == "packet_stream_torch_device_tensor":
+        if packet_stream_input is not True:
+            failures.append(f"{failure_prefix}_packet_stream_input_required")
+        if current_expert_ptr_source_kind != "online_packet_stream_device_tensor_smoke":
+            failures.append(f"{failure_prefix}_current_expert_ptr_source_kind_mismatch")
+        if external_current_expert_ptr_source is not False:
+            failures.append(f"{failure_prefix}_external_current_expert_ptr_source_mismatch")
+        if ready_for_external_pointer_smoke is not False:
+            failures.append(f"{failure_prefix}_ready_for_external_pointer_smoke_mismatch")
+        if ready_for_vllm_prelaunch_canary is not False:
+            failures.append(f"{failure_prefix}_ready_for_vllm_prelaunch_canary_mismatch")
+
+    update_returncodes = evidence.get("native_update_returncodes")
+    if update_returncodes != [0]:
+        failures.append(f"{failure_prefix}_native_update_returncodes_mismatch")
+
+    if packet_stream_input is True:
+        restore_supported = evidence.get("packet_stream_state_restore_supported")
+        restore_returncodes = evidence.get("packet_stream_state_restore_returncodes")
+        override_count = _int_metric(evidence, "packet_stream_state_override_count")
+        restore_count = _int_metric(evidence, "packet_stream_state_restore_count")
+        if restore_supported is not True:
+            failures.append(f"{failure_prefix}_packet_stream_state_restore_not_supported")
+        if override_count is None or override_count < 0:
+            failures.append(f"{failure_prefix}_packet_stream_state_override_count_invalid")
+        if restore_count is None or restore_count < 0:
+            failures.append(f"{failure_prefix}_packet_stream_state_restore_count_invalid")
+        if (
+            override_count is not None
+            and restore_count is not None
+            and restore_count != override_count
+        ):
+            failures.append(f"{failure_prefix}_packet_stream_state_restore_count_mismatch")
+        if restore_count == 0:
+            if restore_returncodes != []:
+                failures.append(
+                    f"{failure_prefix}_packet_stream_state_restore_returncodes_mismatch"
+                )
+        elif restore_returncodes != [0]:
+            failures.append(
+                f"{failure_prefix}_packet_stream_state_restore_returncodes_mismatch"
+            )
+
+    steps = _int_metric(evidence, "steps")
+    layers = _int_metric(evidence, "layers")
+    experts_per_layer = _int_metric(evidence, "experts_per_layer")
+    transition_topk_count = _int_metric(evidence, "transition_topk_count")
+    packet_count = _int_metric(evidence, "packet_count")
+    previous_nonempty_packet_count = _int_metric(
+        evidence,
+        "previous_nonempty_packet_count",
+    )
+    expected_previous_nonempty_packet_count = _int_metric(
+        evidence,
+        "expected_previous_nonempty_packet_count",
+    )
+    issue_candidate_count = _int_metric(evidence, "issue_candidate_count")
+    expected_issue_candidate_count = _int_metric(
+        evidence,
+        "expected_issue_candidate_count",
+    )
+    ready_update_count = _int_metric(evidence, "ready_update_count")
+    error_count = _int_metric(evidence, "error_count")
+    requested_steps = _int_metric(evidence, "requested_steps")
+    requested_layers = _int_metric(evidence, "requested_layers")
+    requested_experts_per_layer = _int_metric(
+        evidence,
+        "requested_experts_per_layer",
+    )
+    requested_transition_topk_count = _int_metric(
+        evidence,
+        "requested_transition_topk_count",
+    )
+    gpu_elapsed_ms = _float_metric(evidence, "gpu_elapsed_ms")
+    issue_candidate_hash = _hex64_metric(evidence, "issue_candidate_hash")
+
+    for key, value in (
+        ("steps", steps),
+        ("layers", layers),
+        ("experts_per_layer", experts_per_layer),
+        ("transition_topk_count", transition_topk_count),
+        ("packet_count", packet_count),
+        ("previous_nonempty_packet_count", previous_nonempty_packet_count),
+        (
+            "expected_previous_nonempty_packet_count",
+            expected_previous_nonempty_packet_count,
+        ),
+        ("issue_candidate_count", issue_candidate_count),
+        ("expected_issue_candidate_count", expected_issue_candidate_count),
+        ("ready_update_count", ready_update_count),
+        ("error_count", error_count),
+        ("requested_steps", requested_steps),
+        ("requested_layers", requested_layers),
+        ("requested_experts_per_layer", requested_experts_per_layer),
+        ("requested_transition_topk_count", requested_transition_topk_count),
+    ):
+        if value is None or value < 0:
+            failures.append(f"{failure_prefix}_{key}_invalid")
+    if steps is not None and steps <= 1:
+        failures.append(f"{failure_prefix}_steps_not_stream")
+    if layers is not None and layers <= 0:
+        failures.append(f"{failure_prefix}_layers_empty")
+    if experts_per_layer is not None and experts_per_layer <= 0:
+        failures.append(f"{failure_prefix}_experts_per_layer_empty")
+    if gpu_elapsed_ms is None or gpu_elapsed_ms < 0:
+        failures.append(f"{failure_prefix}_gpu_elapsed_ms_invalid")
+    if issue_candidate_hash is None:
+        failures.append(f"{failure_prefix}_issue_candidate_hash_invalid")
+    expected_issue_candidate_hash = _hex64_metric(
+        evidence,
+        "expected_issue_candidate_hash",
+    )
+    if (
+        expected_issue_candidate_hash is not None
+        and issue_candidate_hash is not None
+        and issue_candidate_hash != expected_issue_candidate_hash
+    ):
+        failures.append(f"{failure_prefix}_issue_candidate_hash_mismatch")
+
+    if (
+        steps is not None
+        and layers is not None
+        and packet_count is not None
+        and packet_count != steps * layers
+    ):
+        failures.append(f"{failure_prefix}_packet_count_mismatch")
+    if (
+        packet_stream_input is not True
+        and steps is not None
+        and layers is not None
+        and expected_previous_nonempty_packet_count is not None
+        and expected_previous_nonempty_packet_count != (steps - 1) * layers
+    ):
+        failures.append(
+            f"{failure_prefix}_expected_previous_nonempty_count_mismatch"
+        )
+    if (
+        previous_nonempty_packet_count is not None
+        and expected_previous_nonempty_packet_count is not None
+        and previous_nonempty_packet_count != expected_previous_nonempty_packet_count
+    ):
+        failures.append(f"{failure_prefix}_previous_nonempty_packet_count_mismatch")
+    if (
+        issue_candidate_count is not None
+        and expected_issue_candidate_count is not None
+        and issue_candidate_count != expected_issue_candidate_count
+    ):
+        failures.append(f"{failure_prefix}_issue_candidate_count_mismatch")
+    if (
+        packet_stream_input is not True
+        and steps is not None
+        and layers is not None
+        and experts_per_layer is not None
+        and transition_topk_count is not None
+        and expected_issue_candidate_count is not None
+    ):
+        issue_per_packet = (
+            experts_per_layer
+            if transition_topk_count == 0
+            else min(experts_per_layer, transition_topk_count)
+        )
+        expected = (steps - 1) * layers * issue_per_packet
+        if expected_issue_candidate_count != expected:
+            failures.append(
+                f"{failure_prefix}_expected_issue_count_formula_mismatch"
+            )
+        if issue_candidate_count is not None and issue_candidate_count != expected:
+            failures.append(f"{failure_prefix}_issue_count_formula_mismatch")
+    if issue_candidate_count is not None and issue_candidate_count <= 0:
+        failures.append(f"{failure_prefix}_issue_candidate_count_empty")
+    if (
+        ready_update_count is not None
+        and packet_count is not None
+        and ready_update_count != packet_count
+    ):
+        failures.append(f"{failure_prefix}_ready_update_count_mismatch")
+    if error_count is not None and error_count != 0:
+        failures.append(f"{failure_prefix}_error_count_nonzero")
+    if requested_steps is not None and steps is not None and requested_steps != steps:
+        failures.append(f"{failure_prefix}_requested_steps_mismatch")
+    if requested_layers is not None and layers is not None and requested_layers != layers:
+        failures.append(f"{failure_prefix}_requested_layers_mismatch")
+    if (
+        requested_experts_per_layer is not None
+        and experts_per_layer is not None
+        and requested_experts_per_layer != experts_per_layer
+    ):
+        failures.append(f"{failure_prefix}_requested_experts_per_layer_mismatch")
+    if (
+        requested_transition_topk_count is not None
+        and transition_topk_count is not None
+        and requested_transition_topk_count != transition_topk_count
+    ):
+        failures.append(f"{failure_prefix}_requested_transition_topk_count_mismatch")
+
+    vectorized_requested = evidence.get("vectorized_copy_requested")
+    vectorized_used = evidence.get("vectorized_copy_used")
+    requested_disable_vectorized_copy = evidence.get(
+        "requested_disable_vectorized_copy"
+    )
+    if type(vectorized_requested) is not bool:
+        failures.append(f"{failure_prefix}_vectorized_copy_requested_invalid")
+    if type(vectorized_used) is not bool:
+        failures.append(f"{failure_prefix}_vectorized_copy_used_invalid")
+    if type(requested_disable_vectorized_copy) is not bool:
+        failures.append(f"{failure_prefix}_requested_disable_vectorized_copy_invalid")
+    if (
+        packet_stream_input is not True
+        and requested_disable_vectorized_copy is False
+        and experts_per_layer is not None
+        and experts_per_layer % 4 == 0
+        and vectorized_used is not True
+    ):
+        failures.append(f"{failure_prefix}_vectorized_copy_expected_but_not_used")
+    if requested_disable_vectorized_copy is True and vectorized_used is True:
+        failures.append(f"{failure_prefix}_vectorized_copy_used_when_disabled")
+
+    for path_key in ("shared_library", "source", "abi_header"):
+        if not isinstance(evidence.get(path_key), str) or not evidence.get(path_key):
+            failures.append(f"{failure_prefix}_{path_key}_missing")
+    return failures
+
+
+def _validate_payload_cache_producer_state_inprocess_native_session_online_contract_evidence(
+    evidence: dict[str, Any],
+    *,
+    failure_prefix: str = (
+        "payload_cache_producer_state_inprocess_native_session_online_contract"
+    ),
+) -> list[str]:
+    failures: list[str] = []
+    expected_values = {
+        "passed": True,
+        "ok": True,
+        "failures": [],
+        "mode": "payload_cache_producer_state_inprocess_native_session_online_contract",
+        "source_kind": "derived_payload_cache_producer_state_stream_online_contract",
+        "source_is_online_stream_contract": True,
+        "source_stream_online_contract_passed": True,
+        "source_stream_online_contract_failures": [],
+        "source_is_raw_vllm_performance_summary": False,
+        "inprocess_native_op": True,
+        "native_runtime": True,
+        "native_shared_library": True,
+        "native_graph_replay": False,
+        "native_stub_invoked": True,
+        "prelaunch_callable_native_session": True,
+        "ready_for_native_session_smoke": True,
+        "persistent_state_on_device": True,
+        "issue_generation_on_device": True,
+        "vllm_replay_visible": False,
+        "torch_graph_replay_visible": False,
+        "graph_visible": False,
+        "payload_bytes": 0,
+        "ready_credit": False,
+        "ready_before_demand_credit": False,
+        "real_ready_credit_granted": False,
+        "payload_transfer_enabled": False,
+        "payload_deref_allowed": False,
+        "passed_to_kernel": False,
+        "changes_kernel_launch_args": False,
+        "current_wna16_arg_compatible": False,
+        "uses_current_wna16_args": False,
+        "passes_current_wna16_args": False,
+        "measures_tpot": False,
+        "measures_vllm_latency": False,
+    }
+    for key, expected_value in expected_values.items():
+        actual_value = evidence.get(key)
+        if type(actual_value) is not type(expected_value) or actual_value != expected_value:
+            failures.append(f"{failure_prefix}_{key}_mismatch")
+
+    for path_key in ("performance_summary", "native_session_output_json"):
+        if not isinstance(evidence.get(path_key), str) or not evidence.get(path_key):
+            failures.append(f"{failure_prefix}_{path_key}_missing")
+
+    current_expert_ptr_source = evidence.get("current_expert_ptr_source")
+    current_expert_ptr_source_kind = evidence.get("current_expert_ptr_source_kind")
+    external_current_expert_ptr_source = evidence.get(
+        "external_current_expert_ptr_source"
+    )
+    ready_for_external_pointer_smoke = evidence.get(
+        "ready_for_external_pointer_smoke"
+    )
+    ready_for_vllm_prelaunch_canary = evidence.get(
+        "ready_for_vllm_prelaunch_canary"
+    )
+    if current_expert_ptr_source not in (
+        "torch_device_tensor",
+        "native_generated_device_scratch",
+        "packet_stream_torch_device_tensor",
+    ):
+        failures.append(f"{failure_prefix}_current_expert_ptr_source_invalid")
+    if current_expert_ptr_source == "torch_device_tensor":
+        if current_expert_ptr_source_kind != "external_torch_device_tensor_smoke":
+            failures.append(f"{failure_prefix}_current_expert_ptr_source_kind_mismatch")
+        if external_current_expert_ptr_source is not True:
+            failures.append(f"{failure_prefix}_external_current_expert_ptr_source_mismatch")
+        if ready_for_external_pointer_smoke is not True:
+            failures.append(f"{failure_prefix}_ready_for_external_pointer_smoke_mismatch")
+        if ready_for_vllm_prelaunch_canary is not False:
+            failures.append(f"{failure_prefix}_ready_for_vllm_prelaunch_canary_mismatch")
+    elif current_expert_ptr_source == "native_generated_device_scratch":
+        if current_expert_ptr_source_kind != "native_scratch_smoke":
+            failures.append(f"{failure_prefix}_current_expert_ptr_source_kind_mismatch")
+        if external_current_expert_ptr_source is not False:
+            failures.append(f"{failure_prefix}_external_current_expert_ptr_source_mismatch")
+        if ready_for_external_pointer_smoke is not False:
+            failures.append(f"{failure_prefix}_ready_for_external_pointer_smoke_mismatch")
+        if ready_for_vllm_prelaunch_canary is not False:
+            failures.append(f"{failure_prefix}_ready_for_vllm_prelaunch_canary_mismatch")
+    elif current_expert_ptr_source == "packet_stream_torch_device_tensor":
+        native = evidence.get("native")
+        if not (isinstance(native, dict) and native.get("packet_stream_input") is True):
+            failures.append(f"{failure_prefix}_packet_stream_input_required")
+        if current_expert_ptr_source_kind != "online_packet_stream_device_tensor_smoke":
+            failures.append(f"{failure_prefix}_current_expert_ptr_source_kind_mismatch")
+        if external_current_expert_ptr_source is not False:
+            failures.append(f"{failure_prefix}_external_current_expert_ptr_source_mismatch")
+        if ready_for_external_pointer_smoke is not False:
+            failures.append(f"{failure_prefix}_ready_for_external_pointer_smoke_mismatch")
+        if ready_for_vllm_prelaunch_canary is not False:
+            failures.append(f"{failure_prefix}_ready_for_vllm_prelaunch_canary_mismatch")
+
+    steps = _int_metric(evidence, "contract_steps")
+    layers = _int_metric(evidence, "contract_layers")
+    experts_per_layer = _int_metric(evidence, "contract_experts_per_layer")
+    transition_topk_count = _int_metric(evidence, "contract_transition_topk_count")
+    expected_packet_count = _int_metric(evidence, "contract_expected_packet_count")
+    expected_previous_nonempty_packet_count = _int_metric(
+        evidence,
+        "contract_expected_previous_nonempty_packet_count",
+    )
+    expected_issue_candidate_count = _int_metric(
+        evidence,
+        "contract_expected_issue_candidate_count",
+    )
+    online_packet_count = _int_metric(evidence, "online_observed_packet_count")
+    online_producer_update_count = _int_metric(evidence, "online_producer_update_count")
+    online_previous_nonempty = _int_metric(
+        evidence,
+        "online_observed_previous_nonempty_packet_count",
+    )
+    online_issue_count = _int_metric(
+        evidence,
+        "online_observed_issue_candidate_count",
+    )
+    native_packet_count = _int_metric(evidence, "native_session_packet_count")
+    native_previous_nonempty = _int_metric(
+        evidence,
+        "native_session_previous_nonempty_packet_count",
+    )
+    native_issue_count = _int_metric(
+        evidence,
+        "native_session_issue_candidate_count",
+    )
+    native_expected_issue_count = _int_metric(
+        evidence,
+        "native_session_expected_issue_candidate_count",
+    )
+    gpu_elapsed_ms = _float_metric(evidence, "native_session_gpu_elapsed_ms")
+    for key, value in (
+        ("contract_steps", steps),
+        ("contract_layers", layers),
+        ("contract_experts_per_layer", experts_per_layer),
+        ("contract_transition_topk_count", transition_topk_count),
+        ("contract_expected_packet_count", expected_packet_count),
+        (
+            "contract_expected_previous_nonempty_packet_count",
+            expected_previous_nonempty_packet_count,
+        ),
+        ("contract_expected_issue_candidate_count", expected_issue_candidate_count),
+        ("online_observed_packet_count", online_packet_count),
+        ("online_producer_update_count", online_producer_update_count),
+        ("online_observed_previous_nonempty_packet_count", online_previous_nonempty),
+        ("online_observed_issue_candidate_count", online_issue_count),
+        ("native_session_packet_count", native_packet_count),
+        (
+            "native_session_previous_nonempty_packet_count",
+            native_previous_nonempty,
+        ),
+        ("native_session_issue_candidate_count", native_issue_count),
+        (
+            "native_session_expected_issue_candidate_count",
+            native_expected_issue_count,
+        ),
+    ):
+        if value is None or value < 0:
+            failures.append(f"{failure_prefix}_{key}_invalid")
+    if steps is not None and steps <= 1:
+        failures.append(f"{failure_prefix}_steps_not_stream")
+    if layers is not None and layers <= 0:
+        failures.append(f"{failure_prefix}_layers_empty")
+    if experts_per_layer is not None and experts_per_layer <= 0:
+        failures.append(f"{failure_prefix}_experts_per_layer_empty")
+    if gpu_elapsed_ms is None or gpu_elapsed_ms < 0:
+        failures.append(f"{failure_prefix}_native_session_gpu_elapsed_ms_invalid")
+    if (
+        steps is not None
+        and layers is not None
+        and expected_packet_count is not None
+        and expected_packet_count != steps * layers
+    ):
+        failures.append(f"{failure_prefix}_expected_packet_count_mismatch")
+    if (
+        steps is not None
+        and layers is not None
+        and expected_previous_nonempty_packet_count is not None
+        and expected_previous_nonempty_packet_count != (steps - 1) * layers
+    ):
+        failures.append(
+            f"{failure_prefix}_expected_previous_nonempty_packet_count_mismatch"
+        )
+    if (
+        steps is not None
+        and layers is not None
+        and experts_per_layer is not None
+        and transition_topk_count is not None
+        and expected_issue_candidate_count is not None
+    ):
+        issue_per_packet = (
+            experts_per_layer
+            if transition_topk_count == 0
+            else min(experts_per_layer, transition_topk_count)
+        )
+        expected = (steps - 1) * layers * issue_per_packet
+        if expected_issue_candidate_count != expected:
+            failures.append(f"{failure_prefix}_expected_issue_count_mismatch")
+    for metric_name, observed_value in (
+        ("online_observed_packet_count", online_packet_count),
+        ("online_producer_update_count", online_producer_update_count),
+        ("native_session_packet_count", native_packet_count),
+    ):
+        if (
+            observed_value is not None
+            and expected_packet_count is not None
+            and observed_value != expected_packet_count
+        ):
+            failures.append(f"{failure_prefix}_{metric_name}_mismatch")
+    for metric_name, observed_value in (
+        ("online_observed_previous_nonempty_packet_count", online_previous_nonempty),
+        (
+            "native_session_previous_nonempty_packet_count",
+            native_previous_nonempty,
+        ),
+    ):
+        if (
+            observed_value is not None
+            and expected_previous_nonempty_packet_count is not None
+            and observed_value != expected_previous_nonempty_packet_count
+        ):
+            failures.append(f"{failure_prefix}_{metric_name}_mismatch")
+    for metric_name, observed_value in (
+        ("online_observed_issue_candidate_count", online_issue_count),
+        ("native_session_issue_candidate_count", native_issue_count),
+        ("native_session_expected_issue_candidate_count", native_expected_issue_count),
+    ):
+        if (
+            observed_value is not None
+            and expected_issue_candidate_count is not None
+            and observed_value != expected_issue_candidate_count
+        ):
+            failures.append(f"{failure_prefix}_{metric_name}_mismatch")
+    dimension_failures = evidence.get("contract_dimension_consistency_failures")
+    if dimension_failures not in ([], None):
+        failures.append(f"{failure_prefix}_dimension_consistency_failures_not_empty")
+    native = evidence.get("native")
+    if not isinstance(native, dict):
+        failures.append(f"{failure_prefix}_native_missing")
+    else:
+        for native_key, contract_value in (
+            ("steps", steps),
+            ("layers", layers),
+            ("experts_per_layer", experts_per_layer),
+            ("transition_topk_count", transition_topk_count),
+        ):
+            native_value = _int_metric(native, native_key)
+            if (
+                native_value is not None
+                and contract_value is not None
+                and native_value != contract_value
+            ):
+                failures.append(f"{failure_prefix}_native_{native_key}_mismatch")
+        nested_failures = _validate_payload_cache_producer_state_inprocess_native_session_canary_evidence(
+            native,
+            failure_prefix=f"{failure_prefix}_native",
+        )
+        failures.extend(nested_failures)
+    return failures
+
+
+def _validate_payload_cache_producer_state_packet_stream_native_canary_evidence(
+    evidence: dict[str, Any],
+    *,
+    failure_prefix: str = "payload_cache_producer_state_packet_stream_native_canary",
+) -> list[str]:
+    check = check_packet_stream_native_canary(evidence)
+    return [f"{failure_prefix}_{failure}" for failure in check.get("failures", [])]
+
+
+def _validate_payload_cache_producer_state_packet_stream_native_canary_check_evidence(
+    evidence: dict[str, Any],
+    *,
+    failure_prefix: str = (
+        "payload_cache_producer_state_packet_stream_native_canary_check"
+    ),
+) -> list[str]:
+    failures: list[str] = []
+    expected_values = {
+        "passed": True,
+        "failures": [],
+        "mode": "premap_payload_cache_packet_stream_native_canary_check",
+        "native_graph_replay": True,
+        "payload_bytes": 0,
+        "ready_credit": False,
+        "kernel_arg_pass": False,
+        "passed_to_kernel": False,
+        "changes_kernel_launch_args": False,
+        "uses_current_wna16_args": False,
+        "passes_current_wna16_args": False,
+        "state_mismatch_count": 0,
+        "issue_expert_mismatch_count": 0,
+    }
+    for key, expected_value in expected_values.items():
+        if evidence.get(key) != expected_value:
+            failures.append(f"{failure_prefix}_{key}_mismatch")
+    if type(evidence.get("payload_bytes")) is not int:
+        failures.append(f"{failure_prefix}_payload_bytes_type_mismatch")
+    for zero_count_key in ("state_mismatch_count", "issue_expert_mismatch_count"):
+        if type(evidence.get(zero_count_key)) is not int:
+            failures.append(f"{failure_prefix}_{zero_count_key}_type_mismatch")
+    if evidence.get("native_runtime_blocked") is True:
+        failures.append(f"{failure_prefix}_native_runtime_blocked")
+
+    packet_count = _int_metric(evidence, "packet_count")
+    issue_candidate_count = _int_metric(evidence, "issue_candidate_count")
+    issue_candidate_hash = evidence.get("issue_candidate_hash")
+    expected_issue_candidate_hash = evidence.get("expected_issue_candidate_hash")
+    expected_issue_candidate_count = _int_metric(
+        evidence,
+        "expected_issue_candidate_count",
+    )
+    previous_nonempty_packet_count = _int_metric(
+        evidence,
+        "previous_nonempty_packet_count",
+    )
+    materialized_packet_count = _int_metric(evidence, "materialized_packet_count")
+    materialized_issue_candidate_count = _int_metric(
+        evidence,
+        "materialized_expected_issue_candidate_count",
+    )
+    materialized_issue_candidate_hash = evidence.get(
+        "materialized_expected_issue_candidate_hash"
+    )
+    materialized_previous_nonempty_packet_count = _int_metric(
+        evidence,
+        "materialized_expected_previous_nonempty_packet_count",
+    )
+    state_override_count = _int_metric(evidence, "state_override_count")
+    materialized_state_override_count = _int_metric(
+        evidence,
+        "materialized_state_override_count",
+    )
+    for key, value in (
+        ("packet_count", packet_count),
+        ("issue_candidate_count", issue_candidate_count),
+        ("expected_issue_candidate_count", expected_issue_candidate_count),
+        ("previous_nonempty_packet_count", previous_nonempty_packet_count),
+        ("materialized_packet_count", materialized_packet_count),
+        (
+            "materialized_expected_issue_candidate_count",
+            materialized_issue_candidate_count,
+        ),
+        (
+            "materialized_expected_previous_nonempty_packet_count",
+            materialized_previous_nonempty_packet_count,
+        ),
+        ("state_override_count", state_override_count),
+        ("materialized_state_override_count", materialized_state_override_count),
+    ):
+        if value is None or value < 0:
+            failures.append(f"{failure_prefix}_{key}_invalid")
+    if packet_count is not None and packet_count <= 0:
+        failures.append(f"{failure_prefix}_packet_count_empty")
+    if issue_candidate_count is not None and issue_candidate_count <= 0:
+        failures.append(f"{failure_prefix}_issue_candidate_count_empty")
+    for hash_key, hash_value in (
+        ("issue_candidate_hash", issue_candidate_hash),
+        ("expected_issue_candidate_hash", expected_issue_candidate_hash),
+        (
+            "materialized_expected_issue_candidate_hash",
+            materialized_issue_candidate_hash,
+        ),
+    ):
+        if not _strict_hex64_string(hash_value):
+            failures.append(f"{failure_prefix}_{hash_key}_invalid")
+    if (
+        isinstance(issue_candidate_hash, str)
+        and isinstance(expected_issue_candidate_hash, str)
+        and issue_candidate_hash != expected_issue_candidate_hash
+    ):
+        failures.append(f"{failure_prefix}_issue_candidate_hash_mismatch")
+    if (
+        isinstance(issue_candidate_hash, str)
+        and isinstance(materialized_issue_candidate_hash, str)
+        and issue_candidate_hash != materialized_issue_candidate_hash
+    ):
+        failures.append(
+            f"{failure_prefix}_materialized_issue_candidate_hash_mismatch"
+        )
+    if (
+        issue_candidate_count is not None
+        and expected_issue_candidate_count is not None
+        and issue_candidate_count != expected_issue_candidate_count
+    ):
+        failures.append(f"{failure_prefix}_issue_candidate_count_mismatch")
+    if (
+        packet_count is not None
+        and materialized_packet_count is not None
+        and packet_count != materialized_packet_count
+    ):
+        failures.append(f"{failure_prefix}_materialized_packet_count_mismatch")
+    if (
+        issue_candidate_count is not None
+        and materialized_issue_candidate_count is not None
+        and issue_candidate_count != materialized_issue_candidate_count
+    ):
+        failures.append(f"{failure_prefix}_materialized_issue_candidate_count_mismatch")
+    if (
+        previous_nonempty_packet_count is not None
+        and materialized_previous_nonempty_packet_count is not None
+        and previous_nonempty_packet_count != materialized_previous_nonempty_packet_count
+    ):
+        failures.append(
+            f"{failure_prefix}_materialized_previous_nonempty_packet_count_mismatch"
+        )
+    if (
+        packet_count is not None
+        and materialized_previous_nonempty_packet_count is not None
+        and not 0 <= materialized_previous_nonempty_packet_count <= packet_count
+    ):
+        failures.append(
+            f"{failure_prefix}_materialized_previous_nonempty_packet_count_invalid"
+        )
+    if (
+        state_override_count is not None
+        and materialized_state_override_count is not None
+        and state_override_count != materialized_state_override_count
+    ):
+        failures.append(f"{failure_prefix}_materialized_state_override_count_mismatch")
+    return failures
+
+
+def _is_finite_positive_number(value: Any) -> bool:
+    return (
+        not isinstance(value, bool)
+        and isinstance(value, (int, float))
+        and math.isfinite(float(value))
+        and float(value) > 0.0
+    )
+
+
+def _is_finite_number(value: Any) -> bool:
+    return (
+        not isinstance(value, bool)
+        and isinstance(value, (int, float))
+        and math.isfinite(float(value))
+    )
+
+
+def _validate_payload_cache_online_inside_graph_producer_boundary_contract_evidence(
+    evidence: dict[str, Any],
+    *,
+    failure_prefix: str = (
+        "payload_cache_online_inside_graph_producer_boundary_contract"
+    ),
+) -> list[str]:
+    failures: list[str] = []
+    expected_values = {
+        "ok": True,
+        "passed": True,
+        "failures": [],
+        "mode": "payload_cache_online_inside_graph_producer_boundary_contract",
+        "embedded_graph_visible_contract_passed": True,
+        "embedded_graph_visible_contract_enabled": True,
+        "embedded_graph_visible_contract_present": True,
+        "embedded_graph_visible_contract_capture_once_per_layer_suspected": False,
+        "embedded_graph_visible_contract_replay_update_status": (
+            "complete_replay_updates_observed"
+        ),
+        "embedded_inside_graph_boundary_contract_passed": True,
+        "embedded_inside_graph_boundary_contract_failures": [],
+        "contract_boundary": "online_inside_graph_tensor_producer",
+        "transition_state_on_device": True,
+        "issue_generation_on_device": True,
+        "python_transition_skipped": True,
+        "native_runtime": False,
+        "inprocess_native_op": False,
+        "post_export_native_replay": False,
+        "payload_bytes": 0,
+        "ready_credit": False,
+        "kernel_arg_pass": False,
+        "passed_to_kernel": False,
+        "changes_kernel_launch_args": False,
+        "uses_current_wna16_args": False,
+        "passes_current_wna16_args": False,
+        "measures_tpot": False,
+        "measures_vllm_latency": False,
+    }
+    for key, expected_value in expected_values.items():
+        if evidence.get(key) != expected_value:
+            failures.append(f"{failure_prefix}_{key}_mismatch")
+    if evidence.get("transition_state_on_device") is not True:
+        failures.append(f"{failure_prefix}_transition_state_not_on_device")
+    if evidence.get("issue_generation_on_device") is not True:
+        failures.append(f"{failure_prefix}_issue_generation_not_on_device")
+    if evidence.get("embedded_graph_visible_contract_capture_once_per_layer_suspected") is not False:
+        failures.append(f"{failure_prefix}_capture_once_per_layer_suspected")
+    if (
+        evidence.get("embedded_graph_visible_contract_replay_update_status")
+        != "complete_replay_updates_observed"
+    ):
+        failures.append(f"{failure_prefix}_replay_updates_not_complete")
+    if evidence.get("python_transition_skipped") is not True:
+        failures.append(f"{failure_prefix}_python_transition_not_skipped")
+    if evidence.get("native_runtime") is not False:
+        failures.append(f"{failure_prefix}_native_runtime_enabled")
+    if evidence.get("inprocess_native_op") is not False:
+        failures.append(f"{failure_prefix}_inprocess_native_op_enabled")
+    if evidence.get("post_export_native_replay") is not False:
+        failures.append(f"{failure_prefix}_post_export_native_replay_enabled")
+    if evidence.get("payload_bytes") != 0:
+        failures.append(f"{failure_prefix}_payload_bytes_nonzero")
+    if evidence.get("ready_credit") is not False:
+        failures.append(f"{failure_prefix}_ready_credit_enabled")
+    if evidence.get("passed_to_kernel") is not False:
+        failures.append(f"{failure_prefix}_passed_to_kernel_enabled")
+    if evidence.get("changes_kernel_launch_args") is not False:
+        failures.append(f"{failure_prefix}_changes_kernel_launch_args_enabled")
+    if evidence.get("uses_current_wna16_args") is not False:
+        failures.append(f"{failure_prefix}_uses_current_wna16_args_enabled")
+    if evidence.get("passes_current_wna16_args") is not False:
+        failures.append(f"{failure_prefix}_passes_current_wna16_args_enabled")
+
+    observed_packet_count = _int_metric(evidence, "graph_observed_packet_count")
+    expected_packet_count = _int_metric(evidence, "graph_expected_packet_count")
+    observed_previous_nonempty = _int_metric(
+        evidence,
+        "graph_observed_previous_nonempty_packet_count",
+    )
+    expected_previous_nonempty = _int_metric(
+        evidence,
+        "graph_expected_previous_nonempty_packet_count",
+    )
+    observed_issue_count = _int_metric(
+        evidence,
+        "graph_observed_issue_candidate_count",
+    )
+    expected_issue_count = _int_metric(
+        evidence,
+        "graph_expected_issue_candidate_count",
+    )
+    last_issue_count = _int_metric(evidence, "graph_last_issue_candidate_count")
+    issue_sum = _int_metric(evidence, "graph_issue_candidate_expert_sum")
+    for key, value in (
+        ("graph_observed_packet_count", observed_packet_count),
+        ("graph_expected_packet_count", expected_packet_count),
+        (
+            "graph_observed_previous_nonempty_packet_count",
+            observed_previous_nonempty,
+        ),
+        (
+            "graph_expected_previous_nonempty_packet_count",
+            expected_previous_nonempty,
+        ),
+        ("graph_observed_issue_candidate_count", observed_issue_count),
+        ("graph_expected_issue_candidate_count", expected_issue_count),
+        ("graph_last_issue_candidate_count", last_issue_count),
+        ("graph_issue_candidate_expert_sum", issue_sum),
+    ):
+        if value is None or value < 0:
+            failures.append(f"{failure_prefix}_{key}_invalid")
+    if (
+        observed_packet_count is not None
+        and expected_packet_count is not None
+        and observed_packet_count != expected_packet_count
+    ):
+        failures.append(f"{failure_prefix}_packet_count_mismatch")
+    if (
+        observed_previous_nonempty is not None
+        and expected_previous_nonempty is not None
+        and observed_previous_nonempty != expected_previous_nonempty
+    ):
+        failures.append(f"{failure_prefix}_previous_nonempty_count_mismatch")
+    if (
+        observed_issue_count is not None
+        and expected_issue_count is not None
+        and observed_issue_count != expected_issue_count
+    ):
+        failures.append(f"{failure_prefix}_issue_candidate_count_mismatch")
+    return failures
+
+
+def _validate_payload_cache_online_native_producer_boundary_gap_evidence(
+    evidence: dict[str, Any],
+    *,
+    failure_prefix: str = "payload_cache_online_native_producer_boundary_gap",
+) -> list[str]:
+    failures: list[str] = []
+    expected_values = {
+        "ok": True,
+        "passed": True,
+        "failures": [],
+        "mode": "payload_cache_online_native_producer_boundary_gap_report",
+        "native_graph_replay_passed": True,
+        "native_persistent_state_on_device": True,
+        "native_issue_generation_on_device": True,
+        "online_tensor_producer_passed": False,
+        "online_capture_once_per_layer_suspected": True,
+        "online_replay_update_status": "capture_once_per_layer_no_replay_updates",
+        "ready_for_inprocess_native_op_work": True,
+        "ready_for_lab_runtime_gate": False,
+        "runtime_passed": False,
+        "lab_gate_passed": False,
+        "next_required_boundary": "inprocess_vllm_replay_visible_native_producer_op",
+        "payload_bytes": 0,
+        "ready_credit": False,
+        "kernel_arg_pass": False,
+        "passed_to_kernel": False,
+        "changes_kernel_launch_args": False,
+        "uses_current_wna16_args": False,
+        "passes_current_wna16_args": False,
+        "measures_tpot": False,
+        "measures_vllm_latency": False,
+    }
+    for key, expected_value in expected_values.items():
+        if evidence.get(key) != expected_value:
+            failures.append(f"{failure_prefix}_{key}_mismatch")
+    native_issue_count = _int_metric(evidence, "native_issue_candidate_count")
+    native_expected_issue_count = _int_metric(
+        evidence,
+        "native_expected_issue_candidate_count",
+    )
+    if native_issue_count is None or native_issue_count <= 0:
+        failures.append(f"{failure_prefix}_native_issue_candidate_count_invalid")
+    if native_issue_count != native_expected_issue_count:
+        failures.append(f"{failure_prefix}_native_issue_candidate_count_mismatch")
+    for path_key in (
+        "native_graph_replay_json",
+        "online_inside_graph_contract_json",
+    ):
+        path_value = evidence.get(path_key)
+        if not isinstance(path_value, str) or not path_value:
+            failures.append(f"{failure_prefix}_{path_key}_missing")
+    unexpected_runtime_positive_fields = (
+        "kernel_arg_pass_allowed",
+        "kernel_arg_pass_enabled",
+        "real_kernel_arg_mutation",
+        "real_kernel_arg_mutation_enabled",
+        "future_wna16_typed_slot_kernel_variant_enabled",
+        "future_wna16_typed_slot_kernel_variant_launch_count",
+        "full_fetch_runtime_allowed",
+        "payload_transfer_enabled",
+        "payload_transfer_runtime_enabled",
+        "payload_deref_allowed",
+        "payload_deref_runtime_allowed",
+        "ready_before_demand_credit",
+        "real_ready_credit_granted",
+        "current_wna16_arg_compatible",
+        "wna16_benchmark_ready",
+    )
+    for key in unexpected_runtime_positive_fields:
+        value = evidence.get(key)
+        if value not in (None, False, 0):
+            failures.append(f"{failure_prefix}_{key}_unexpectedly_enabled")
+    return failures
+
+
+def _validate_payload_cache_producer_state_stream_online_contract_evidence(
+    evidence: dict[str, Any],
+    *,
+    failure_prefix: str = "payload_cache_producer_state_stream_online_contract",
+) -> list[str]:
+    failures: list[str] = []
+    expected_values = {
+        "ok": True,
+        "passed": True,
+        "failures": [],
+        "mode": "payload_cache_producer_state_stream_online_contract",
+        "embedded_online_stream_contract_present": True,
+        "embedded_online_stream_contract_passed": True,
+        "embedded_online_stream_contract_failures": [],
+        "online_python_prelaunch_state_empty": True,
+        "production_like_ab_ready": True,
+        "benchmark_is_current_wna16_fused_moe": False,
+        "measures_tpot": False,
+        "native_stream_is_current_wna16_fused_moe": False,
+        "native_stream_measures_tpot": False,
+        "payload_bytes": 0,
+        "ready_credit": False,
+        "passed_to_kernel": False,
+        "changes_kernel_launch_args": False,
+        "uses_current_wna16_args": False,
+        "passes_current_wna16_args": False,
+        "native_stream_graph_replay_required": True,
+        "native_stream_graph_replay": True,
+        "native_stream_requested_graph_replay": True,
+        "native_stream_persistent_state_on_device": True,
+        "native_stream_issue_generation_on_device": True,
+    }
+    for key, expected_value in expected_values.items():
+        if evidence.get(key) != expected_value:
+            failures.append(f"{failure_prefix}_{key}_mismatch")
+
+    steps = _int_metric(evidence, "contract_steps")
+    layers = _int_metric(evidence, "contract_layers")
+    experts_per_layer = _int_metric(evidence, "contract_experts_per_layer")
+    transition_topk_count = _int_metric(evidence, "contract_transition_topk_count")
+    expected_issue_candidate_count = _int_metric(
+        evidence,
+        "contract_expected_issue_candidate_count",
+    )
+    native_issue_candidate_count = _int_metric(
+        evidence,
+        "native_stream_issue_candidate_count",
+    )
+    native_previous_nonempty_packet_count = _int_metric(
+        evidence,
+        "native_stream_previous_nonempty_packet_count",
+    )
+    native_packet_count = _int_metric(evidence, "native_stream_packet_count")
+    native_gpu_elapsed_ms = _float_metric(evidence, "native_stream_gpu_elapsed_ms")
+    embedded_expected_issue_candidate_count = _int_metric(
+        evidence,
+        "embedded_online_stream_contract_expected_issue_candidate_count",
+    )
+    embedded_issue_candidate_count = _int_metric(
+        evidence,
+        "embedded_online_stream_contract_issue_candidate_count",
+    )
+
+    for key, value in (
+        ("contract_steps", steps),
+        ("contract_layers", layers),
+        ("contract_experts_per_layer", experts_per_layer),
+        ("contract_transition_topk_count", transition_topk_count),
+        (
+            "contract_expected_issue_candidate_count",
+            expected_issue_candidate_count,
+        ),
+        ("native_stream_issue_candidate_count", native_issue_candidate_count),
+        (
+            "native_stream_previous_nonempty_packet_count",
+            native_previous_nonempty_packet_count,
+        ),
+        ("native_stream_packet_count", native_packet_count),
+    ):
+        if value is None or value < 0:
+            failures.append(f"{failure_prefix}_{key}_invalid")
+    if steps is not None and steps <= 1:
+        failures.append(f"{failure_prefix}_contract_steps_not_stream")
+    if layers is not None and layers <= 0:
+        failures.append(f"{failure_prefix}_contract_layers_empty")
+    if experts_per_layer is not None and experts_per_layer <= 0:
+        failures.append(f"{failure_prefix}_contract_experts_per_layer_empty")
+    if native_gpu_elapsed_ms is None or native_gpu_elapsed_ms < 0:
+        failures.append(f"{failure_prefix}_native_stream_gpu_elapsed_ms_invalid")
+
+    if (
+        steps is not None
+        and layers is not None
+        and native_packet_count is not None
+        and native_packet_count != steps * layers
+    ):
+        failures.append(f"{failure_prefix}_native_stream_packet_count_mismatch")
+    if (
+        steps is not None
+        and layers is not None
+        and native_previous_nonempty_packet_count is not None
+        and native_previous_nonempty_packet_count != (steps - 1) * layers
+    ):
+        failures.append(
+            f"{failure_prefix}_native_stream_previous_nonempty_packet_count_mismatch"
+        )
+    if (
+        steps is not None
+        and layers is not None
+        and experts_per_layer is not None
+        and transition_topk_count is not None
+        and expected_issue_candidate_count is not None
+    ):
+        issue_per_packet = (
+            experts_per_layer
+            if transition_topk_count == 0
+            else min(experts_per_layer, transition_topk_count)
+        )
+        expected = (steps - 1) * layers * issue_per_packet
+        if expected_issue_candidate_count != expected:
+            failures.append(f"{failure_prefix}_expected_issue_count_formula_mismatch")
+    if (
+        native_issue_candidate_count is not None
+        and expected_issue_candidate_count is not None
+        and native_issue_candidate_count != expected_issue_candidate_count
+    ):
+        failures.append(f"{failure_prefix}_native_issue_candidate_count_mismatch")
+    if (
+        embedded_expected_issue_candidate_count is not None
+        and expected_issue_candidate_count is not None
+        and embedded_expected_issue_candidate_count != expected_issue_candidate_count
+    ):
+        failures.append(f"{failure_prefix}_embedded_expected_issue_count_mismatch")
+    if (
+        embedded_issue_candidate_count is not None
+        and expected_issue_candidate_count is not None
+        and embedded_issue_candidate_count != expected_issue_candidate_count
+    ):
+        failures.append(f"{failure_prefix}_embedded_issue_count_mismatch")
+
+    dimension_sources = evidence.get("contract_dimension_sources")
+    if not isinstance(dimension_sources, dict):
+        failures.append(f"{failure_prefix}_contract_dimension_sources_missing")
+    else:
+        if dimension_sources.get("all_layer_sources_match") is not True:
+            failures.append(f"{failure_prefix}_layer_sources_not_all_match")
+        if dimension_sources.get("all_expert_sources_match") is not True:
+            failures.append(f"{failure_prefix}_expert_sources_not_all_match")
+    if evidence.get("contract_dimension_consistency_failures") != []:
+        failures.append(f"{failure_prefix}_dimension_consistency_failures_not_empty")
+    return failures
+
+
+def _validate_payload_cache_stream_producer_production_ab_bridge_evidence(
+    evidence: dict[str, Any],
+    *,
+    failure_prefix: str = "payload_cache_stream_producer_production_ab_bridge",
+) -> list[str]:
+    failures: list[str] = []
+    expected_values = {
+        "ok": True,
+        "passed": True,
+        "failures": [],
+        "mode": "payload_cache_stream_producer_production_like_ab_report",
+        "online_contract_passed": True,
+        "benchmark_is_current_wna16_fused_moe": True,
+        "measures_tpot": True,
+        "native_stream_is_current_wna16_fused_moe": False,
+        "native_stream_measures_tpot": False,
+        "payload_bytes": 0,
+        "candidate_payload_bytes": 0,
+        "ready_credit": False,
+        "passed_to_kernel": False,
+        "changes_kernel_launch_args": False,
+        "uses_current_wna16_args": False,
+        "passes_current_wna16_args": False,
+        "candidate_kernel_arg_pass": False,
+        "candidate_changes_kernel_launch_args": False,
+        "native_stream_graph_replay_required": True,
+        "native_stream_graph_replay": True,
+        "native_stream_requested_graph_replay": True,
+        "native_stream_persistent_state_on_device": True,
+        "native_stream_issue_generation_on_device": True,
+    }
+    for key, expected_value in expected_values.items():
+        if evidence.get(key) != expected_value:
+            failures.append(f"{failure_prefix}_{key}_mismatch")
+
+    baseline_tpot = evidence.get("baseline_tpot_s")
+    candidate_tpot = evidence.get("candidate_tpot_s")
+    overhead_ratio = evidence.get("candidate_overhead_ratio")
+    max_overhead_ratio = evidence.get("max_overhead_ratio", 0.02)
+    if not _is_finite_positive_number(baseline_tpot):
+        failures.append(f"{failure_prefix}_baseline_tpot_invalid")
+    if not _is_finite_positive_number(candidate_tpot):
+        failures.append(f"{failure_prefix}_candidate_tpot_invalid")
+    if not _is_finite_number(overhead_ratio):
+        failures.append(f"{failure_prefix}_candidate_overhead_ratio_invalid")
+    if not _is_finite_number(max_overhead_ratio):
+        failures.append(f"{failure_prefix}_max_overhead_ratio_invalid")
+    elif _is_finite_number(overhead_ratio) and float(overhead_ratio) > float(
+        max_overhead_ratio
+    ):
+        failures.append(f"{failure_prefix}_candidate_overhead_ratio_over_threshold")
+
+    issue_count = evidence.get("native_stream_issue_candidate_count")
+    expected_issue_count = evidence.get("online_contract_expected_issue_candidate_count")
+    if type(issue_count) is not int or issue_count <= 0:
+        failures.append(f"{failure_prefix}_native_stream_issue_candidate_count_invalid")
+    if type(expected_issue_count) is not int or expected_issue_count <= 0:
+        failures.append(
+            f"{failure_prefix}_online_contract_expected_issue_candidate_count_invalid"
+        )
+    elif type(issue_count) is int and issue_count != expected_issue_count:
+        failures.append(f"{failure_prefix}_native_stream_issue_candidate_count_mismatch")
+    return failures
+
+
+def _validate_payload_cache_stream_producer_production_ab_bridge_check_evidence(
+    evidence: dict[str, Any],
+    *,
+    failure_prefix: str = "payload_cache_stream_producer_production_ab_bridge_check",
+) -> list[str]:
+    failures: list[str] = []
+    expected_values = {
+        "passed": True,
+        "failures": [],
+        "mode": "premap_payload_cache_stream_producer_ab_bridge_check",
+        "payload_bytes": 0,
+        "candidate_payload_bytes": 0,
+        "ready_credit": False,
+        "passed_to_kernel": False,
+        "changes_kernel_launch_args": False,
+        "uses_current_wna16_args": False,
+        "passes_current_wna16_args": False,
+        "candidate_kernel_arg_pass": False,
+        "candidate_changes_kernel_launch_args": False,
+        "native_stream_is_current_wna16_fused_moe": False,
+        "native_stream_measures_tpot": False,
+        "native_stream_graph_replay_required": True,
+        "native_stream_graph_replay": True,
+        "native_stream_requested_graph_replay": True,
+        "native_stream_persistent_state_on_device": True,
+        "native_stream_issue_generation_on_device": True,
+    }
+    for key, expected_value in expected_values.items():
+        if evidence.get(key) != expected_value:
+            failures.append(f"{failure_prefix}_{key}_mismatch")
+    overhead_ratio = evidence.get("candidate_overhead_ratio")
+    max_overhead_ratio = evidence.get("max_overhead_ratio", 0.02)
+    if not _is_finite_number(overhead_ratio):
+        failures.append(f"{failure_prefix}_candidate_overhead_ratio_invalid")
+    if not _is_finite_number(max_overhead_ratio):
+        failures.append(f"{failure_prefix}_max_overhead_ratio_invalid")
+    elif _is_finite_number(overhead_ratio) and float(overhead_ratio) > float(
+        max_overhead_ratio
+    ):
+        failures.append(f"{failure_prefix}_candidate_overhead_ratio_over_threshold")
+    issue_count = evidence.get("native_stream_issue_candidate_count")
+    expected_issue_count = evidence.get("online_contract_expected_issue_candidate_count")
+    if type(issue_count) is not int or issue_count <= 0:
+        failures.append(f"{failure_prefix}_native_stream_issue_candidate_count_invalid")
+    if type(expected_issue_count) is not int or expected_issue_count <= 0:
+        failures.append(
+            f"{failure_prefix}_online_contract_expected_issue_candidate_count_invalid"
+        )
+    elif type(issue_count) is int and issue_count != expected_issue_count:
+        failures.append(f"{failure_prefix}_native_stream_issue_candidate_count_mismatch")
+    return failures
+
+
 def _validate_payload_cache_packet_export_manifest_evidence(
     evidence: dict[str, Any],
     *,
@@ -12738,6 +15152,21 @@ def run_premap_lab_preflight(
 
     evidence_summary = _summarize_required_evidence_check(
         default_gate_required_evidence_check
+    )
+    online_native_producer_boundary_gap_label = (
+        "payload_cache_online_native_producer_boundary_gap_json"
+    )
+    online_native_producer_boundary_gap_row = _find_evidence_row(
+        default_gate_required_evidence_check,
+        online_native_producer_boundary_gap_label,
+    )
+    online_native_producer_boundary_gap_acknowledged = _evidence_row_passed(
+        online_native_producer_boundary_gap_row
+    )
+    online_native_producer_boundary_gap_payload = _load_evidence_payload_from_check(
+        default_gate_required_evidence_check,
+        online_native_producer_boundary_gap_label,
+        root=root,
     )
     dispatch_runner_evidence_label = (
         "future_kernel_native_dispatch_consumer_online_runner_32_128export_json"
@@ -22371,6 +24800,24 @@ def run_premap_lab_preflight(
         "required_evidence": evidence_summary,
         "optional_evidence": _summarize_required_evidence_check(
             default_gate_optional_evidence_check
+        ),
+        "payload_cache_online_native_producer_boundary_gap_required": True,
+        "payload_cache_online_native_producer_boundary_gap_acknowledged": bool(
+            online_native_producer_boundary_gap_acknowledged
+        ),
+        "payload_cache_online_native_producer_boundary_gap_ready_for_lab_runtime_gate": (
+            online_native_producer_boundary_gap_payload.get(
+                "ready_for_lab_runtime_gate"
+            )
+        ),
+        "payload_cache_online_native_producer_boundary_gap_runtime_passed": (
+            online_native_producer_boundary_gap_payload.get("runtime_passed")
+        ),
+        "payload_cache_online_native_producer_boundary_gap_lab_gate_passed": (
+            online_native_producer_boundary_gap_payload.get("lab_gate_passed")
+        ),
+        "payload_cache_online_native_producer_boundary_gap_next_required_boundary": (
+            online_native_producer_boundary_gap_payload.get("next_required_boundary")
         ),
         "deferred_online_prelaunch_runner_evidence": bool(
             defer_online_prelaunch_runner_evidence
