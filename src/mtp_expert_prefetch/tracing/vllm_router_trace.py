@@ -3234,6 +3234,7 @@ def _add_premap_payload_cache_vllm_replay_visible_native_producer_contract_to_pe
         and native_session_update_abi_ready
         and python_transition_skipped
         and expected_packet_count > 0
+        and expected_issue_candidate_count > 0
         and native_session_update_count == expected_packet_count
         and native_session_packet_count == expected_packet_count
         and native_session_issue_candidate_count == expected_issue_candidate_count
@@ -3287,6 +3288,8 @@ def _add_premap_payload_cache_vllm_replay_visible_native_producer_contract_to_pe
                 ]
             )
         else:
+            if expected_issue_candidate_count <= 0:
+                failures.append("expected_issue_candidate_count_nonpositive")
             if not native_session_present:
                 failures.append("native_session_updates_missing")
             if native_session_update_count != expected_packet_count:
@@ -8602,6 +8605,14 @@ class VllmRouterRecorder:
                 "native_session_update_count_ptr_function_missing"
             )
             return
+        if use_count_ptr:
+            try:
+                torch.cuda.synchronize(expert_ids.device)
+            except Exception as exc:  # pragma: no cover - defensive stream boundary
+                self._premap_payload_cache_vllm_native_session_blocked(
+                    f"native_session_count_ptr_stream_sync_failed:{type(exc).__name__}"
+                )
+                return
         result = _PremapPayloadCacheNativeSessionUpdateResultV1()
         try:
             vectorized_copy = ctypes.c_uint32(

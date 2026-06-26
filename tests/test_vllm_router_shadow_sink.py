@@ -2663,6 +2663,62 @@ def test_premap_payload_cache_vllm_replay_visible_native_session_requires_result
     ]
 
 
+def test_premap_payload_cache_vllm_replay_visible_native_session_rejects_zero_issue_self_pass():
+    recorder = VllmRouterRecorder(
+        top_k=2,
+        shadow_outcome_sink=None,
+        shadow_num_experts=8,
+        shadow_premap_payload_cache_graph_visible_producer_skip_python_transition=True,
+        shadow_premap_payload_cache_vllm_replay_visible_native_producer_enabled=True,
+        shadow_premap_payload_cache_vllm_replay_visible_native_session_enabled=True,
+        shadow_premap_payload_cache_vllm_replay_visible_native_session_library="/tmp/native_session.so",
+    )
+    recorder._premap_payload_cache_vllm_replay_visible_prelaunch_probe_count = 4
+    recorder._premap_payload_cache_vllm_replay_visible_prelaunch_abi_ready_count = 0
+    recorder._premap_payload_cache_vllm_replay_visible_prelaunch_abi_blocked_count = 4
+    recorder._premap_payload_cache_vllm_replay_visible_prelaunch_device_tensor_count = 4
+    recorder._premap_payload_cache_vllm_replay_visible_prelaunch_host_tensor_count = 0
+    recorder._premap_payload_cache_vllm_replay_visible_prelaunch_int32_count = 4
+    recorder._premap_payload_cache_vllm_replay_visible_prelaunch_dtype_mismatch_count = 0
+    recorder._premap_payload_cache_vllm_replay_visible_prelaunch_current_count_device_tensor_count = 4
+    recorder._premap_payload_cache_vllm_replay_visible_prelaunch_current_count_device_scalar_int32_count = 4
+    recorder._premap_payload_cache_vllm_replay_visible_prelaunch_count_ptr_abi_ready_count = 4
+    recorder._premap_payload_cache_vllm_replay_visible_prelaunch_count_ptr_abi_blocked_count = 0
+    recorder._premap_payload_cache_vllm_replay_visible_native_session_update_count = 4
+    recorder._premap_payload_cache_vllm_replay_visible_native_session_packet_count = 4
+    recorder._premap_payload_cache_vllm_replay_visible_native_session_ready_update_count = 4
+    recorder._premap_payload_cache_vllm_replay_visible_native_session_issue_candidate_count = 0
+    recorder._premap_payload_cache_vllm_replay_visible_native_session_previous_nonempty_packet_count = (
+        0
+    )
+    recorder._premap_payload_cache_vllm_replay_visible_native_session_result_abi_ready_count = 4
+    recorder._premap_payload_cache_vllm_replay_visible_native_session_result_passed_count = 4
+    recorder._premap_payload_cache_vllm_replay_visible_native_session_native_stub_invoked_count = 4
+    recorder._premap_payload_cache_vllm_replay_visible_native_session_handle_nonzero_count = 4
+    recorder._premap_payload_cache_vllm_replay_visible_native_session_current_expert_ptr_nonzero_count = 4
+    recorder._premap_payload_cache_vllm_replay_visible_native_session_persistent_state_on_device_count = 4
+    recorder._premap_payload_cache_vllm_replay_visible_native_session_issue_generation_on_device_count = 4
+    recorder._premap_payload_cache_vllm_replay_visible_native_session_prelaunch_callable_count = 4
+    performance: dict[str, object] = {}
+
+    _add_premap_payload_cache_vllm_replay_visible_native_producer_contract_to_performance(
+        performance,
+        recorder,
+        prefix="runtime_shadow_premap_payload_cache_direct_",
+    )
+
+    replay_prefix = (
+        "runtime_shadow_premap_payload_cache_direct_"
+        "vllm_replay_visible_native_producer_contract_"
+    )
+    assert performance[f"{replay_prefix}expected_issue_candidate_count"] == 0
+    assert performance[f"{replay_prefix}passed"] is False
+    assert (
+        "expected_issue_candidate_count_nonpositive"
+        in performance[f"{replay_prefix}failures"]
+    )
+
+
 def test_premap_payload_cache_vllm_replay_visible_native_session_rejects_host_tensor_before_native_call():
     recorder = VllmRouterRecorder(
         top_k=2,
@@ -2698,6 +2754,8 @@ def test_premap_payload_cache_vllm_replay_visible_native_session_accepts_device_
 
     assert 'bool(num_tokens_post_padded.is_cuda)' in source
     assert 'update_count_ptr' in source
+    assert 'torch.cuda.synchronize(expert_ids.device)' in source
+    assert 'native_session_count_ptr_stream_sync_failed' in source
     assert 'num_tokens_post_padded.device != expert_ids.device' in source
     assert 'current_count_device_scalar_not_int32' in source
     assert 'current_count_not_scalar' in source
