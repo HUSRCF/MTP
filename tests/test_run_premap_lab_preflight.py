@@ -40,6 +40,7 @@ from scripts.run_premap_lab_preflight import (
     _validate_payload_cache_producer_state_stream_online_contract_evidence,
     _validate_payload_cache_online_inside_graph_producer_boundary_contract_evidence,
     _validate_payload_cache_online_native_producer_boundary_gap_evidence,
+    _validate_payload_cache_demand_hit_shadow_publication_gate_evidence,
     _validate_prelaunch_pointer_source_observer_check_evidence,
     _validate_readonly_live_trusted_refs_check_evidence,
     _validate_payload_cache_stream_producer_production_ab_bridge_evidence,
@@ -6272,6 +6273,9 @@ def _write_gate(
     payload_cache_online_native_producer_boundary_gap_path = (
         f"reports/{name}_payload_cache_online_native_producer_boundary_gap.json"
     )
+    payload_cache_demand_hit_shadow_publication_gate_path = (
+        f"reports/{name}_payload_cache_demand_hit_shadow_publication_gate.json"
+    )
     payload_cache_vllm_replay_visible_native_producer_contract_path = (
         f"reports/{name}_payload_cache_vllm_replay_visible_native_producer_contract.json"
     )
@@ -6419,6 +6423,10 @@ def _write_gate(
         _write(
             root / readonly_live_trusted_refs_check_path,
             json.dumps(_readonly_live_trusted_refs_check_payload()) + "\n",
+        )
+        _write(
+            root / payload_cache_demand_hit_shadow_publication_gate_path,
+            json.dumps(_payload_cache_demand_hit_shadow_publication_gate_payload()) + "\n",
         )
         _write(
             root / native_bridge_input_path,
@@ -7773,6 +7781,8 @@ def _write_gate(
             f"{payload_cache_producer_state_inprocess_native_session_online_contract_path}\n"
             "  payload_cache_online_native_producer_boundary_gap_json: "
             f"{payload_cache_online_native_producer_boundary_gap_path}\n"
+            "  payload_cache_demand_hit_shadow_publication_gate_json: "
+            f"{payload_cache_demand_hit_shadow_publication_gate_path}\n"
             "  payload_cache_vllm_replay_visible_native_producer_contract_json: "
             f"{payload_cache_vllm_replay_visible_native_producer_contract_path}\n"
             "  payload_cache_vllm_replay_visible_count_ptr_readiness_json: "
@@ -7883,7 +7893,7 @@ def test_premap_lab_preflight_accepts_default_readonly_wiring(tmp_path: Path):
     assert result["passed"] is True
     assert result["failures"] == []
     assert result["runtime_gate_evidence_scan"]["gate_count"] == 5
-    assert result["runtime_gate_evidence_scan"]["evidence_path_count"] == 152
+    assert result["runtime_gate_evidence_scan"]["evidence_path_count"] == 154
     assert result["default_readonly_gate_required_evidence_check"]["passed"] is True
     summary = result["lab_gate_status_summary"]
     assert summary["passed"] is True
@@ -10097,9 +10107,9 @@ def test_premap_lab_preflight_accepts_default_readonly_wiring(tmp_path: Path):
     assert summary["payload_bytes_required"] == 0
     assert summary["passed_to_kernel_required"] is False
     assert summary["changes_kernel_launch_args_required"] is False
-    assert summary["required_evidence"]["required_count"] == 66
-    assert summary["required_evidence"]["present_count"] == 66
-    assert summary["required_evidence"]["passed_count"] == 66
+    assert summary["required_evidence"]["required_count"] == 67
+    assert summary["required_evidence"]["present_count"] == 67
+    assert summary["required_evidence"]["passed_count"] == 67
     assert summary["optional_evidence"]["required_count"] == 15
     assert summary["optional_evidence"]["present_count"] == 13
     assert summary["optional_evidence"]["passed_count"] == 13
@@ -11541,7 +11551,7 @@ def test_premap_lab_preflight_rejects_missing_optional_future_args_coverage(
         "default_kernel_consumer_future_kernel_args_total_mirror_coverage_incomplete"
         in result["failures"]
     )
-    assert summary["required_evidence"]["passed_count"] == 66
+    assert summary["required_evidence"]["passed_count"] == 67
     assert summary["default_optional_evidence_passed"] is True
     assert (
         summary[
@@ -13647,6 +13657,7 @@ def test_premap_lab_preflight_rejects_default_gate_without_typed_evidence(
         "payload_cache_producer_state_packet_stream_native_canary_check_json:missing_evidence_path",
         "payload_cache_producer_state_inprocess_native_session_online_contract_json:missing_evidence_path",
         "payload_cache_online_native_producer_boundary_gap_json:missing_evidence_path",
+        "payload_cache_demand_hit_shadow_publication_gate_json:missing_evidence_path",
         "payload_cache_vllm_replay_visible_native_producer_contract_json:missing_evidence_path",
         "payload_cache_vllm_replay_visible_count_ptr_readiness_json:missing_evidence_path",
         "strict_live_connected_readonly_128_gate_json:missing_evidence_path",
@@ -19078,9 +19089,9 @@ def test_premap_lab_preflight_can_defer_self_referential_runner_evidence(
     assert summary["deferred_online_prelaunch_artifact_evidence"] is False
     assert summary["runtime_gate_evidence_deferred_count"] == 10
     assert summary["strict_default_gate_evidence_deferred_count"] == 5
-    assert summary["required_evidence"]["required_count"] == 66
-    assert summary["required_evidence"]["present_count"] == 64
-    assert summary["required_evidence"]["passed_count"] == 64
+    assert summary["required_evidence"]["required_count"] == 67
+    assert summary["required_evidence"]["present_count"] == 65
+    assert summary["required_evidence"]["passed_count"] == 65
     assert summary["optional_evidence"]["passed_count"] == 13
     for label in (
         "future_kernel_args_compatible_path_16_128export_artifact_check_json",
@@ -19655,7 +19666,7 @@ def test_premap_lab_preflight_cli_writes_summary(tmp_path: Path):
     assert result["runtime_gate_evidence_scan"]["passed"] is True
     assert result["lab_gate_status_summary"]["passed"] is True
     assert (
-        result["lab_gate_status_summary"]["required_evidence"]["passed_count"] == 66
+        result["lab_gate_status_summary"]["required_evidence"]["passed_count"] == 67
     )
 
 
@@ -19691,7 +19702,7 @@ def test_premap_lab_preflight_cli_summary_only_writes_status_block(tmp_path: Pat
     assert exit_code == 0
     assert result["passed"] is True
     assert result["default_readonly_gate_path"] == default_gate
-    assert result["required_evidence"]["passed_count"] == 66
+    assert result["required_evidence"]["passed_count"] == 67
     assert result["optional_evidence"]["passed_count"] == 13
     assert "lab_gate_status_summary" not in result
 
@@ -19896,6 +19907,138 @@ def _readonly_live_trusted_refs_check_payload(**overrides) -> dict:
     }
     payload.update(overrides)
     return payload
+
+
+def _payload_cache_demand_hit_shadow_publication_gate_payload(**overrides) -> dict:
+    canary = {
+        "present": True,
+        "stage": "payload_cache_live_runtime_adapter_demand_hit_shadow_publication_canary",
+        "status": (
+            "blocked_by_payloadless_instance_canary:"
+            "blocked_by_mixed_outcome_dry_run_canary:"
+            "blocked_by_accounting_dry_run_canary:test"
+        ),
+        "consumes_payloadless_instance_canary": True,
+        "payloadless_instance_canary_status": (
+            "blocked_by_mixed_outcome_dry_run_canary:"
+            "blocked_by_accounting_dry_run_canary:test"
+        ),
+        "publication_schema": "payload_cache_demand_hit_shadow_publication_v1",
+        "publication_scope": "shadow_only",
+        "source_manager_contract": "ready_time_issue_demand_skeleton_v1",
+        "shadow_publication_created": True,
+        "shadow_publication_consumed_payloadless_instance": True,
+        "demand_hit_shadow_publication_allowed": True,
+        "demand_hit_published_to_shadow": True,
+        "consumer_visible_payload_hit": False,
+        "prefetched_demand_hit": True,
+        "unprefetched_demand_hit": False,
+        "demand_count": 2,
+        "demand_hit_count": 1,
+        "demand_miss_count": 1,
+        "demand_hit_rate": 0.5,
+        "payload_bytes": 0,
+        "demand_hit_payload_bytes": 0,
+        "payload_deref_attempted": False,
+        "payload_handle_deref_attempted": False,
+        "ready_credit": False,
+        "ready_before_demand_credit": False,
+        "real_ready_credit_granted": False,
+        "kernel_arg_pass_allowed": False,
+        "passed_to_kernel": False,
+        "changes_kernel_launch_args": False,
+        "full_fetch_runtime_allowed": False,
+        "uses_current_wna16_args": False,
+        "passes_current_wna16_args": False,
+        "measures_tpot": False,
+        "measures_vllm_latency": False,
+        "live_runtime_instantiated": False,
+        "decision": "blocked",
+        "block_reason": "shadow_only_not_consumer_visible_payload_hit",
+    }
+    payload = {
+        "source": "payload_cache_demand_hit_shadow_publication_gate",
+        "artifact_kind": "payload_cache_demand_hit_shadow_publication_gate",
+        "passed": True,
+        "failures": [],
+        "demand_hit_shadow_publication_allowed": True,
+        "demand_hit_published_to_shadow": True,
+        "consumer_visible_payload_hit": False,
+        "demand_count": 2,
+        "demand_hit_count": 1,
+        "demand_miss_count": 1,
+        "demand_hit_rate": 0.5,
+        "payload_bytes": 0,
+        "demand_hit_payload_bytes": 0,
+        "payload_deref_attempted": False,
+        "payload_handle_deref_attempted": False,
+        "ready_credit": False,
+        "kernel_arg_pass_allowed": False,
+        "passed_to_kernel": False,
+        "changes_kernel_launch_args": False,
+        "canary": canary,
+    }
+    payload.update(overrides)
+    return payload
+
+
+def test_payload_cache_demand_hit_shadow_publication_gate_rejects_runtime_extras():
+    payload = _payload_cache_demand_hit_shadow_publication_gate_payload(
+        live_payload_runtime_enabled=True,
+        current_wna16_arg_compatible=True,
+        issued_payload_count=1,
+    )
+    payload["canary"]["payload_transfer_runtime_enabled"] = True
+    payload["canary"]["payload_deref_allowed"] = True
+    payload["canary"]["issued_payload_count"] = 1
+
+    failures = _validate_payload_cache_demand_hit_shadow_publication_gate_evidence(
+        payload
+    )
+
+    assert (
+        "payload_cache_demand_hit_shadow_publication_gate_live_payload_runtime_enabled_unexpectedly_enabled"
+        in failures
+    )
+    assert (
+        "payload_cache_demand_hit_shadow_publication_gate_current_wna16_arg_compatible_unexpectedly_enabled"
+        in failures
+    )
+    assert (
+        "payload_cache_demand_hit_shadow_publication_gate_issued_payload_count_unexpectedly_nonzero"
+        in failures
+    )
+    assert (
+        "payload_cache_demand_hit_shadow_publication_gate_canary_payload_transfer_runtime_enabled_unexpectedly_enabled"
+        in failures
+    )
+    assert (
+        "payload_cache_demand_hit_shadow_publication_gate_canary_payload_deref_allowed_unexpectedly_enabled"
+        in failures
+    )
+    assert (
+        "payload_cache_demand_hit_shadow_publication_gate_canary_issued_payload_count_unexpectedly_nonzero"
+        in failures
+    )
+
+
+def test_payload_cache_demand_hit_shadow_publication_gate_rejects_bad_chain():
+    payload = _payload_cache_demand_hit_shadow_publication_gate_payload()
+    payload["canary"]["consumes_payloadless_instance_canary"] = False
+    payload["canary"]["status"] += ":runtime_enabled"
+
+    failures = _validate_payload_cache_demand_hit_shadow_publication_gate_evidence(
+        payload
+    )
+
+    assert (
+        "payload_cache_demand_hit_shadow_publication_gate_canary_consumes_payloadless_instance_canary_mismatch"
+        in failures
+    )
+    assert (
+        "payload_cache_demand_hit_shadow_publication_gate_canary_status_unsafe_marker:runtime_enabled"
+        in failures
+    )
 
 
 def test_prelaunch_pointer_source_observer_check_evidence_accepts_strict_noop():

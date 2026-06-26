@@ -350,6 +350,7 @@ REQUIRED_DEFAULT_GATE_EVIDENCE_JSON_LABELS = {
     "payload_cache_producer_state_packet_stream_native_canary_check_json",
     "payload_cache_producer_state_inprocess_native_session_online_contract_json",
     "payload_cache_online_native_producer_boundary_gap_json",
+    "payload_cache_demand_hit_shadow_publication_gate_json",
     "payload_cache_vllm_replay_visible_native_producer_contract_json",
     "payload_cache_vllm_replay_visible_count_ptr_readiness_json",
     "future_kernel_native_dispatch_consumer_online_artifact_check_32_128export_json",
@@ -5700,6 +5701,7 @@ def _validate_required_evidence_payload(
         "payload_cache_producer_state_stream_online_contract_json",
         "payload_cache_online_inside_graph_producer_boundary_contract_json",
         "payload_cache_online_native_producer_boundary_gap_json",
+        "payload_cache_demand_hit_shadow_publication_gate_json",
         "payload_cache_vllm_replay_visible_native_producer_contract_json",
         "payload_cache_vllm_replay_visible_count_ptr_readiness_json",
         "payload_cache_stream_producer_production_ab_bridge_json",
@@ -7139,6 +7141,13 @@ def _validate_required_evidence_payload(
         return [
             f"{evidence_label}:{failure}"
             for failure in _validate_payload_cache_online_native_producer_boundary_gap_evidence(
+                evidence
+            )
+        ]
+    if evidence_label == "payload_cache_demand_hit_shadow_publication_gate_json":
+        return [
+            f"{evidence_label}:{failure}"
+            for failure in _validate_payload_cache_demand_hit_shadow_publication_gate_evidence(
                 evidence
             )
         ]
@@ -12837,6 +12846,170 @@ def _validate_payload_cache_online_native_producer_boundary_gap_evidence(
         value = evidence.get(key)
         if value not in (None, False, 0):
             failures.append(f"{failure_prefix}_{key}_unexpectedly_enabled")
+    return failures
+
+
+def _validate_payload_cache_demand_hit_shadow_publication_gate_evidence(
+    evidence: dict[str, Any],
+    *,
+    failure_prefix: str = "payload_cache_demand_hit_shadow_publication_gate",
+) -> list[str]:
+    failures: list[str] = []
+    unsafe_false_fields = (
+        "consumer_visible_payload_hit",
+        "payload_deref_attempted",
+        "payload_handle_deref_attempted",
+        "payload_deref_allowed",
+        "payload_deref_runtime_allowed",
+        "payload_transfer_enabled",
+        "payload_transfer_runtime_enabled",
+        "live_payload_runtime_enabled",
+        "ready_credit",
+        "ready_before_demand_credit",
+        "real_ready_credit_granted",
+        "kernel_arg_pass_allowed",
+        "kernel_arg_pass_enabled",
+        "passed_to_kernel",
+        "changes_kernel_launch_args",
+        "full_fetch_runtime_allowed",
+        "uses_current_wna16_args",
+        "passes_current_wna16_args",
+        "current_wna16_arg_compatible",
+        "measures_tpot",
+        "measures_vllm_latency",
+        "live_runtime_instantiated",
+        "real_kernel_arg_mutation",
+        "real_kernel_arg_mutation_enabled",
+        "future_wna16_typed_slot_kernel_variant_enabled",
+        "wna16_benchmark_ready",
+    )
+    unsafe_zero_fields = (
+        "payload_bytes",
+        "demand_hit_payload_bytes",
+        "issued_payload_count",
+        "payload_transfer_bytes",
+        "future_wna16_typed_slot_kernel_variant_launch_count",
+    )
+
+    def _append_runtime_safety_failures(
+        payload: dict[str, Any],
+        prefix: str,
+    ) -> None:
+        for key in unsafe_false_fields:
+            value = payload.get(key)
+            if value not in (None, False):
+                failures.append(f"{prefix}_{key}_unexpectedly_enabled")
+        for key in unsafe_zero_fields:
+            value = payload.get(key)
+            if value not in (None, 0, 0.0):
+                failures.append(f"{prefix}_{key}_unexpectedly_nonzero")
+
+    def _append_status_safety_failures(
+        status: Any,
+        prefix: str,
+    ) -> None:
+        if not isinstance(status, str):
+            failures.append(f"{prefix}_invalid")
+            return
+        unsafe_status_markers = (
+            "runtime_enabled",
+            "payload_enabled",
+            "kernel_arg_enabled",
+            "passed_to_kernel",
+            "consumer_visible_payload_hit",
+        )
+        for marker in unsafe_status_markers:
+            if marker in status:
+                failures.append(f"{prefix}_unsafe_marker:{marker}")
+
+    expected_values = {
+        "source": "payload_cache_demand_hit_shadow_publication_gate",
+        "artifact_kind": "payload_cache_demand_hit_shadow_publication_gate",
+        "passed": True,
+        "failures": [],
+        "demand_hit_shadow_publication_allowed": True,
+        "demand_hit_published_to_shadow": True,
+        "consumer_visible_payload_hit": False,
+        "demand_count": 2,
+        "demand_hit_count": 1,
+        "demand_miss_count": 1,
+        "demand_hit_rate": 0.5,
+        "payload_bytes": 0,
+        "demand_hit_payload_bytes": 0,
+        "payload_deref_attempted": False,
+        "payload_handle_deref_attempted": False,
+        "ready_credit": False,
+        "kernel_arg_pass_allowed": False,
+        "passed_to_kernel": False,
+        "changes_kernel_launch_args": False,
+    }
+    for key, expected_value in expected_values.items():
+        actual_value = evidence.get(key)
+        if type(actual_value) is not type(expected_value) or actual_value != expected_value:
+            failures.append(f"{failure_prefix}_{key}_mismatch")
+    _append_runtime_safety_failures(evidence, failure_prefix)
+
+    canary = evidence.get("canary")
+    if not isinstance(canary, dict):
+        failures.append(f"{failure_prefix}_canary_missing")
+        return failures
+    expected_canary_values = {
+        "present": True,
+        "stage": "payload_cache_live_runtime_adapter_demand_hit_shadow_publication_canary",
+        "publication_schema": "payload_cache_demand_hit_shadow_publication_v1",
+        "publication_scope": "shadow_only",
+        "source_manager_contract": "ready_time_issue_demand_skeleton_v1",
+        "consumes_payloadless_instance_canary": True,
+        "shadow_publication_created": True,
+        "shadow_publication_consumed_payloadless_instance": True,
+        "demand_hit_shadow_publication_allowed": True,
+        "demand_hit_published_to_shadow": True,
+        "consumer_visible_payload_hit": False,
+        "prefetched_demand_hit": True,
+        "unprefetched_demand_hit": False,
+        "demand_count": 2,
+        "demand_hit_count": 1,
+        "demand_miss_count": 1,
+        "demand_hit_rate": 0.5,
+        "payload_bytes": 0,
+        "demand_hit_payload_bytes": 0,
+        "payload_deref_attempted": False,
+        "payload_handle_deref_attempted": False,
+        "ready_credit": False,
+        "ready_before_demand_credit": False,
+        "real_ready_credit_granted": False,
+        "kernel_arg_pass_allowed": False,
+        "passed_to_kernel": False,
+        "changes_kernel_launch_args": False,
+        "full_fetch_runtime_allowed": False,
+        "uses_current_wna16_args": False,
+        "passes_current_wna16_args": False,
+        "measures_tpot": False,
+        "measures_vllm_latency": False,
+        "live_runtime_instantiated": False,
+        "decision": "blocked",
+        "block_reason": "shadow_only_not_consumer_visible_payload_hit",
+    }
+    for key, expected_value in expected_canary_values.items():
+        actual_value = canary.get(key)
+        if type(actual_value) is not type(expected_value) or actual_value != expected_value:
+            failures.append(f"{failure_prefix}_canary_{key}_mismatch")
+    _append_runtime_safety_failures(canary, f"{failure_prefix}_canary")
+    status = canary.get("status")
+    if not isinstance(status, str) or not status.startswith(
+        "blocked_by_payloadless_instance_canary:",
+    ):
+        failures.append(f"{failure_prefix}_canary_status_invalid")
+    _append_status_safety_failures(status, f"{failure_prefix}_canary_status")
+    payloadless_status = canary.get("payloadless_instance_canary_status")
+    if not isinstance(payloadless_status, str) or not payloadless_status.startswith(
+        "blocked_by_mixed_outcome_dry_run_canary:",
+    ):
+        failures.append(f"{failure_prefix}_canary_payloadless_status_invalid")
+    _append_status_safety_failures(
+        payloadless_status,
+        f"{failure_prefix}_canary_payloadless_status",
+    )
     return failures
 
 
