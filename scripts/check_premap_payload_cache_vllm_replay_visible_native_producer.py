@@ -59,6 +59,8 @@ def check_contract(payload: dict[str, Any]) -> dict[str, Any]:
     failures: list[str] = []
     expected_values = {
         "ok": True,
+        "enabled": True,
+        "present": True,
         "passed": True,
         "failures": [],
         "mode": CONTRACT_MODE,
@@ -75,6 +77,7 @@ def check_contract(payload: dict[str, Any]) -> dict[str, Any]:
         "issue_generation_on_device": True,
         "python_transition_skipped": True,
         "payload_bytes": 0,
+        "ready_for_payload_cache_runtime_lab_gate": True,
     }
     for key, expected in expected_values.items():
         if not _matches_expected(payload.get(key), expected):
@@ -102,6 +105,10 @@ def check_contract(payload: dict[str, Any]) -> dict[str, Any]:
     prelaunch_current_count_host_scalar_available_count = _int_metric(
         payload,
         "prelaunch_current_count_host_scalar_available_count",
+    )
+    prelaunch_current_count_device_tensor_count = _int_metric(
+        payload,
+        "prelaunch_current_count_device_tensor_count",
     )
     for key, value in (
         ("packet_count", packet_count),
@@ -157,6 +164,11 @@ def check_contract(payload: dict[str, Any]) -> dict[str, Any]:
         failures.append("prelaunch_host_tensor_count_mismatch")
     if prelaunch_dtype_mismatch_count is None or prelaunch_dtype_mismatch_count != 0:
         failures.append("prelaunch_dtype_mismatch_count_mismatch")
+    if (
+        prelaunch_current_count_device_tensor_count is None
+        or prelaunch_current_count_device_tensor_count != 0
+    ):
+        failures.append("prelaunch_current_count_device_tensor_count_mismatch")
     if payload.get("prelaunch_native_session_update_v1_abi_ready") is not True:
         failures.append("prelaunch_native_session_update_v1_abi_ready_mismatch")
 

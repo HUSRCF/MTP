@@ -3061,6 +3061,12 @@ def _add_premap_payload_cache_vllm_replay_visible_native_producer_contract_to_pe
         int(
             recorder._premap_payload_cache_vllm_replay_visible_prelaunch_abi_ready_count
         )
+        == int(
+            recorder._premap_payload_cache_vllm_replay_visible_prelaunch_probe_count
+        )
+        and int(
+            recorder._premap_payload_cache_vllm_replay_visible_prelaunch_probe_count
+        )
         > 0
         and int(
             recorder._premap_payload_cache_vllm_replay_visible_prelaunch_abi_blocked_count
@@ -7404,23 +7410,39 @@ class VllmRouterRecorder:
                 failures.append("current_expert_dtype_not_int32")
 
         current_count_source_kind: str | None
+        integer_dtypes = {
+            torch.int8,
+            torch.int16,
+            torch.int32,
+            torch.int64,
+            torch.uint8,
+        }
         if not isinstance(num_tokens_post_padded, torch.Tensor):
             current_count_source_kind = "missing"
             failures.append("current_count_tensor_missing")
-        elif bool(num_tokens_post_padded.is_cuda):
-            current_count_source_kind = "num_tokens_post_padded_device_tensor"
-            self._premap_payload_cache_vllm_replay_visible_prelaunch_current_count_device_tensor_count += (
-                1
-            )
-            failures.append("current_count_host_scalar_not_available")
-        elif int(num_tokens_post_padded.numel()) > 0:
-            current_count_source_kind = "num_tokens_post_padded_host_tensor"
-            self._premap_payload_cache_vllm_replay_visible_prelaunch_current_count_host_scalar_available_count += (
-                1
-            )
-        else:
+        elif int(num_tokens_post_padded.numel()) <= 0:
             current_count_source_kind = "num_tokens_post_padded_empty_host_tensor"
             failures.append("current_count_tensor_empty")
+        else:
+            if int(num_tokens_post_padded.numel()) != 1:
+                failures.append("current_count_not_scalar")
+            if num_tokens_post_padded.dtype not in integer_dtypes:
+                failures.append("current_count_dtype_not_integer")
+            if bool(num_tokens_post_padded.is_cuda):
+                current_count_source_kind = "num_tokens_post_padded_device_tensor"
+                self._premap_payload_cache_vllm_replay_visible_prelaunch_current_count_device_tensor_count += (
+                    1
+                )
+                failures.append("current_count_host_scalar_not_available")
+            else:
+                current_count_source_kind = "num_tokens_post_padded_host_tensor"
+                if (
+                    int(num_tokens_post_padded.numel()) == 1
+                    and num_tokens_post_padded.dtype in integer_dtypes
+                ):
+                    self._premap_payload_cache_vllm_replay_visible_prelaunch_current_count_host_scalar_available_count += (
+                        1
+                    )
         self._premap_payload_cache_vllm_replay_visible_prelaunch_last_current_count_source_kind = (
             current_count_source_kind
         )

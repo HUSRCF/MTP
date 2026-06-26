@@ -6,6 +6,8 @@ from scripts import check_premap_payload_cache_vllm_replay_visible_native_produc
 def _payload() -> dict[str, object]:
     return {
         "ok": True,
+        "enabled": True,
+        "present": True,
         "passed": True,
         "failures": [],
         "mode": "payload_cache_vllm_replay_visible_native_producer_contract",
@@ -34,12 +36,14 @@ def _payload() -> dict[str, object]:
         "prelaunch_host_tensor_count": 0,
         "prelaunch_int32_count": 2560,
         "prelaunch_dtype_mismatch_count": 0,
+        "prelaunch_current_count_device_tensor_count": 0,
         "prelaunch_current_count_host_scalar_available_count": 2560,
         "prelaunch_native_session_update_v1_abi_ready": True,
         "source_kind": "vllm_prelaunch_inprocess_native_producer",
         "current_expert_ptr_source_kind": "vllm_prelaunch_device_tensor",
         "source_is_online_stream_contract": True,
         "source_is_raw_vllm_performance_summary": False,
+        "ready_for_payload_cache_runtime_lab_gate": True,
         "payload_bytes": 0,
         "payload_transfer_enabled": False,
         "payload_deref_allowed": False,
@@ -109,6 +113,20 @@ def test_vllm_replay_visible_native_producer_rejects_payload_or_kernel_side_effe
     assert result["ready_for_payload_cache_runtime_lab_gate"] is False
 
 
+def test_vllm_replay_visible_native_producer_rejects_missing_surface_flags():
+    payload = _payload()
+    payload["enabled"] = False
+    payload["present"] = False
+    payload["ready_for_payload_cache_runtime_lab_gate"] = False
+
+    result = checker.check_contract(payload)
+
+    assert result["passed"] is False
+    assert "enabled_mismatch" in result["failures"]
+    assert "present_mismatch" in result["failures"]
+    assert "ready_for_payload_cache_runtime_lab_gate_mismatch" in result["failures"]
+
+
 def test_vllm_replay_visible_native_producer_rejects_count_mismatch():
     payload = _payload()
     payload["producer_update_count"] = 40
@@ -133,6 +151,18 @@ def test_vllm_replay_visible_native_producer_rejects_prelaunch_abi_blocker():
     assert "prelaunch_abi_ready_count_invalid" in result["failures"]
     assert "prelaunch_abi_blocked_count_mismatch" in result["failures"]
     assert "prelaunch_native_session_update_v1_abi_ready_mismatch" in result[
+        "failures"
+    ]
+
+
+def test_vllm_replay_visible_native_producer_rejects_device_current_count():
+    payload = _payload()
+    payload["prelaunch_current_count_device_tensor_count"] = 2560
+
+    result = checker.check_contract(payload)
+
+    assert result["passed"] is False
+    assert "prelaunch_current_count_device_tensor_count_mismatch" in result[
         "failures"
     ]
 

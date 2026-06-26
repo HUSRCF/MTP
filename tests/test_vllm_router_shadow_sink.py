@@ -1805,6 +1805,51 @@ def test_premap_payload_cache_vllm_replay_visible_native_producer_contract_emits
     assert performance[f"{replay_prefix}measures_vllm_latency"] is False
 
 
+def test_premap_payload_cache_vllm_replay_visible_native_producer_probe_rejects_nonscalar_current_count():
+    recorder = VllmRouterRecorder(
+        top_k=2,
+        shadow_outcome_sink=None,
+        shadow_num_experts=8,
+        shadow_emit_premap_payload_cache_manager_counters=False,
+        shadow_premap_payload_cache_vllm_replay_visible_native_producer_enabled=True,
+    )
+    recorder.maybe_reorder_prepared_expert_assignment(
+        layer_id=0,
+        sorted_token_ids=torch.tensor([0, 1], dtype=torch.long),
+        expert_ids=torch.tensor([1, 2], dtype=torch.int32),
+        num_tokens_post_padded=torch.tensor([2, 3], dtype=torch.long),
+        block_size=1,
+    )
+    performance = {
+        "sample_count": 1,
+        "requested_output_token_count": 1,
+    }
+
+    _add_premap_payload_cache_manager_snapshot_to_performance(
+        performance,
+        recorder,
+        source="unit_test_vllm_replay_visible_nonscalar_current_count",
+    )
+
+    replay_prefix = (
+        "runtime_shadow_premap_payload_cache_direct_"
+        "vllm_replay_visible_native_producer_contract_"
+    )
+    assert performance[f"{replay_prefix}prelaunch_probe_count"] == 1
+    assert performance[f"{replay_prefix}prelaunch_abi_ready_count"] == 0
+    assert performance[f"{replay_prefix}prelaunch_abi_blocked_count"] == 1
+    assert performance[f"{replay_prefix}prelaunch_int32_count"] == 1
+    assert (
+        performance[
+            f"{replay_prefix}prelaunch_current_count_host_scalar_available_count"
+        ]
+        == 0
+    )
+    assert performance[f"{replay_prefix}prelaunch_last_block_reason"] == (
+        "current_expert_not_device_tensor;current_count_not_scalar"
+    )
+
+
 def test_premap_payload_cache_inside_graph_producer_boundary_accepts_empty_issue_candidates():
     recorder = VllmRouterRecorder(
         top_k=2,
