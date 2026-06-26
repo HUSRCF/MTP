@@ -12011,6 +12011,9 @@ def _validate_payload_cache_vllm_replay_visible_count_ptr_readiness_evidence(
         "input_mode": "payload_cache_vllm_replay_visible_native_producer_contract",
         "input_contract_boundary": "inprocess_vllm_replay_visible_native_producer_op",
         "source_kind": "vllm_prelaunch_inprocess_native_producer",
+        "prelaunch_last_current_count_source_kind": (
+            "num_tokens_post_padded_device_tensor"
+        ),
         "ready_for_future_count_ptr_native_session": True,
         "payload_bytes": 0,
         "payload_transfer_enabled": False,

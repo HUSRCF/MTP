@@ -19990,6 +19990,9 @@ def _vllm_replay_visible_count_ptr_readiness_payload() -> dict[str, object]:
         "input_mode": "payload_cache_vllm_replay_visible_native_producer_contract",
         "input_contract_boundary": "inprocess_vllm_replay_visible_native_producer_op",
         "source_kind": "vllm_prelaunch_inprocess_native_producer",
+        "prelaunch_last_current_count_source_kind": (
+            "num_tokens_post_padded_device_tensor"
+        ),
         "expected_packet_count": 8,
         "prelaunch_probe_count": 8,
         "prelaunch_current_count_device_scalar_int32_count": 8,

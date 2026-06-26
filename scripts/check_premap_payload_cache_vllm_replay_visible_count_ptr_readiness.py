@@ -151,6 +151,11 @@ def check_contract(payload: dict[str, Any]) -> dict[str, Any]:
         )
     if payload.get("prelaunch_last_count_ptr_block_reason") is not None:
         failures.append("prelaunch_last_count_ptr_block_reason_mismatch")
+    if (
+        payload.get("prelaunch_last_current_count_source_kind")
+        != "num_tokens_post_padded_device_tensor"
+    ):
+        failures.append("prelaunch_last_current_count_source_kind_mismatch")
     if payload.get("prelaunch_native_session_update_count_ptr_v1_abi_ready") is not True:
         failures.append("prelaunch_native_session_update_count_ptr_v1_abi_ready_mismatch")
 
@@ -164,6 +169,9 @@ def check_contract(payload: dict[str, Any]) -> dict[str, Any]:
         "input_mode": payload.get("mode"),
         "input_contract_boundary": payload.get("contract_boundary"),
         "source_kind": payload.get("source_kind"),
+        "prelaunch_last_current_count_source_kind": payload.get(
+            "prelaunch_last_current_count_source_kind"
+        ),
         "expected_packet_count": int(expected_packet_count or 0),
         "prelaunch_probe_count": int(prelaunch_probe_count or 0),
         "prelaunch_current_count_device_scalar_int32_count": int(

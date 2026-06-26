@@ -26,6 +26,9 @@ def _payload() -> dict[str, object]:
         "prelaunch_native_session_update_count_ptr_v1_abi_blocked_count": 0,
         "prelaunch_native_session_update_count_ptr_v1_abi_ready": True,
         "prelaunch_last_count_ptr_block_reason": None,
+        "prelaunch_last_current_count_source_kind": (
+            "num_tokens_post_padded_device_tensor"
+        ),
         "payload_bytes": 0,
         "payload_transfer_enabled": False,
         "payload_deref_allowed": False,
@@ -122,3 +125,15 @@ def test_count_ptr_readiness_rejects_contradictory_negative_counters() -> None:
         in result["failures"]
     )
     assert "prelaunch_last_count_ptr_block_reason_mismatch" in result["failures"]
+
+
+def test_count_ptr_readiness_rejects_wrong_current_count_source_kind() -> None:
+    payload = _payload()
+    payload["prelaunch_last_current_count_source_kind"] = (
+        "num_tokens_post_padded_host_tensor"
+    )
+
+    result = checker.check_contract(payload)
+
+    assert result["passed"] is False
+    assert "prelaunch_last_current_count_source_kind_mismatch" in result["failures"]
