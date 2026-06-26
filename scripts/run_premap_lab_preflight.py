@@ -347,11 +347,11 @@ REQUIRED_DEFAULT_GATE_EVIDENCE_JSON_LABELS = {
     "payload_cache_producer_state_packet_stream_native_canary_check_json",
     "payload_cache_producer_state_inprocess_native_session_online_contract_json",
     "payload_cache_online_native_producer_boundary_gap_json",
+    "payload_cache_vllm_replay_visible_count_ptr_readiness_json",
     "future_kernel_native_dispatch_consumer_online_artifact_check_32_128export_json",
     "future_kernel_native_dispatch_consumer_online_runner_32_128export_json",
 }
 OPTIONAL_DEFAULT_GATE_EVIDENCE_JSON_LABELS = {
-    "payload_cache_vllm_replay_visible_count_ptr_readiness_json",
     "payload_cache_producer_state_inprocess_native_online_contract_json",
     "payload_cache_producer_state_inprocess_native_session_canary_json",
     "future_kernel_args_aux_metadata_mirror_canary_json",

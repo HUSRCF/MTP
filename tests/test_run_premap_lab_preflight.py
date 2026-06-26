@@ -6272,6 +6272,9 @@ def _write_gate(
     payload_cache_online_native_producer_boundary_gap_path = (
         f"reports/{name}_payload_cache_online_native_producer_boundary_gap.json"
     )
+    payload_cache_vllm_replay_visible_count_ptr_readiness_path = (
+        f"reports/{name}_payload_cache_vllm_replay_visible_count_ptr_readiness.json"
+    )
     standalone_wna16_adjacent_typed_slot_canary_path = (
         f"reports/{name}_future_native_wna16_adjacent_typed_slot_standalone_canary.json"
     )
@@ -7350,6 +7353,10 @@ def _write_gate(
             json.dumps(_payload_cache_online_native_producer_boundary_gap_payload())
             + "\n",
         )
+        _write(
+            root / payload_cache_vllm_replay_visible_count_ptr_readiness_path,
+            json.dumps(_vllm_replay_visible_count_ptr_readiness_payload()) + "\n",
+        )
         for mirror_field, runner_path in (
             ("descriptor_ptr", online_merged_arg_slot_descriptor_ptr_runner_path),
             (
@@ -7759,6 +7766,8 @@ def _write_gate(
             f"{payload_cache_producer_state_inprocess_native_session_online_contract_path}\n"
             "  payload_cache_online_native_producer_boundary_gap_json: "
             f"{payload_cache_online_native_producer_boundary_gap_path}\n"
+            "  payload_cache_vllm_replay_visible_count_ptr_readiness_json: "
+            f"{payload_cache_vllm_replay_visible_count_ptr_readiness_path}\n"
             "  future_kernel_wna16_adjacent_typed_slot_standalone_canary_json: "
             f"{standalone_wna16_adjacent_typed_slot_canary_path}\n"
             "  prelaunch_pointer_source_observer_check_json: "
@@ -7865,7 +7874,7 @@ def test_premap_lab_preflight_accepts_default_readonly_wiring(tmp_path: Path):
     assert result["passed"] is True
     assert result["failures"] == []
     assert result["runtime_gate_evidence_scan"]["gate_count"] == 5
-    assert result["runtime_gate_evidence_scan"]["evidence_path_count"] == 148
+    assert result["runtime_gate_evidence_scan"]["evidence_path_count"] == 150
     assert result["default_readonly_gate_required_evidence_check"]["passed"] is True
     summary = result["lab_gate_status_summary"]
     assert summary["passed"] is True
@@ -10079,10 +10088,10 @@ def test_premap_lab_preflight_accepts_default_readonly_wiring(tmp_path: Path):
     assert summary["payload_bytes_required"] == 0
     assert summary["passed_to_kernel_required"] is False
     assert summary["changes_kernel_launch_args_required"] is False
-    assert summary["required_evidence"]["required_count"] == 64
-    assert summary["required_evidence"]["present_count"] == 64
-    assert summary["required_evidence"]["passed_count"] == 64
-    assert summary["optional_evidence"]["required_count"] == 16
+    assert summary["required_evidence"]["required_count"] == 65
+    assert summary["required_evidence"]["present_count"] == 65
+    assert summary["required_evidence"]["passed_count"] == 65
+    assert summary["optional_evidence"]["required_count"] == 15
     assert summary["optional_evidence"]["present_count"] == 13
     assert summary["optional_evidence"]["passed_count"] == 13
     assert summary["payload_cache_online_native_producer_boundary_gap_required"] is True
@@ -11467,7 +11476,7 @@ def test_premap_lab_preflight_rejects_missing_optional_future_args_coverage(
         "default_kernel_consumer_future_kernel_args_total_mirror_coverage_incomplete"
         in result["failures"]
     )
-    assert summary["required_evidence"]["passed_count"] == 64
+    assert summary["required_evidence"]["passed_count"] == 65
     assert summary["default_optional_evidence_passed"] is True
     assert (
         summary[
@@ -13573,6 +13582,7 @@ def test_premap_lab_preflight_rejects_default_gate_without_typed_evidence(
         "payload_cache_producer_state_packet_stream_native_canary_check_json:missing_evidence_path",
         "payload_cache_producer_state_inprocess_native_session_online_contract_json:missing_evidence_path",
         "payload_cache_online_native_producer_boundary_gap_json:missing_evidence_path",
+        "payload_cache_vllm_replay_visible_count_ptr_readiness_json:missing_evidence_path",
         "strict_live_connected_readonly_128_gate_json:missing_evidence_path",
         "strict_native_typed_consumer_bridge_128_gate_json:missing_evidence_path",
         "strict_kernel_side_typed_consumer_object_128_gate_json:missing_evidence_path",
@@ -19002,9 +19012,9 @@ def test_premap_lab_preflight_can_defer_self_referential_runner_evidence(
     assert summary["deferred_online_prelaunch_artifact_evidence"] is False
     assert summary["runtime_gate_evidence_deferred_count"] == 10
     assert summary["strict_default_gate_evidence_deferred_count"] == 5
-    assert summary["required_evidence"]["required_count"] == 64
-    assert summary["required_evidence"]["present_count"] == 62
-    assert summary["required_evidence"]["passed_count"] == 62
+    assert summary["required_evidence"]["required_count"] == 65
+    assert summary["required_evidence"]["present_count"] == 63
+    assert summary["required_evidence"]["passed_count"] == 63
     assert summary["optional_evidence"]["passed_count"] == 13
     for label in (
         "future_kernel_args_compatible_path_16_128export_artifact_check_json",
@@ -19579,7 +19589,7 @@ def test_premap_lab_preflight_cli_writes_summary(tmp_path: Path):
     assert result["runtime_gate_evidence_scan"]["passed"] is True
     assert result["lab_gate_status_summary"]["passed"] is True
     assert (
-        result["lab_gate_status_summary"]["required_evidence"]["passed_count"] == 64
+        result["lab_gate_status_summary"]["required_evidence"]["passed_count"] == 65
     )
 
 
@@ -19615,7 +19625,7 @@ def test_premap_lab_preflight_cli_summary_only_writes_status_block(tmp_path: Pat
     assert exit_code == 0
     assert result["passed"] is True
     assert result["default_readonly_gate_path"] == default_gate
-    assert result["required_evidence"]["passed_count"] == 64
+    assert result["required_evidence"]["passed_count"] == 65
     assert result["optional_evidence"]["passed_count"] == 13
     assert "lab_gate_status_summary" not in result
 
