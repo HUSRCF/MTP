@@ -40,11 +40,15 @@ from scripts.run_premap_lab_preflight import (
     _validate_payload_cache_producer_state_stream_online_contract_evidence,
     _validate_payload_cache_online_inside_graph_producer_boundary_contract_evidence,
     _validate_payload_cache_online_native_producer_boundary_gap_evidence,
+    _validate_payload_cache_consumer_visible_hit_blocked_gate_evidence,
     _validate_payload_cache_demand_hit_shadow_publication_gate_evidence,
     _validate_prelaunch_pointer_source_observer_check_evidence,
     _validate_readonly_live_trusted_refs_check_evidence,
     _validate_payload_cache_stream_producer_production_ab_bridge_evidence,
     _validate_payload_cache_stream_producer_production_ab_bridge_check_evidence,
+)
+from scripts.run_payload_cache_consumer_visible_hit_blocked_gate import (
+    build_report as _payload_cache_consumer_visible_hit_blocked_gate_payload,
 )
 from scripts.check_premap_prelaunch_pointer_source_observer import (
     HANDOFF_BOOL_PREFIX as PRELAUNCH_POINTER_SOURCE_OBSERVER_HANDOFF_BOOL_PREFIX,
@@ -6276,6 +6280,9 @@ def _write_gate(
     payload_cache_demand_hit_shadow_publication_gate_path = (
         f"reports/{name}_payload_cache_demand_hit_shadow_publication_gate.json"
     )
+    payload_cache_consumer_visible_hit_blocked_gate_path = (
+        f"reports/{name}_payload_cache_consumer_visible_hit_blocked_gate.json"
+    )
     payload_cache_vllm_replay_visible_native_producer_contract_path = (
         f"reports/{name}_payload_cache_vllm_replay_visible_native_producer_contract.json"
     )
@@ -6427,6 +6434,10 @@ def _write_gate(
         _write(
             root / payload_cache_demand_hit_shadow_publication_gate_path,
             json.dumps(_payload_cache_demand_hit_shadow_publication_gate_payload()) + "\n",
+        )
+        _write(
+            root / payload_cache_consumer_visible_hit_blocked_gate_path,
+            json.dumps(_payload_cache_consumer_visible_hit_blocked_gate_payload()) + "\n",
         )
         _write(
             root / native_bridge_input_path,
@@ -7783,6 +7794,8 @@ def _write_gate(
             f"{payload_cache_online_native_producer_boundary_gap_path}\n"
             "  payload_cache_demand_hit_shadow_publication_gate_json: "
             f"{payload_cache_demand_hit_shadow_publication_gate_path}\n"
+            "  payload_cache_consumer_visible_hit_blocked_gate_json: "
+            f"{payload_cache_consumer_visible_hit_blocked_gate_path}\n"
             "  payload_cache_vllm_replay_visible_native_producer_contract_json: "
             f"{payload_cache_vllm_replay_visible_native_producer_contract_path}\n"
             "  payload_cache_vllm_replay_visible_count_ptr_readiness_json: "
@@ -7893,7 +7906,7 @@ def test_premap_lab_preflight_accepts_default_readonly_wiring(tmp_path: Path):
     assert result["passed"] is True
     assert result["failures"] == []
     assert result["runtime_gate_evidence_scan"]["gate_count"] == 5
-    assert result["runtime_gate_evidence_scan"]["evidence_path_count"] == 154
+    assert result["runtime_gate_evidence_scan"]["evidence_path_count"] == 156
     assert result["default_readonly_gate_required_evidence_check"]["passed"] is True
     summary = result["lab_gate_status_summary"]
     assert summary["passed"] is True
@@ -10107,9 +10120,9 @@ def test_premap_lab_preflight_accepts_default_readonly_wiring(tmp_path: Path):
     assert summary["payload_bytes_required"] == 0
     assert summary["passed_to_kernel_required"] is False
     assert summary["changes_kernel_launch_args_required"] is False
-    assert summary["required_evidence"]["required_count"] == 67
-    assert summary["required_evidence"]["present_count"] == 67
-    assert summary["required_evidence"]["passed_count"] == 67
+    assert summary["required_evidence"]["required_count"] == 68
+    assert summary["required_evidence"]["present_count"] == 68
+    assert summary["required_evidence"]["passed_count"] == 68
     assert summary["optional_evidence"]["required_count"] == 15
     assert summary["optional_evidence"]["present_count"] == 13
     assert summary["optional_evidence"]["passed_count"] == 13
@@ -11551,7 +11564,7 @@ def test_premap_lab_preflight_rejects_missing_optional_future_args_coverage(
         "default_kernel_consumer_future_kernel_args_total_mirror_coverage_incomplete"
         in result["failures"]
     )
-    assert summary["required_evidence"]["passed_count"] == 67
+    assert summary["required_evidence"]["passed_count"] == 68
     assert summary["default_optional_evidence_passed"] is True
     assert (
         summary[
@@ -13658,6 +13671,7 @@ def test_premap_lab_preflight_rejects_default_gate_without_typed_evidence(
         "payload_cache_producer_state_inprocess_native_session_online_contract_json:missing_evidence_path",
         "payload_cache_online_native_producer_boundary_gap_json:missing_evidence_path",
         "payload_cache_demand_hit_shadow_publication_gate_json:missing_evidence_path",
+        "payload_cache_consumer_visible_hit_blocked_gate_json:missing_evidence_path",
         "payload_cache_vllm_replay_visible_native_producer_contract_json:missing_evidence_path",
         "payload_cache_vllm_replay_visible_count_ptr_readiness_json:missing_evidence_path",
         "strict_live_connected_readonly_128_gate_json:missing_evidence_path",
@@ -19089,9 +19103,9 @@ def test_premap_lab_preflight_can_defer_self_referential_runner_evidence(
     assert summary["deferred_online_prelaunch_artifact_evidence"] is False
     assert summary["runtime_gate_evidence_deferred_count"] == 10
     assert summary["strict_default_gate_evidence_deferred_count"] == 5
-    assert summary["required_evidence"]["required_count"] == 67
-    assert summary["required_evidence"]["present_count"] == 65
-    assert summary["required_evidence"]["passed_count"] == 65
+    assert summary["required_evidence"]["required_count"] == 68
+    assert summary["required_evidence"]["present_count"] == 66
+    assert summary["required_evidence"]["passed_count"] == 66
     assert summary["optional_evidence"]["passed_count"] == 13
     for label in (
         "future_kernel_args_compatible_path_16_128export_artifact_check_json",
@@ -19666,7 +19680,7 @@ def test_premap_lab_preflight_cli_writes_summary(tmp_path: Path):
     assert result["runtime_gate_evidence_scan"]["passed"] is True
     assert result["lab_gate_status_summary"]["passed"] is True
     assert (
-        result["lab_gate_status_summary"]["required_evidence"]["passed_count"] == 67
+        result["lab_gate_status_summary"]["required_evidence"]["passed_count"] == 68
     )
 
 
@@ -19702,7 +19716,7 @@ def test_premap_lab_preflight_cli_summary_only_writes_status_block(tmp_path: Pat
     assert exit_code == 0
     assert result["passed"] is True
     assert result["default_readonly_gate_path"] == default_gate
-    assert result["required_evidence"]["passed_count"] == 67
+    assert result["required_evidence"]["passed_count"] == 68
     assert result["optional_evidence"]["passed_count"] == 13
     assert "lab_gate_status_summary" not in result
 
@@ -20037,6 +20051,141 @@ def test_payload_cache_demand_hit_shadow_publication_gate_rejects_bad_chain():
     )
     assert (
         "payload_cache_demand_hit_shadow_publication_gate_canary_status_unsafe_marker:runtime_enabled"
+        in failures
+    )
+
+
+def test_payload_cache_consumer_visible_hit_blocked_gate_accepts_strict_noop():
+    failures = _validate_payload_cache_consumer_visible_hit_blocked_gate_evidence(
+        _payload_cache_consumer_visible_hit_blocked_gate_payload()
+    )
+
+    assert failures == []
+
+
+def test_payload_cache_consumer_visible_hit_blocked_gate_rejects_runtime_extras():
+    payload = _payload_cache_consumer_visible_hit_blocked_gate_payload()
+    payload["consumer_visible_payload_hit"] = True
+    payload["payload_bytes"] = 1
+    payload["uses_current_wna16_args"] = True
+    payload["event_timing_mode"] = "wall_time"
+    payload["request_layer_idx"] = 1
+    payload["request_expert_idx"] = 2
+    payload["canary"]["request_layer_idx"] = 7
+    payload["canary"]["request_expert_idx"] = 9
+    payload["canary"]["planned_issue_count"] = 1
+    payload["canary"]["copy_descriptor_count"] = 1
+    payload["canary"]["ready_credit_count"] = 1
+    payload["canary"]["demand_hit_published"] = True
+    payload["canary"]["demand_hit_payload_bytes"] = 1
+
+    failures = _validate_payload_cache_consumer_visible_hit_blocked_gate_evidence(
+        payload
+    )
+
+    assert (
+        "payload_cache_consumer_visible_hit_blocked_gate_consumer_visible_payload_hit_unexpectedly_enabled"
+        in failures
+    )
+    assert (
+        "payload_cache_consumer_visible_hit_blocked_gate_payload_bytes_unexpectedly_nonzero"
+        in failures
+    )
+    assert (
+        "payload_cache_consumer_visible_hit_blocked_gate_uses_current_wna16_args_unexpectedly_enabled"
+        in failures
+    )
+    assert (
+        "payload_cache_consumer_visible_hit_blocked_gate_event_timing_mode_mismatch"
+        in failures
+    )
+    assert (
+        "payload_cache_consumer_visible_hit_blocked_gate_request_layer_idx_mismatch"
+        in failures
+    )
+    assert (
+        "payload_cache_consumer_visible_hit_blocked_gate_request_expert_idx_mismatch"
+        in failures
+    )
+    assert (
+        "payload_cache_consumer_visible_hit_blocked_gate_canary_request_layer_idx_mismatch"
+        in failures
+    )
+    assert (
+        "payload_cache_consumer_visible_hit_blocked_gate_canary_request_expert_idx_mismatch"
+        in failures
+    )
+    assert (
+        "payload_cache_consumer_visible_hit_blocked_gate_canary_planned_issue_count_unexpectedly_nonzero"
+        in failures
+    )
+    assert (
+        "payload_cache_consumer_visible_hit_blocked_gate_canary_copy_descriptor_count_unexpectedly_nonzero"
+        in failures
+    )
+    assert (
+        "payload_cache_consumer_visible_hit_blocked_gate_canary_ready_credit_count_unexpectedly_nonzero"
+        in failures
+    )
+    assert (
+        "payload_cache_consumer_visible_hit_blocked_gate_canary_demand_hit_published_unexpectedly_enabled"
+        in failures
+    )
+    assert (
+        "payload_cache_consumer_visible_hit_blocked_gate_canary_demand_hit_payload_bytes_unexpectedly_nonzero"
+        in failures
+    )
+
+
+def test_payload_cache_consumer_visible_hit_blocked_gate_rejects_missing_canary_issue_counter():
+    payload = _payload_cache_consumer_visible_hit_blocked_gate_payload()
+    del payload["canary"]["planned_issue_count"]
+    del payload["canary"]["copy_completion_count"]
+
+    failures = _validate_payload_cache_consumer_visible_hit_blocked_gate_evidence(
+        payload
+    )
+
+    assert (
+        "payload_cache_consumer_visible_hit_blocked_gate_canary_planned_issue_count_missing"
+        in failures
+    )
+    assert (
+        "payload_cache_consumer_visible_hit_blocked_gate_canary_copy_completion_count_missing"
+        in failures
+    )
+
+
+def test_payload_cache_consumer_visible_hit_blocked_gate_rejects_bad_binding_and_chain():
+    payload = _payload_cache_consumer_visible_hit_blocked_gate_payload()
+    payload["request_matches_envelope_source_binding"] = False
+    payload["source_issue_unique_key_count"] = 28
+    payload["canary"]["consumes_payload_issue_payload_deref_blocked_canary"] = False
+    payload["canary"]["payload_issue_payload_deref_status"] = "passed"
+    payload["canary"]["status"] = "passed"
+
+    failures = _validate_payload_cache_consumer_visible_hit_blocked_gate_evidence(
+        payload
+    )
+
+    assert (
+        "payload_cache_consumer_visible_hit_blocked_gate_request_matches_envelope_source_binding_mismatch"
+        in failures
+    )
+    assert (
+        "payload_cache_consumer_visible_hit_blocked_gate_source_issue_unique_key_count_mismatch"
+        in failures
+    )
+    assert (
+        "payload_cache_consumer_visible_hit_blocked_gate_canary_consumes_payload_issue_payload_deref_blocked_canary_mismatch"
+        in failures
+    )
+    assert (
+        "payload_cache_consumer_visible_hit_blocked_gate_canary_payload_issue_payload_deref_status_mismatch"
+        in failures
+    )
+    assert (
+        "payload_cache_consumer_visible_hit_blocked_gate_canary_status_mismatch"
         in failures
     )
 

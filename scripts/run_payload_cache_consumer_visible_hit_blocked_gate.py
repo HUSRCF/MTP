@@ -57,7 +57,7 @@ DEFAULT_OUTPUT_JSON = Path(
     "outputs/reports/premap_payload_cache/"
     "payload_cache_consumer_visible_hit_blocked_gate.json",
 )
-SOURCE_BOUND_QUEUE_BUDGET: dict[str, int | float] = {
+SOURCE_BOUND_QUEUE_BUDGET: dict[str, int | float | str] = {
     "cell_count": 60,
     "event_timing_mode": "token_index",
     "first_model_passing_capacity": 4096,
@@ -78,7 +78,7 @@ def build_consumer_visible_hit_blocked_canary() -> (
 
 def _source_binding_with_overrides(
     overrides: Mapping[str, int | float] | None,
-) -> dict[str, int | float]:
+) -> dict[str, int | float | str]:
     source_binding = dict(SOURCE_BOUND_QUEUE_BUDGET)
     if overrides:
         source_binding.update(overrides)

@@ -351,6 +351,7 @@ REQUIRED_DEFAULT_GATE_EVIDENCE_JSON_LABELS = {
     "payload_cache_producer_state_inprocess_native_session_online_contract_json",
     "payload_cache_online_native_producer_boundary_gap_json",
     "payload_cache_demand_hit_shadow_publication_gate_json",
+    "payload_cache_consumer_visible_hit_blocked_gate_json",
     "payload_cache_vllm_replay_visible_native_producer_contract_json",
     "payload_cache_vllm_replay_visible_count_ptr_readiness_json",
     "future_kernel_native_dispatch_consumer_online_artifact_check_32_128export_json",
@@ -5702,6 +5703,7 @@ def _validate_required_evidence_payload(
         "payload_cache_online_inside_graph_producer_boundary_contract_json",
         "payload_cache_online_native_producer_boundary_gap_json",
         "payload_cache_demand_hit_shadow_publication_gate_json",
+        "payload_cache_consumer_visible_hit_blocked_gate_json",
         "payload_cache_vllm_replay_visible_native_producer_contract_json",
         "payload_cache_vllm_replay_visible_count_ptr_readiness_json",
         "payload_cache_stream_producer_production_ab_bridge_json",
@@ -7148,6 +7150,13 @@ def _validate_required_evidence_payload(
         return [
             f"{evidence_label}:{failure}"
             for failure in _validate_payload_cache_demand_hit_shadow_publication_gate_evidence(
+                evidence
+            )
+        ]
+    if evidence_label == "payload_cache_consumer_visible_hit_blocked_gate_json":
+        return [
+            f"{evidence_label}:{failure}"
+            for failure in _validate_payload_cache_consumer_visible_hit_blocked_gate_evidence(
                 evidence
             )
         ]
@@ -12994,7 +13003,10 @@ def _validate_payload_cache_demand_hit_shadow_publication_gate_evidence(
         actual_value = canary.get(key)
         if type(actual_value) is not type(expected_value) or actual_value != expected_value:
             failures.append(f"{failure_prefix}_canary_{key}_mismatch")
-    _append_runtime_safety_failures(canary, f"{failure_prefix}_canary")
+    _append_runtime_safety_failures(
+        canary,
+        f"{failure_prefix}_canary",
+    )
     status = canary.get("status")
     if not isinstance(status, str) or not status.startswith(
         "blocked_by_payloadless_instance_canary:",
@@ -13170,6 +13182,309 @@ def _validate_payload_cache_producer_state_stream_online_contract_evidence(
             failures.append(f"{failure_prefix}_expert_sources_not_all_match")
     if evidence.get("contract_dimension_consistency_failures") != []:
         failures.append(f"{failure_prefix}_dimension_consistency_failures_not_empty")
+    return failures
+
+
+def _validate_payload_cache_consumer_visible_hit_blocked_gate_evidence(
+    evidence: dict[str, Any],
+    *,
+    failure_prefix: str = "payload_cache_consumer_visible_hit_blocked_gate",
+) -> list[str]:
+    failures: list[str] = []
+    unsafe_false_fields = (
+        "consumer_visible_payload_hit",
+        "prefetched_demand_hit",
+        "payload_deref_attempted",
+        "payload_handle_deref_attempted",
+        "payload_deref_allowed",
+        "payload_deref_runtime_allowed",
+        "payload_transfer_runtime_enabled",
+        "live_payload_runtime_enabled",
+        "demand_hit_publication_allowed",
+        "demand_hit_published",
+        "ready_credit",
+        "ready_before_demand_credit",
+        "real_ready_credit_granted",
+        "kernel_arg_pass_allowed",
+        "passed_to_kernel",
+        "changes_kernel_launch_args",
+        "full_fetch_runtime_allowed",
+        "uses_current_wna16_args",
+        "passes_current_wna16_args",
+        "measures_tpot",
+        "measures_vllm_latency",
+        "live_runtime_instantiated",
+    )
+    unsafe_zero_fields = (
+        "planned_issue_count",
+        "scheduled_issue_count",
+        "queued_issue_count",
+        "submitted_issue_count",
+        "inflight_issue_count",
+        "dispatched_issue_count",
+        "command_packet_count",
+        "transport_work_count",
+        "transport_worker_dispatch_count",
+        "copy_descriptor_count",
+        "copy_completion_count",
+        "ready_credit_count",
+        "residency_update_count",
+        "payload_handle_deref_count",
+        "payload_bytes",
+        "resident_payload_bytes",
+        "dereferenced_payload_bytes",
+        "demand_hit_payload_bytes",
+        "issued_payload_count",
+        "resident_payload_count",
+        "demand_hit_count",
+        "demand_hit_publication_count",
+        "consumer_visible_payload_hit_count",
+    )
+
+    def _append_runtime_safety_failures(
+        payload: dict[str, Any],
+        prefix: str,
+    ) -> None:
+        for key in unsafe_false_fields:
+            value = payload.get(key)
+            if value not in (None, False):
+                failures.append(f"{prefix}_{key}_unexpectedly_enabled")
+        for key in unsafe_zero_fields:
+            value = payload.get(key)
+            if value not in (None, 0, 0.0):
+                failures.append(f"{prefix}_{key}_unexpectedly_nonzero")
+
+    def _append_required_zero_failures(
+        payload: dict[str, Any],
+        prefix: str,
+        fields: tuple[str, ...],
+    ) -> None:
+        for key in fields:
+            if key not in payload:
+                failures.append(f"{prefix}_{key}_missing")
+                continue
+            value = payload.get(key)
+            if value not in (0, 0.0):
+                failures.append(f"{prefix}_{key}_unexpectedly_nonzero")
+
+    def _append_status_safety_failures(
+        status: Any,
+        prefix: str,
+        *,
+        expected: str,
+    ) -> None:
+        if not isinstance(status, str):
+            failures.append(f"{prefix}_invalid")
+            return
+        if status != expected:
+            failures.append(f"{prefix}_mismatch")
+        unsafe_status_markers = (
+            "runtime_enabled",
+            "payload_enabled",
+            "kernel_arg_enabled",
+            "passed_to_kernel",
+            "consumer_visible_payload_hit",
+            "demand_hit_published",
+        )
+        for marker in unsafe_status_markers:
+            if marker in status:
+                failures.append(f"{prefix}_unsafe_marker:{marker}")
+
+    expected_values = {
+        "schema_version": 1,
+        "source": "payload_cache_consumer_visible_hit_blocked_gate",
+        "artifact_kind": "payload_cache_consumer_visible_hit_blocked_gate",
+        "cell_count": 60,
+        "event_timing_mode": "token_index",
+        "first_model_passing_lookahead_us": 2_400_000.0,
+        "passed": True,
+        "failures": [],
+        "request_source": "queue_budget_first_model_passing_cell",
+        "request_layer_idx": 0,
+        "request_expert_idx": 0,
+        "request_matches_envelope_source_binding": True,
+        "source_issue_packet_count": 28,
+        "source_issue_unique_key_count": 16,
+        "source_queue_budget_capacity": 4096,
+        "source_issue_lead_tokens": 8,
+        "source_queue_deadline_us": 100.0,
+        "decision": "blocked",
+        "block_reason": "payload_transfer_disabled",
+        "execution_mode": (
+            "payload_cache_live_runtime_adapter_"
+            "payload_issue_demand_hit_publication_blocked_canary"
+        ),
+        "requested_payload_bytes": 64,
+        "payload_bytes": 0,
+        "resident_payload_bytes": 0,
+        "dereferenced_payload_bytes": 0,
+        "demand_hit_payload_bytes": 0,
+        "issued_payload_count": 0,
+        "resident_payload_count": 0,
+        "demand_hit_count": 0,
+        "demand_hit_publication_count": 0,
+        "consumer_visible_payload_hit_count": 0,
+        "payload_deref_attempted": False,
+        "payload_handle_deref_attempted": False,
+        "demand_hit_publication_allowed": False,
+        "demand_hit_published": False,
+        "consumer_visible_payload_hit": False,
+        "prefetched_demand_hit": False,
+        "ready_credit": False,
+        "ready_before_demand_credit": False,
+        "real_ready_credit_granted": False,
+        "live_payload_runtime_enabled": False,
+        "payload_transfer_runtime_enabled": False,
+        "payload_deref_allowed": False,
+        "payload_deref_runtime_allowed": False,
+        "kernel_arg_pass_allowed": False,
+        "passed_to_kernel": False,
+        "changes_kernel_launch_args": False,
+        "full_fetch_runtime_allowed": False,
+        "uses_current_wna16_args": False,
+        "passes_current_wna16_args": False,
+        "measures_tpot": False,
+        "measures_vllm_latency": False,
+        "live_runtime_instantiated": False,
+    }
+    for key, expected_value in expected_values.items():
+        actual_value = evidence.get(key)
+        if type(actual_value) is not type(expected_value) or actual_value != expected_value:
+            failures.append(f"{failure_prefix}_{key}_mismatch")
+    _append_runtime_safety_failures(evidence, failure_prefix)
+
+    canary = evidence.get("canary")
+    if not isinstance(canary, dict):
+        failures.append(f"{failure_prefix}_canary_missing")
+        return failures
+    expected_payload_deref_status = (
+        "blocked_by_payload_issue_residency_update_blocked_canary:"
+        "blocked_by_payload_issue_ready_credit_blocked_canary:"
+        "blocked_by_payload_issue_copy_completion_blocked_canary:"
+        "blocked_by_payload_issue_copy_descriptor_execution_blocked_canary:"
+        "blocked_by_payload_issue_copy_descriptor_dispatch_blocked_canary:"
+        "blocked_by_payload_issue_copy_descriptor_submit_blocked_canary:"
+        "blocked_by_payload_issue_copy_descriptor_dry_run:"
+        "blocked_by_payload_issue_transport_worker_dispatch_blocked_canary:"
+        "blocked_by_payload_issue_transport_enqueue_blocked_canary:"
+        "blocked_by_payload_issue_command_packet_dry_run:"
+        "blocked_by_payload_issue_scheduler_dispatch_blocked_canary:"
+        "blocked_by_payload_issue_inflight_admission_blocked_canary:"
+        "blocked_by_payload_issue_queue_submit_blocked_canary:"
+        "blocked_by_payload_issue_queue_entry_dry_run:"
+        "blocked_by_payload_issue_executor_dry_run:"
+        "blocked_by_payload_issue_plan_dry_run:"
+        "blocked_by_payload_issue_request_blocked_canary:"
+        "blocked_by_payload_transfer_toggle_disabled_canary:"
+        "blocked_by_payloadless_instance_canary:"
+        "blocked_by_mixed_outcome_dry_run_canary:"
+        "blocked_by_accounting_dry_run_canary:"
+        "blocked_by_operation_rejection_canary:"
+        "blocked_by_object_shell_evidence:"
+        "blocked_by_instance_construction_plan:"
+        "blocked_by_constructor_binding_preflight:"
+        "blocked_by_instantiation_canary:"
+        "blocked_by_state_validation_artifact:"
+        "blocked_by_adapter_state_validation_preflight:"
+        "blocked_by_adapter_state_object_preflight:"
+        "blocked_by_adapter_materialization_preflight:"
+        "blocked_by_object_adapter_preflight:"
+        "blocked_by_object_construction_preflight:"
+        "blocked_by_state_shape_check:"
+        "blocked_by_live_runtime_canary:"
+        "blocked_by_live_runtime_preflight:"
+        "blocked_by_runtime_snapshot:"
+        "blocked_by_runtime_skeleton:"
+        "blocked_by_manager_artifact:"
+        "blocked_by_live_payload_runtime:"
+        "blocked_by_live_payload_stage:"
+        "blocked_by_queue_budget_runtime_envelope:"
+        "model_queue_budget_satisfied_runtime_disabled"
+    )
+    expected_status = (
+        "blocked_by_payload_issue_payload_deref_blocked_canary:"
+        f"{expected_payload_deref_status}"
+    )
+    expected_canary_values = {
+        "present": True,
+        "stage": (
+            "payload_cache_live_runtime_adapter_"
+            "payload_issue_demand_hit_publication_blocked_canary"
+        ),
+        "status": expected_status,
+        "consumes_payload_issue_payload_deref_blocked_canary": True,
+        "payload_issue_payload_deref_status": expected_payload_deref_status,
+        "payload_issue_demand_hit_publication_schema": (
+            "payload_cache_runtime_payload_issue_demand_hit_publication_v1"
+        ),
+        "payload_issue_demand_hit_publication_canary_created": True,
+        "payload_issue_payload_deref_consumed": True,
+        "demand_hit_publication_checked": True,
+        "demand_hit_publication_rejected": True,
+        "demand_hit_publication_allowed": False,
+        "demand_hit_published": False,
+        "consumer_visible_payload_hit": False,
+        "prefetched_demand_hit": False,
+        "payload_deref_attempted": False,
+        "payload_handle_deref_attempted": False,
+        "payload_marked_resident": False,
+        "resident_payload_ready": False,
+        "ready_credit_granted": False,
+        "ready_before_demand_credit_granted": False,
+        "real_payload_ready": False,
+        "copy_completed": False,
+        "request_source": "queue_budget_first_model_passing_cell",
+        "request_layer_idx": 0,
+        "request_expert_idx": 0,
+        "requested_payload_bytes": 64,
+        "source_issue_packet_count": 28,
+        "source_issue_unique_key_count": 16,
+        "source_queue_budget_capacity": 4096,
+        "source_issue_lead_tokens": 8,
+        "source_queue_deadline_us": 100.0,
+        "decision": "blocked",
+        "block_reason": "payload_transfer_disabled",
+        "execution_mode": (
+            "payload_cache_live_runtime_adapter_"
+            "payload_issue_demand_hit_publication_blocked_canary"
+        ),
+        "live_payload_runtime_enabled": False,
+        "payload_transfer_runtime_enabled": False,
+        "payload_deref_allowed": False,
+        "payload_deref_runtime_allowed": False,
+        "ready_credit": False,
+        "ready_before_demand_credit": False,
+        "real_ready_credit_granted": False,
+        "kernel_arg_pass_allowed": False,
+        "passed_to_kernel": False,
+        "changes_kernel_launch_args": False,
+        "full_fetch_runtime_allowed": False,
+        "uses_current_wna16_args": False,
+        "passes_current_wna16_args": False,
+        "measures_tpot": False,
+        "measures_vllm_latency": False,
+        "live_runtime_instantiated": False,
+    }
+    for key, expected_value in expected_canary_values.items():
+        actual_value = canary.get(key)
+        if type(actual_value) is not type(expected_value) or actual_value != expected_value:
+            failures.append(f"{failure_prefix}_canary_{key}_mismatch")
+    _append_runtime_safety_failures(canary, f"{failure_prefix}_canary")
+    _append_required_zero_failures(
+        canary,
+        f"{failure_prefix}_canary",
+        unsafe_zero_fields,
+    )
+    _append_status_safety_failures(
+        canary.get("payload_issue_payload_deref_status"),
+        f"{failure_prefix}_canary_payload_issue_payload_deref_status",
+        expected=expected_payload_deref_status,
+    )
+    _append_status_safety_failures(
+        canary.get("status"),
+        f"{failure_prefix}_canary_status",
+        expected=expected_status,
+    )
     return failures
 
 

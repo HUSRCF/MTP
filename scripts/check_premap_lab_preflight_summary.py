@@ -34,9 +34,13 @@ REQUIRED_SHA_FIELDS = [
     "default_kernel_consumer_arg_slot_standalone_evidence_sha256",
     "default_kernel_consumer_wna16_side_variant_evidence_sha256",
 ]
-EXPECTED_REQUIRED_EVIDENCE_COUNT = 66
+EXPECTED_REQUIRED_EVIDENCE_COUNT = 68
 VLLM_REPLAY_VISIBLE_NATIVE_PRODUCER_REQUIRED_LABEL = (
     "payload_cache_vllm_replay_visible_native_producer_contract_json"
+)
+REQUIRED_EVIDENCE_LABELS = (
+    VLLM_REPLAY_VISIBLE_NATIVE_PRODUCER_REQUIRED_LABEL,
+    "payload_cache_consumer_visible_hit_blocked_gate_json",
 )
 REQUIRED_LAYOUT_CHECKS = {
     "default_kernel_consumer_kernel_arg_packet_layout_reported": True,
@@ -9185,11 +9189,10 @@ def check_premap_lab_preflight_summary(
         evidence_map = required.get("evidence")
         if not isinstance(evidence_map, dict):
             failures.append("required_evidence_map_missing")
-        elif VLLM_REPLAY_VISIBLE_NATIVE_PRODUCER_REQUIRED_LABEL not in evidence_map:
-            failures.append(
-                "required_evidence_"
-                f"{VLLM_REPLAY_VISIBLE_NATIVE_PRODUCER_REQUIRED_LABEL}_missing"
-            )
+        else:
+            for label in REQUIRED_EVIDENCE_LABELS:
+                if label not in evidence_map:
+                    failures.append(f"required_evidence_{label}_missing")
 
     optional = summary.get("optional_evidence")
     if not isinstance(optional, dict):
