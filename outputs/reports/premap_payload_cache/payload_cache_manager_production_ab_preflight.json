@@ -32,12 +32,17 @@
   "ok": true,
   "passed": true,
   "passed_to_kernel": false,
+  "passes_current_wna16_args": false,
   "payload_bytes": 0,
+  "payload_deref_allowed": false,
   "payload_runtime_ready": false,
+  "payload_transfer_enabled": false,
   "performance_claim_ready": false,
   "production_like_manager_ab_harness_ready": true,
   "ready_before_demand_credit": false,
   "ready_credit": false,
+  "real_ready_credit_granted": false,
   "requested_output_token_count": 512,
-  "sample_count": 8
+  "sample_count": 8,
+  "uses_current_wna16_args": false
 }

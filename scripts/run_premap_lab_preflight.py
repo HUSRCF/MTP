@@ -186,6 +186,9 @@ REQUIRED_DEFAULT_GATE_CONTRACT = {
     "future_wna16_typed_slot_payloadless_useful_production_like_timing_gate_required": True,
     "future_wna16_typed_slot_payloadless_useful_production_like_timing_gate_min_source_count": 128,
     "future_wna16_typed_slot_payloadless_useful_production_like_timing_gate_min_repeat_count": 3,
+    "payload_cache_manager_useful_work_ab_gate_required": True,
+    "payload_cache_manager_production_ab_preflight_required": True,
+    "payload_cache_manager_production_ab_preflight_max_envelope_overhead_ratio": 0.05,
     "wna16_side_consumer_variant_execution_required": True,
     "wna16_side_consumer_variant_execution_min_source_count": 128,
     "single_field_handle_handoff_canary_required": True,
@@ -361,6 +364,8 @@ REQUIRED_DEFAULT_GATE_EVIDENCE_JSON_LABELS = {
     "payload_cache_vllm_replay_visible_native_producer_contract_json",
     "payload_cache_vllm_replay_visible_count_ptr_native_producer_contract_json",
     "payload_cache_vllm_replay_visible_count_ptr_readiness_json",
+    "payload_cache_manager_useful_work_ab_gate_json",
+    "payload_cache_manager_production_ab_preflight_json",
     "future_kernel_native_dispatch_consumer_online_artifact_check_32_128export_json",
     "future_kernel_native_dispatch_consumer_online_runner_32_128export_json",
 }
@@ -5714,6 +5719,8 @@ def _validate_required_evidence_payload(
         "payload_cache_vllm_replay_visible_native_producer_contract_json",
         "payload_cache_vllm_replay_visible_count_ptr_native_producer_contract_json",
         "payload_cache_vllm_replay_visible_count_ptr_readiness_json",
+        "payload_cache_manager_useful_work_ab_gate_json",
+        "payload_cache_manager_production_ab_preflight_json",
         "payload_cache_stream_producer_production_ab_bridge_json",
         "payload_cache_stream_producer_production_ab_bridge_check_json",
         "future_kernel_native_arg_slot_packed_weight_mirror_canary_json",
@@ -7176,6 +7183,22 @@ def _validate_required_evidence_payload(
             f"{evidence_label}:{failure}"
             for failure in _validate_payload_cache_consumer_visible_hit_blocked_gate_evidence(
                 evidence
+            )
+        ]
+    if evidence_label == "payload_cache_manager_useful_work_ab_gate_json":
+        return [
+            f"{evidence_label}:{failure}"
+            for failure in _validate_payload_cache_manager_useful_work_ab_gate_evidence(
+                evidence
+            )
+        ]
+    if evidence_label == "payload_cache_manager_production_ab_preflight_json":
+        return [
+            f"{evidence_label}:{failure}"
+            for failure in _validate_payload_cache_manager_production_ab_preflight_evidence(
+                evidence,
+                evidence_paths=evidence_paths,
+                root=root,
             )
         ]
     if evidence_label == "payload_cache_stream_producer_production_ab_bridge_json":
@@ -13581,6 +13604,273 @@ def _validate_payload_cache_consumer_visible_hit_blocked_gate_evidence(
     return failures
 
 
+def _validate_payload_cache_manager_useful_work_ab_gate_evidence(
+    evidence: dict[str, Any],
+    *,
+    failure_prefix: str = "payload_cache_manager_useful_work_ab_gate",
+) -> list[str]:
+    failures: list[str] = []
+    expected_values = {
+        "artifact_kind": "premap_payload_cache_manager_useful_work_ab_gate",
+        "mode": "payload_cache_manager_useful_work_ab_precondition",
+        "passed": True,
+        "failures": [],
+        "manager_useful_work_ab_ready": True,
+        "payload_runtime_ready": False,
+        "performance_claim_ready": False,
+        "payload_bytes": 0,
+        "issued_payload_count": 0,
+        "payload_transfer_enabled": False,
+        "payload_deref_allowed": False,
+        "ready_credit": False,
+        "ready_before_demand_credit": False,
+        "real_ready_credit_granted": False,
+        "kernel_arg_pass_allowed": False,
+        "passed_to_kernel": False,
+        "changes_kernel_launch_args": False,
+        "full_fetch_runtime_allowed": False,
+        "uses_current_wna16_args": False,
+        "passes_current_wna16_args": False,
+        "measures_tpot": False,
+        "measures_vllm_latency": False,
+    }
+    for key, expected_value in expected_values.items():
+        if type(evidence.get(key)) is not type(expected_value) or evidence.get(key) != expected_value:
+            failures.append(f"{failure_prefix}_{key}_mismatch")
+
+    issued = _int_metric(evidence, "issued_prefetch_count")
+    used = _int_metric(evidence, "used_fetch_count")
+    unused = _int_metric(evidence, "unused_fetch_count")
+    demand = _int_metric(evidence, "demand_count")
+    hit = _int_metric(evidence, "demand_hit_count")
+    demand_hit_rate = _float_metric(evidence, "demand_hit_rate")
+    used_per_issued = _float_metric(evidence, "used_per_issued_fetch")
+    if issued is None or issued <= 0:
+        failures.append(f"{failure_prefix}_issued_prefetch_count_invalid")
+    if used is None or used <= 0:
+        failures.append(f"{failure_prefix}_used_fetch_count_invalid")
+    if unused is None or unused < 0:
+        failures.append(f"{failure_prefix}_unused_fetch_count_invalid")
+    if demand is None or demand <= 0:
+        failures.append(f"{failure_prefix}_demand_count_invalid")
+    if hit is None or hit <= 0:
+        failures.append(f"{failure_prefix}_demand_hit_count_invalid")
+    if (
+        issued is not None
+        and used is not None
+        and unused is not None
+        and used + unused != issued
+    ):
+        failures.append(f"{failure_prefix}_used_unused_issue_count_mismatch")
+    if (
+        demand is not None
+        and hit is not None
+        and (hit > demand or demand <= 0)
+    ):
+        failures.append(f"{failure_prefix}_demand_hit_count_mismatch")
+    if (
+        demand_hit_rate is None
+        or not _is_finite_number(demand_hit_rate)
+        or demand is None
+        or hit is None
+        or demand <= 0
+        or not math.isclose(
+            demand_hit_rate,
+            hit / demand,
+            rel_tol=1.0e-9,
+            abs_tol=1.0e-12,
+        )
+    ):
+        failures.append(f"{failure_prefix}_demand_hit_rate_mismatch")
+    if (
+        used_per_issued is None
+        or not _is_finite_number(used_per_issued)
+        or issued is None
+        or used is None
+        or issued <= 0
+        or not math.isclose(
+            used_per_issued,
+            used / issued,
+            rel_tol=1.0e-9,
+            abs_tol=1.0e-12,
+        )
+    ):
+        failures.append(f"{failure_prefix}_used_per_issued_fetch_mismatch")
+    return failures
+
+
+def _validate_payload_cache_manager_production_ab_preflight_evidence(
+    evidence: dict[str, Any],
+    *,
+    evidence_paths: dict[str, Any] | None,
+    root: Path | None,
+    failure_prefix: str = "payload_cache_manager_production_ab_preflight",
+) -> list[str]:
+    failures: list[str] = []
+    expected_values = {
+        "artifact_kind": "premap_payload_cache_manager_production_ab_preflight",
+        "artifact_scope": "preflight_smoke_only",
+        "mode": "payload_cache_manager_production_like_ab_preflight",
+        "passed": True,
+        "failures": [],
+        "production_like_manager_ab_harness_ready": True,
+        "payload_runtime_ready": False,
+        "performance_claim_ready": False,
+        "final_production_result_ready": False,
+        "consumes_tpot_summary_for_envelope": True,
+        "payload_bytes": 0,
+        "ready_credit": False,
+        "ready_before_demand_credit": False,
+        "real_ready_credit_granted": False,
+        "payload_transfer_enabled": False,
+        "payload_deref_allowed": False,
+        "kernel_arg_pass_allowed": False,
+        "passed_to_kernel": False,
+        "changes_kernel_launch_args": False,
+        "uses_current_wna16_args": False,
+        "passes_current_wna16_args": False,
+        "measures_tpot": False,
+        "measures_vllm_latency": False,
+        "candidate_manager_counter_enabled": True,
+        "candidate_producer_contract_passed": True,
+    }
+    for key, expected_value in expected_values.items():
+        if type(evidence.get(key)) is not type(expected_value) or evidence.get(key) != expected_value:
+            failures.append(f"{failure_prefix}_{key}_mismatch")
+
+    max_overhead = _float_metric(
+        REQUIRED_DEFAULT_GATE_CONTRACT,
+        "payload_cache_manager_production_ab_preflight_max_envelope_overhead_ratio",
+    )
+    artifact_max_overhead = _float_metric(evidence, "max_envelope_overhead_ratio")
+    overhead = _float_metric(evidence, "candidate_envelope_overhead_ratio")
+    if max_overhead is None or max_overhead <= 0.0:
+        failures.append(f"{failure_prefix}_contract_max_overhead_invalid")
+    elif not _is_finite_number(max_overhead):
+        failures.append(f"{failure_prefix}_contract_max_overhead_invalid")
+    if (
+        artifact_max_overhead is None
+        or not _is_finite_number(artifact_max_overhead)
+        or artifact_max_overhead <= 0.0
+    ):
+        failures.append(f"{failure_prefix}_artifact_max_overhead_invalid")
+    elif max_overhead is not None and artifact_max_overhead > max_overhead:
+        failures.append(f"{failure_prefix}_artifact_max_overhead_over_contract")
+    if overhead is None or not _is_finite_number(overhead):
+        failures.append(f"{failure_prefix}_candidate_envelope_overhead_ratio_invalid")
+    elif max_overhead is not None and overhead > max_overhead:
+        failures.append(f"{failure_prefix}_candidate_envelope_overhead_over_contract")
+    for key in ("baseline_tpot_s", "candidate_tpot_s"):
+        value = _float_metric(evidence, key)
+        if value is None or not _is_finite_number(value) or value <= 0.0:
+            failures.append(f"{failure_prefix}_{key}_invalid")
+
+    for key in (
+        "manager_issued_prefetch_count",
+        "manager_used_fetch_count",
+        "manager_unused_fetch_count",
+        "manager_demand_count",
+        "manager_demand_hit_count",
+        "sample_count",
+        "requested_output_token_count",
+    ):
+        value = _int_metric(evidence, key)
+        if value is None or value <= 0:
+            failures.append(f"{failure_prefix}_{key}_invalid")
+    issued = _int_metric(evidence, "manager_issued_prefetch_count")
+    used = _int_metric(evidence, "manager_used_fetch_count")
+    unused = _int_metric(evidence, "manager_unused_fetch_count")
+    demand = _int_metric(evidence, "manager_demand_count")
+    hit = _int_metric(evidence, "manager_demand_hit_count")
+    demand_hit_rate = _float_metric(evidence, "manager_demand_hit_rate")
+    used_per_issued = _float_metric(evidence, "manager_used_per_issued_fetch")
+    if (
+        issued is not None
+        and used is not None
+        and unused is not None
+        and used + unused != issued
+    ):
+        failures.append(f"{failure_prefix}_manager_used_unused_issue_count_mismatch")
+    if demand is not None and hit is not None and hit > demand:
+        failures.append(f"{failure_prefix}_manager_demand_hit_count_mismatch")
+    if (
+        demand_hit_rate is None
+        or not _is_finite_number(demand_hit_rate)
+        or demand is None
+        or hit is None
+        or demand <= 0
+        or not math.isclose(
+            demand_hit_rate,
+            hit / demand,
+            rel_tol=1.0e-9,
+            abs_tol=1.0e-12,
+        )
+    ):
+        failures.append(f"{failure_prefix}_manager_demand_hit_rate_mismatch")
+    if (
+        used_per_issued is None
+        or not _is_finite_number(used_per_issued)
+        or issued is None
+        or used is None
+        or issued <= 0
+        or not math.isclose(
+            used_per_issued,
+            used / issued,
+            rel_tol=1.0e-9,
+            abs_tol=1.0e-12,
+        )
+    ):
+        failures.append(f"{failure_prefix}_manager_used_per_issued_fetch_mismatch")
+
+    if root is None or evidence_paths is None:
+        failures.append(f"{failure_prefix}_evidence_paths_missing")
+        return failures
+    manager_path = evidence_paths.get("payload_cache_manager_useful_work_ab_gate_json")
+    observed_manager_path = evidence.get("manager_gate_json")
+    if isinstance(manager_path, str) and isinstance(observed_manager_path, str):
+        if _path_label(_path_for_label(manager_path, root), root=root) != _path_label(
+            _path_for_label(observed_manager_path, root),
+            root=root,
+        ):
+            failures.append(f"{failure_prefix}_manager_gate_json_mismatch")
+    else:
+        failures.append(f"{failure_prefix}_manager_gate_json_missing")
+    manager_payload = _load_json_object_path(manager_path, root=root)
+    if not manager_payload:
+        failures.append(f"{failure_prefix}_manager_gate_payload_unreadable")
+    manager_exact_field_pairs = (
+        ("manager_issued_prefetch_count", "issued_prefetch_count"),
+        ("manager_used_fetch_count", "used_fetch_count"),
+        ("manager_unused_fetch_count", "unused_fetch_count"),
+        ("manager_demand_count", "demand_count"),
+        ("manager_demand_hit_count", "demand_hit_count"),
+    )
+    manager_float_field_pairs = (
+        ("manager_demand_hit_rate", "demand_hit_rate"),
+        ("manager_used_per_issued_fetch", "used_per_issued_fetch"),
+    )
+    for preflight_key, manager_key in manager_exact_field_pairs:
+        if evidence.get(preflight_key) != manager_payload.get(manager_key):
+            failures.append(f"{failure_prefix}_{preflight_key}_manager_gate_mismatch")
+    for preflight_key, manager_key in manager_float_field_pairs:
+        preflight_value = _float_metric(evidence, preflight_key)
+        manager_value = _float_metric(manager_payload, manager_key)
+        if (
+            preflight_value is None
+            or manager_value is None
+            or not _is_finite_number(preflight_value)
+            or not _is_finite_number(manager_value)
+            or not math.isclose(
+                preflight_value,
+                manager_value,
+                rel_tol=1.0e-9,
+                abs_tol=1.0e-12,
+            )
+        ):
+            failures.append(f"{failure_prefix}_{preflight_key}_manager_gate_mismatch")
+    return failures
+
+
 def _validate_payload_cache_stream_producer_production_ab_bridge_evidence(
     evidence: dict[str, Any],
     *,
@@ -16015,6 +16305,34 @@ def run_premap_lab_preflight(
         _load_evidence_payload_from_check(
             default_gate_required_evidence_check,
             vllm_replay_visible_native_producer_label,
+            root=root,
+        )
+    )
+    payload_cache_manager_useful_work_ab_label = (
+        "payload_cache_manager_useful_work_ab_gate_json"
+    )
+    payload_cache_manager_useful_work_ab_row = _find_evidence_row(
+        default_gate_required_evidence_check,
+        payload_cache_manager_useful_work_ab_label,
+    )
+    payload_cache_manager_useful_work_ab_payload = (
+        _load_evidence_payload_from_check(
+            default_gate_required_evidence_check,
+            payload_cache_manager_useful_work_ab_label,
+            root=root,
+        )
+    )
+    payload_cache_manager_production_ab_preflight_label = (
+        "payload_cache_manager_production_ab_preflight_json"
+    )
+    payload_cache_manager_production_ab_preflight_row = _find_evidence_row(
+        default_gate_required_evidence_check,
+        payload_cache_manager_production_ab_preflight_label,
+    )
+    payload_cache_manager_production_ab_preflight_payload = (
+        _load_evidence_payload_from_check(
+            default_gate_required_evidence_check,
+            payload_cache_manager_production_ab_preflight_label,
             root=root,
         )
     )
@@ -25715,6 +26033,154 @@ def run_premap_lab_preflight(
                 "changes_kernel_launch_args"
             )
         ),
+        "payload_cache_manager_useful_work_ab_gate_required": True,
+        "payload_cache_manager_useful_work_ab_gate_present": (
+            payload_cache_manager_useful_work_ab_row.get("exists") is True
+        ),
+        "payload_cache_manager_useful_work_ab_gate_passed": (
+            _evidence_row_passed(payload_cache_manager_useful_work_ab_row)
+        ),
+        "payload_cache_manager_useful_work_ab_gate_ready": (
+            _bool_metric(
+                payload_cache_manager_useful_work_ab_payload,
+                "manager_useful_work_ab_ready",
+            )
+        ),
+        "payload_cache_manager_useful_work_ab_gate_payload_runtime_ready": (
+            _bool_metric(
+                payload_cache_manager_useful_work_ab_payload,
+                "payload_runtime_ready",
+            )
+        ),
+        "payload_cache_manager_useful_work_ab_gate_performance_claim_ready": (
+            _bool_metric(
+                payload_cache_manager_useful_work_ab_payload,
+                "performance_claim_ready",
+            )
+        ),
+        "payload_cache_manager_useful_work_ab_gate_issued_prefetch_count": (
+            _int_metric(
+                payload_cache_manager_useful_work_ab_payload,
+                "issued_prefetch_count",
+            )
+        ),
+        "payload_cache_manager_useful_work_ab_gate_used_fetch_count": (
+            _int_metric(payload_cache_manager_useful_work_ab_payload, "used_fetch_count")
+        ),
+        "payload_cache_manager_useful_work_ab_gate_unused_fetch_count": (
+            _int_metric(
+                payload_cache_manager_useful_work_ab_payload,
+                "unused_fetch_count",
+            )
+        ),
+        "payload_cache_manager_useful_work_ab_gate_demand_count": (
+            _int_metric(payload_cache_manager_useful_work_ab_payload, "demand_count")
+        ),
+        "payload_cache_manager_useful_work_ab_gate_demand_hit_count": (
+            _int_metric(
+                payload_cache_manager_useful_work_ab_payload,
+                "demand_hit_count",
+            )
+        ),
+        "payload_cache_manager_useful_work_ab_gate_demand_hit_rate": (
+            _float_metric(
+                payload_cache_manager_useful_work_ab_payload,
+                "demand_hit_rate",
+            )
+        ),
+        "payload_cache_manager_useful_work_ab_gate_used_per_issued_fetch": (
+            _float_metric(
+                payload_cache_manager_useful_work_ab_payload,
+                "used_per_issued_fetch",
+            )
+        ),
+        "payload_cache_manager_useful_work_ab_gate_payload_bytes": (
+            _int_metric(payload_cache_manager_useful_work_ab_payload, "payload_bytes")
+        ),
+        "payload_cache_manager_useful_work_ab_gate_kernel_arg_pass_allowed": (
+            _bool_metric(
+                payload_cache_manager_useful_work_ab_payload,
+                "kernel_arg_pass_allowed",
+            )
+        ),
+        "payload_cache_manager_useful_work_ab_gate_passed_to_kernel": (
+            _bool_metric(
+                payload_cache_manager_useful_work_ab_payload,
+                "passed_to_kernel",
+            )
+        ),
+        "payload_cache_manager_production_ab_preflight_required": True,
+        "payload_cache_manager_production_ab_preflight_present": (
+            payload_cache_manager_production_ab_preflight_row.get("exists") is True
+        ),
+        "payload_cache_manager_production_ab_preflight_passed": (
+            _evidence_row_passed(payload_cache_manager_production_ab_preflight_row)
+        ),
+        "payload_cache_manager_production_ab_preflight_harness_ready": (
+            _bool_metric(
+                payload_cache_manager_production_ab_preflight_payload,
+                "production_like_manager_ab_harness_ready",
+            )
+        ),
+        "payload_cache_manager_production_ab_preflight_artifact_scope": (
+            payload_cache_manager_production_ab_preflight_payload.get(
+                "artifact_scope"
+            )
+        ),
+        "payload_cache_manager_production_ab_preflight_final_production_result_ready": (
+            _bool_metric(
+                payload_cache_manager_production_ab_preflight_payload,
+                "final_production_result_ready",
+            )
+        ),
+        "payload_cache_manager_production_ab_preflight_performance_claim_ready": (
+            _bool_metric(
+                payload_cache_manager_production_ab_preflight_payload,
+                "performance_claim_ready",
+            )
+        ),
+        "payload_cache_manager_production_ab_preflight_candidate_envelope_overhead_ratio": (
+            _float_metric(
+                payload_cache_manager_production_ab_preflight_payload,
+                "candidate_envelope_overhead_ratio",
+            )
+        ),
+        "payload_cache_manager_production_ab_preflight_max_envelope_overhead_ratio": (
+            _float_metric(
+                payload_cache_manager_production_ab_preflight_payload,
+                "max_envelope_overhead_ratio",
+            )
+        ),
+        "payload_cache_manager_production_ab_preflight_sample_count": (
+            _int_metric(
+                payload_cache_manager_production_ab_preflight_payload,
+                "sample_count",
+            )
+        ),
+        "payload_cache_manager_production_ab_preflight_requested_output_token_count": (
+            _int_metric(
+                payload_cache_manager_production_ab_preflight_payload,
+                "requested_output_token_count",
+            )
+        ),
+        "payload_cache_manager_production_ab_preflight_payload_bytes": (
+            _int_metric(
+                payload_cache_manager_production_ab_preflight_payload,
+                "payload_bytes",
+            )
+        ),
+        "payload_cache_manager_production_ab_preflight_kernel_arg_pass_allowed": (
+            _bool_metric(
+                payload_cache_manager_production_ab_preflight_payload,
+                "kernel_arg_pass_allowed",
+            )
+        ),
+        "payload_cache_manager_production_ab_preflight_passed_to_kernel": (
+            _bool_metric(
+                payload_cache_manager_production_ab_preflight_payload,
+                "passed_to_kernel",
+            )
+        ),
         "deferred_online_prelaunch_runner_evidence": bool(
             defer_online_prelaunch_runner_evidence
         ),
@@ -27563,6 +28029,85 @@ def run_premap_lab_preflight(
         )
         is False
     )
+    payload_cache_manager_useful_work_ab_ready = (
+        lab_gate_status_summary.get("payload_cache_manager_useful_work_ab_gate_passed")
+        is True
+        and lab_gate_status_summary.get(
+            "payload_cache_manager_useful_work_ab_gate_ready"
+        )
+        is True
+        and lab_gate_status_summary.get(
+            "payload_cache_manager_useful_work_ab_gate_payload_runtime_ready"
+        )
+        is False
+        and lab_gate_status_summary.get(
+            "payload_cache_manager_useful_work_ab_gate_performance_claim_ready"
+        )
+        is False
+        and lab_gate_status_summary.get(
+            "payload_cache_manager_useful_work_ab_gate_issued_prefetch_count"
+        )
+        is not None
+        and lab_gate_status_summary.get(
+            "payload_cache_manager_useful_work_ab_gate_issued_prefetch_count"
+        )
+        > 0
+        and lab_gate_status_summary.get(
+            "payload_cache_manager_useful_work_ab_gate_used_fetch_count"
+        )
+        is not None
+        and lab_gate_status_summary.get(
+            "payload_cache_manager_useful_work_ab_gate_used_fetch_count"
+        )
+        > 0
+        and lab_gate_status_summary.get(
+            "payload_cache_manager_useful_work_ab_gate_payload_bytes"
+        )
+        == 0
+        and lab_gate_status_summary.get(
+            "payload_cache_manager_useful_work_ab_gate_kernel_arg_pass_allowed"
+        )
+        is False
+        and lab_gate_status_summary.get(
+            "payload_cache_manager_useful_work_ab_gate_passed_to_kernel"
+        )
+        is False
+    )
+    payload_cache_manager_production_ab_preflight_ready = (
+        payload_cache_manager_useful_work_ab_ready
+        and lab_gate_status_summary.get(
+            "payload_cache_manager_production_ab_preflight_passed"
+        )
+        is True
+        and lab_gate_status_summary.get(
+            "payload_cache_manager_production_ab_preflight_harness_ready"
+        )
+        is True
+        and lab_gate_status_summary.get(
+            "payload_cache_manager_production_ab_preflight_artifact_scope"
+        )
+        == "preflight_smoke_only"
+        and lab_gate_status_summary.get(
+            "payload_cache_manager_production_ab_preflight_final_production_result_ready"
+        )
+        is False
+        and lab_gate_status_summary.get(
+            "payload_cache_manager_production_ab_preflight_performance_claim_ready"
+        )
+        is False
+        and lab_gate_status_summary.get(
+            "payload_cache_manager_production_ab_preflight_payload_bytes"
+        )
+        == 0
+        and lab_gate_status_summary.get(
+            "payload_cache_manager_production_ab_preflight_kernel_arg_pass_allowed"
+        )
+        is False
+        and lab_gate_status_summary.get(
+            "payload_cache_manager_production_ab_preflight_passed_to_kernel"
+        )
+        is False
+    )
     wna16_benchmark_prerequisites_ready = (
         all_four_field_consumer_ready
         and future_wna16_kernel_side_typed_consumer_path_ready
@@ -27672,6 +28217,18 @@ def run_premap_lab_preflight(
         failures.append(
             "default_kernel_consumer_future_wna16_payloadless_useful_production_like_timing_gate_not_ready"
         )
+    if (
+        REQUIRED_DEFAULT_GATE_CONTRACT["payload_cache_manager_useful_work_ab_gate_required"]
+        and not payload_cache_manager_useful_work_ab_ready
+    ):
+        failures.append("payload_cache_manager_useful_work_ab_gate_not_ready")
+    if (
+        REQUIRED_DEFAULT_GATE_CONTRACT[
+            "payload_cache_manager_production_ab_preflight_required"
+        ]
+        and not payload_cache_manager_production_ab_preflight_ready
+    ):
+        failures.append("payload_cache_manager_production_ab_preflight_not_ready")
     if future_wna16_payloadless_useful_production_like_timing_gate_ready:
         next_runtime_stage = "future_typed_slot_useful_consumer_or_payload_cache_manager"
     elif future_wna16_payloadless_useful_runtime_ablation_ready:
@@ -27760,6 +28317,12 @@ def run_premap_lab_preflight(
     lab_gate_status_summary[
         "default_kernel_consumer_future_wna16_payloadless_useful_production_like_timing_gate_gate_ready"
     ] = future_wna16_payloadless_useful_production_like_timing_gate_ready
+    lab_gate_status_summary[
+        "payload_cache_manager_useful_work_ab_gate_gate_ready"
+    ] = payload_cache_manager_useful_work_ab_ready
+    lab_gate_status_summary[
+        "payload_cache_manager_production_ab_preflight_gate_ready"
+    ] = payload_cache_manager_production_ab_preflight_ready
     lab_gate_status_summary[
         "default_kernel_consumer_wna16_side_variant_ready"
     ] = wna16_side_variant_ready
