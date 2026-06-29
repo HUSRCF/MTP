@@ -46520,6 +46520,65 @@ PYTHONNOUSERSITE=1 /home/husrcf/anaconda3/envs/TRY/bin/python \
 # passed = true, failures = []
 ```
 
+2026-06-29 update:
+the payload/cache-manager useful-work path is now a stricter lab precondition
+rather than an isolated replay artifact.  The default readonly lab gate now
+requires both:
+
+```text
+payload_cache_manager_useful_work_ab_gate_json
+payload_cache_manager_production_ab_preflight_json
+```
+
+The production preflight remains explicitly scoped as smoke/preflight only:
+
+```text
+artifact_scope = preflight_smoke_only
+payload_runtime_ready = false
+performance_claim_ready = false
+final_production_result_ready = false
+payload_bytes = 0
+ready_credit = false
+real_ready_credit_granted = false
+payload_transfer_enabled = false
+payload_deref_allowed = false
+kernel_arg_pass_allowed = false
+passed_to_kernel = false
+changes_kernel_launch_args = false
+uses_current_wna16_args = false
+passes_current_wna16_args = false
+measures_tpot = false
+measures_vllm_latency = false
+```
+
+The `payload_cache_consumer_visible_hit_blocked_gate` is also now bound to the
+production preflight artifact.  It fails closed on missing/malformed preflight
+JSON and rejects unsafe alias fields such as `kernel_arg_pass`,
+`payload_transfer_runtime_enabled`, `payload_deref_runtime_allowed`,
+`live_payload_runtime_enabled`, and `full_fetch_runtime_allowed`.  Its report
+now carries `production_preflight_*` fields so the lab preflight checker can
+verify the blocked consumer-visible path is protected by the same no-payload,
+no-ready, no-kernel, no-current-WNA16 envelope.
+
+This does not claim endpoint performance or real payload readiness.  It only
+establishes that useful-work accounting, production-like smoke-envelope checks,
+and the consumer-visible-hit blocked publication path remain connected under a
+strict lab gate before any live payload movement or runtime readiness claim is
+allowed.
+
+Validation:
+
+```bash
+PYTHONNOUSERSITE=1 PYTHONPATH=src:. /home/husrcf/anaconda3/envs/TRY/bin/python \
+  scripts/run_premap_lab_preflight.py \
+  --output-json /tmp/premap_lab_preflight_after_payload_preflight_binding.json
+# passed
+
+PYTHONNOUSERSITE=1 PYTHONPATH=src:. /home/husrcf/anaconda3/envs/TRY/bin/python \
+  -m pytest tests -q
+# 2820 passed, 2 warnings
+```
+
 ## 2026-06-26: Graph-visible state-only producer lower-bound canary
 
 Added a payloadless `state_only` graph-visible producer mode for the
