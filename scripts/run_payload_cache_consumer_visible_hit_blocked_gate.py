@@ -497,8 +497,29 @@ def build_report(
         "production_preflight_candidate_envelope_overhead_ratio": (
             production_preflight.get("candidate_envelope_overhead_ratio")
         ),
+        "production_preflight_max_envelope_overhead_ratio": (
+            production_preflight.get("max_envelope_overhead_ratio")
+        ),
         "production_preflight_payload_bytes": production_preflight.get(
             "payload_bytes",
+        ),
+        "production_preflight_ready_credit": production_preflight.get(
+            "ready_credit",
+        ),
+        "production_preflight_ready_before_demand_credit": (
+            production_preflight.get("ready_before_demand_credit")
+        ),
+        "production_preflight_real_ready_credit_granted": production_preflight.get(
+            "real_ready_credit_granted",
+        ),
+        "production_preflight_payload_transfer_enabled": production_preflight.get(
+            "payload_transfer_enabled",
+        ),
+        "production_preflight_payload_deref_allowed": production_preflight.get(
+            "payload_deref_allowed",
+        ),
+        "production_preflight_kernel_arg_pass_allowed": production_preflight.get(
+            "kernel_arg_pass_allowed",
         ),
         "production_preflight_passed_to_kernel": production_preflight.get(
             "passed_to_kernel",

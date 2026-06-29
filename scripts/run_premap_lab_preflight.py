@@ -13410,6 +13410,23 @@ def _validate_payload_cache_consumer_visible_hit_blocked_gate_evidence(
         "schema_version": 1,
         "source": "payload_cache_consumer_visible_hit_blocked_gate",
         "artifact_kind": "payload_cache_consumer_visible_hit_blocked_gate",
+        "production_preflight_required": True,
+        "production_preflight_ready": True,
+        "production_preflight_artifact_scope": "preflight_smoke_only",
+        "production_preflight_payload_runtime_ready": False,
+        "production_preflight_performance_claim_ready": False,
+        "production_preflight_final_production_result_ready": False,
+        "production_preflight_payload_bytes": 0,
+        "production_preflight_ready_credit": False,
+        "production_preflight_ready_before_demand_credit": False,
+        "production_preflight_real_ready_credit_granted": False,
+        "production_preflight_payload_transfer_enabled": False,
+        "production_preflight_payload_deref_allowed": False,
+        "production_preflight_kernel_arg_pass_allowed": False,
+        "production_preflight_passed_to_kernel": False,
+        "production_preflight_changes_kernel_launch_args": False,
+        "production_preflight_uses_current_wna16_args": False,
+        "production_preflight_passes_current_wna16_args": False,
         "cell_count": 60,
         "event_timing_mode": "token_index",
         "first_model_passing_lookahead_us": 2_400_000.0,
@@ -13467,6 +13484,33 @@ def _validate_payload_cache_consumer_visible_hit_blocked_gate_evidence(
         actual_value = evidence.get(key)
         if type(actual_value) is not type(expected_value) or actual_value != expected_value:
             failures.append(f"{failure_prefix}_{key}_mismatch")
+    overhead = _float_metric(
+        evidence,
+        "production_preflight_candidate_envelope_overhead_ratio",
+    )
+    max_overhead = _float_metric(
+        evidence,
+        "production_preflight_max_envelope_overhead_ratio",
+    )
+    if (
+        overhead is None
+        or max_overhead is None
+        or not _is_finite_number(overhead)
+        or not _is_finite_number(max_overhead)
+        or overhead > max_overhead
+    ):
+        failures.append(
+            f"{failure_prefix}_production_preflight_candidate_envelope_overhead_ratio_invalid"
+        )
+    hit_rate = _float_metric(evidence, "production_preflight_manager_demand_hit_rate")
+    if (
+        hit_rate is None
+        or not _is_finite_number(hit_rate)
+        or not (0.0 <= hit_rate <= 1.0)
+    ):
+        failures.append(
+            f"{failure_prefix}_production_preflight_manager_demand_hit_rate_invalid"
+        )
     _append_runtime_safety_failures(evidence, failure_prefix)
 
     canary = evidence.get("canary")

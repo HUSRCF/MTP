@@ -21,6 +21,12 @@ def test_payload_cache_consumer_visible_hit_blocked_gate_report() -> None:
     assert report["production_preflight_performance_claim_ready"] is False
     assert report["production_preflight_final_production_result_ready"] is False
     assert report["production_preflight_payload_bytes"] == 0
+    assert report["production_preflight_ready_credit"] is False
+    assert report["production_preflight_ready_before_demand_credit"] is False
+    assert report["production_preflight_real_ready_credit_granted"] is False
+    assert report["production_preflight_payload_transfer_enabled"] is False
+    assert report["production_preflight_payload_deref_allowed"] is False
+    assert report["production_preflight_kernel_arg_pass_allowed"] is False
     assert report["production_preflight_passed_to_kernel"] is False
     assert report["production_preflight_changes_kernel_launch_args"] is False
     assert report["production_preflight_uses_current_wna16_args"] is False

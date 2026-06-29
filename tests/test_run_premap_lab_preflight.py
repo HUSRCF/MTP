@@ -20353,6 +20353,50 @@ def test_payload_cache_consumer_visible_hit_blocked_gate_rejects_runtime_extras(
     )
 
 
+def test_payload_cache_consumer_visible_hit_blocked_gate_requires_production_preflight():
+    payload = _payload_cache_consumer_visible_hit_blocked_gate_payload()
+    payload["production_preflight_ready"] = False
+    payload["production_preflight_payload_bytes"] = 1
+    payload["production_preflight_payload_transfer_enabled"] = True
+    payload["production_preflight_kernel_arg_pass_allowed"] = True
+    payload["production_preflight_passed_to_kernel"] = True
+    payload["production_preflight_candidate_envelope_overhead_ratio"] = float("nan")
+    payload["production_preflight_manager_demand_hit_rate"] = 2.0
+
+    failures = _validate_payload_cache_consumer_visible_hit_blocked_gate_evidence(
+        payload
+    )
+
+    assert (
+        "payload_cache_consumer_visible_hit_blocked_gate_production_preflight_ready_mismatch"
+        in failures
+    )
+    assert (
+        "payload_cache_consumer_visible_hit_blocked_gate_production_preflight_payload_bytes_mismatch"
+        in failures
+    )
+    assert (
+        "payload_cache_consumer_visible_hit_blocked_gate_production_preflight_payload_transfer_enabled_mismatch"
+        in failures
+    )
+    assert (
+        "payload_cache_consumer_visible_hit_blocked_gate_production_preflight_kernel_arg_pass_allowed_mismatch"
+        in failures
+    )
+    assert (
+        "payload_cache_consumer_visible_hit_blocked_gate_production_preflight_passed_to_kernel_mismatch"
+        in failures
+    )
+    assert (
+        "payload_cache_consumer_visible_hit_blocked_gate_production_preflight_candidate_envelope_overhead_ratio_invalid"
+        in failures
+    )
+    assert (
+        "payload_cache_consumer_visible_hit_blocked_gate_production_preflight_manager_demand_hit_rate_invalid"
+        in failures
+    )
+
+
 def test_payload_cache_consumer_visible_hit_blocked_gate_rejects_bool_zero_counter():
     payload = _payload_cache_consumer_visible_hit_blocked_gate_payload()
     payload["canary"]["planned_issue_count"] = False
