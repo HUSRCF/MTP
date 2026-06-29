@@ -20157,6 +20157,20 @@ def test_payload_cache_consumer_visible_hit_blocked_gate_rejects_runtime_extras(
     )
 
 
+def test_payload_cache_consumer_visible_hit_blocked_gate_rejects_bool_zero_counter():
+    payload = _payload_cache_consumer_visible_hit_blocked_gate_payload()
+    payload["canary"]["planned_issue_count"] = False
+
+    failures = _validate_payload_cache_consumer_visible_hit_blocked_gate_evidence(
+        payload
+    )
+
+    assert (
+        "payload_cache_consumer_visible_hit_blocked_gate_canary_planned_issue_count_unexpectedly_nonzero"
+        in failures
+    )
+
+
 def test_payload_cache_consumer_visible_hit_blocked_gate_rejects_missing_canary_issue_counter():
     payload = _payload_cache_consumer_visible_hit_blocked_gate_payload()
     del payload["canary"]["planned_issue_count"]

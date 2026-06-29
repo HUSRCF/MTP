@@ -13001,7 +13001,9 @@ def _validate_payload_cache_demand_hit_shadow_publication_gate_evidence(
                 failures.append(f"{prefix}_{key}_unexpectedly_enabled")
         for key in unsafe_zero_fields:
             value = payload.get(key)
-            if value not in (None, 0, 0.0):
+            if value is None:
+                continue
+            if isinstance(value, bool) or not isinstance(value, (int, float)) or value != 0:
                 failures.append(f"{prefix}_{key}_unexpectedly_nonzero")
 
     def _append_status_safety_failures(
@@ -13355,7 +13357,7 @@ def _validate_payload_cache_consumer_visible_hit_blocked_gate_evidence(
                 failures.append(f"{prefix}_{key}_missing")
                 continue
             value = payload.get(key)
-            if value not in (0, 0.0):
+            if isinstance(value, bool) or not isinstance(value, (int, float)) or value != 0:
                 failures.append(f"{prefix}_{key}_unexpectedly_nonzero")
 
     def _append_status_safety_failures(
