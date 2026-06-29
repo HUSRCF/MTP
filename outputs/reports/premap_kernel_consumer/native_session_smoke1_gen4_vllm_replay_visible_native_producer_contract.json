@@ -34,6 +34,7 @@
   "payload_bytes": 0,
   "payload_deref_allowed": false,
   "payload_transfer_enabled": false,
+  "ready": false,
   "performance_summary": "/home/husrcf/Code/ProtBind/MTP/data/traces/native_session_smoke1_gen4_20260626_direct/performance_summary.json",
   "persistent_state_on_device": true,
   "post_export_native_replay": false,

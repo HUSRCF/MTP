@@ -34,12 +34,16 @@ REQUIRED_SHA_FIELDS = [
     "default_kernel_consumer_arg_slot_standalone_evidence_sha256",
     "default_kernel_consumer_wna16_side_variant_evidence_sha256",
 ]
-EXPECTED_REQUIRED_EVIDENCE_COUNT = 68
+EXPECTED_REQUIRED_EVIDENCE_COUNT = 69
 VLLM_REPLAY_VISIBLE_NATIVE_PRODUCER_REQUIRED_LABEL = (
     "payload_cache_vllm_replay_visible_native_producer_contract_json"
 )
+VLLM_REPLAY_VISIBLE_COUNT_PTR_NATIVE_PRODUCER_REQUIRED_LABEL = (
+    "payload_cache_vllm_replay_visible_count_ptr_native_producer_contract_json"
+)
 REQUIRED_EVIDENCE_LABELS = (
     VLLM_REPLAY_VISIBLE_NATIVE_PRODUCER_REQUIRED_LABEL,
+    VLLM_REPLAY_VISIBLE_COUNT_PTR_NATIVE_PRODUCER_REQUIRED_LABEL,
     "payload_cache_consumer_visible_hit_blocked_gate_json",
 )
 REQUIRED_LAYOUT_CHECKS = {
@@ -9191,8 +9195,15 @@ def check_premap_lab_preflight_summary(
             failures.append("required_evidence_map_missing")
         else:
             for label in REQUIRED_EVIDENCE_LABELS:
-                if label not in evidence_map:
+                row = evidence_map.get(label)
+                if not isinstance(row, dict):
                     failures.append(f"required_evidence_{label}_missing")
+                    continue
+                present = row.get("present", row.get("exists"))
+                if present is not True:
+                    failures.append(f"required_evidence_{label}_not_present")
+                if row.get("passed") is not True:
+                    failures.append(f"required_evidence_{label}_not_passed")
 
     optional = summary.get("optional_evidence")
     if not isinstance(optional, dict):

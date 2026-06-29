@@ -3054,6 +3054,7 @@ def _add_premap_payload_cache_online_inside_graph_producer_boundary_contract_to_
     performance[f"{contract_prefix}uses_current_wna16_args"] = False
     performance[f"{contract_prefix}passes_current_wna16_args"] = False
     performance[f"{contract_prefix}payload_bytes"] = 0
+    performance[f"{contract_prefix}ready"] = False
     performance[f"{contract_prefix}payload_transfer_enabled"] = False
     performance[f"{contract_prefix}payload_deref_allowed"] = False
     performance[f"{contract_prefix}ready_credit"] = False
@@ -3577,6 +3578,7 @@ def _add_premap_payload_cache_vllm_replay_visible_native_producer_contract_to_pe
         "payload_cache_manager_payloadless_ab_or_full_fetch_canary"
     )
     performance[f"{contract_prefix}payload_bytes"] = 0
+    performance[f"{contract_prefix}ready"] = False
     performance[f"{contract_prefix}payload_transfer_enabled"] = False
     performance[f"{contract_prefix}payload_deref_allowed"] = False
     performance[f"{contract_prefix}ready_credit"] = False

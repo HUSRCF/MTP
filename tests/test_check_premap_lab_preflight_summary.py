@@ -1582,11 +1582,15 @@ def _summary() -> dict[str, object]:
         "default_kernel_consumer_dispatch_ptr_standalone_evidence_sha256": HEX,
         "default_kernel_consumer_arg_slot_standalone_evidence_sha256": HEX,
         "required_evidence": {
-            "required_count": 68,
-            "present_count": 68,
-            "passed_count": 68,
+            "required_count": 69,
+            "present_count": 69,
+            "passed_count": 69,
             "evidence": {
                 "payload_cache_vllm_replay_visible_native_producer_contract_json": {
+                    "exists": True,
+                    "passed": True,
+                },
+                "payload_cache_vllm_replay_visible_count_ptr_native_producer_contract_json": {
                     "exists": True,
                     "passed": True,
                 },
@@ -5091,6 +5095,23 @@ def test_check_premap_lab_preflight_summary_rejects_missing_vllm_native_evidence
     assert (
         "required_evidence_"
         "payload_cache_vllm_replay_visible_native_producer_contract_json_missing"
+        in result["failures"]
+    )
+
+
+def test_check_premap_lab_preflight_summary_rejects_failed_count_ptr_native_evidence_label() -> None:
+    summary = _summary()
+    summary["required_evidence"]["evidence"][
+        "payload_cache_vllm_replay_visible_count_ptr_native_producer_contract_json"
+    ]["passed"] = False
+
+    result = check_premap_lab_preflight_summary(summary)
+
+    assert result["passed"] is False
+    assert (
+        "required_evidence_"
+        "payload_cache_vllm_replay_visible_count_ptr_native_producer_contract_json_"
+        "not_passed"
         in result["failures"]
     )
 

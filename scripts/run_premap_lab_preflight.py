@@ -37,6 +37,12 @@ from scripts.check_premap_payload_cache_vllm_replay_visible_count_ptr_readiness 
     CONTRACT_BOUNDARY as VLLM_REPLAY_VISIBLE_COUNT_PTR_READINESS_CONTRACT_BOUNDARY,
     CONTRACT_MODE as VLLM_REPLAY_VISIBLE_COUNT_PTR_READINESS_CONTRACT_MODE,
 )
+from scripts.check_premap_payload_cache_vllm_replay_visible_count_ptr_native_producer import (
+    CONTRACT_BOUNDARY as VLLM_REPLAY_VISIBLE_COUNT_PTR_NATIVE_PRODUCER_CONTRACT_BOUNDARY,
+    CONTRACT_MODE as VLLM_REPLAY_VISIBLE_COUNT_PTR_NATIVE_PRODUCER_CONTRACT_MODE,
+    NOOP_SAFETY_FIELDS as VLLM_REPLAY_VISIBLE_COUNT_PTR_NATIVE_PRODUCER_NOOP_SAFETY_FIELDS,
+    check_contract as check_vllm_replay_visible_count_ptr_native_producer_contract,
+)
 from scripts.check_premap_payload_cache_vllm_replay_visible_native_producer import (
     check_contract as check_vllm_replay_visible_native_producer_contract,
 )
@@ -353,6 +359,7 @@ REQUIRED_DEFAULT_GATE_EVIDENCE_JSON_LABELS = {
     "payload_cache_demand_hit_shadow_publication_gate_json",
     "payload_cache_consumer_visible_hit_blocked_gate_json",
     "payload_cache_vllm_replay_visible_native_producer_contract_json",
+    "payload_cache_vllm_replay_visible_count_ptr_native_producer_contract_json",
     "payload_cache_vllm_replay_visible_count_ptr_readiness_json",
     "future_kernel_native_dispatch_consumer_online_artifact_check_32_128export_json",
     "future_kernel_native_dispatch_consumer_online_runner_32_128export_json",
@@ -5705,6 +5712,7 @@ def _validate_required_evidence_payload(
         "payload_cache_demand_hit_shadow_publication_gate_json",
         "payload_cache_consumer_visible_hit_blocked_gate_json",
         "payload_cache_vllm_replay_visible_native_producer_contract_json",
+        "payload_cache_vllm_replay_visible_count_ptr_native_producer_contract_json",
         "payload_cache_vllm_replay_visible_count_ptr_readiness_json",
         "payload_cache_stream_producer_production_ab_bridge_json",
         "payload_cache_stream_producer_production_ab_bridge_check_json",
@@ -5744,6 +5752,16 @@ def _validate_required_evidence_payload(
         return [
             f"{evidence_label}:{failure}"
             for failure in _validate_payload_cache_vllm_replay_visible_native_producer_evidence(
+                evidence
+            )
+        ]
+    if (
+        evidence_label
+        == "payload_cache_vllm_replay_visible_count_ptr_native_producer_contract_json"
+    ):
+        return [
+            f"{evidence_label}:{failure}"
+            for failure in _validate_payload_cache_vllm_replay_visible_count_ptr_native_producer_evidence(
                 evidence
             )
         ]
@@ -12134,6 +12152,79 @@ def _validate_payload_cache_vllm_replay_visible_native_producer_evidence(
     failure_prefix: str = "payload_cache_vllm_replay_visible_native_producer_contract",
 ) -> list[str]:
     check = check_vllm_replay_visible_native_producer_contract(payload)
+    failures = list(check.get("failures") or [])
+    return [f"{failure_prefix}_{failure}" for failure in failures]
+
+
+def _validate_payload_cache_vllm_replay_visible_count_ptr_native_producer_evidence(
+    payload: dict[str, Any],
+    *,
+    failure_prefix: str = (
+        "payload_cache_vllm_replay_visible_count_ptr_native_producer_contract"
+    ),
+) -> list[str]:
+    if payload.get("mode") == VLLM_REPLAY_VISIBLE_COUNT_PTR_NATIVE_PRODUCER_CONTRACT_MODE:
+        failures: list[str] = []
+        expected_values = {
+            "ok": True,
+            "passed": True,
+            "failures": [],
+            "mode": VLLM_REPLAY_VISIBLE_COUNT_PTR_NATIVE_PRODUCER_CONTRACT_MODE,
+            "contract_boundary": (
+                VLLM_REPLAY_VISIBLE_COUNT_PTR_NATIVE_PRODUCER_CONTRACT_BOUNDARY
+            ),
+            "input_mode": "payload_cache_vllm_replay_visible_native_producer_contract",
+            "input_contract_boundary": "inprocess_vllm_replay_visible_native_producer_op",
+            "base_contract_passed": True,
+            "host_scalar_count": 0,
+            "count_ptr_blocked_count": 0,
+            "current_count_source_kind": "num_tokens_post_padded_device_tensor",
+            "python_transition_skipped": True,
+            "native_runtime": True,
+            "inprocess_native_op": True,
+            "vllm_replay_visible": True,
+            "ready_for_payload_cache_runtime_lab_gate": True,
+            "next_boundary": (
+                "production_like_payload_cache_manager_or_payload_runtime_canary"
+            ),
+        }
+        expected_values.update(
+            dict(VLLM_REPLAY_VISIBLE_COUNT_PTR_NATIVE_PRODUCER_NOOP_SAFETY_FIELDS)
+        )
+        for key, expected_value in expected_values.items():
+            actual_value = payload.get(key)
+            if type(actual_value) is not type(expected_value) or actual_value != expected_value:
+                failures.append(f"{key}_mismatch")
+
+        expected_packet_count = _int_metric(payload, "expected_packet_count")
+        if expected_packet_count is None or expected_packet_count <= 0:
+            failures.append("expected_packet_count_invalid")
+        for key in (
+            "packet_count",
+            "prelaunch_probe_count",
+            "count_ptr_ready_count",
+            "device_count_tensor_count",
+            "device_count_scalar_int32_count",
+        ):
+            value = _int_metric(payload, key)
+            if value is None or value <= 0:
+                failures.append(f"{key}_invalid")
+            elif expected_packet_count is not None and value != expected_packet_count:
+                failures.append(f"{key}_mismatch")
+        legacy_ready_count = _int_metric(payload, "legacy_host_scalar_ready_count")
+        legacy_blocked_count = _int_metric(payload, "legacy_host_scalar_blocked_count")
+        if legacy_ready_count != 0:
+            failures.append("legacy_host_scalar_ready_count_nonzero")
+        if legacy_blocked_count is None or legacy_blocked_count < 0:
+            failures.append("legacy_host_scalar_blocked_count_invalid")
+        if payload.get("current_expert_ptr_source_kind") not in {
+            "vllm_prelaunch_device_tensor",
+            "vllm_prelaunch_native_device_tensor",
+        }:
+            failures.append("current_expert_ptr_source_kind_mismatch")
+        return [f"{failure_prefix}_{failure}" for failure in failures]
+
+    check = check_vllm_replay_visible_count_ptr_native_producer_contract(payload)
     failures = list(check.get("failures") or [])
     return [f"{failure_prefix}_{failure}" for failure in failures]
 
