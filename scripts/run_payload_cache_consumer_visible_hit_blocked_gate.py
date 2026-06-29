@@ -53,9 +53,16 @@ from mtp_expert_prefetch.runtime import (
     build_payload_cache_snapshot_backed_live_runtime_preflight,
 )
 
-DEFAULT_OUTPUT_JSON = Path(
-    "outputs/reports/premap_payload_cache/"
-    "payload_cache_consumer_visible_hit_blocked_gate.json",
+REPO_ROOT = Path(__file__).resolve().parents[1]
+DEFAULT_OUTPUT_JSON = (
+    REPO_ROOT
+    / "outputs/reports/premap_payload_cache/"
+    "payload_cache_consumer_visible_hit_blocked_gate.json"
+)
+DEFAULT_PRODUCTION_PREFLIGHT_JSON = (
+    REPO_ROOT
+    / "outputs/reports/premap_payload_cache/"
+    "payload_cache_manager_production_ab_preflight.json"
 )
 SOURCE_BOUND_QUEUE_BUDGET: dict[str, int | float | str] = {
     "cell_count": 60,
@@ -68,6 +75,76 @@ SOURCE_BOUND_QUEUE_BUDGET: dict[str, int | float | str] = {
     "shifted_issue_unique_issue_key_count": 16,
 }
 REQUEST_SOURCE = "queue_budget_first_model_passing_cell"
+
+
+def _display_path(path: Path) -> str:
+    try:
+        return str(path.resolve().relative_to(REPO_ROOT))
+    except ValueError:
+        return str(path)
+
+
+def _load_json_object(path: Path) -> dict[str, Any]:
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError):
+        return {}
+    if not isinstance(payload, dict):
+        return {}
+    return payload
+
+
+def _production_preflight_status(
+    path: Path | None,
+    *,
+    required: bool,
+) -> tuple[dict[str, Any], list[str]]:
+    failures: list[str] = []
+    if path is None:
+        if required:
+            failures.append("production_preflight_path_missing")
+        return {}, failures
+    payload = _load_json_object(path)
+    if not payload:
+        failures.append("production_preflight_payload_unreadable")
+        return {}, failures
+    expected_values = {
+        "artifact_kind": "premap_payload_cache_manager_production_ab_preflight",
+        "artifact_scope": "preflight_smoke_only",
+        "mode": "payload_cache_manager_production_like_ab_preflight",
+        "passed": True,
+        "production_like_manager_ab_harness_ready": True,
+        "payload_runtime_ready": False,
+        "performance_claim_ready": False,
+        "final_production_result_ready": False,
+        "payload_bytes": 0,
+        "ready_credit": False,
+        "ready_before_demand_credit": False,
+        "real_ready_credit_granted": False,
+        "payload_transfer_enabled": False,
+        "payload_deref_allowed": False,
+        "kernel_arg_pass_allowed": False,
+        "passed_to_kernel": False,
+        "changes_kernel_launch_args": False,
+        "uses_current_wna16_args": False,
+        "passes_current_wna16_args": False,
+        "measures_tpot": False,
+        "measures_vllm_latency": False,
+    }
+    for key, expected_value in expected_values.items():
+        if type(payload.get(key)) is not type(expected_value) or payload.get(key) != expected_value:
+            failures.append(f"production_preflight_{key}_mismatch")
+    unsafe_aliases = (
+        "kernel_arg_pass",
+        "payload_transfer_runtime_enabled",
+        "payload_deref_runtime_allowed",
+        "live_payload_runtime_enabled",
+        "full_fetch_runtime_allowed",
+    )
+    for key in unsafe_aliases:
+        if key in payload and payload.get(key) is not False:
+            failures.append(f"production_preflight_{key}_mismatch")
+    return payload, failures
 
 
 def build_consumer_visible_hit_blocked_canary() -> (
@@ -285,12 +362,20 @@ def _request_matches_envelope_source_binding(
 def build_report(
     *,
     request_source_binding_overrides: Mapping[str, int | float] | None = None,
+    production_preflight_json: Path | None = DEFAULT_PRODUCTION_PREFLIGHT_JSON,
+    require_production_preflight: bool = True,
 ) -> dict[str, Any]:
     canary = _build_consumer_visible_hit_blocked_canary(
         request_source_binding_overrides=request_source_binding_overrides,
     )
     payload = canary.as_dict()
     failures: list[str] = []
+    production_preflight, production_preflight_failures = _production_preflight_status(
+        production_preflight_json,
+        required=require_production_preflight,
+    )
+    if require_production_preflight:
+        failures.extend(production_preflight_failures)
     request_matches_envelope_source_binding = _request_matches_envelope_source_binding(
         payload,
         SOURCE_BOUND_QUEUE_BUDGET,
@@ -388,6 +473,48 @@ def build_report(
         "failures": failures,
         "source": "payload_cache_consumer_visible_hit_blocked_gate",
         "artifact_kind": "payload_cache_consumer_visible_hit_blocked_gate",
+        "production_preflight_required": require_production_preflight,
+        "production_preflight_ready": (
+            require_production_preflight and not production_preflight_failures
+        ),
+        "production_preflight_json": (
+            _display_path(production_preflight_json)
+            if production_preflight_json is not None
+            else None
+        ),
+        "production_preflight_artifact_scope": production_preflight.get(
+            "artifact_scope",
+        ),
+        "production_preflight_payload_runtime_ready": production_preflight.get(
+            "payload_runtime_ready",
+        ),
+        "production_preflight_performance_claim_ready": production_preflight.get(
+            "performance_claim_ready",
+        ),
+        "production_preflight_final_production_result_ready": production_preflight.get(
+            "final_production_result_ready",
+        ),
+        "production_preflight_candidate_envelope_overhead_ratio": (
+            production_preflight.get("candidate_envelope_overhead_ratio")
+        ),
+        "production_preflight_payload_bytes": production_preflight.get(
+            "payload_bytes",
+        ),
+        "production_preflight_passed_to_kernel": production_preflight.get(
+            "passed_to_kernel",
+        ),
+        "production_preflight_changes_kernel_launch_args": production_preflight.get(
+            "changes_kernel_launch_args",
+        ),
+        "production_preflight_uses_current_wna16_args": production_preflight.get(
+            "uses_current_wna16_args",
+        ),
+        "production_preflight_passes_current_wna16_args": production_preflight.get(
+            "passes_current_wna16_args",
+        ),
+        "production_preflight_manager_demand_hit_rate": production_preflight.get(
+            "manager_demand_hit_rate",
+        ),
         "cell_count": SOURCE_BOUND_QUEUE_BUDGET["cell_count"],
         "event_timing_mode": SOURCE_BOUND_QUEUE_BUDGET["event_timing_mode"],
         "first_model_passing_lookahead_us": SOURCE_BOUND_QUEUE_BUDGET[
@@ -450,12 +577,25 @@ def build_report(
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output-json", type=Path, default=DEFAULT_OUTPUT_JSON)
+    parser.add_argument(
+        "--production-preflight-json",
+        type=Path,
+        default=DEFAULT_PRODUCTION_PREFLIGHT_JSON,
+    )
+    parser.add_argument(
+        "--no-require-production-preflight",
+        action="store_true",
+        help="Diagnostic escape hatch; default gate requires production preflight.",
+    )
     return parser
 
 
 def main(argv: list[str] | None = None) -> int:
     args = _build_parser().parse_args(argv)
-    report = build_report()
+    report = build_report(
+        production_preflight_json=args.production_preflight_json,
+        require_production_preflight=not args.no_require_production_preflight,
+    )
     args.output_json.parent.mkdir(parents=True, exist_ok=True)
     args.output_json.write_text(
         json.dumps(report, indent=2, sort_keys=True) + "\n",

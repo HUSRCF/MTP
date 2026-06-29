@@ -14,6 +14,17 @@ def test_payload_cache_consumer_visible_hit_blocked_gate_report() -> None:
     assert report["schema_version"] == 1
     assert report["source"] == "payload_cache_consumer_visible_hit_blocked_gate"
     assert report["artifact_kind"] == "payload_cache_consumer_visible_hit_blocked_gate"
+    assert report["production_preflight_required"] is True
+    assert report["production_preflight_ready"] is True
+    assert report["production_preflight_artifact_scope"] == "preflight_smoke_only"
+    assert report["production_preflight_payload_runtime_ready"] is False
+    assert report["production_preflight_performance_claim_ready"] is False
+    assert report["production_preflight_final_production_result_ready"] is False
+    assert report["production_preflight_payload_bytes"] == 0
+    assert report["production_preflight_passed_to_kernel"] is False
+    assert report["production_preflight_changes_kernel_launch_args"] is False
+    assert report["production_preflight_uses_current_wna16_args"] is False
+    assert report["production_preflight_passes_current_wna16_args"] is False
     assert report["cell_count"] == 60
     assert report["event_timing_mode"] == "token_index"
     assert report["first_model_passing_lookahead_us"] == 2_400_000.0
@@ -115,6 +126,62 @@ def test_payload_cache_consumer_visible_hit_blocked_gate_rejects_source_binding_
         assert drift_report["passed"] is False
         assert "request_source_binding_mismatch" in drift_report["failures"]
         assert drift_report["request_matches_envelope_source_binding"] is False
+
+
+def test_payload_cache_consumer_visible_hit_blocked_gate_requires_production_preflight(
+    tmp_path: Path,
+) -> None:
+    report = gate.build_report(production_preflight_json=tmp_path / "missing.json")
+
+    assert report["passed"] is False
+    assert report["production_preflight_required"] is True
+    assert report["production_preflight_ready"] is False
+    assert "production_preflight_payload_unreadable" in report["failures"]
+    assert report["payload_bytes"] == 0
+    assert report["passed_to_kernel"] is False
+
+
+def test_payload_cache_consumer_visible_hit_blocked_gate_rejects_bad_preflight_json(
+    tmp_path: Path,
+) -> None:
+    preflight = tmp_path / "bad_preflight.json"
+    preflight.write_text("{not-json", encoding="utf-8")
+
+    report = gate.build_report(production_preflight_json=preflight)
+
+    assert report["passed"] is False
+    assert report["production_preflight_ready"] is False
+    assert "production_preflight_payload_unreadable" in report["failures"]
+    assert report["payload_bytes"] == 0
+    assert report["passed_to_kernel"] is False
+
+
+def test_payload_cache_consumer_visible_hit_blocked_gate_rejects_unsafe_preflight_aliases(
+    tmp_path: Path,
+) -> None:
+    unsafe_aliases = (
+        "kernel_arg_pass",
+        "payload_transfer_runtime_enabled",
+        "payload_deref_runtime_allowed",
+        "live_payload_runtime_enabled",
+        "full_fetch_runtime_allowed",
+    )
+
+    for unsafe_alias in unsafe_aliases:
+        payload = json.loads(
+            gate.DEFAULT_PRODUCTION_PREFLIGHT_JSON.read_text(encoding="utf-8"),
+        )
+        payload[unsafe_alias] = True
+        preflight = tmp_path / f"{unsafe_alias}.json"
+        preflight.write_text(json.dumps(payload), encoding="utf-8")
+
+        report = gate.build_report(production_preflight_json=preflight)
+
+        assert report["passed"] is False
+        assert report["production_preflight_ready"] is False
+        assert f"production_preflight_{unsafe_alias}_mismatch" in report["failures"]
+        assert report["payload_bytes"] == 0
+        assert report["passed_to_kernel"] is False
 
 
 def test_payload_cache_consumer_visible_hit_blocked_gate_cli(tmp_path: Path) -> None:
