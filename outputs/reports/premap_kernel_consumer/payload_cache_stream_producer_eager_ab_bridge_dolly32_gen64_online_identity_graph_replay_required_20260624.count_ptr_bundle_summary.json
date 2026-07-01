@@ -1,0 +1,19 @@
+{
+  "candidate_overhead_ratio": -0.0022340646888455717,
+  "changes_kernel_launch_args": false,
+  "check_json": "outputs/reports/premap_kernel_consumer/payload_cache_stream_producer_eager_ab_bridge_dolly32_gen64_online_identity_graph_replay_required_20260624.count_ptr_bundle_check.json",
+  "check_passed": true,
+  "count_ptr_readiness_json": "outputs/reports/premap_kernel_consumer/native_session_dolly32_gen64_count_ptr_readiness_20260701.json",
+  "count_ptr_ready_passed": true,
+  "count_ptr_ready_present": true,
+  "failures": [],
+  "mode": "payload_cache_stream_producer_ab_bundle",
+  "native_stream_issue_candidate_count": 20160,
+  "native_stream_packet_count": 2560,
+  "ok": true,
+  "passed": true,
+  "passed_to_kernel": false,
+  "payload_bytes": 0,
+  "report_json": "outputs/reports/premap_kernel_consumer/payload_cache_stream_producer_eager_ab_bridge_dolly32_gen64_online_identity_graph_replay_required_20260624.count_ptr_bundle_report.json",
+  "report_passed": true
+}

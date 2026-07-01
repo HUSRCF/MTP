@@ -2,16 +2,16 @@
 
 ## Progress Version
 
-- Version: `v1.55.3-stream-bridge-count-ptr-ab-harness`
+- Version: `v1.55.4-stream-bridge-count-ptr-same-source`
 - Updated: 2026-07-01
 
-## Latest Update: Count-Pointer Readiness in Stream Producer A/B Harness
+## Latest Update: Same-Source Count-Pointer Stream Producer A/B Gate
 
-The production-like stream producer A/B harness can now optionally consume a
-same-run count-pointer readiness artifact.  This prepares the next payload/cache
-producer run to prove that transition state / issue generation is fed by the
-device-side `num_tokens_post_padded` count pointer, rather than falling back to a
-host-scalar or Python post-processing path.
+The production-like stream producer A/B harness now has a same-source
+count-pointer readiness gate.  A GPU1 Dolly32/gen64 online run produced a
+native-session count-pointer readiness artifact from the same prelaunch stream
+shape, then the production-like stream A/B bundle consumed it without mixing in
+the older 1-sample smoke.
 
 The A/B report/checker input remains backward compatible:
 
@@ -29,16 +29,64 @@ passed_to_kernel = false
 changes_kernel_launch_args = false
 ```
 
+Same-source artifacts:
+
+```text
+trace:
+  outputs/reports/premap_kernel_consumer/native_session_dolly32_gen64_count_ptr_performance_summary_20260701.json
+
+manifest:
+  outputs/reports/premap_kernel_consumer/native_session_dolly32_gen64_count_ptr_manifest_20260701.jsonl
+
+native producer contract:
+  outputs/reports/premap_kernel_consumer/native_session_dolly32_gen64_count_ptr_native_producer_contract_20260701.json
+
+count-pointer readiness:
+  outputs/reports/premap_kernel_consumer/native_session_dolly32_gen64_count_ptr_readiness_20260701.json
+
+production-like A/B bundle:
+  outputs/reports/premap_kernel_consumer/payload_cache_stream_producer_eager_ab_bridge_dolly32_gen64_online_identity_graph_replay_required_20260624.count_ptr_bundle_summary.json
+```
+
+Result:
+
+```text
+bundle passed = true
+native_stream_packet_count = 2560
+native_stream_issue_candidate_count = 20160
+count_ptr_ready_present = true
+count_ptr_ready_passed = true
+count_ptr_expected_packet_count = 2560
+count_ptr_ready_count = 2560
+count_ptr_blocked_count = 0
+count_ptr current_count_source_kind = num_tokens_post_padded_device_tensor
+candidate_overhead_ratio = -0.0022340646888455717
+payload_bytes = 0
+kernel_arg_pass = false
+passed_to_kernel = false
+changes_kernel_launch_args = false
+```
+
+The result block is a bundle-level summary: stream counts and TPOT overhead come
+from the A/B bundle report/check, while the count-pointer readiness fields come
+from the same-source readiness artifact, with the native producer contract used
+as the paired source/provenance check.
+
 This does not change the broader default lab preflight contract:
 `payload_cache_vllm_replay_visible_count_ptr_readiness_json` remains a required
-lab evidence artifact.  The new optional input is only for merging a same-source
-count-pointer readiness artifact into the production-like stream A/B report when
-that run produces one.
+lab evidence artifact.  The bundle path only merges a same-source count-pointer
+readiness artifact into the production-like stream A/B report when that run
+produces one.
 
-This does not mix the older 1-sample count-pointer smoke into the current
-production-like A/B evidence.  It only extends the A/B report/checker schema so a
-future same-source run can carry count-pointer readiness without weakening the
-existing bridge gate.
+Boundary:
+
+```text
+The count-pointer readiness evidence validates native-session device-count
+readiness for the matching 32-sample Dolly/gen64 prelaunch stream shape.  The
+TPOT numbers in the bundle still come from the existing production-like A/B
+summaries.  This is not a full payload/cache runtime benchmark and not WNA16
+kernel-argument handoff evidence.
+```
 
 Validation:
 
@@ -70,9 +118,9 @@ closed and found no high/medium issues.
 Next gate:
 
 ```text
-run a same-source production-like stream producer A/B artifact that includes
-count_ptr_readiness, then use the new checker path to validate device-count
-producer readiness without payload movement or WNA16 kernel-arg mutation.
+use this same-source stream/count-ptr bundle as the production-compatible
+producer-state gate, then continue toward useful payload/cache-manager work or a
+native producer path that removes remaining Python-side staging.
 ```
 
 ## Previous Update: Payload-Cache Demand-Hit Shadow Publication Gate
