@@ -174,6 +174,7 @@ def _validate_executor(
     min_used_per_issued_fetch: float,
     min_issue_count: int,
     min_demand_count: int,
+    allow_duplicate_shifted_issue_keys: bool,
 ) -> dict[str, Any]:
     prefix = "issue_stream_executor"
     expected = {
@@ -262,7 +263,20 @@ def _validate_executor(
     if queue_batch_size is None or queue_batch_size <= 0:
         failures.append(f"{prefix}_queue_batch_size_invalid")
         queue_batch_size = 0
-    if _int_metric(payload, "shifted_issue_duplicate_issue_key_count") != 0:
+    shifted_issue_duplicate_issue_key_count = _int_metric(
+        payload,
+        "shifted_issue_duplicate_issue_key_count",
+    )
+    if shifted_issue_duplicate_issue_key_count is None:
+        failures.append(f"{prefix}_shifted_issue_duplicate_issue_key_count_invalid")
+        shifted_issue_duplicate_issue_key_count = 0
+    elif shifted_issue_duplicate_issue_key_count < 0:
+        failures.append(f"{prefix}_shifted_issue_duplicate_issue_key_count_invalid")
+        shifted_issue_duplicate_issue_key_count = 0
+    if (
+        shifted_issue_duplicate_issue_key_count != 0
+        and not allow_duplicate_shifted_issue_keys
+    ):
         failures.append(f"{prefix}_shifted_issue_duplicate_issue_key_count_nonzero")
     if issue_count is not None and requested_issue_count is not None:
         if issue_count > requested_issue_count:
@@ -308,6 +322,12 @@ def _validate_executor(
         "used_per_issued_fetch": float(used_per_issued_fetch or 0.0),
         "ready_late_miss_rate": float(ready_late_miss_rate or 0.0),
         "queue_batch_size": int(queue_batch_size or 0),
+        "shifted_issue_duplicate_issue_key_count": int(
+            shifted_issue_duplicate_issue_key_count or 0,
+        ),
+        "allow_duplicate_shifted_issue_keys": bool(
+            allow_duplicate_shifted_issue_keys,
+        ),
     }
 
 
@@ -320,6 +340,7 @@ def build_gate(
     min_issue_count: int,
     min_demand_count: int,
     require_same_source_packet_budget: bool = False,
+    allow_duplicate_shifted_issue_keys: bool = False,
 ) -> dict[str, Any]:
     readiness_payload = _load_json(useful_work_readiness_json)
     executor_payload = _load_json(issue_stream_executor_json)
@@ -343,6 +364,7 @@ def build_gate(
         min_used_per_issued_fetch=min_used_per_issued_fetch,
         min_issue_count=min_issue_count,
         min_demand_count=min_demand_count,
+        allow_duplicate_shifted_issue_keys=bool(allow_duplicate_shifted_issue_keys),
     )
     producer_expected_packet_count = int(readiness["producer_expected_packet_count"])
     executor_packet_count = int(executor["packet_count"])
@@ -400,6 +422,12 @@ def build_gate(
         "used_per_issued_fetch": executor["used_per_issued_fetch"],
         "ready_late_miss_rate": executor["ready_late_miss_rate"],
         "queue_batch_size": executor["queue_batch_size"],
+        "shifted_issue_duplicate_issue_key_count": executor[
+            "shifted_issue_duplicate_issue_key_count"
+        ],
+        "allow_duplicate_shifted_issue_keys": executor[
+            "allow_duplicate_shifted_issue_keys"
+        ],
         "payload_bytes": 0,
         "payload_transfer_enabled": False,
         "payload_deref_allowed": False,
@@ -445,6 +473,15 @@ def build_parser() -> argparse.ArgumentParser:
             "remains accepted but explicitly labeled."
         ),
     )
+    parser.add_argument(
+        "--allow-duplicate-shifted-issue-keys",
+        action="store_true",
+        help=(
+            "Allow duplicate shifted issue keys after lead-window clamping. "
+            "The gate still requires demand-hit, ready-late-miss, and "
+            "used-per-issued thresholds to pass."
+        ),
+    )
     return parser
 
 
@@ -458,6 +495,9 @@ def main(argv: list[str] | None = None) -> int:
         min_issue_count=int(args.min_issue_count),
         min_demand_count=int(args.min_demand_count),
         require_same_source_packet_budget=bool(args.require_same_source_packet_budget),
+        allow_duplicate_shifted_issue_keys=bool(
+            args.allow_duplicate_shifted_issue_keys
+        ),
     )
     args.output_json.parent.mkdir(parents=True, exist_ok=True)
     args.output_json.write_text(

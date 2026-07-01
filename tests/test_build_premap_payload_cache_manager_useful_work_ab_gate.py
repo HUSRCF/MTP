@@ -113,6 +113,7 @@ def _run_with_source_requirement(
     executor: dict[str, object],
     *,
     require_same_source_packet_budget: bool,
+    allow_duplicate_shifted_issue_keys: bool = False,
 ):
     readiness_path = tmp_path / "readiness.json"
     executor_path = tmp_path / "executor.json"
@@ -126,6 +127,7 @@ def _run_with_source_requirement(
         min_issue_count=1,
         min_demand_count=1,
         require_same_source_packet_budget=require_same_source_packet_budget,
+        allow_duplicate_shifted_issue_keys=allow_duplicate_shifted_issue_keys,
     )
 
 
@@ -185,6 +187,58 @@ def test_manager_useful_work_ab_gate_can_require_same_packet_budget(
     assert "source_binding_packet_budget_mismatch" in result["failures"]
     assert result["source_binding_status"] == "mixed_source_accounting_only"
     assert result["source_binding_require_same_packet_budget"] is True
+
+
+def test_manager_useful_work_ab_gate_can_explicitly_allow_shifted_issue_duplicates(
+    tmp_path: Path,
+) -> None:
+    readiness = _readiness_payload(producer_expected_packet_count=32)
+    executor = _executor_payload(shifted_issue_duplicate_issue_key_count=8)
+
+    rejected = _run_with_source_requirement(
+        tmp_path,
+        readiness,
+        executor,
+        require_same_source_packet_budget=True,
+    )
+    accepted = _run_with_source_requirement(
+        tmp_path,
+        readiness,
+        executor,
+        require_same_source_packet_budget=True,
+        allow_duplicate_shifted_issue_keys=True,
+    )
+
+    assert rejected["passed"] is False
+    assert (
+        "issue_stream_executor_shifted_issue_duplicate_issue_key_count_nonzero"
+        in rejected["failures"]
+    )
+    assert accepted["passed"] is True
+    assert accepted["allow_duplicate_shifted_issue_keys"] is True
+    assert accepted["shifted_issue_duplicate_issue_key_count"] == 8
+
+
+def test_manager_useful_work_ab_gate_still_requires_duplicate_count_when_allowed(
+    tmp_path: Path,
+) -> None:
+    readiness = _readiness_payload(producer_expected_packet_count=32)
+    executor = _executor_payload()
+    del executor["shifted_issue_duplicate_issue_key_count"]
+
+    result = _run_with_source_requirement(
+        tmp_path,
+        readiness,
+        executor,
+        require_same_source_packet_budget=True,
+        allow_duplicate_shifted_issue_keys=True,
+    )
+
+    assert result["passed"] is False
+    assert (
+        "issue_stream_executor_shifted_issue_duplicate_issue_key_count_invalid"
+        in result["failures"]
+    )
 
 
 def test_manager_useful_work_ab_gate_accepts_legacy_missing_packet_count_by_default(

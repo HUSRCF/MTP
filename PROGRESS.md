@@ -2,10 +2,121 @@
 
 ## Progress Version
 
-- Version: `v1.55.8-source-binding-packet-budget-semantics`
+- Version: `v1.55.9-same-source-packet-budget-preflight`
 - Updated: 2026-07-01
 
-## Latest Update: Production Preflight Source-Binding Boundary
+## Latest Update: Same-Source Packet-Budget Production Preflight Passed
+
+The payload/cache manager useful-work A/B gate now has a strict same-source
+packet-budget evidence chain.  A GPU1 Dolly32/gen64 online trace exported the
+first full producer packet budget from the live-connected readonly prelaunch
+consumer path:
+
+```text
+sample_count = 32
+packet_export_count = 2560
+packet_export_stride = 1
+packet_export_max_packets = 2560
+live_consumer_connected = true
+kernel_arg_pass = false
+payload_bytes = 0
+passed_to_kernel = false
+measures_tpot = false
+```
+
+The packet-export manifest and ready-time issue-stream executor now consume the
+same packet budget:
+
+```text
+online_packet_export_count = 2560
+executor_packet_count = 2560
+nonempty_packet_count = 2520
+requested_issue_count = 20160
+demand_hit_rate = 1.0
+used_per_issued_fetch = 1.0
+ready_late_miss_rate = 0.0
+```
+
+Full-stream shifted issue uses `issue_lead_tokens = 32`, so early issue keys are
+clamped and duplicate shifted issue keys are expected.  The useful-work gate now
+requires an explicit opt-in flag for this case:
+
+```text
+--allow-duplicate-shifted-issue-keys
+```
+
+Default behavior remains strict and rejects duplicate shifted issue keys.  The
+full-stream same-source gate records the duplicate count but relies on the
+deduplicated manager accounting and readiness metrics:
+
+```text
+shifted_issue_duplicate_issue_key_count = 1240
+allow_duplicate_shifted_issue_keys = true
+```
+
+The strict same-source useful-work and production preflight gates now pass:
+
+```text
+source_binding_status = same_packet_budget
+source_binding_same_packet_budget = true
+source_binding_require_same_packet_budget = true
+producer_expected_packet_count = 2560
+executor_packet_count = 2560
+
+manager_source_binding_same_packet_budget = true
+manager_source_binding_require_same_packet_budget = true
+passed = true
+performance_claim_ready = false
+next_stage = run_production_like_payload_cache_manager_ab
+```
+
+Artifacts:
+
+```text
+trace config:
+  configs/trace/router_mtp_trace_external_prompt_gate_dolly_32_awq_vllm_gpu1_decode_gen64_producer_state_packet_export_full.yaml
+
+online trace:
+  data/traces/external_prompt_gate_dolly_32_awq_vllm_gpu1_decode_gen64_producer_state_packet_export_packet2560_gpu1/performance_summary.json
+
+packet manifest:
+  outputs/reports/premap_kernel_consumer/premap_payload_cache_packet_export_manifest_dolly32_gen64_packet2560_gpu1_20260701.json
+
+issue-stream executor:
+  outputs/reports/premap_kernel_consumer/premap_payload_cache_issue_stream_executor_dolly32_gen64_packet2560_gpu1_lead32_20260701.json
+
+strict useful-work gate:
+  outputs/reports/premap_payload_cache/payload_cache_manager_useful_work_ab_gate_same_source_count_ptr_packet2560_gpu1_20260701.json
+
+strict production preflight:
+  outputs/reports/premap_payload_cache/payload_cache_manager_production_ab_preflight_same_source_count_ptr_packet2560_gpu1_20260701.json
+```
+
+Validation:
+
+```text
+pytest tests/test_materialize_premap_payload_cache_packet_export_manifest.py \
+       tests/test_build_premap_payload_cache_manager_useful_work_ab_gate.py -q
+# 38 passed
+```
+
+Boundary:
+
+```text
+This is still payloadless manager useful-work evidence.  It does not move expert
+payload, does not grant real ready credit, does not pass WNA16 kernel args, and
+does not claim TPOT speedup.  It is now strong enough as the same-source lab
+precondition for the next production-like payload/cache-manager A/B harness.
+```
+
+Next gate:
+
+```text
+run production-like payload/cache-manager A/B under this strict same-source
+preflight, then decide whether to enable real payload transfer / publication.
+```
+
+## Previous Update: Production Preflight Source-Binding Boundary
 
 The payload/cache manager useful-work A/B gate now reports whether its producer
 readiness evidence and issue-stream executor evidence use the same packet
