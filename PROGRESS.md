@@ -2,10 +2,74 @@
 
 ## Progress Version
 
-- Version: `v1.55.2-payload-cache-demand-hit-shadow-publication`
-- Updated: 2026-06-26
+- Version: `v1.55.3-stream-bridge-count-ptr-ab-harness`
+- Updated: 2026-07-01
 
-## Latest Update: Payload-Cache Demand-Hit Shadow Publication Gate
+## Latest Update: Count-Pointer Readiness in Stream Producer A/B Harness
+
+The production-like stream producer A/B harness can now optionally consume a
+same-run count-pointer readiness artifact.  This prepares the next payload/cache
+producer run to prove that transition state / issue generation is fed by the
+device-side `num_tokens_post_padded` count pointer, rather than falling back to a
+host-scalar or Python post-processing path.
+
+The default lab gate remains backward compatible:
+
+```text
+count_ptr_readiness = optional
+legacy stream bridge artifacts without native_stream_packet_count = accepted
+count_ptr path requires native_stream_packet_count
+count_ptr expected_packet_count == native_stream_packet_count
+count_ptr ready_count == native_stream_packet_count
+count_ptr blocked_count == 0
+count_ptr current_count_source_kind = num_tokens_post_padded_device_tensor
+payload_bytes = 0
+kernel_arg_pass = false
+passed_to_kernel = false
+changes_kernel_launch_args = false
+```
+
+This does not mix the older 1-sample count-pointer smoke into the current
+production-like A/B evidence.  It only extends the A/B report/checker schema so a
+future same-source run can carry count-pointer readiness without weakening the
+existing bridge gate.
+
+Validation:
+
+```text
+pytest tests/test_build_premap_payload_cache_stream_producer_production_ab_report.py \
+       tests/test_check_premap_payload_cache_stream_producer_ab_bridge.py \
+       tests/test_run_premap_lab_preflight.py:
+  391 passed
+
+pytest tests:
+  2828 passed, 2 warnings
+
+scripts/run_premap_lab_preflight.py:
+  passed = true
+  required_evidence = 73 / 73
+```
+
+External review:
+
+```text
+gpt-5.3-codex-spark found one compatibility blocker in the first patch:
+native_stream_packet_count had been made unconditionally required.
+
+The blocker was fixed by requiring native_stream_packet_count only when
+count_ptr_readiness is present.  The follow-up review confirmed the blocker is
+closed and found no high/medium issues.
+```
+
+Next gate:
+
+```text
+run a same-source production-like stream producer A/B artifact that includes
+count_ptr_readiness, then use the new checker path to validate device-count
+producer readiness without payload movement or WNA16 kernel-arg mutation.
+```
+
+## Previous Update: Payload-Cache Demand-Hit Shadow Publication Gate
 
 The ReadyTime payload/cache-manager line now has a strict shadow-only demand-hit
 publication gate.  It publishes demand hit/miss accounting into the lab gate
