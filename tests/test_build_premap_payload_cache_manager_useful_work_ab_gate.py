@@ -55,6 +55,7 @@ def _executor_payload(**overrides: object) -> dict[str, object]:
         "failures": [],
         "stream_executor_ready": True,
         "manager_mode": "ready_time_stream",
+        "packet_count": 32,
         "issued_prefetch_count": 133,
         "requested_issue_count": 224,
         "demand_count": 224,
@@ -142,6 +143,9 @@ def test_manager_useful_work_ab_gate_accepts_payloadless_manager_useful_work(
     assert result["source_binding_same_packet_budget"] is False
     assert result["source_binding_require_same_packet_budget"] is False
     assert result["source_binding_producer_expected_packet_count"] == 160
+    assert result["source_binding_executor_packet_count"] == 32
+    assert result["executor_packet_count"] == 32
+    assert result["executor_packet_count_source"] == "explicit"
     assert result["source_binding_executor_requested_issue_count"] == 224
     assert result["issued_payload_count"] == 0
     assert result["issued_payload_count_source"] == "explicit"
@@ -156,13 +160,14 @@ def test_manager_useful_work_ab_gate_accepts_payloadless_manager_useful_work(
 def test_manager_useful_work_ab_gate_marks_same_packet_budget(
     tmp_path: Path,
 ) -> None:
-    readiness = _readiness_payload(producer_expected_packet_count=224)
+    readiness = _readiness_payload(producer_expected_packet_count=32)
     result = _run(tmp_path, readiness, _executor_payload())
 
     assert result["passed"] is True
     assert result["source_binding_status"] == "same_packet_budget"
     assert result["source_binding_same_packet_budget"] is True
-    assert result["source_binding_producer_expected_packet_count"] == 224
+    assert result["source_binding_producer_expected_packet_count"] == 32
+    assert result["source_binding_executor_packet_count"] == 32
     assert result["source_binding_executor_requested_issue_count"] == 224
 
 
@@ -180,6 +185,68 @@ def test_manager_useful_work_ab_gate_can_require_same_packet_budget(
     assert "source_binding_packet_budget_mismatch" in result["failures"]
     assert result["source_binding_status"] == "mixed_source_accounting_only"
     assert result["source_binding_require_same_packet_budget"] is True
+
+
+def test_manager_useful_work_ab_gate_accepts_legacy_missing_packet_count_by_default(
+    tmp_path: Path,
+) -> None:
+    executor = _executor_payload()
+    del executor["packet_count"]
+
+    result = _run(tmp_path, _readiness_payload(), executor)
+
+    assert result["passed"] is True
+    assert result["executor_packet_count"] == 0
+    assert result["executor_packet_count_source"] == "legacy_missing"
+    assert result["source_binding_status"] == "mixed_source_accounting_only"
+    assert result["source_binding_same_packet_budget"] is False
+
+
+def test_manager_useful_work_ab_gate_strict_rejects_legacy_missing_packet_count(
+    tmp_path: Path,
+) -> None:
+    executor = _executor_payload()
+    del executor["packet_count"]
+
+    result = _run_with_source_requirement(
+        tmp_path,
+        _readiness_payload(),
+        executor,
+        require_same_source_packet_budget=True,
+    )
+
+    assert result["passed"] is False
+    assert "source_binding_packet_budget_mismatch" in result["failures"]
+    assert "source_binding_executor_packet_count_invalid" in result["failures"]
+
+
+def test_manager_useful_work_ab_gate_does_not_mark_zero_zero_legacy_same_budget(
+    tmp_path: Path,
+) -> None:
+    executor = _executor_payload()
+    del executor["packet_count"]
+
+    result = _run(
+        tmp_path,
+        _readiness_payload(producer_expected_packet_count=0),
+        executor,
+    )
+
+    assert result["passed"] is False
+    assert "useful_work_readiness_producer_expected_packet_count_invalid" in result[
+        "failures"
+    ]
+    assert result["source_binding_same_packet_budget"] is False
+    assert result["source_binding_status"] == "mixed_source_accounting_only"
+
+
+def test_manager_useful_work_ab_gate_rejects_invalid_packet_count(
+    tmp_path: Path,
+) -> None:
+    result = _run(tmp_path, _readiness_payload(), _executor_payload(packet_count=0))
+
+    assert result["passed"] is False
+    assert "issue_stream_executor_packet_count_invalid" in result["failures"]
 
 
 def test_manager_useful_work_ab_gate_rejects_unready_precondition(

@@ -273,6 +273,10 @@ def _validate_manager_gate(
         payload,
         "source_binding_producer_expected_packet_count",
     )
+    source_binding_executor_packet_count = _int_metric(
+        payload,
+        "source_binding_executor_packet_count",
+    )
     source_binding_executor_requested_issue_count = _int_metric(
         payload,
         "source_binding_executor_requested_issue_count",
@@ -295,17 +299,17 @@ def _validate_manager_gate(
                 f"{prefix}_source_binding_producer_expected_packet_count_invalid",
             )
         if (
-            source_binding_executor_requested_issue_count is None
-            or source_binding_executor_requested_issue_count <= 0
+            source_binding_executor_packet_count is None
+            or source_binding_executor_packet_count <= 0
         ):
             failures.append(
-                f"{prefix}_source_binding_executor_requested_issue_count_invalid",
+                f"{prefix}_source_binding_executor_packet_count_invalid",
             )
         if (
             source_binding_producer_expected_packet_count is not None
-            and source_binding_executor_requested_issue_count is not None
+            and source_binding_executor_packet_count is not None
             and source_binding_producer_expected_packet_count
-            != source_binding_executor_requested_issue_count
+            != source_binding_executor_packet_count
         ):
             failures.append(f"{prefix}_source_binding_packet_count_mismatch")
     return {
@@ -320,6 +324,9 @@ def _validate_manager_gate(
         "source_binding_same_packet_budget": bool(source_binding_same_packet_budget),
         "source_binding_producer_expected_packet_count": int(
             source_binding_producer_expected_packet_count or 0,
+        ),
+        "source_binding_executor_packet_count": int(
+            source_binding_executor_packet_count or 0,
         ),
         "source_binding_executor_requested_issue_count": int(
             source_binding_executor_requested_issue_count or 0,
@@ -487,6 +494,9 @@ def build_preflight(
         ),
         "manager_source_binding_producer_expected_packet_count": manager_gate[
             "source_binding_producer_expected_packet_count"
+        ],
+        "manager_source_binding_executor_packet_count": manager_gate[
+            "source_binding_executor_packet_count"
         ],
         "manager_source_binding_executor_requested_issue_count": manager_gate[
             "source_binding_executor_requested_issue_count"

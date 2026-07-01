@@ -212,6 +212,9 @@ def _validate_executor(
         if not _exact(payload, "issued_payload_count", 0):
             failures.append(f"{prefix}_issued_payload_count_mismatch")
     issue_count = _int_metric(payload, "issued_prefetch_count")
+    packet_count_present = "packet_count" in payload
+    packet_count = _int_metric(payload, "packet_count")
+    packet_count_source = "explicit" if packet_count_present else "legacy_missing"
     requested_issue_count = _int_metric(payload, "requested_issue_count")
     demand_count = _int_metric(payload, "demand_count")
     demand_hit_count = _int_metric(payload, "demand_hit_count")
@@ -224,6 +227,11 @@ def _validate_executor(
     if issue_count is None or issue_count < int(min_issue_count):
         failures.append(f"{prefix}_issued_prefetch_count_too_low")
         issue_count = 0
+    if packet_count_present and (packet_count is None or packet_count <= 0):
+        failures.append(f"{prefix}_packet_count_invalid")
+        packet_count = 0
+    elif not packet_count_present:
+        packet_count = 0
     if requested_issue_count is None or requested_issue_count <= 0:
         failures.append(f"{prefix}_requested_issue_count_invalid")
         requested_issue_count = 0
@@ -291,6 +299,8 @@ def _validate_executor(
         "issued_payload_count_source": issued_payload_count_source,
         "used_fetch_count": int(used_fetch_count or 0),
         "unused_fetch_count": int(unused_fetch_count or 0),
+        "packet_count": int(packet_count or 0),
+        "packet_count_source": packet_count_source,
         "requested_issue_count": int(requested_issue_count or 0),
         "demand_count": int(demand_count or 0),
         "demand_hit_count": int(demand_hit_count or 0),
@@ -335,9 +345,12 @@ def build_gate(
         min_demand_count=min_demand_count,
     )
     producer_expected_packet_count = int(readiness["producer_expected_packet_count"])
+    executor_packet_count = int(executor["packet_count"])
     executor_requested_issue_count = int(executor["requested_issue_count"])
     source_binding_same_packet_budget = (
-        producer_expected_packet_count == executor_requested_issue_count
+        producer_expected_packet_count > 0
+        and executor_packet_count > 0
+        and producer_expected_packet_count == executor_packet_count
     )
     source_binding_status = (
         "same_packet_budget"
@@ -346,6 +359,8 @@ def build_gate(
     )
     if require_same_source_packet_budget and not source_binding_same_packet_budget:
         failures.append("source_binding_packet_budget_mismatch")
+    if require_same_source_packet_budget and executor_packet_count <= 0:
+        failures.append("source_binding_executor_packet_count_invalid")
     passed = not failures
     return {
         "artifact_kind": ARTIFACT_KIND,
@@ -363,13 +378,19 @@ def build_gate(
         "issued_prefetch_count": executor["issued_prefetch_count"],
         "issued_payload_count": executor["issued_payload_count"],
         "issued_payload_count_source": executor["issued_payload_count_source"],
+        "executor_packet_count": executor_packet_count,
+        "executor_packet_count_source": executor["packet_count_source"],
         "requested_issue_count": executor["requested_issue_count"],
+        "source_binding_packet_budget_kind": (
+            "producer_expected_packet_count_vs_executor_packet_count"
+        ),
         "source_binding_status": source_binding_status,
         "source_binding_same_packet_budget": source_binding_same_packet_budget,
         "source_binding_require_same_packet_budget": bool(
             require_same_source_packet_budget,
         ),
         "source_binding_producer_expected_packet_count": producer_expected_packet_count,
+        "source_binding_executor_packet_count": executor_packet_count,
         "source_binding_executor_requested_issue_count": executor_requested_issue_count,
         "demand_count": executor["demand_count"],
         "demand_hit_count": executor["demand_hit_count"],
@@ -419,7 +440,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--require-same-source-packet-budget",
         action="store_true",
         help=(
-            "Require producer packet_count and executor requested_issue_count to "
+            "Require producer_expected_packet_count and executor packet_count to "
             "match. Default is false so existing mixed-source accounting evidence "
             "remains accepted but explicitly labeled."
         ),

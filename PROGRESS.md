@@ -2,7 +2,7 @@
 
 ## Progress Version
 
-- Version: `v1.55.7-production-preflight-source-binding`
+- Version: `v1.55.8-source-binding-packet-budget-semantics`
 - Updated: 2026-07-01
 
 ## Latest Update: Production Preflight Source-Binding Boundary
@@ -25,8 +25,20 @@ producer_expected_packet_count = 2560
 The existing issue-stream executor artifact has:
 
 ```text
-requested_issue_count = 224
+executor_packet_count = 32
+executor_packet_count_source = explicit
+requested_issue_count = 224  # expert issue entries, not packet budget
 ```
+
+The source-binding comparison now uses:
+
+```text
+producer_expected_packet_count vs executor_packet_count
+```
+
+instead of comparing producer packets against expert issue entries.  The
+requested issue count is still reported as useful-work accounting, but it no
+longer drives packet-budget source binding.
 
 Therefore the default useful-work A/B gate still passes as accounting evidence,
 but it is explicitly labeled:
@@ -65,8 +77,8 @@ equal:
 source_binding_same_packet_budget = true
 source_binding_status = same_packet_budget
 producer_expected_packet_count > 0
-executor_requested_issue_count > 0
-producer_expected_packet_count == executor_requested_issue_count
+executor_packet_count > 0
+producer_expected_packet_count == executor_packet_count
 ```
 
 The current mixed-source input correctly fails strict production preflight with:
@@ -95,6 +107,8 @@ PYTHONNOUSERSITE=1 PYTHONPATH=src:. /home/husrcf/anaconda3/envs/TRY/bin/python -
   tests/test_build_premap_payload_cache_manager_production_ab_preflight.py \
   tests/test_build_premap_payload_cache_manager_useful_work_ab_gate.py -q
 # 29 passed
+# corrected useful-work/preflight packet-budget semantics:
+# 32 passed
 
 default production preflight:
   passed = true
@@ -109,8 +123,8 @@ Next gate:
 
 ```text
 produce a same-source issue-stream executor from the 2560-packet native
-producer stream, or move more issue-stream execution into the online/native
-producer path so --require-same-source-packet-budget can pass.
+producer stream, or move more issue-stream execution/export into the
+online/native producer path so --require-same-source-packet-budget can pass.
 ```
 
 ## Previous Update: Same-Source Count-Pointer Useful-Work Gate

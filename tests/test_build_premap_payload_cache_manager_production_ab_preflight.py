@@ -44,6 +44,7 @@ def _manager_gate_payload(**overrides: object) -> dict[str, object]:
         "source_binding_status": "same_packet_budget",
         "source_binding_same_packet_budget": True,
         "source_binding_producer_expected_packet_count": 224,
+        "source_binding_executor_packet_count": 224,
         "source_binding_executor_requested_issue_count": 224,
     }
     payload.update(overrides)
@@ -121,6 +122,7 @@ def test_manager_production_ab_preflight_accepts_payloadless_harness_ready(
     assert result["manager_source_binding_same_packet_budget"] is True
     assert result["manager_source_binding_require_same_packet_budget"] is False
     assert result["manager_source_binding_producer_expected_packet_count"] == 224
+    assert result["manager_source_binding_executor_packet_count"] == 224
     assert result["manager_source_binding_executor_requested_issue_count"] == 224
     assert result["candidate_manager_counter_enabled"] is True
     assert result["candidate_envelope_overhead_ratio"] > 0
@@ -135,6 +137,7 @@ def test_manager_production_ab_preflight_accepts_mixed_source_by_default(
         source_binding_status="mixed_source_accounting_only",
         source_binding_same_packet_budget=False,
         source_binding_producer_expected_packet_count=2560,
+        source_binding_executor_packet_count=32,
         source_binding_executor_requested_issue_count=224,
     )
     result = _run(
@@ -149,6 +152,7 @@ def test_manager_production_ab_preflight_accepts_mixed_source_by_default(
     assert result["manager_source_binding_same_packet_budget"] is False
     assert result["manager_source_binding_require_same_packet_budget"] is False
     assert result["manager_source_binding_producer_expected_packet_count"] == 2560
+    assert result["manager_source_binding_executor_packet_count"] == 32
     assert result["manager_source_binding_executor_requested_issue_count"] == 224
 
 
@@ -160,6 +164,7 @@ def test_manager_production_ab_preflight_accepts_legacy_missing_source_binding_b
         "source_binding_status",
         "source_binding_same_packet_budget",
         "source_binding_producer_expected_packet_count",
+        "source_binding_executor_packet_count",
         "source_binding_executor_requested_issue_count",
     ):
         del manager[key]
@@ -175,6 +180,7 @@ def test_manager_production_ab_preflight_accepts_legacy_missing_source_binding_b
     assert result["manager_source_binding_status"] == "unknown"
     assert result["manager_source_binding_same_packet_budget"] is False
     assert result["manager_source_binding_producer_expected_packet_count"] == 0
+    assert result["manager_source_binding_executor_packet_count"] == 0
     assert result["manager_source_binding_executor_requested_issue_count"] == 0
 
 
@@ -202,6 +208,7 @@ def test_manager_production_ab_preflight_can_require_same_source_budget(
         source_binding_status="mixed_source_accounting_only",
         source_binding_same_packet_budget=False,
         source_binding_producer_expected_packet_count=2560,
+        source_binding_executor_packet_count=32,
         source_binding_executor_requested_issue_count=224,
     )
     result = _run(
@@ -227,6 +234,7 @@ def test_manager_production_ab_preflight_strict_rejects_bad_source_binding_count
         tmp_path,
         _manager_gate_payload(
             source_binding_producer_expected_packet_count=0,
+            source_binding_executor_packet_count=224,
             source_binding_executor_requested_issue_count=224,
         ),
         _summary_payload(runtime_shadow_emit_premap_payload_cache_manager_counters=False),

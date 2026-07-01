@@ -21,6 +21,7 @@
   "manager_demand_hit_rate": 0.8883928571428571,
   "manager_gate_json": "outputs/reports/premap_payload_cache/payload_cache_manager_useful_work_ab_gate_same_source_count_ptr_20260701.json",
   "manager_issued_prefetch_count": 133,
+  "manager_source_binding_executor_packet_count": 32,
   "manager_source_binding_executor_requested_issue_count": 224,
   "manager_source_binding_producer_expected_packet_count": 2560,
   "manager_source_binding_require_same_packet_budget": false,
