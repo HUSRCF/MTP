@@ -13,10 +13,10 @@ producer run to prove that transition state / issue generation is fed by the
 device-side `num_tokens_post_padded` count pointer, rather than falling back to a
 host-scalar or Python post-processing path.
 
-The default lab gate remains backward compatible:
+The A/B report/checker input remains backward compatible:
 
 ```text
-count_ptr_readiness = optional
+stream A/B --count-ptr-readiness = optional
 legacy stream bridge artifacts without native_stream_packet_count = accepted
 count_ptr path requires native_stream_packet_count
 count_ptr expected_packet_count == native_stream_packet_count
@@ -28,6 +28,12 @@ kernel_arg_pass = false
 passed_to_kernel = false
 changes_kernel_launch_args = false
 ```
+
+This does not change the broader default lab preflight contract:
+`payload_cache_vllm_replay_visible_count_ptr_readiness_json` remains a required
+lab evidence artifact.  The new optional input is only for merging a same-source
+count-pointer readiness artifact into the production-like stream A/B report when
+that run produces one.
 
 This does not mix the older 1-sample count-pointer smoke into the current
 production-like A/B evidence.  It only extends the A/B report/checker schema so a
