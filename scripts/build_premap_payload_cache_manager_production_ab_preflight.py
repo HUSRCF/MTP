@@ -198,7 +198,12 @@ def _optional_zero(
     return int(value)
 
 
-def _validate_manager_gate(payload: dict[str, Any], failures: list[str]) -> dict[str, Any]:
+def _validate_manager_gate(
+    payload: dict[str, Any],
+    failures: list[str],
+    *,
+    require_same_source_packet_budget: bool,
+) -> dict[str, Any]:
     prefix = "manager_gate"
     expected = {
         "artifact_kind": MANAGER_GATE_KIND,
@@ -254,6 +259,55 @@ def _validate_manager_gate(payload: dict[str, Any], failures: list[str]) -> dict
     if used_per_issued_fetch is None:
         failures.append(f"{prefix}_used_per_issued_fetch_invalid")
         used_per_issued_fetch = 0.0
+    source_binding_status_value = payload.get("source_binding_status")
+    if "source_binding_status" in payload and not isinstance(
+        source_binding_status_value,
+        str,
+    ):
+        failures.append(f"{prefix}_source_binding_status_invalid")
+        source_binding_status = "unknown"
+    else:
+        source_binding_status = str(source_binding_status_value or "unknown")
+    source_binding_same_packet_budget = payload.get("source_binding_same_packet_budget")
+    source_binding_producer_expected_packet_count = _int_metric(
+        payload,
+        "source_binding_producer_expected_packet_count",
+    )
+    source_binding_executor_requested_issue_count = _int_metric(
+        payload,
+        "source_binding_executor_requested_issue_count",
+    )
+    if "source_binding_same_packet_budget" in payload and type(
+        source_binding_same_packet_budget,
+    ) is not bool:
+        failures.append(f"{prefix}_source_binding_same_packet_budget_invalid")
+        source_binding_same_packet_budget = False
+    if require_same_source_packet_budget:
+        if source_binding_same_packet_budget is not True:
+            failures.append(f"{prefix}_source_binding_same_packet_budget_mismatch")
+        if source_binding_status != "same_packet_budget":
+            failures.append(f"{prefix}_source_binding_status_mismatch")
+        if (
+            source_binding_producer_expected_packet_count is None
+            or source_binding_producer_expected_packet_count <= 0
+        ):
+            failures.append(
+                f"{prefix}_source_binding_producer_expected_packet_count_invalid",
+            )
+        if (
+            source_binding_executor_requested_issue_count is None
+            or source_binding_executor_requested_issue_count <= 0
+        ):
+            failures.append(
+                f"{prefix}_source_binding_executor_requested_issue_count_invalid",
+            )
+        if (
+            source_binding_producer_expected_packet_count is not None
+            and source_binding_executor_requested_issue_count is not None
+            and source_binding_producer_expected_packet_count
+            != source_binding_executor_requested_issue_count
+        ):
+            failures.append(f"{prefix}_source_binding_packet_count_mismatch")
     return {
         "issued_prefetch_count": int(issued or 0),
         "used_fetch_count": int(used or 0),
@@ -262,6 +316,14 @@ def _validate_manager_gate(payload: dict[str, Any], failures: list[str]) -> dict
         "demand_hit_count": int(hit or 0),
         "demand_hit_rate": float(demand_hit_rate or 0.0),
         "used_per_issued_fetch": float(used_per_issued_fetch or 0.0),
+        "source_binding_status": source_binding_status,
+        "source_binding_same_packet_budget": bool(source_binding_same_packet_budget),
+        "source_binding_producer_expected_packet_count": int(
+            source_binding_producer_expected_packet_count or 0,
+        ),
+        "source_binding_executor_requested_issue_count": int(
+            source_binding_executor_requested_issue_count or 0,
+        ),
     }
 
 
@@ -351,11 +413,16 @@ def build_preflight(
     candidate_summary: Path,
     min_sample_count: int,
     max_envelope_overhead_ratio: float,
+    require_same_source_packet_budget: bool = False,
 ) -> dict[str, Any]:
     failures: list[str] = []
     if not math.isfinite(max_envelope_overhead_ratio) or max_envelope_overhead_ratio < 0.0:
         failures.append("max_envelope_overhead_ratio_invalid")
-    manager_gate = _validate_manager_gate(_load_json(manager_gate_json), failures)
+    manager_gate = _validate_manager_gate(
+        _load_json(manager_gate_json),
+        failures,
+        require_same_source_packet_budget=bool(require_same_source_packet_budget),
+    )
     baseline = _validate_summary(
         _load_json(baseline_summary),
         failures,
@@ -411,6 +478,19 @@ def build_preflight(
         "manager_demand_hit_count": manager_gate["demand_hit_count"],
         "manager_demand_hit_rate": manager_gate["demand_hit_rate"],
         "manager_used_per_issued_fetch": manager_gate["used_per_issued_fetch"],
+        "manager_source_binding_status": manager_gate["source_binding_status"],
+        "manager_source_binding_same_packet_budget": manager_gate[
+            "source_binding_same_packet_budget"
+        ],
+        "manager_source_binding_require_same_packet_budget": bool(
+            require_same_source_packet_budget,
+        ),
+        "manager_source_binding_producer_expected_packet_count": manager_gate[
+            "source_binding_producer_expected_packet_count"
+        ],
+        "manager_source_binding_executor_requested_issue_count": manager_gate[
+            "source_binding_executor_requested_issue_count"
+        ],
         "baseline_tpot_s": baseline["tpot_s"],
         "candidate_tpot_s": candidate["tpot_s"],
         "candidate_envelope_overhead_ratio": overhead_ratio,
@@ -448,6 +528,15 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--output-json", type=Path, default=DEFAULT_OUTPUT_JSON)
     parser.add_argument("--min-sample-count", type=int, default=8)
     parser.add_argument("--max-envelope-overhead-ratio", type=float, default=0.05)
+    parser.add_argument(
+        "--require-same-source-packet-budget",
+        action="store_true",
+        help=(
+            "Require the manager useful-work gate to report a same-packet-budget "
+            "source binding. Default is false for legacy mixed-source accounting "
+            "artifacts."
+        ),
+    )
     return parser
 
 
@@ -459,6 +548,7 @@ def main(argv: list[str] | None = None) -> int:
         candidate_summary=args.candidate_summary,
         min_sample_count=int(args.min_sample_count),
         max_envelope_overhead_ratio=float(args.max_envelope_overhead_ratio),
+        require_same_source_packet_budget=bool(args.require_same_source_packet_budget),
     )
     args.output_json.parent.mkdir(parents=True, exist_ok=True)
     args.output_json.write_text(

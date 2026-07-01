@@ -41,6 +41,10 @@ def _manager_gate_payload(**overrides: object) -> dict[str, object]:
         "demand_hit_count": 199,
         "demand_hit_rate": 0.8883928571428571,
         "used_per_issued_fetch": 0.8120300751879699,
+        "source_binding_status": "same_packet_budget",
+        "source_binding_same_packet_budget": True,
+        "source_binding_producer_expected_packet_count": 224,
+        "source_binding_executor_requested_issue_count": 224,
     }
     payload.update(overrides)
     return payload
@@ -79,6 +83,8 @@ def _run(
     manager: dict[str, object],
     baseline: dict[str, object],
     candidate: dict[str, object],
+    *,
+    require_same_source_packet_budget: bool = False,
 ) -> dict[str, object]:
     manager_path = tmp_path / "manager.json"
     baseline_path = tmp_path / "baseline.json"
@@ -92,6 +98,7 @@ def _run(
         candidate_summary=candidate_path,
         min_sample_count=8,
         max_envelope_overhead_ratio=0.05,
+        require_same_source_packet_budget=require_same_source_packet_budget,
     )
 
 
@@ -110,10 +117,160 @@ def test_manager_production_ab_preflight_accepts_payloadless_harness_ready(
     assert result["payload_runtime_ready"] is False
     assert result["performance_claim_ready"] is False
     assert result["manager_used_fetch_count"] == 108
+    assert result["manager_source_binding_status"] == "same_packet_budget"
+    assert result["manager_source_binding_same_packet_budget"] is True
+    assert result["manager_source_binding_require_same_packet_budget"] is False
+    assert result["manager_source_binding_producer_expected_packet_count"] == 224
+    assert result["manager_source_binding_executor_requested_issue_count"] == 224
     assert result["candidate_manager_counter_enabled"] is True
     assert result["candidate_envelope_overhead_ratio"] > 0
     assert result["payload_bytes"] == 0
     assert result["passed_to_kernel"] is False
+
+
+def test_manager_production_ab_preflight_accepts_mixed_source_by_default(
+    tmp_path: Path,
+) -> None:
+    manager = _manager_gate_payload(
+        source_binding_status="mixed_source_accounting_only",
+        source_binding_same_packet_budget=False,
+        source_binding_producer_expected_packet_count=2560,
+        source_binding_executor_requested_issue_count=224,
+    )
+    result = _run(
+        tmp_path,
+        manager,
+        _summary_payload(runtime_shadow_emit_premap_payload_cache_manager_counters=False),
+        _summary_payload(generate_seconds_per_requested_output_token=0.0101),
+    )
+
+    assert result["passed"] is True
+    assert result["manager_source_binding_status"] == "mixed_source_accounting_only"
+    assert result["manager_source_binding_same_packet_budget"] is False
+    assert result["manager_source_binding_require_same_packet_budget"] is False
+    assert result["manager_source_binding_producer_expected_packet_count"] == 2560
+    assert result["manager_source_binding_executor_requested_issue_count"] == 224
+
+
+def test_manager_production_ab_preflight_accepts_legacy_missing_source_binding_by_default(
+    tmp_path: Path,
+) -> None:
+    manager = _manager_gate_payload()
+    for key in (
+        "source_binding_status",
+        "source_binding_same_packet_budget",
+        "source_binding_producer_expected_packet_count",
+        "source_binding_executor_requested_issue_count",
+    ):
+        del manager[key]
+
+    result = _run(
+        tmp_path,
+        manager,
+        _summary_payload(runtime_shadow_emit_premap_payload_cache_manager_counters=False),
+        _summary_payload(generate_seconds_per_requested_output_token=0.0101),
+    )
+
+    assert result["passed"] is True
+    assert result["manager_source_binding_status"] == "unknown"
+    assert result["manager_source_binding_same_packet_budget"] is False
+    assert result["manager_source_binding_producer_expected_packet_count"] == 0
+    assert result["manager_source_binding_executor_requested_issue_count"] == 0
+
+
+def test_manager_production_ab_preflight_accepts_required_same_source_budget(
+    tmp_path: Path,
+) -> None:
+    result = _run(
+        tmp_path,
+        _manager_gate_payload(),
+        _summary_payload(runtime_shadow_emit_premap_payload_cache_manager_counters=False),
+        _summary_payload(generate_seconds_per_requested_output_token=0.0101),
+        require_same_source_packet_budget=True,
+    )
+
+    assert result["passed"] is True
+    assert result["manager_source_binding_status"] == "same_packet_budget"
+    assert result["manager_source_binding_same_packet_budget"] is True
+    assert result["manager_source_binding_require_same_packet_budget"] is True
+
+
+def test_manager_production_ab_preflight_can_require_same_source_budget(
+    tmp_path: Path,
+) -> None:
+    manager = _manager_gate_payload(
+        source_binding_status="mixed_source_accounting_only",
+        source_binding_same_packet_budget=False,
+        source_binding_producer_expected_packet_count=2560,
+        source_binding_executor_requested_issue_count=224,
+    )
+    result = _run(
+        tmp_path,
+        manager,
+        _summary_payload(runtime_shadow_emit_premap_payload_cache_manager_counters=False),
+        _summary_payload(generate_seconds_per_requested_output_token=0.0101),
+        require_same_source_packet_budget=True,
+    )
+
+    assert result["passed"] is False
+    assert "manager_gate_source_binding_same_packet_budget_mismatch" in result[
+        "failures"
+    ]
+    assert "manager_gate_source_binding_status_mismatch" in result["failures"]
+    assert result["manager_source_binding_require_same_packet_budget"] is True
+
+
+def test_manager_production_ab_preflight_strict_rejects_bad_source_binding_counts(
+    tmp_path: Path,
+) -> None:
+    result = _run(
+        tmp_path,
+        _manager_gate_payload(
+            source_binding_producer_expected_packet_count=0,
+            source_binding_executor_requested_issue_count=224,
+        ),
+        _summary_payload(runtime_shadow_emit_premap_payload_cache_manager_counters=False),
+        _summary_payload(generate_seconds_per_requested_output_token=0.0101),
+        require_same_source_packet_budget=True,
+    )
+
+    assert result["passed"] is False
+    assert (
+        "manager_gate_source_binding_producer_expected_packet_count_invalid"
+        in result["failures"]
+    )
+    assert "manager_gate_source_binding_packet_count_mismatch" in result["failures"]
+
+
+def test_manager_production_ab_preflight_rejects_invalid_source_binding_type(
+    tmp_path: Path,
+) -> None:
+    result = _run(
+        tmp_path,
+        _manager_gate_payload(source_binding_same_packet_budget="false"),
+        _summary_payload(runtime_shadow_emit_premap_payload_cache_manager_counters=False),
+        _summary_payload(generate_seconds_per_requested_output_token=0.0101),
+    )
+
+    assert result["passed"] is False
+    assert "manager_gate_source_binding_same_packet_budget_invalid" in result[
+        "failures"
+    ]
+
+
+def test_manager_production_ab_preflight_rejects_invalid_source_binding_status_type(
+    tmp_path: Path,
+) -> None:
+    result = _run(
+        tmp_path,
+        _manager_gate_payload(source_binding_status=True),
+        _summary_payload(runtime_shadow_emit_premap_payload_cache_manager_counters=False),
+        _summary_payload(generate_seconds_per_requested_output_token=0.0101),
+    )
+
+    assert result["passed"] is False
+    assert "manager_gate_source_binding_status_invalid" in result["failures"]
+    assert result["manager_source_binding_status"] == "unknown"
 
 
 def test_manager_production_ab_preflight_rejects_unready_manager_gate(

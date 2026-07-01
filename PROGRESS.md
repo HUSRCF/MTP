@@ -2,15 +2,19 @@
 
 ## Progress Version
 
-- Version: `v1.55.6-useful-work-source-binding`
+- Version: `v1.55.7-production-preflight-source-binding`
 - Updated: 2026-07-01
 
-## Latest Update: Useful-Work Source-Binding Boundary
+## Latest Update: Production Preflight Source-Binding Boundary
 
 The payload/cache manager useful-work A/B gate now reports whether its producer
 readiness evidence and issue-stream executor evidence use the same packet
-budget.  This prevents the current mixed-source accounting evidence from being
-misread as a same-source end-to-end payload/cache-manager runtime result.
+budget, and the downstream production A/B preflight now carries that status
+through as an explicit optional gate.
+
+Default production preflight remains legacy-compatible: mixed-source accounting
+evidence may pass as a payloadless harness smoke, but it is labeled as
+accounting-only and cannot be promoted to a same-source lab gate by accident.
 
 The current same-source count-pointer producer readiness artifact has:
 
@@ -39,16 +43,38 @@ passed_to_kernel = false
 changes_kernel_launch_args = false
 ```
 
-If the stricter flag is enabled:
+The production A/B preflight exposes the same boundary:
+
+```text
+manager_source_binding_status = mixed_source_accounting_only
+manager_source_binding_same_packet_budget = false
+manager_source_binding_require_same_packet_budget = false
+passed = true
+```
+
+If the stricter downstream preflight flag is enabled:
 
 ```text
 --require-same-source-packet-budget
 ```
 
-the same inputs fail with:
+the same inputs fail unless all packet-budget fields are present, positive, and
+equal:
 
 ```text
-source_binding_packet_budget_mismatch
+source_binding_same_packet_budget = true
+source_binding_status = same_packet_budget
+producer_expected_packet_count > 0
+executor_requested_issue_count > 0
+producer_expected_packet_count == executor_requested_issue_count
+```
+
+The current mixed-source input correctly fails strict production preflight with:
+
+```text
+manager_gate_source_binding_same_packet_budget_mismatch
+manager_gate_source_binding_status_mismatch
+manager_gate_source_binding_packet_count_mismatch
 ```
 
 This is the correct lab boundary: the current gate is useful for manager
@@ -59,13 +85,24 @@ Artifact:
 
 ```text
 outputs/reports/premap_payload_cache/payload_cache_manager_useful_work_ab_gate_same_source_count_ptr_20260701.json
+outputs/reports/premap_payload_cache/payload_cache_manager_production_ab_preflight_same_source_count_ptr_mixed_source_20260701.json
 ```
 
 Validation:
 
 ```text
-pytest tests/test_build_premap_payload_cache_manager_useful_work_ab_gate.py:
-  12 passed
+PYTHONNOUSERSITE=1 PYTHONPATH=src:. /home/husrcf/anaconda3/envs/TRY/bin/python -m pytest \
+  tests/test_build_premap_payload_cache_manager_production_ab_preflight.py \
+  tests/test_build_premap_payload_cache_manager_useful_work_ab_gate.py -q
+# 29 passed
+
+default production preflight:
+  passed = true
+  failures = []
+
+strict --require-same-source-packet-budget:
+  passed = false
+  expected mixed-source packet-budget mismatch
 ```
 
 Next gate:
