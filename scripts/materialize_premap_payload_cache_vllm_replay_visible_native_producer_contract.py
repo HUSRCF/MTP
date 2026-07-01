@@ -79,6 +79,7 @@ CONTRACT_FIELDS = (
     "measures_vllm_latency",
 )
 OPTIONAL_CONTRACT_FIELDS = (
+    "ready",
     "prelaunch_probe_count",
     "prelaunch_probe_summary_scope",
     "prelaunch_probe_summary_run_sample_count",
@@ -146,6 +147,7 @@ def materialize_contract(
         key = f"{CONTRACT_PREFIX}{field}"
         if key in performance_summary:
             contract[field] = performance_summary[key]
+    contract.setdefault("ready", False)
 
     input_failures = contract.get("failures")
     if input_failures is None:

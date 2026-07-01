@@ -2,16 +2,97 @@
 
 ## Progress Version
 
-- Version: `v1.55.4-stream-bridge-count-ptr-same-source`
+- Version: `v1.55.5-count-ptr-useful-work-gate`
 - Updated: 2026-07-01
 
-## Latest Update: Same-Source Count-Pointer Stream Producer A/B Gate
+## Latest Update: Same-Source Count-Pointer Useful-Work Gate
 
-The production-like stream producer A/B harness now has a same-source
-count-pointer readiness gate.  A GPU1 Dolly32/gen64 online run produced a
-native-session count-pointer readiness artifact from the same prelaunch stream
-shape, then the production-like stream A/B bundle consumed it without mixing in
-the older 1-sample smoke.
+The payload/cache useful-work gate now consumes the same-source GPU1
+Dolly32/gen64 count-pointer native producer evidence.  The materialized native
+producer contract now explicitly emits `ready = false`, so the stricter
+count-pointer native-producer checker can verify the full no-op safety surface
+instead of failing on an absent readiness field.
+
+This connects the current chain:
+
+```text
+same-source vLLM prelaunch stream
+-> materialized native producer contract
+-> count-pointer native producer checker
+-> consumer-visible demand-hit blocked gate
+-> useful-work readiness gate
+```
+
+Current result:
+
+```text
+useful_work_gate passed = true
+producer_count_ptr_ready = true
+producer_current_count_source_kind = num_tokens_post_padded_device_tensor
+producer_current_expert_ptr_source_kind = vllm_prelaunch_device_tensor
+producer_expected_packet_count = 2560
+consumer_visible_blocked_ready = true
+consumer_block_reason = payload_transfer_disabled
+consumer_source_issue_packet_count = 28
+consumer_source_issue_unique_key_count = 16
+payload_cache_useful_work_ready = false
+payload_cache_useful_work_block_reason = payload_transfer_disabled
+payload_bytes = 0
+ready = false
+ready_credit = false
+kernel_arg_pass = false
+passed_to_kernel = false
+changes_kernel_launch_args = false
+measures_tpot = false
+measures_vllm_latency = false
+```
+
+Artifacts:
+
+```text
+native producer contract:
+  outputs/reports/premap_kernel_consumer/native_session_dolly32_gen64_count_ptr_native_producer_contract_20260701.json
+
+count-pointer native producer contract:
+  outputs/reports/premap_kernel_consumer/native_session_dolly32_gen64_vllm_replay_visible_count_ptr_native_producer_contract_20260701.json
+
+useful-work readiness gate:
+  outputs/reports/premap_payload_cache/payload_cache_useful_work_readiness_gate_same_source_count_ptr_20260701.json
+```
+
+Boundary:
+
+```text
+This is still a payloadless, no-ready-credit, no-kernel-arg gate.  It proves the
+producer side is on the device count-pointer/native path and that the consumer
+side remains safely blocked until payload transfer is explicitly enabled.  It is
+not a payload/cache runtime benchmark and not WNA16 kernel-argument handoff.
+```
+
+Validation:
+
+```text
+pytest tests/test_materialize_premap_payload_cache_vllm_replay_visible_native_producer_contract.py \
+       tests/test_check_premap_payload_cache_vllm_replay_visible_count_ptr_native_producer.py \
+       tests/test_build_premap_payload_cache_useful_work_gate.py:
+  19 passed
+```
+
+Next gate:
+
+```text
+continue toward a real useful-work payload/cache-manager path, or keep reducing
+producer-side Python staging by moving more stream/package construction into a
+native producer/cache path.
+```
+
+## Previous Update: Same-Source Count-Pointer Stream Producer A/B Gate
+
+The production-like stream producer A/B harness has a same-source count-pointer
+readiness gate.  A GPU1 Dolly32/gen64 online run produced a native-session
+count-pointer readiness artifact from the same prelaunch stream shape, then the
+production-like stream A/B bundle consumed it without mixing in the older
+1-sample smoke.
 
 The A/B report/checker input remains backward compatible:
 

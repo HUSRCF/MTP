@@ -11,6 +11,10 @@ from scripts import (
     as count_ptr_checker,
 )
 from scripts import (
+    check_premap_payload_cache_vllm_replay_visible_count_ptr_native_producer
+    as count_ptr_native_checker,
+)
+from scripts import (
     materialize_premap_payload_cache_vllm_replay_visible_native_producer_contract
     as materializer,
 )
@@ -223,6 +227,7 @@ def test_materializer_extracts_count_ptr_readiness_surface_for_checker() -> None
     assert result["materializer_passed"] is True
     assert result["ok"] is True
     assert result["passed"] is True
+    assert result["ready"] is False
     assert result["prelaunch_current_count_device_tensor_count"] == 2560
     assert result["prelaunch_current_count_device_scalar_int32_count"] == 2560
     assert result["prelaunch_native_session_update_count_ptr_v1_abi_ready"] is True
@@ -234,6 +239,10 @@ def test_materializer_extracts_count_ptr_readiness_surface_for_checker() -> None
     native_checked = checker.check_contract(result)
     assert native_checked["passed"] is True
     assert native_checked["ready_for_payload_cache_runtime_lab_gate"] is True
+
+    count_ptr_native_checked = count_ptr_native_checker.check_contract(result)
+    assert count_ptr_native_checked["passed"] is True
+    assert count_ptr_native_checked["ready_for_payload_cache_runtime_lab_gate"] is True
 
 
 def test_materializer_reports_missing_prefixed_surface(tmp_path: Path) -> None:

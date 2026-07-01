@@ -67,6 +67,7 @@
   "present": true,
   "producer_update_count": 2560,
   "python_transition_skipped": true,
+  "ready": false,
   "ready_before_demand_credit": false,
   "ready_credit": false,
   "ready_for_payload_cache_runtime_lab_gate": true,
