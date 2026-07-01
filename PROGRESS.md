@@ -2,10 +2,64 @@
 
 ## Progress Version
 
-- Version: `v1.55.9-same-source-packet-budget-preflight`
+- Version: `v1.56.0-same-source-packet-budget-lab-precondition`
 - Updated: 2026-07-01
 
-## Latest Update: Same-Source Packet-Budget Production Preflight Passed
+## Latest Update: Same-Source Packet-Budget Lab Precondition Passed
+
+The same-source packet-budget useful-work evidence has now been promoted into
+the default lab preflight path.  The default manager artifacts now point at the
+GPU1 Dolly32/gen64 packet2560 evidence, and strict no-defer lab preflight passes:
+
+```text
+lab_preflight_same_source_packet2560_default_gate_20260701:
+  passed = true
+  payload_cache_manager_useful_work_ab_gate_gate_ready = true
+  payload_cache_manager_production_ab_preflight_gate_ready = true
+
+  demand_count = 20160
+  demand_hit_rate = 1.0
+  used_per_issued_fetch = 1.0
+  payload_bytes = 0
+  kernel_arg_pass_allowed = false
+  passed_to_kernel = false
+```
+
+This required one validator fix: `manager_unused_fetch_count = 0` is now valid
+when all issued fetches are used.  Negative or missing unused counts remain
+invalid, and the manager/preflight count parity checks are unchanged.
+
+Validation:
+
+```text
+pytest tests/test_run_premap_lab_preflight.py::test_payload_cache_manager_production_preflight_accepts_zero_unused_fetch_count \
+       tests/test_run_premap_lab_preflight.py::test_payload_cache_manager_production_preflight_rejects_manager_gate_mismatch \
+       tests/test_build_premap_payload_cache_manager_production_ab_preflight.py -q
+# 19 passed
+
+python scripts/run_premap_lab_preflight.py \
+  --default-readonly-gate configs/runtime/premap_consumer_readonly_gate_dolly128_gen64_awq_w7900_gpu1_live_connected_readonly.yaml \
+  --output-json outputs/reports/premap_kernel_consumer/lab_preflight_same_source_packet2560_default_gate_20260701.json
+# passed = true
+```
+
+Boundary:
+
+```text
+The default lab gate is now ready for a production-like payload/cache-manager
+A/B harness, but this still does not move payload, grant ready credit, pass
+WNA16 kernel args, or claim endpoint TPOT improvement.
+```
+
+Next gate:
+
+```text
+run production-like payload/cache-manager A/B under this strict same-source
+lab precondition, then decide whether to enable real payload transfer /
+publication.
+```
+
+## Previous Update: Same-Source Packet-Budget Production Preflight Passed
 
 The payload/cache manager useful-work A/B gate now has a strict same-source
 packet-budget evidence chain.  A GPU1 Dolly32/gen64 online trace exported the

@@ -13814,7 +13814,6 @@ def _validate_payload_cache_manager_production_ab_preflight_evidence(
     for key in (
         "manager_issued_prefetch_count",
         "manager_used_fetch_count",
-        "manager_unused_fetch_count",
         "manager_demand_count",
         "manager_demand_hit_count",
         "sample_count",
@@ -13823,6 +13822,9 @@ def _validate_payload_cache_manager_production_ab_preflight_evidence(
         value = _int_metric(evidence, key)
         if value is None or value <= 0:
             failures.append(f"{failure_prefix}_{key}_invalid")
+    unused_value = _int_metric(evidence, "manager_unused_fetch_count")
+    if unused_value is None or unused_value < 0:
+        failures.append(f"{failure_prefix}_manager_unused_fetch_count_invalid")
     issued = _int_metric(evidence, "manager_issued_prefetch_count")
     used = _int_metric(evidence, "manager_used_fetch_count")
     unused = _int_metric(evidence, "manager_unused_fetch_count")

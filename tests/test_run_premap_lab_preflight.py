@@ -20675,6 +20675,39 @@ def test_payload_cache_manager_production_preflight_rejects_manager_gate_mismatc
     ) in failures
 
 
+def test_payload_cache_manager_production_preflight_accepts_zero_unused_fetch_count(
+    tmp_path: Path,
+):
+    manager_path = "reports/payload_cache_manager_useful_work_ab_gate.json"
+    manager = _payload_cache_manager_useful_work_ab_gate_payload()
+    manager["used_fetch_count"] = manager["issued_prefetch_count"]
+    manager["unused_fetch_count"] = 0
+    manager["used_per_issued_fetch"] = 1.0
+    _write(tmp_path / manager_path, json.dumps(manager) + "\n")
+    payload = _payload_cache_manager_production_ab_preflight_payload(
+        manager_gate_json=manager_path,
+    )
+    payload["manager_used_fetch_count"] = payload["manager_issued_prefetch_count"]
+    payload["manager_unused_fetch_count"] = 0
+    payload["manager_used_per_issued_fetch"] = 1.0
+
+    failures = _validate_required_evidence_payload(
+        "payload_cache_manager_production_ab_preflight_json",
+        payload,
+        evidence_paths={
+            "payload_cache_manager_useful_work_ab_gate_json": manager_path,
+        },
+        root=tmp_path,
+    )
+
+    assert (
+        "payload_cache_manager_production_ab_preflight_json:"
+        "payload_cache_manager_production_ab_preflight_"
+        "manager_unused_fetch_count_invalid"
+    ) not in failures
+    assert failures == []
+
+
 def test_payload_cache_manager_production_preflight_rejects_missing_manager_gate(
     tmp_path: Path,
 ):
