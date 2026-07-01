@@ -2,10 +2,79 @@
 
 ## Progress Version
 
-- Version: `v1.56.0-same-source-packet-budget-lab-precondition`
+- Version: `v1.56.1-production-like-payload-cache-envelope`
 - Updated: 2026-07-01
 
-## Latest Update: Same-Source Packet-Budget Lab Precondition Passed
+## Latest Update: Production-Like Payload/Cache A/B Envelope Measured
+
+The same-source packet-budget lab precondition now protects a production-like
+payload/cache-manager A/B run on GPU1 Dolly32/gen64.  The tested candidate is
+still payloadless and state-only:
+
+```text
+baseline:
+  production_batch_graph_warmup_reuse_llm
+
+candidate:
+  production_batch_premap_payload_cache_ready_time_graph_warmup_inside_graph_state_only_producer_counter_off_reuse_llm
+
+sample_count = 32
+requested_output_token_count = 2048
+payload_bytes = 0
+kernel_arg_pass = false
+passed_to_kernel = false
+```
+
+Results:
+
+```text
+baseline TPOT:
+  0.0032165 / 0.0032326 / 0.0032404 s
+
+candidate TPOT:
+  0.0032382 / 0.0032522 / 0.0032657 s
+
+paired overhead:
+  +0.67% / +0.61% / +0.78%
+
+median overhead:
+  +0.61%
+```
+
+Interpretation:
+
+```text
+The state-only inside-graph producer is production-compatible and lightweight,
+but it is not a speedup by itself.  It should be treated as the envelope cost
+for future useful payload/cache-manager work, not as a performance win.
+```
+
+Artifacts:
+
+```text
+repeat3 A/B:
+  outputs/reports/awq_telemetry_ladder/gpu1_payload_cache_same_source_packet2560_production_ab_32sample_repeat3_20260701/results.json
+
+median-repeat production preflight:
+  outputs/reports/premap_payload_cache/payload_cache_manager_production_ab_preflight_same_source_packet2560_ab32_repeat3_median_gpu1_20260701.json
+```
+
+Boundary:
+
+```text
+No payload was moved, no ready credit was granted, no kernel args were passed,
+and no current WNA16 kernel argument path was modified.
+```
+
+Next gate:
+
+```text
+enter useful payload/cache-manager work or further native-producer lowering.
+The future path must recover at least the measured ~0.6% envelope cost before
+any endpoint performance claim.
+```
+
+## Previous Update: Same-Source Packet-Budget Lab Precondition Passed
 
 The same-source packet-budget useful-work evidence has now been promoted into
 the default lab preflight path.  The default manager artifacts now point at the
