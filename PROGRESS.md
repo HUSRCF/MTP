@@ -47936,7 +47936,7 @@ uses_current_wna16_args = false
 passes_current_wna16_args = false
 ```
 
-Diagnostic-only negative evidence:
+Stream producer evidence status:
 
 ```text
 payload_cache_producer_state_stream_online_contract_json
@@ -47944,9 +47944,15 @@ payload_cache_stream_producer_production_ab_bridge_json
 payload_cache_stream_producer_production_ab_bridge_check_json
 ```
 
-These remain recorded in `diagnostic_evidence_paths`, but they are no longer
-required lab preconditions because they represent the retired Python/eager path
-whose overhead and graph-boundary behavior are not production-compatible.
+`payload_cache_producer_state_stream_online_contract_json` remains path-visible
+provenance only. It is not a strict required content gate because the artifact
+still records `online_python_prelaunch_state_empty=false`.
+
+`payload_cache_stream_producer_production_ab_bridge_json` and
+`payload_cache_stream_producer_production_ab_bridge_check_json` are now promoted
+to required lab preflight content evidence. They validate the production-like
+stream producer A/B bridge while keeping payload bytes, ready credit, and kernel
+argument mutation disabled.
 
 Validation:
 

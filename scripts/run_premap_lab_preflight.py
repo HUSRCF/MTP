@@ -366,6 +366,8 @@ REQUIRED_DEFAULT_GATE_EVIDENCE_JSON_LABELS = {
     "payload_cache_vllm_replay_visible_count_ptr_readiness_json",
     "payload_cache_manager_useful_work_ab_gate_json",
     "payload_cache_manager_production_ab_preflight_json",
+    "payload_cache_stream_producer_production_ab_bridge_json",
+    "payload_cache_stream_producer_production_ab_bridge_check_json",
     "future_kernel_native_dispatch_consumer_online_artifact_check_32_128export_json",
     "future_kernel_native_dispatch_consumer_online_runner_32_128export_json",
 }
