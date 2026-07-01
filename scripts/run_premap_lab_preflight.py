@@ -16352,6 +16352,40 @@ def run_premap_lab_preflight(
             root=root,
         )
     )
+    vllm_replay_visible_count_ptr_native_producer_label = (
+        "payload_cache_vllm_replay_visible_count_ptr_native_producer_contract_json"
+    )
+    vllm_replay_visible_count_ptr_native_producer_row = _find_evidence_row(
+        default_gate_required_evidence_check,
+        vllm_replay_visible_count_ptr_native_producer_label,
+    )
+    vllm_replay_visible_count_ptr_native_producer_passed = _evidence_row_passed(
+        vllm_replay_visible_count_ptr_native_producer_row
+    )
+    vllm_replay_visible_count_ptr_native_producer_payload = (
+        _load_evidence_payload_from_check(
+            default_gate_required_evidence_check,
+            vllm_replay_visible_count_ptr_native_producer_label,
+            root=root,
+        )
+    )
+    vllm_replay_visible_count_ptr_readiness_label = (
+        "payload_cache_vllm_replay_visible_count_ptr_readiness_json"
+    )
+    vllm_replay_visible_count_ptr_readiness_row = _find_evidence_row(
+        default_gate_required_evidence_check,
+        vllm_replay_visible_count_ptr_readiness_label,
+    )
+    vllm_replay_visible_count_ptr_readiness_passed = _evidence_row_passed(
+        vllm_replay_visible_count_ptr_readiness_row
+    )
+    vllm_replay_visible_count_ptr_readiness_payload = (
+        _load_evidence_payload_from_check(
+            default_gate_required_evidence_check,
+            vllm_replay_visible_count_ptr_readiness_label,
+            root=root,
+        )
+    )
     payload_cache_manager_useful_work_ab_label = (
         "payload_cache_manager_useful_work_ab_gate_json"
     )
@@ -26074,6 +26108,128 @@ def run_premap_lab_preflight(
         ),
         "payload_cache_vllm_replay_visible_native_producer_changes_kernel_launch_args": (
             vllm_replay_visible_native_producer_payload.get(
+                "changes_kernel_launch_args"
+            )
+        ),
+        "payload_cache_vllm_replay_visible_count_ptr_native_producer_required": True,
+        "payload_cache_vllm_replay_visible_count_ptr_native_producer_present": (
+            vllm_replay_visible_count_ptr_native_producer_row.get("exists") is True
+        ),
+        "payload_cache_vllm_replay_visible_count_ptr_native_producer_passed": bool(
+            vllm_replay_visible_count_ptr_native_producer_passed
+        ),
+        "payload_cache_vllm_replay_visible_count_ptr_native_producer_ready_for_lab_gate": (
+            vllm_replay_visible_count_ptr_native_producer_payload.get(
+                "ready_for_payload_cache_runtime_lab_gate"
+            )
+        ),
+        "payload_cache_vllm_replay_visible_count_ptr_native_producer_contract_boundary": (
+            vllm_replay_visible_count_ptr_native_producer_payload.get(
+                "contract_boundary"
+            )
+        ),
+        "payload_cache_vllm_replay_visible_count_ptr_native_producer_current_count_source_kind": (
+            vllm_replay_visible_count_ptr_native_producer_payload.get(
+                "current_count_source_kind"
+            )
+        ),
+        "payload_cache_vllm_replay_visible_count_ptr_native_producer_current_expert_ptr_source_kind": (
+            vllm_replay_visible_count_ptr_native_producer_payload.get(
+                "current_expert_ptr_source_kind"
+            )
+        ),
+        "payload_cache_vllm_replay_visible_count_ptr_native_producer_expected_packet_count": (
+            _int_metric(
+                vllm_replay_visible_count_ptr_native_producer_payload,
+                "expected_packet_count",
+            )
+        ),
+        "payload_cache_vllm_replay_visible_count_ptr_native_producer_count_ptr_ready_count": (
+            _int_metric(
+                vllm_replay_visible_count_ptr_native_producer_payload,
+                "count_ptr_ready_count",
+            )
+        ),
+        "payload_cache_vllm_replay_visible_count_ptr_native_producer_count_ptr_blocked_count": (
+            _int_metric(
+                vllm_replay_visible_count_ptr_native_producer_payload,
+                "count_ptr_blocked_count",
+            )
+        ),
+        "payload_cache_vllm_replay_visible_count_ptr_native_producer_host_scalar_count": (
+            _int_metric(
+                vllm_replay_visible_count_ptr_native_producer_payload,
+                "host_scalar_count",
+            )
+        ),
+        "payload_cache_vllm_replay_visible_count_ptr_native_producer_payload_bytes": (
+            _int_metric(
+                vllm_replay_visible_count_ptr_native_producer_payload,
+                "payload_bytes",
+            )
+        ),
+        "payload_cache_vllm_replay_visible_count_ptr_native_producer_kernel_arg_pass": (
+            vllm_replay_visible_count_ptr_native_producer_payload.get(
+                "kernel_arg_pass"
+            )
+        ),
+        "payload_cache_vllm_replay_visible_count_ptr_native_producer_passed_to_kernel": (
+            vllm_replay_visible_count_ptr_native_producer_payload.get(
+                "passed_to_kernel"
+            )
+        ),
+        "payload_cache_vllm_replay_visible_count_ptr_native_producer_changes_kernel_launch_args": (
+            vllm_replay_visible_count_ptr_native_producer_payload.get(
+                "changes_kernel_launch_args"
+            )
+        ),
+        "payload_cache_vllm_replay_visible_count_ptr_readiness_required": True,
+        "payload_cache_vllm_replay_visible_count_ptr_readiness_present": (
+            vllm_replay_visible_count_ptr_readiness_row.get("exists") is True
+        ),
+        "payload_cache_vllm_replay_visible_count_ptr_readiness_passed": bool(
+            vllm_replay_visible_count_ptr_readiness_passed
+        ),
+        "payload_cache_vllm_replay_visible_count_ptr_readiness_future_count_ptr_session_ready": (
+            vllm_replay_visible_count_ptr_readiness_payload.get(
+                "ready_for_future_count_ptr_native_session"
+            )
+        ),
+        "payload_cache_vllm_replay_visible_count_ptr_readiness_contract_boundary": (
+            vllm_replay_visible_count_ptr_readiness_payload.get("contract_boundary")
+        ),
+        "payload_cache_vllm_replay_visible_count_ptr_readiness_expected_packet_count": (
+            _int_metric(
+                vllm_replay_visible_count_ptr_readiness_payload,
+                "expected_packet_count",
+            )
+        ),
+        "payload_cache_vllm_replay_visible_count_ptr_readiness_ready_count": (
+            _int_metric(
+                vllm_replay_visible_count_ptr_readiness_payload,
+                "prelaunch_native_session_update_count_ptr_v1_abi_ready_count",
+            )
+        ),
+        "payload_cache_vllm_replay_visible_count_ptr_readiness_blocked_count": (
+            _int_metric(
+                vllm_replay_visible_count_ptr_readiness_payload,
+                "prelaunch_native_session_update_count_ptr_v1_abi_blocked_count",
+            )
+        ),
+        "payload_cache_vllm_replay_visible_count_ptr_readiness_payload_bytes": (
+            _int_metric(
+                vllm_replay_visible_count_ptr_readiness_payload,
+                "payload_bytes",
+            )
+        ),
+        "payload_cache_vllm_replay_visible_count_ptr_readiness_kernel_arg_pass": (
+            vllm_replay_visible_count_ptr_readiness_payload.get("kernel_arg_pass")
+        ),
+        "payload_cache_vllm_replay_visible_count_ptr_readiness_passed_to_kernel": (
+            vllm_replay_visible_count_ptr_readiness_payload.get("passed_to_kernel")
+        ),
+        "payload_cache_vllm_replay_visible_count_ptr_readiness_changes_kernel_launch_args": (
+            vllm_replay_visible_count_ptr_readiness_payload.get(
                 "changes_kernel_launch_args"
             )
         ),

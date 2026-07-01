@@ -10421,6 +10421,160 @@ def test_premap_lab_preflight_accepts_default_readonly_wiring(tmp_path: Path):
         is False
     )
     assert (
+        summary[
+            "payload_cache_vllm_replay_visible_count_ptr_native_producer_required"
+        ]
+        is True
+    )
+    assert (
+        summary[
+            "payload_cache_vllm_replay_visible_count_ptr_native_producer_present"
+        ]
+        is True
+    )
+    assert (
+        summary[
+            "payload_cache_vllm_replay_visible_count_ptr_native_producer_passed"
+        ]
+        is True
+    )
+    assert (
+        summary[
+            "payload_cache_vllm_replay_visible_count_ptr_native_producer_ready_for_lab_gate"
+        ]
+        is True
+    )
+    assert (
+        summary[
+            "payload_cache_vllm_replay_visible_count_ptr_native_producer_contract_boundary"
+        ]
+        == "inprocess_vllm_prelaunch_native_count_ptr_producer_op"
+    )
+    assert (
+        summary[
+            "payload_cache_vllm_replay_visible_count_ptr_native_producer_current_count_source_kind"
+        ]
+        == "num_tokens_post_padded_device_tensor"
+    )
+    assert (
+        summary[
+            "payload_cache_vllm_replay_visible_count_ptr_native_producer_current_expert_ptr_source_kind"
+        ]
+        == "vllm_prelaunch_device_tensor"
+    )
+    assert (
+        summary[
+            "payload_cache_vllm_replay_visible_count_ptr_native_producer_expected_packet_count"
+        ]
+        == 8
+    )
+    assert (
+        summary[
+            "payload_cache_vllm_replay_visible_count_ptr_native_producer_count_ptr_ready_count"
+        ]
+        == 8
+    )
+    assert (
+        summary[
+            "payload_cache_vllm_replay_visible_count_ptr_native_producer_count_ptr_blocked_count"
+        ]
+        == 0
+    )
+    assert (
+        summary[
+            "payload_cache_vllm_replay_visible_count_ptr_native_producer_host_scalar_count"
+        ]
+        == 0
+    )
+    assert (
+        summary[
+            "payload_cache_vllm_replay_visible_count_ptr_native_producer_payload_bytes"
+        ]
+        == 0
+    )
+    assert (
+        summary[
+            "payload_cache_vllm_replay_visible_count_ptr_native_producer_kernel_arg_pass"
+        ]
+        is False
+    )
+    assert (
+        summary[
+            "payload_cache_vllm_replay_visible_count_ptr_native_producer_passed_to_kernel"
+        ]
+        is False
+    )
+    assert (
+        summary[
+            "payload_cache_vllm_replay_visible_count_ptr_native_producer_changes_kernel_launch_args"
+        ]
+        is False
+    )
+    assert (
+        summary["payload_cache_vllm_replay_visible_count_ptr_readiness_required"]
+        is True
+    )
+    assert (
+        summary["payload_cache_vllm_replay_visible_count_ptr_readiness_present"]
+        is True
+    )
+    assert (
+        summary["payload_cache_vllm_replay_visible_count_ptr_readiness_passed"]
+        is True
+    )
+    assert (
+        summary[
+            "payload_cache_vllm_replay_visible_count_ptr_readiness_future_count_ptr_session_ready"
+        ]
+        is True
+    )
+    assert (
+        summary[
+            "payload_cache_vllm_replay_visible_count_ptr_readiness_contract_boundary"
+        ]
+        == "future_session_update_count_ptr_v1_prelaunch_probe"
+    )
+    assert (
+        summary[
+            "payload_cache_vllm_replay_visible_count_ptr_readiness_expected_packet_count"
+        ]
+        == 8
+    )
+    assert (
+        summary["payload_cache_vllm_replay_visible_count_ptr_readiness_ready_count"]
+        == 8
+    )
+    assert (
+        summary[
+            "payload_cache_vllm_replay_visible_count_ptr_readiness_blocked_count"
+        ]
+        == 0
+    )
+    assert (
+        summary[
+            "payload_cache_vllm_replay_visible_count_ptr_readiness_payload_bytes"
+        ]
+        == 0
+    )
+    assert (
+        summary[
+            "payload_cache_vllm_replay_visible_count_ptr_readiness_kernel_arg_pass"
+        ]
+        is False
+    )
+    assert (
+        summary[
+            "payload_cache_vllm_replay_visible_count_ptr_readiness_passed_to_kernel"
+        ]
+        is False
+    )
+    assert (
+        summary[
+            "payload_cache_vllm_replay_visible_count_ptr_readiness_changes_kernel_launch_args"
+        ]
+        is False
+    )
+    assert (
         summary["required_evidence"]["evidence"][
             "prelaunch_pointer_source_observer_check_json"
         ]["passed"]
