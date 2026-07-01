@@ -2,16 +2,87 @@
 
 ## Progress Version
 
-- Version: `v1.55.5-count-ptr-useful-work-gate`
+- Version: `v1.55.6-useful-work-source-binding`
 - Updated: 2026-07-01
 
-## Latest Update: Same-Source Count-Pointer Useful-Work Gate
+## Latest Update: Useful-Work Source-Binding Boundary
 
-The payload/cache useful-work gate now consumes the same-source GPU1
-Dolly32/gen64 count-pointer native producer evidence.  The materialized native
-producer contract now explicitly emits `ready = false`, so the stricter
-count-pointer native-producer checker can verify the full no-op safety surface
-instead of failing on an absent readiness field.
+The payload/cache manager useful-work A/B gate now reports whether its producer
+readiness evidence and issue-stream executor evidence use the same packet
+budget.  This prevents the current mixed-source accounting evidence from being
+misread as a same-source end-to-end payload/cache-manager runtime result.
+
+The current same-source count-pointer producer readiness artifact has:
+
+```text
+producer_expected_packet_count = 2560
+```
+
+The existing issue-stream executor artifact has:
+
+```text
+requested_issue_count = 224
+```
+
+Therefore the default useful-work A/B gate still passes as accounting evidence,
+but it is explicitly labeled:
+
+```text
+source_binding_status = mixed_source_accounting_only
+source_binding_same_packet_budget = false
+source_binding_require_same_packet_budget = false
+manager_useful_work_ab_ready = true
+payload_runtime_ready = false
+performance_claim_ready = false
+payload_bytes = 0
+passed_to_kernel = false
+changes_kernel_launch_args = false
+```
+
+If the stricter flag is enabled:
+
+```text
+--require-same-source-packet-budget
+```
+
+the same inputs fail with:
+
+```text
+source_binding_packet_budget_mismatch
+```
+
+This is the correct lab boundary: the current gate is useful for manager
+accounting and demand-hit readiness, but not yet sufficient for a same-source
+production-like payload/cache-manager benchmark.
+
+Artifact:
+
+```text
+outputs/reports/premap_payload_cache/payload_cache_manager_useful_work_ab_gate_same_source_count_ptr_20260701.json
+```
+
+Validation:
+
+```text
+pytest tests/test_build_premap_payload_cache_manager_useful_work_ab_gate.py:
+  12 passed
+```
+
+Next gate:
+
+```text
+produce a same-source issue-stream executor from the 2560-packet native
+producer stream, or move more issue-stream execution into the online/native
+producer path so --require-same-source-packet-budget can pass.
+```
+
+## Previous Update: Same-Source Count-Pointer Useful-Work Gate
+
+The payload/cache useful-work gate consumes the same-source GPU1 Dolly32/gen64
+count-pointer native producer evidence.  The materialized native producer
+contract explicitly emits `ready = false`, so the stricter count-pointer
+native-producer checker can verify the full no-op safety surface instead of
+failing on an absent readiness field.
 
 This connects the current chain:
 

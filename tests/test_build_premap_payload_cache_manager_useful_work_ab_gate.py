@@ -106,6 +106,28 @@ def _run(tmp_path: Path, readiness: dict[str, object], executor: dict[str, objec
     )
 
 
+def _run_with_source_requirement(
+    tmp_path: Path,
+    readiness: dict[str, object],
+    executor: dict[str, object],
+    *,
+    require_same_source_packet_budget: bool,
+):
+    readiness_path = tmp_path / "readiness.json"
+    executor_path = tmp_path / "executor.json"
+    _write_json(readiness_path, readiness)
+    _write_json(executor_path, executor)
+    return gate.build_gate(
+        useful_work_readiness_json=readiness_path,
+        issue_stream_executor_json=executor_path,
+        min_demand_hit_rate=0.5,
+        min_used_per_issued_fetch=0.5,
+        min_issue_count=1,
+        min_demand_count=1,
+        require_same_source_packet_budget=require_same_source_packet_budget,
+    )
+
+
 def test_manager_useful_work_ab_gate_accepts_payloadless_manager_useful_work(
     tmp_path: Path,
 ) -> None:
@@ -116,6 +138,11 @@ def test_manager_useful_work_ab_gate_accepts_payloadless_manager_useful_work(
     assert result["payload_runtime_ready"] is False
     assert result["performance_claim_ready"] is False
     assert result["issued_prefetch_count"] == 133
+    assert result["source_binding_status"] == "mixed_source_accounting_only"
+    assert result["source_binding_same_packet_budget"] is False
+    assert result["source_binding_require_same_packet_budget"] is False
+    assert result["source_binding_producer_expected_packet_count"] == 160
+    assert result["source_binding_executor_requested_issue_count"] == 224
     assert result["issued_payload_count"] == 0
     assert result["issued_payload_count_source"] == "explicit"
     assert result["used_fetch_count"] == 108
@@ -124,6 +151,35 @@ def test_manager_useful_work_ab_gate_accepts_payloadless_manager_useful_work(
     assert result["payload_bytes"] == 0
     assert result["passed_to_kernel"] is False
     assert result["measures_tpot"] is False
+
+
+def test_manager_useful_work_ab_gate_marks_same_packet_budget(
+    tmp_path: Path,
+) -> None:
+    readiness = _readiness_payload(producer_expected_packet_count=224)
+    result = _run(tmp_path, readiness, _executor_payload())
+
+    assert result["passed"] is True
+    assert result["source_binding_status"] == "same_packet_budget"
+    assert result["source_binding_same_packet_budget"] is True
+    assert result["source_binding_producer_expected_packet_count"] == 224
+    assert result["source_binding_executor_requested_issue_count"] == 224
+
+
+def test_manager_useful_work_ab_gate_can_require_same_packet_budget(
+    tmp_path: Path,
+) -> None:
+    result = _run_with_source_requirement(
+        tmp_path,
+        _readiness_payload(),
+        _executor_payload(),
+        require_same_source_packet_budget=True,
+    )
+
+    assert result["passed"] is False
+    assert "source_binding_packet_budget_mismatch" in result["failures"]
+    assert result["source_binding_status"] == "mixed_source_accounting_only"
+    assert result["source_binding_require_same_packet_budget"] is True
 
 
 def test_manager_useful_work_ab_gate_rejects_unready_precondition(

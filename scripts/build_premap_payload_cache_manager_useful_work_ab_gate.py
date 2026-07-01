@@ -309,6 +309,7 @@ def build_gate(
     min_used_per_issued_fetch: float,
     min_issue_count: int,
     min_demand_count: int,
+    require_same_source_packet_budget: bool = False,
 ) -> dict[str, Any]:
     readiness_payload = _load_json(useful_work_readiness_json)
     executor_payload = _load_json(issue_stream_executor_json)
@@ -333,6 +334,18 @@ def build_gate(
         min_issue_count=min_issue_count,
         min_demand_count=min_demand_count,
     )
+    producer_expected_packet_count = int(readiness["producer_expected_packet_count"])
+    executor_requested_issue_count = int(executor["requested_issue_count"])
+    source_binding_same_packet_budget = (
+        producer_expected_packet_count == executor_requested_issue_count
+    )
+    source_binding_status = (
+        "same_packet_budget"
+        if source_binding_same_packet_budget
+        else "mixed_source_accounting_only"
+    )
+    if require_same_source_packet_budget and not source_binding_same_packet_budget:
+        failures.append("source_binding_packet_budget_mismatch")
     passed = not failures
     return {
         "artifact_kind": ARTIFACT_KIND,
@@ -345,12 +358,19 @@ def build_gate(
         "payload_runtime_block_reason": "payload_transfer_disabled",
         "performance_claim_ready": False,
         "next_stage": NEXT_STAGE,
-        "producer_expected_packet_count": readiness["producer_expected_packet_count"],
+        "producer_expected_packet_count": producer_expected_packet_count,
         "consumer_requested_payload_bytes": readiness["consumer_requested_payload_bytes"],
         "issued_prefetch_count": executor["issued_prefetch_count"],
         "issued_payload_count": executor["issued_payload_count"],
         "issued_payload_count_source": executor["issued_payload_count_source"],
         "requested_issue_count": executor["requested_issue_count"],
+        "source_binding_status": source_binding_status,
+        "source_binding_same_packet_budget": source_binding_same_packet_budget,
+        "source_binding_require_same_packet_budget": bool(
+            require_same_source_packet_budget,
+        ),
+        "source_binding_producer_expected_packet_count": producer_expected_packet_count,
+        "source_binding_executor_requested_issue_count": executor_requested_issue_count,
         "demand_count": executor["demand_count"],
         "demand_hit_count": executor["demand_hit_count"],
         "demand_hit_rate": executor["demand_hit_rate"],
@@ -395,6 +415,15 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--min-used-per-issued-fetch", type=float, default=0.50)
     parser.add_argument("--min-issue-count", type=int, default=1)
     parser.add_argument("--min-demand-count", type=int, default=1)
+    parser.add_argument(
+        "--require-same-source-packet-budget",
+        action="store_true",
+        help=(
+            "Require producer packet_count and executor requested_issue_count to "
+            "match. Default is false so existing mixed-source accounting evidence "
+            "remains accepted but explicitly labeled."
+        ),
+    )
     return parser
 
 
@@ -407,6 +436,7 @@ def main(argv: list[str] | None = None) -> int:
         min_used_per_issued_fetch=float(args.min_used_per_issued_fetch),
         min_issue_count=int(args.min_issue_count),
         min_demand_count=int(args.min_demand_count),
+        require_same_source_packet_budget=bool(args.require_same_source_packet_budget),
     )
     args.output_json.parent.mkdir(parents=True, exist_ok=True)
     args.output_json.write_text(
