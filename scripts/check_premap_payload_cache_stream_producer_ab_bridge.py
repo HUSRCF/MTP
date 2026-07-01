@@ -107,6 +107,7 @@ def check_report(
 
     issue_count = payload.get("native_stream_issue_candidate_count")
     expected_issue_count = payload.get("online_contract_expected_issue_candidate_count")
+    packet_count = payload.get("native_stream_packet_count")
     issue_hash = payload.get("native_stream_issue_candidate_hash")
     if type(issue_count) is not int or issue_count < int(min_issue_candidate_count):
         failures.append("native_stream_issue_candidate_count_invalid")
@@ -120,6 +121,35 @@ def check_report(
         failures.append("native_stream_persistent_state_on_device_not_true")
     if payload.get("native_stream_issue_generation_on_device") is not True:
         failures.append("native_stream_issue_generation_on_device_not_true")
+    if payload.get("count_ptr_ready_present") is True:
+        packet_count_valid = type(packet_count) is int and packet_count > 0
+        if not packet_count_valid:
+            failures.append("native_stream_packet_count_invalid")
+        count_ptr_expected_packet_count = payload.get("count_ptr_expected_packet_count")
+        count_ptr_ready_count = payload.get("count_ptr_ready_count")
+        count_ptr_blocked_count = payload.get("count_ptr_blocked_count")
+        count_ptr_payload_bytes = payload.get("count_ptr_payload_bytes")
+        if payload.get("count_ptr_ready_passed") is not True:
+            failures.append("count_ptr_ready_passed_not_true")
+        if packet_count_valid and count_ptr_expected_packet_count != packet_count:
+            failures.append("count_ptr_expected_packet_count_mismatch")
+        if packet_count_valid and count_ptr_ready_count != packet_count:
+            failures.append("count_ptr_ready_count_mismatch")
+        if count_ptr_blocked_count != 0:
+            failures.append("count_ptr_blocked_count_nonzero")
+        if payload.get("count_ptr_current_count_source_kind") != (
+            "num_tokens_post_padded_device_tensor"
+        ):
+            failures.append("count_ptr_current_count_source_kind_mismatch")
+        if count_ptr_payload_bytes != 0:
+            failures.append("count_ptr_payload_bytes_mismatch")
+        for field in (
+            "count_ptr_kernel_arg_pass",
+            "count_ptr_passed_to_kernel",
+            "count_ptr_changes_kernel_launch_args",
+        ):
+            if payload.get(field) is not False:
+                failures.append(f"{field}_not_false")
 
     return {
         "passed": not failures,
@@ -143,6 +173,7 @@ def check_report(
         "online_contract_expected_issue_candidate_count": payload.get(
             "online_contract_expected_issue_candidate_count"
         ),
+        "native_stream_packet_count": payload.get("native_stream_packet_count"),
         "online_transition_issue_last_candidate_present": payload.get(
             "online_transition_issue_last_candidate_present"
         ),
@@ -188,6 +219,16 @@ def check_report(
         ),
         "native_stream_issue_generation_on_device": payload.get(
             "native_stream_issue_generation_on_device"
+        ),
+        "count_ptr_ready_present": payload.get("count_ptr_ready_present"),
+        "count_ptr_ready_passed": payload.get("count_ptr_ready_passed"),
+        "count_ptr_expected_packet_count": payload.get(
+            "count_ptr_expected_packet_count"
+        ),
+        "count_ptr_ready_count": payload.get("count_ptr_ready_count"),
+        "count_ptr_blocked_count": payload.get("count_ptr_blocked_count"),
+        "count_ptr_current_count_source_kind": payload.get(
+            "count_ptr_current_count_source_kind"
         ),
     }
 

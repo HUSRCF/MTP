@@ -30,6 +30,7 @@ def _args(tmp_path: Path, baseline: Path, candidate: Path, contract: Path) -> ar
 def _valid_contract_fields() -> dict[str, object]:
     return {
         "passed": True,
+        "native_stream_packet_count": 2560,
         "contract_expected_issue_candidate_count": 20160,
         "native_stream_issue_candidate_count": 20160,
         "native_stream_issue_candidate_hash": "22488eda926276f7",
@@ -84,6 +85,7 @@ def test_production_ab_report_accepts_low_overhead_contract(tmp_path: Path) -> N
             "contract_steps": 64,
             "contract_layers": 40,
             "contract_experts_per_layer": 225,
+            "native_stream_packet_count": 2560,
             "contract_expected_issue_candidate_count": 20160,
             "online_transition_issue_last_candidate_present": False,
             "online_transition_issue_last_candidate_source": "performance_summary",
@@ -124,6 +126,7 @@ def test_production_ab_report_accepts_low_overhead_contract(tmp_path: Path) -> N
     )
     assert payload["online_transition_issue_last_candidate_count"] == 0
     assert payload["native_stream_issue_candidate_count"] == 20160
+    assert payload["native_stream_packet_count"] == 2560
     assert payload["native_stream_first_issue_expert"] == 0
     assert payload["native_stream_last_issue_expert"] == 220
     assert payload["native_stream_issue_candidate_hash"] == "22488eda926276f7"
@@ -137,6 +140,193 @@ def test_production_ab_report_accepts_low_overhead_contract(tmp_path: Path) -> N
     assert payload["payload_bytes"] == 0
     assert payload["passed_to_kernel"] is False
     assert payload["uses_current_wna16_args"] is False
+
+
+def test_production_ab_report_accepts_legacy_contract_without_count_ptr_packet_count(
+    tmp_path: Path,
+) -> None:
+    baseline = tmp_path / "baseline.json"
+    candidate = tmp_path / "candidate.json"
+    contract = tmp_path / "contract.json"
+    _write_json(
+        baseline,
+        {"generate_seconds_per_requested_output_token": 0.00326},
+    )
+    _write_json(
+        candidate,
+        {
+            "generate_seconds_per_requested_output_token": 0.003265,
+            "runtime_shadow_premap_payload_cache_direct_payload_bytes": 0,
+            "runtime_shadow_premap_payload_cache_direct_runtime_execution_kernel_arg_pass_allowed": False,
+            "runtime_shadow_premap_payload_cache_direct_runtime_execution_changes_kernel_launch_args": False,
+        },
+    )
+    contract_payload = _valid_contract_fields()
+    contract_payload.pop("native_stream_packet_count")
+    _write_json(contract, contract_payload)
+
+    payload = report.build_report(_args(tmp_path, baseline, candidate, contract))
+
+    assert payload["passed"] is True
+    assert payload["native_stream_packet_count"] == 0
+    assert payload["count_ptr_ready_present"] is False
+
+
+def test_production_ab_report_accepts_count_ptr_readiness_input(
+    tmp_path: Path,
+) -> None:
+    baseline = tmp_path / "baseline.json"
+    candidate = tmp_path / "candidate.json"
+    contract = tmp_path / "contract.json"
+    count_ptr = tmp_path / "count_ptr.json"
+    _write_json(
+        baseline,
+        {
+            "generate_seconds_per_requested_output_token": 0.00326,
+            "sample_count": 32,
+            "requested_output_token_count": 2048,
+        },
+    )
+    _write_json(
+        candidate,
+        {
+            "generate_seconds_per_requested_output_token": 0.003265,
+            "sample_count": 32,
+            "requested_output_token_count": 2048,
+            "runtime_shadow_premap_payload_cache_direct_payload_bytes": 0,
+            "runtime_shadow_premap_payload_cache_direct_runtime_execution_kernel_arg_pass_allowed": False,
+            "runtime_shadow_premap_payload_cache_direct_runtime_execution_changes_kernel_launch_args": False,
+        },
+    )
+    _write_json(
+        contract,
+        {
+            **_valid_contract_fields(),
+            "contract_steps": 64,
+            "contract_layers": 40,
+            "contract_experts_per_layer": 225,
+        },
+    )
+    _write_json(
+        count_ptr,
+        {
+            "passed": True,
+            "expected_packet_count": 2560,
+            "prelaunch_native_session_update_count_ptr_v1_abi_ready_count": 2560,
+            "prelaunch_native_session_update_count_ptr_v1_abi_blocked_count": 0,
+            "prelaunch_last_current_count_source_kind": (
+                "num_tokens_post_padded_device_tensor"
+            ),
+            "payload_bytes": 0,
+            "kernel_arg_pass": False,
+            "passed_to_kernel": False,
+            "changes_kernel_launch_args": False,
+        },
+    )
+    args = _args(tmp_path, baseline, candidate, contract)
+    args.count_ptr_readiness = count_ptr
+
+    payload = report.build_report(args)
+
+    assert payload["passed"] is True
+    assert payload["count_ptr_ready_present"] is True
+    assert payload["count_ptr_ready_passed"] is True
+    assert payload["count_ptr_expected_packet_count"] == 2560
+    assert payload["count_ptr_ready_count"] == 2560
+    assert payload["count_ptr_blocked_count"] == 0
+    assert payload["count_ptr_current_count_source_kind"] == (
+        "num_tokens_post_padded_device_tensor"
+    )
+
+
+def test_production_ab_report_rejects_count_ptr_packet_mismatch(
+    tmp_path: Path,
+) -> None:
+    baseline = tmp_path / "baseline.json"
+    candidate = tmp_path / "candidate.json"
+    contract = tmp_path / "contract.json"
+    count_ptr = tmp_path / "count_ptr.json"
+    _write_json(baseline, {"generate_seconds_per_requested_output_token": 1.0})
+    _write_json(
+        candidate,
+        {
+            "generate_seconds_per_requested_output_token": 1.0,
+            "runtime_shadow_premap_payload_cache_direct_payload_bytes": 0,
+            "runtime_shadow_premap_payload_cache_direct_runtime_execution_kernel_arg_pass_allowed": False,
+            "runtime_shadow_premap_payload_cache_direct_runtime_execution_changes_kernel_launch_args": False,
+        },
+    )
+    _write_json(contract, _valid_contract_fields())
+    _write_json(
+        count_ptr,
+        {
+            "passed": True,
+            "expected_packet_count": 1,
+            "prelaunch_native_session_update_count_ptr_v1_abi_ready_count": 1,
+            "prelaunch_native_session_update_count_ptr_v1_abi_blocked_count": 0,
+            "prelaunch_last_current_count_source_kind": (
+                "num_tokens_post_padded_device_tensor"
+            ),
+            "payload_bytes": 0,
+            "kernel_arg_pass": False,
+            "passed_to_kernel": False,
+            "changes_kernel_launch_args": False,
+        },
+    )
+    args = _args(tmp_path, baseline, candidate, contract)
+    args.count_ptr_readiness = count_ptr
+
+    payload = report.build_report(args)
+
+    assert payload["passed"] is False
+    assert "count_ptr_readiness_failed" in payload["failures"]
+    assert "count_ptr_expected_packet_count_mismatch" in payload["failures"]
+    assert "count_ptr_ready_count_mismatch" in payload["failures"]
+
+
+def test_production_ab_report_requires_packet_count_with_count_ptr_readiness(
+    tmp_path: Path,
+) -> None:
+    baseline = tmp_path / "baseline.json"
+    candidate = tmp_path / "candidate.json"
+    contract = tmp_path / "contract.json"
+    count_ptr = tmp_path / "count_ptr.json"
+    _write_json(baseline, {"generate_seconds_per_requested_output_token": 1.0})
+    _write_json(
+        candidate,
+        {
+            "generate_seconds_per_requested_output_token": 1.0,
+            "runtime_shadow_premap_payload_cache_direct_payload_bytes": 0,
+            "runtime_shadow_premap_payload_cache_direct_runtime_execution_kernel_arg_pass_allowed": False,
+            "runtime_shadow_premap_payload_cache_direct_runtime_execution_changes_kernel_launch_args": False,
+        },
+    )
+    contract_payload = _valid_contract_fields()
+    contract_payload.pop("native_stream_packet_count")
+    _write_json(contract, contract_payload)
+    _write_json(
+        count_ptr,
+        {
+            "passed": True,
+            "expected_packet_count": 2560,
+            "prelaunch_native_session_update_count_ptr_v1_abi_ready_count": 2560,
+            "prelaunch_native_session_update_count_ptr_v1_abi_blocked_count": 0,
+            "prelaunch_last_current_count_source_kind": (
+                "num_tokens_post_padded_device_tensor"
+            ),
+            "payload_bytes": 0,
+            "kernel_arg_pass": False,
+            "passed_to_kernel": False,
+            "changes_kernel_launch_args": False,
+        },
+    )
+    args = _args(tmp_path, baseline, candidate, contract)
+    args.count_ptr_readiness = count_ptr
+
+    payload = report.build_report(args)
+
+    assert payload["passed"] is False
+    assert "contract_native_stream_packet_count_missing" in payload["failures"]
 
 
 def test_production_ab_report_rejects_high_overhead(tmp_path: Path) -> None:

@@ -114,6 +114,12 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
     baseline = _load_json(args.baseline_summary)
     candidate = _load_json(args.candidate_summary)
     contract = _load_json(args.online_contract)
+    count_ptr_readiness_path = getattr(args, "count_ptr_readiness", None)
+    count_ptr_readiness = (
+        _load_json(count_ptr_readiness_path)
+        if count_ptr_readiness_path is not None
+        else None
+    )
 
     baseline_tpot = _float(baseline, "generate_seconds_per_requested_output_token")
     candidate_tpot = _float(candidate, "generate_seconds_per_requested_output_token")
@@ -235,6 +241,18 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
         ("native_stream_issue_candidate_count",),
         label="contract_native_stream_issue_candidate_count",
     )
+    contract_native_packet_failures: list[str] = []
+    if "native_stream_packet_count" in contract:
+        (
+            contract_native_stream_packet_count,
+            contract_native_packet_failures,
+        ) = _required_int_any(
+            contract,
+            ("native_stream_packet_count",),
+            label="contract_native_stream_packet_count",
+        )
+    else:
+        contract_native_stream_packet_count = 0
     (
         contract_native_stream_issue_candidate_hash,
         contract_native_hash_failures,
@@ -282,6 +300,103 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
         contract_issue_stream_failures.append(
             "contract_native_stream_issue_candidate_count_mismatch"
         )
+    count_ptr_failures: list[str] = []
+    count_ptr_ready_present = count_ptr_readiness is not None
+    count_ptr_ready_passed = False
+    count_ptr_expected_packet_count = 0
+    count_ptr_ready_count = 0
+    count_ptr_blocked_count = 0
+    count_ptr_payload_bytes = 0
+    count_ptr_kernel_arg_pass = False
+    count_ptr_passed_to_kernel = False
+    count_ptr_changes_kernel_launch_args = False
+    count_ptr_current_count_source_kind = None
+    if count_ptr_readiness is not None:
+        if "native_stream_packet_count" not in contract:
+            contract_native_packet_failures.append(
+                "contract_native_stream_packet_count_missing"
+            )
+        count_ptr_ready_passed = count_ptr_readiness.get("passed") is True
+        (
+            count_ptr_expected_packet_count,
+            count_ptr_expected_failures,
+        ) = _required_int_any(
+            count_ptr_readiness,
+            ("expected_packet_count",),
+            label="count_ptr_expected_packet_count",
+        )
+        count_ptr_ready_count, count_ptr_ready_failures = _required_int_any(
+            count_ptr_readiness,
+            ("prelaunch_native_session_update_count_ptr_v1_abi_ready_count",),
+            label="count_ptr_ready_count",
+        )
+        count_ptr_blocked_count, count_ptr_blocked_failures = _required_int_any(
+            count_ptr_readiness,
+            ("prelaunch_native_session_update_count_ptr_v1_abi_blocked_count",),
+            label="count_ptr_blocked_count",
+        )
+        count_ptr_payload_bytes, count_ptr_payload_failures = _required_int_any(
+            count_ptr_readiness,
+            ("payload_bytes",),
+            label="count_ptr_payload_bytes",
+        )
+        count_ptr_kernel_arg_pass, count_ptr_kernel_arg_failures = _required_false(
+            count_ptr_readiness,
+            "kernel_arg_pass",
+            label="count_ptr_kernel_arg_pass",
+        )
+        count_ptr_passed_to_kernel, count_ptr_passed_to_kernel_failures = (
+            _required_false(
+                count_ptr_readiness,
+                "passed_to_kernel",
+                label="count_ptr_passed_to_kernel",
+            )
+        )
+        (
+            count_ptr_changes_kernel_launch_args,
+            count_ptr_changes_kernel_launch_failures,
+        ) = _required_false(
+            count_ptr_readiness,
+            "changes_kernel_launch_args",
+            label="count_ptr_changes_kernel_launch_args",
+        )
+        count_ptr_current_count_source_kind = count_ptr_readiness.get(
+            "prelaunch_last_current_count_source_kind"
+        )
+        count_ptr_failures.extend(
+            [
+                *count_ptr_expected_failures,
+                *count_ptr_ready_failures,
+                *count_ptr_blocked_failures,
+                *count_ptr_payload_failures,
+                *count_ptr_kernel_arg_failures,
+                *count_ptr_passed_to_kernel_failures,
+                *count_ptr_changes_kernel_launch_failures,
+            ]
+        )
+        if not count_ptr_ready_passed:
+            count_ptr_failures.append("count_ptr_readiness_not_passed")
+        if (
+            not count_ptr_expected_failures
+            and not contract_native_packet_failures
+            and count_ptr_expected_packet_count != contract_native_stream_packet_count
+        ):
+            count_ptr_failures.append("count_ptr_expected_packet_count_mismatch")
+        if (
+            not count_ptr_ready_failures
+            and not contract_native_packet_failures
+            and count_ptr_ready_count != contract_native_stream_packet_count
+        ):
+            count_ptr_failures.append("count_ptr_ready_count_mismatch")
+        if count_ptr_blocked_count != 0:
+            count_ptr_failures.append("count_ptr_blocked_count_nonzero")
+        if count_ptr_payload_bytes != 0:
+            count_ptr_failures.append("count_ptr_payload_bytes_nonzero")
+        if (
+            count_ptr_current_count_source_kind
+            != "num_tokens_post_padded_device_tensor"
+        ):
+            count_ptr_failures.append("count_ptr_current_count_source_kind_mismatch")
     candidate_safety_failures = [
         *candidate_payload_failures,
         *candidate_kernel_arg_failures,
@@ -301,10 +416,12 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
         *contract_native_stream_tpot_failures,
         *contract_expected_issue_failures,
         *contract_native_issue_failures,
+        *contract_native_packet_failures,
         *contract_native_hash_failures,
         *contract_native_persistent_failures,
         *contract_native_issue_generation_failures,
         *contract_issue_stream_failures,
+        *count_ptr_failures,
     ]
     production_ab_passed = (
         contract_passed
@@ -352,6 +469,7 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
                     contract_native_stream_issue_candidate_count
                     != contract_expected_issue_candidate_count,
                 ),
+                ("count_ptr_readiness_failed", bool(count_ptr_failures)),
             )
             if active
         ]
@@ -437,6 +555,7 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
         "online_contract_expected_issue_candidate_count": (
             contract_expected_issue_candidate_count
         ),
+        "native_stream_packet_count": contract_native_stream_packet_count,
         "native_stream_issue_candidate_count": (
             contract_native_stream_issue_candidate_count
         ),
@@ -466,6 +585,21 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
         "native_stream_vectorized_copy_used": bool(
             contract.get("native_stream_vectorized_copy_used", False)
         ),
+        "count_ptr_ready_present": count_ptr_ready_present,
+        "count_ptr_ready_passed": count_ptr_ready_passed,
+        "count_ptr_ready_path": (
+            str(count_ptr_readiness_path.resolve())
+            if count_ptr_readiness_path is not None
+            else None
+        ),
+        "count_ptr_expected_packet_count": count_ptr_expected_packet_count,
+        "count_ptr_ready_count": count_ptr_ready_count,
+        "count_ptr_blocked_count": count_ptr_blocked_count,
+        "count_ptr_current_count_source_kind": count_ptr_current_count_source_kind,
+        "count_ptr_payload_bytes": count_ptr_payload_bytes,
+        "count_ptr_kernel_arg_pass": count_ptr_kernel_arg_pass,
+        "count_ptr_passed_to_kernel": count_ptr_passed_to_kernel,
+        "count_ptr_changes_kernel_launch_args": count_ptr_changes_kernel_launch_args,
         "native_stream_graph_replay_required": (
             contract_native_stream_graph_replay_required
         ),
@@ -498,6 +632,7 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--baseline-summary", type=Path, required=True)
     parser.add_argument("--candidate-summary", type=Path, required=True)
     parser.add_argument("--online-contract", type=Path, required=True)
+    parser.add_argument("--count-ptr-readiness", type=Path)
     parser.add_argument("--output-json", type=Path, required=True)
     parser.add_argument("--max-overhead-ratio", type=float, default=0.02)
     return parser
