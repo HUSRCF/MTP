@@ -47164,6 +47164,65 @@ real payload copy / ready publication: still disabled
 real WNA16 kernel arg mutation: still disabled
 ```
 
+### 2026-07-02 - Payload copy descriptor submit boundary remains blocked but row-backed
+
+The payload/cache-manager path now has a row-backed submit boundary after the
+copy descriptor plan.  The new artifact consumes the same-source
+`premap_payload_cache_copy_descriptor_plan` and materializes the future worker
+submit queue shape, but still refuses submit/dispatch/execute:
+
+```text
+artifact:
+  outputs/reports/premap_kernel_consumer/
+    premap_payload_cache_copy_descriptor_submit_blocked_dolly32_gen64_packet2560_gpu1_lead32_20260702.json
+
+copy_descriptor_count = 4661
+submit_queue_row_count = 4661
+submit_queue_capacity = 4661
+planned_payload_bytes = 298304
+submit_queue_planned_payload_bytes = 298304
+copy_descriptor_submit_checked = true
+copy_descriptor_submit_rejected = true
+copy_descriptor_submit_allowed = false
+copy_descriptor_submitted = false
+copy_descriptor_dispatched = false
+copy_descriptor_executed = false
+payload_bytes = 0
+ready_credit = false
+kernel_arg_pass_allowed = false
+passed_to_kernel = false
+uses_current_wna16_args = false
+```
+
+This moves the useful-work path one step past accounting:
+
+```text
+manager accepted issues
+-> copy descriptor rows
+-> submit queue shape checked
+-> submit still blocked
+```
+
+Validation:
+
+```bash
+PYTHONNOUSERSITE=1 PYTHONPATH=src:. \
+  /home/husrcf/anaconda3/envs/TRY/bin/python -m pytest \
+  tests/test_materialize_premap_payload_cache_copy_descriptor_submit_blocked.py -q
+# 4 passed
+
+PYTHONNOUSERSITE=1 PYTHONPATH=src:. \
+  /home/husrcf/anaconda3/envs/TRY/bin/python \
+  scripts/materialize_premap_payload_cache_copy_descriptor_submit_blocked.py \
+  --copy-descriptor-plan-json \
+    outputs/reports/premap_kernel_consumer/premap_payload_cache_copy_descriptor_plan_dolly32_gen64_packet2560_gpu1_lead32_20260701.json \
+  --output-json \
+    outputs/reports/premap_kernel_consumer/premap_payload_cache_copy_descriptor_submit_blocked_dolly32_gen64_packet2560_gpu1_lead32_20260702.json \
+  --queue-capacity 4661 \
+  --require-pass
+# passed = true, failures = []
+```
+
 2026-06-29 update:
 the payload/cache-manager useful-work path is now a stricter lab precondition
 rather than an isolated replay artifact.  The default readonly lab gate now
