@@ -1573,6 +1573,86 @@ def _summary() -> dict[str, object]:
         "payload_bytes_required": 0,
         "passed_to_kernel_required": False,
         "changes_kernel_launch_args_required": False,
+        "payload_cache_copy_descriptor_plan_gate_ready": True,
+        "payload_cache_copy_descriptor_submit_blocked_gate_ready": True,
+        "payload_cache_copy_descriptor_dispatch_blocked_gate_ready": True,
+        "payload_cache_copy_descriptor_execution_blocked_gate_ready": True,
+        "payload_cache_copy_completion_blocked_gate_ready": True,
+        "payload_cache_ready_credit_blocked_gate_ready": True,
+        "payload_cache_copy_descriptor_plan_required": True,
+        "payload_cache_copy_descriptor_plan_present": True,
+        "payload_cache_copy_descriptor_plan_passed": True,
+        "payload_cache_copy_descriptor_plan_ready": True,
+        "payload_cache_copy_descriptor_plan_count": 4661,
+        "payload_cache_copy_descriptor_plan_issued_prefetch_count": 4661,
+        "payload_cache_copy_descriptor_plan_requested_issue_count": 20160,
+        "payload_cache_copy_descriptor_plan_planned_payload_bytes": 298304,
+        "payload_cache_copy_descriptor_plan_payload_bytes": 0,
+        "payload_cache_copy_descriptor_plan_kernel_arg_pass_allowed": False,
+        "payload_cache_copy_descriptor_plan_passed_to_kernel": False,
+        "payload_cache_copy_descriptor_plan_uses_current_wna16_args": False,
+        **{
+            f"{prefix}_{key}": value
+            for prefix, source_kind, source_schema in (
+                (
+                    "payload_cache_copy_descriptor_submit_blocked",
+                    "premap_payload_cache_copy_descriptor_plan",
+                    "payload_cache_issue_copy_descriptor_plan_v1",
+                ),
+                (
+                    "payload_cache_copy_descriptor_dispatch_blocked",
+                    "premap_payload_cache_copy_descriptor_submit_blocked",
+                    "payload_cache_copy_descriptor_submit_blocked_v1",
+                ),
+                (
+                    "payload_cache_copy_descriptor_execution_blocked",
+                    "premap_payload_cache_copy_descriptor_dispatch_blocked",
+                    "payload_cache_copy_descriptor_dispatch_blocked_v1",
+                ),
+                (
+                    "payload_cache_copy_completion_blocked",
+                    "premap_payload_cache_copy_descriptor_execution_blocked",
+                    "payload_cache_copy_descriptor_execution_blocked_v1",
+                ),
+                (
+                    "payload_cache_ready_credit_blocked",
+                    "premap_payload_cache_copy_completion_blocked",
+                    "payload_cache_copy_completion_blocked_v1",
+                ),
+            )
+            for key, value in {
+                "required": True,
+                "present": True,
+                "passed": True,
+                "ready": True,
+                "count": 4661,
+                "issued_prefetch_count": 4661,
+                "requested_issue_count": 20160,
+                "queue_row_count": 4661,
+                "planned_payload_bytes": 298304,
+                "queue_planned_payload_bytes": 298304,
+                "copy_descriptor_row_hash": (
+                    "d926e83cea0105879f8ce6e98607c046f680fa128e8f7c5818f72ac1d09e352d"
+                ),
+                "copy_descriptor_packet_hash": (
+                    "458446bd55b664d55aea47ffbe93bbcc50cdb64de4229e4cbfe40b1f4abb67d6"
+                ),
+                "payload_bytes": 0,
+                "issued_payload_count": 0,
+                "kernel_arg_pass_allowed": False,
+                "passed_to_kernel": False,
+                "uses_current_wna16_args": False,
+                "ready_credit": False,
+                "real_ready_credit_granted": False,
+                "source_artifact_kind": source_kind,
+                "source_schema_name": source_schema,
+            }.items()
+        },
+        "payload_cache_copy_completion_blocked_copy_completed": False,
+        "payload_cache_copy_completion_blocked_copy_completion_count": 0,
+        "payload_cache_ready_credit_blocked_copy_completed": False,
+        "payload_cache_ready_credit_blocked_copy_completion_count": 0,
+        "payload_cache_ready_credit_blocked_ready_credit_count": 0,
         "default_readonly_gate_sha256": HEX,
         "canary_gate_sha256": HEX,
         "default_kernel_consumer_schema_artifact_sha256": HEX,
@@ -1582,9 +1662,9 @@ def _summary() -> dict[str, object]:
         "default_kernel_consumer_dispatch_ptr_standalone_evidence_sha256": HEX,
         "default_kernel_consumer_arg_slot_standalone_evidence_sha256": HEX,
         "required_evidence": {
-            "required_count": 69,
-            "present_count": 69,
-            "passed_count": 69,
+            "required_count": 79,
+            "present_count": 79,
+            "passed_count": 79,
             "evidence": {
                 "payload_cache_vllm_replay_visible_native_producer_contract_json": {
                     "exists": True,
@@ -1595,6 +1675,26 @@ def _summary() -> dict[str, object]:
                     "passed": True,
                 },
                 "payload_cache_consumer_visible_hit_blocked_gate_json": {
+                    "exists": True,
+                    "passed": True,
+                },
+                "payload_cache_copy_descriptor_submit_blocked_json": {
+                    "exists": True,
+                    "passed": True,
+                },
+                "payload_cache_copy_descriptor_dispatch_blocked_json": {
+                    "exists": True,
+                    "passed": True,
+                },
+                "payload_cache_copy_descriptor_execution_blocked_json": {
+                    "exists": True,
+                    "passed": True,
+                },
+                "payload_cache_copy_completion_blocked_json": {
+                    "exists": True,
+                    "passed": True,
+                },
+                "payload_cache_ready_credit_blocked_json": {
                     "exists": True,
                     "passed": True,
                 },
@@ -5127,6 +5227,31 @@ def test_check_premap_lab_preflight_summary_rejects_missing_payload_consumer_vis
     assert result["passed"] is False
     assert (
         "required_evidence_payload_cache_consumer_visible_hit_blocked_gate_json_missing"
+        in result["failures"]
+    )
+
+
+def test_check_premap_lab_preflight_summary_rejects_copy_completion_gate_not_ready() -> None:
+    summary = _summary()
+    summary["payload_cache_copy_completion_blocked_gate_ready"] = False
+
+    result = check_premap_lab_preflight_summary(summary)
+
+    assert result["passed"] is False
+    assert "payload_cache_copy_completion_blocked_gate_ready_mismatch" in result[
+        "failures"
+    ]
+
+
+def test_check_premap_lab_preflight_summary_rejects_ready_credit_publication() -> None:
+    summary = _summary()
+    summary["payload_cache_ready_credit_blocked_ready_credit_count"] = 1
+
+    result = check_premap_lab_preflight_summary(summary)
+
+    assert result["passed"] is False
+    assert (
+        "payload_cache_ready_credit_blocked_ready_credit_count_mismatch"
         in result["failures"]
     )
 

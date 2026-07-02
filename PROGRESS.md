@@ -2,10 +2,114 @@
 
 ## Progress Version
 
-- Version: `v1.56.1-production-like-payload-cache-envelope`
-- Updated: 2026-07-01
+- Version: `v1.56.2-row-backed-payload-completion-ready-blocked`
+- Updated: 2026-07-02
 
-## Latest Update: Production-Like Payload/Cache A/B Envelope Measured
+## Latest Update: Payload Completion / Ready-Credit Blocked Chain Added
+
+The row-backed payload/cache-manager blocked chain now extends past execution
+boundary into completion publication and ready-credit publication:
+
+```text
+copy descriptor plan
+-> submit blocked
+-> dispatch blocked
+-> execution blocked
+-> completion blocked
+-> ready-credit blocked
+```
+
+The new stages are materialized as first-class artifacts and promoted into the
+default lab preflight required evidence set.  They preserve the current safety
+boundary:
+
+```text
+copy_descriptor_count = 4661
+planned_payload_bytes = 298304
+completion_queue_row_count = 4661
+ready_credit_queue_row_count = 4661
+
+copy_completed = false
+copy_completion_count = 0
+ready_credit = false
+ready_before_demand_credit = false
+real_ready_credit_granted = false
+ready_credit_count = 0
+payload_bytes = 0
+kernel_arg_pass_allowed = false
+passed_to_kernel = false
+uses_current_wna16_args = false
+```
+
+Artifacts:
+
+```text
+outputs/reports/premap_kernel_consumer/premap_payload_cache_copy_completion_blocked_dolly32_gen64_packet2560_gpu1_lead32_20260702.json
+outputs/reports/premap_kernel_consumer/premap_payload_cache_ready_credit_blocked_dolly32_gen64_packet2560_gpu1_lead32_20260702.json
+outputs/reports/premap_kernel_consumer/lab_preflight_completion_ready_blocked_default_gate_summary_20260702.json
+outputs/reports/premap_kernel_consumer/lab_preflight_completion_ready_blocked_default_gate_summary_20260702.check.json
+```
+
+Validation:
+
+```text
+pytest tests/test_materialize_premap_payload_cache_copy_descriptor_plan.py \
+       tests/test_materialize_premap_payload_cache_copy_descriptor_submit_blocked.py \
+       tests/test_materialize_premap_payload_cache_copy_descriptor_dispatch_blocked.py \
+       tests/test_materialize_premap_payload_cache_copy_descriptor_execution_blocked.py \
+       tests/test_materialize_premap_payload_cache_copy_completion_blocked.py \
+       tests/test_materialize_premap_payload_cache_ready_credit_blocked.py -q
+# 38 passed
+
+pytest tests/test_run_premap_lab_preflight.py \
+       tests/test_check_premap_lab_preflight_summary.py -q
+# 487 passed
+
+python scripts/run_premap_lab_preflight.py \
+  --default-readonly-gate configs/runtime/premap_consumer_readonly_gate_dolly128_gen64_awq_w7900_gpu1_live_connected_readonly.yaml \
+  --summary-only \
+  --output-json outputs/reports/premap_kernel_consumer/lab_preflight_completion_ready_blocked_default_gate_summary_20260702.json
+# passed = true, required_evidence = 79 / 79 / 79
+
+python scripts/check_premap_lab_preflight_summary.py \
+  outputs/reports/premap_kernel_consumer/lab_preflight_completion_ready_blocked_default_gate_summary_20260702.json \
+  --output-json outputs/reports/premap_kernel_consumer/lab_preflight_completion_ready_blocked_default_gate_summary_20260702.check.json
+# passed = true
+```
+
+Review follow-up:
+
+```text
+The compact summary checker now validates the blocked-chain summary contract
+directly, not just required-evidence presence:
+  gate_ready
+  row counts
+  planned bytes
+  row/packet hash continuity
+  source artifact/schema chain
+  payload/kernel/WNA16/ready-credit safety flags
+  completion_count = 0
+  ready_credit_count = 0
+```
+
+Boundary:
+
+```text
+This is not payload copy execution and not a ready-credit runtime claim.
+It only proves that completion publication and ready-credit publication are
+now explicit row-backed blocked stages under the lab gate.
+```
+
+Next gate:
+
+```text
+Decide between:
+  1. native execution adapter that consumes the completed blocked chain, or
+  2. a real payload-copy canary that keeps ready credit and WNA16 kernel args
+     disabled until copy completion evidence is stable.
+```
+
+## Previous Update: Production-Like Payload/Cache A/B Envelope Measured
 
 The same-source packet-budget lab precondition now protects a production-like
 payload/cache-manager A/B run on GPU1 Dolly32/gen64.  The tested candidate is
@@ -47339,6 +47443,121 @@ PYTHONNOUSERSITE=1 PYTHONPATH=src:. \
   --output-json \
     outputs/reports/premap_kernel_consumer/premap_payload_cache_copy_descriptor_execution_blocked_dolly32_gen64_packet2560_gpu1_lead32_20260702.json \
   --execution-capacity 4661 \
+  --require-pass
+# passed = true, failures = []
+```
+
+### 2026-07-02 - Payload copy completion publication remains blocked but row-backed
+
+The payload-copy path now reaches the future completion publication boundary.
+This is still not a payload runtime: the completion queue is shape-checked from
+the same row-backed descriptor chain, but no copy is marked complete and no
+ready credit is granted.
+
+```text
+artifact:
+  outputs/reports/premap_kernel_consumer/
+    premap_payload_cache_copy_completion_blocked_dolly32_gen64_packet2560_gpu1_lead32_20260702.json
+
+copy_descriptor_count = 4661
+submit_queue_row_count = 4661
+dispatch_queue_row_count = 4661
+execution_queue_row_count = 4661
+completion_queue_row_count = 4661
+completion_capacity = 4661
+planned_payload_bytes = 298304
+completion_queue_planned_payload_bytes = 298304
+copy_completion_checked = true
+copy_completion_rejected = true
+copy_completion_allowed = false
+copy_completed = false
+copy_completion_count = 0
+payload_bytes = 0
+ready_credit = false
+real_ready_credit_granted = false
+kernel_arg_pass_allowed = false
+passed_to_kernel = false
+uses_current_wna16_args = false
+```
+
+### 2026-07-02 - Payload ready-credit publication remains blocked but row-backed
+
+The payload/cache chain now reaches the ready-credit publication boundary while
+keeping the full no-payload/no-ready/no-kernel envelope intact.
+
+```text
+artifact:
+  outputs/reports/premap_kernel_consumer/
+    premap_payload_cache_ready_credit_blocked_dolly32_gen64_packet2560_gpu1_lead32_20260702.json
+
+copy_descriptor_count = 4661
+submit_queue_row_count = 4661
+dispatch_queue_row_count = 4661
+execution_queue_row_count = 4661
+completion_queue_row_count = 4661
+ready_credit_queue_row_count = 4661
+ready_credit_capacity = 4661
+planned_payload_bytes = 298304
+ready_credit_queue_planned_payload_bytes = 298304
+ready_credit_checked = true
+ready_credit_rejected = true
+ready_credit_allowed = false
+ready_credit = false
+ready_before_demand_credit = false
+real_ready_credit_granted = false
+ready_credit_count = 0
+copy_completed = false
+copy_completion_count = 0
+payload_bytes = 0
+kernel_arg_pass_allowed = false
+passed_to_kernel = false
+uses_current_wna16_args = false
+```
+
+The payload path evidence chain is now:
+
+```text
+manager accepted issues
+-> copy descriptor rows
+-> submit queue shape checked, submit blocked
+-> dispatch queue shape checked, dispatch blocked
+-> execution queue shape checked, execution blocked
+-> completion queue shape checked, completion blocked
+-> ready-credit queue shape checked, ready-credit blocked
+```
+
+Validation:
+
+```bash
+PYTHONNOUSERSITE=1 PYTHONPATH=src:. \
+  /home/husrcf/anaconda3/envs/TRY/bin/python -m pytest \
+  tests/test_materialize_premap_payload_cache_copy_descriptor_plan.py \
+  tests/test_materialize_premap_payload_cache_copy_descriptor_submit_blocked.py \
+  tests/test_materialize_premap_payload_cache_copy_descriptor_dispatch_blocked.py \
+  tests/test_materialize_premap_payload_cache_copy_descriptor_execution_blocked.py \
+  tests/test_materialize_premap_payload_cache_copy_completion_blocked.py \
+  tests/test_materialize_premap_payload_cache_ready_credit_blocked.py -q
+# 36 passed
+
+PYTHONNOUSERSITE=1 PYTHONPATH=src:. \
+  /home/husrcf/anaconda3/envs/TRY/bin/python \
+  scripts/materialize_premap_payload_cache_copy_completion_blocked.py \
+  --copy-descriptor-execution-blocked-json \
+    outputs/reports/premap_kernel_consumer/premap_payload_cache_copy_descriptor_execution_blocked_dolly32_gen64_packet2560_gpu1_lead32_20260702.json \
+  --output-json \
+    outputs/reports/premap_kernel_consumer/premap_payload_cache_copy_completion_blocked_dolly32_gen64_packet2560_gpu1_lead32_20260702.json \
+  --completion-capacity 4661 \
+  --require-pass
+# passed = true, failures = []
+
+PYTHONNOUSERSITE=1 PYTHONPATH=src:. \
+  /home/husrcf/anaconda3/envs/TRY/bin/python \
+  scripts/materialize_premap_payload_cache_ready_credit_blocked.py \
+  --copy-completion-blocked-json \
+    outputs/reports/premap_kernel_consumer/premap_payload_cache_copy_completion_blocked_dolly32_gen64_packet2560_gpu1_lead32_20260702.json \
+  --output-json \
+    outputs/reports/premap_kernel_consumer/premap_payload_cache_ready_credit_blocked_dolly32_gen64_packet2560_gpu1_lead32_20260702.json \
+  --ready-credit-capacity 4661 \
   --require-pass
 # passed = true, failures = []
 ```

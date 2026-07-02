@@ -34,7 +34,7 @@ REQUIRED_SHA_FIELDS = [
     "default_kernel_consumer_arg_slot_standalone_evidence_sha256",
     "default_kernel_consumer_wna16_side_variant_evidence_sha256",
 ]
-EXPECTED_REQUIRED_EVIDENCE_COUNT = 69
+EXPECTED_REQUIRED_EVIDENCE_COUNT = 79
 VLLM_REPLAY_VISIBLE_NATIVE_PRODUCER_REQUIRED_LABEL = (
     "payload_cache_vllm_replay_visible_native_producer_contract_json"
 )
@@ -45,7 +45,41 @@ REQUIRED_EVIDENCE_LABELS = (
     VLLM_REPLAY_VISIBLE_NATIVE_PRODUCER_REQUIRED_LABEL,
     VLLM_REPLAY_VISIBLE_COUNT_PTR_NATIVE_PRODUCER_REQUIRED_LABEL,
     "payload_cache_consumer_visible_hit_blocked_gate_json",
+    "payload_cache_copy_descriptor_submit_blocked_json",
+    "payload_cache_copy_descriptor_dispatch_blocked_json",
+    "payload_cache_copy_descriptor_execution_blocked_json",
+    "payload_cache_copy_completion_blocked_json",
+    "payload_cache_ready_credit_blocked_json",
 )
+PAYLOAD_CACHE_COPY_BLOCKED_CHAIN_PREFIXES = (
+    "payload_cache_copy_descriptor_submit_blocked",
+    "payload_cache_copy_descriptor_dispatch_blocked",
+    "payload_cache_copy_descriptor_execution_blocked",
+    "payload_cache_copy_completion_blocked",
+    "payload_cache_ready_credit_blocked",
+)
+PAYLOAD_CACHE_COPY_BLOCKED_CHAIN_SOURCE_CONTRACT = {
+    "payload_cache_copy_descriptor_submit_blocked": (
+        "premap_payload_cache_copy_descriptor_plan",
+        "payload_cache_issue_copy_descriptor_plan_v1",
+    ),
+    "payload_cache_copy_descriptor_dispatch_blocked": (
+        "premap_payload_cache_copy_descriptor_submit_blocked",
+        "payload_cache_copy_descriptor_submit_blocked_v1",
+    ),
+    "payload_cache_copy_descriptor_execution_blocked": (
+        "premap_payload_cache_copy_descriptor_dispatch_blocked",
+        "payload_cache_copy_descriptor_dispatch_blocked_v1",
+    ),
+    "payload_cache_copy_completion_blocked": (
+        "premap_payload_cache_copy_descriptor_execution_blocked",
+        "payload_cache_copy_descriptor_execution_blocked_v1",
+    ),
+    "payload_cache_ready_credit_blocked": (
+        "premap_payload_cache_copy_completion_blocked",
+        "payload_cache_copy_completion_blocked_v1",
+    ),
+}
 REQUIRED_LAYOUT_CHECKS = {
     "default_kernel_consumer_kernel_arg_packet_layout_reported": True,
     "default_kernel_consumer_kernel_entry_summary_layout_reported": True,
@@ -140,6 +174,116 @@ def _float_metric(summary: dict[str, Any], key: str) -> float | None:
     if isinstance(value, (int, float)):
         return float(value)
     return None
+
+
+def _check_payload_cache_copy_blocked_chain_summary(
+    summary: dict[str, Any],
+    failures: list[str],
+) -> None:
+    plan_prefix = "payload_cache_copy_descriptor_plan"
+    if summary.get(f"{plan_prefix}_gate_ready") is not True:
+        failures.append(f"{plan_prefix}_gate_ready_mismatch")
+    for suffix, expected in (
+        ("required", True),
+        ("present", True),
+        ("passed", True),
+        ("ready", True),
+        ("payload_bytes", 0),
+        ("kernel_arg_pass_allowed", False),
+        ("passed_to_kernel", False),
+        ("uses_current_wna16_args", False),
+    ):
+        key = f"{plan_prefix}_{suffix}"
+        if isinstance(expected, bool):
+            if summary.get(key) is not expected:
+                failures.append(f"{key}_mismatch")
+        elif _int_metric(summary, key) != expected:
+            failures.append(f"{key}_mismatch")
+
+    plan_count = _int_metric(summary, f"{plan_prefix}_count")
+    plan_issued = _int_metric(summary, f"{plan_prefix}_issued_prefetch_count")
+    plan_requested = _int_metric(summary, f"{plan_prefix}_requested_issue_count")
+    plan_bytes = _int_metric(summary, f"{plan_prefix}_planned_payload_bytes")
+    if plan_count is None or plan_count <= 0:
+        failures.append(f"{plan_prefix}_count_invalid")
+    if plan_count is not None and plan_issued != plan_count:
+        failures.append(f"{plan_prefix}_issued_prefetch_count_mismatch")
+    if plan_requested is None or plan_requested <= 0:
+        failures.append(f"{plan_prefix}_requested_issue_count_invalid")
+    if plan_bytes is None or plan_bytes <= 0:
+        failures.append(f"{plan_prefix}_planned_payload_bytes_invalid")
+
+    baseline_row_hash: str | None = None
+    baseline_packet_hash: str | None = None
+    for prefix in PAYLOAD_CACHE_COPY_BLOCKED_CHAIN_PREFIXES:
+        if summary.get(f"{prefix}_gate_ready") is not True:
+            failures.append(f"{prefix}_gate_ready_mismatch")
+        for suffix, expected in (
+            ("required", True),
+            ("present", True),
+            ("passed", True),
+            ("ready", True),
+            ("payload_bytes", 0),
+            ("issued_payload_count", 0),
+            ("kernel_arg_pass_allowed", False),
+            ("passed_to_kernel", False),
+            ("uses_current_wna16_args", False),
+            ("ready_credit", False),
+            ("real_ready_credit_granted", False),
+        ):
+            key = f"{prefix}_{suffix}"
+            if isinstance(expected, bool):
+                if summary.get(key) is not expected:
+                    failures.append(f"{key}_mismatch")
+            elif _int_metric(summary, key) != expected:
+                failures.append(f"{key}_mismatch")
+
+        expected_source_kind, expected_source_schema = (
+            PAYLOAD_CACHE_COPY_BLOCKED_CHAIN_SOURCE_CONTRACT[prefix]
+        )
+        if summary.get(f"{prefix}_source_artifact_kind") != expected_source_kind:
+            failures.append(f"{prefix}_source_artifact_kind_mismatch")
+        if summary.get(f"{prefix}_source_schema_name") != expected_source_schema:
+            failures.append(f"{prefix}_source_schema_name_mismatch")
+
+        if plan_count is not None:
+            for suffix in ("count", "issued_prefetch_count", "queue_row_count"):
+                if _int_metric(summary, f"{prefix}_{suffix}") != plan_count:
+                    failures.append(f"{prefix}_{suffix}_mismatch")
+        if plan_requested is not None and (
+            _int_metric(summary, f"{prefix}_requested_issue_count") != plan_requested
+        ):
+            failures.append(f"{prefix}_requested_issue_count_mismatch")
+        if plan_bytes is not None:
+            for suffix in ("planned_payload_bytes", "queue_planned_payload_bytes"):
+                if _int_metric(summary, f"{prefix}_{suffix}") != plan_bytes:
+                    failures.append(f"{prefix}_{suffix}_mismatch")
+
+        row_hash = summary.get(f"{prefix}_copy_descriptor_row_hash")
+        packet_hash = summary.get(f"{prefix}_copy_descriptor_packet_hash")
+        if not _is_hex64(row_hash):
+            failures.append(f"{prefix}_copy_descriptor_row_hash_invalid")
+        elif baseline_row_hash is None:
+            baseline_row_hash = row_hash
+        elif row_hash != baseline_row_hash:
+            failures.append(f"{prefix}_copy_descriptor_row_hash_mismatch")
+        if not _is_hex64(packet_hash):
+            failures.append(f"{prefix}_copy_descriptor_packet_hash_invalid")
+        elif baseline_packet_hash is None:
+            baseline_packet_hash = packet_hash
+        elif packet_hash != baseline_packet_hash:
+            failures.append(f"{prefix}_copy_descriptor_packet_hash_mismatch")
+
+    for prefix in (
+        "payload_cache_copy_completion_blocked",
+        "payload_cache_ready_credit_blocked",
+    ):
+        if summary.get(f"{prefix}_copy_completed") is not False:
+            failures.append(f"{prefix}_copy_completed_mismatch")
+        if _int_metric(summary, f"{prefix}_copy_completion_count") != 0:
+            failures.append(f"{prefix}_copy_completion_count_mismatch")
+    if _int_metric(summary, "payload_cache_ready_credit_blocked_ready_credit_count") != 0:
+        failures.append("payload_cache_ready_credit_blocked_ready_credit_count_mismatch")
 
 
 def _payloadless_execution_ready(summary: dict[str, Any], failures: list[str]) -> bool:
@@ -9174,6 +9318,8 @@ def check_premap_lab_preflight_summary(
     for key in REQUIRED_SHA_FIELDS:
         if not _is_hex64(summary.get(key)):
             failures.append(f"{key}_invalid")
+
+    _check_payload_cache_copy_blocked_chain_summary(summary, failures)
 
     required = summary.get("required_evidence")
     if not isinstance(required, dict):

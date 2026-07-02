@@ -3505,6 +3505,250 @@ def _payload_cache_copy_descriptor_plan_payload() -> dict[str, object]:
     }
 
 
+def _payload_cache_blocked_common(
+    *,
+    artifact_kind: str,
+    schema_name: str,
+    ready_key: str,
+    source_artifact_kind: str,
+    source_schema_name: str,
+    source_path_key: str,
+    source_sha_key: str,
+    source_path: str,
+    source_sha: str,
+) -> dict[str, object]:
+    payload: dict[str, object] = {
+        "artifact_kind": artifact_kind,
+        "schema_name": schema_name,
+        "passed": True,
+        "failures": [],
+        ready_key: True,
+        "source_artifact_kind": source_artifact_kind,
+        "source_schema_name": source_schema_name,
+        source_path_key: source_path,
+        source_sha_key: source_sha,
+        "copy_descriptor_count": 133,
+        "issued_prefetch_count": 133,
+        "requested_issue_count": 224,
+        "planned_payload_bytes_per_issue": 64,
+        "planned_payload_bytes": 8512,
+        "packet_count": 160,
+        "nonempty_packet_count": 160,
+        "packet_error_count": 0,
+        "copy_descriptor_row_hash": "a" * 64,
+        "copy_descriptor_packet_hash": "b" * 64,
+        "payload_bytes": 0,
+        "issued_payload_count": 0,
+        "payload_transfer_enabled": False,
+        "live_payload_runtime_enabled": False,
+        "payload_transfer_runtime_enabled": False,
+        "payload_deref_allowed": False,
+        "payload_deref_runtime_allowed": False,
+        "ready_credit": False,
+        "ready_before_demand_credit": False,
+        "real_ready_credit_granted": False,
+        "kernel_arg_pass_allowed": False,
+        "passed_to_kernel": False,
+        "changes_kernel_launch_args": False,
+        "full_fetch_runtime_allowed": False,
+        "uses_current_wna16_args": False,
+        "passes_current_wna16_args": False,
+        "measures_tpot": False,
+        "measures_vllm_latency": False,
+        "live_runtime_instantiated": False,
+        "requires_payload_runtime": False,
+    }
+    return payload
+
+
+def _payload_cache_copy_descriptor_submit_blocked_payload(
+    *,
+    source_path: str,
+    source_sha: str,
+) -> dict[str, object]:
+    payload = _payload_cache_blocked_common(
+        artifact_kind="premap_payload_cache_copy_descriptor_submit_blocked",
+        schema_name="payload_cache_copy_descriptor_submit_blocked_v1",
+        ready_key="copy_descriptor_submit_blocked_ready",
+        source_artifact_kind="premap_payload_cache_copy_descriptor_plan",
+        source_schema_name="payload_cache_issue_copy_descriptor_plan_v1",
+        source_path_key="source_copy_descriptor_plan_json",
+        source_sha_key="source_copy_descriptor_plan_sha256",
+        source_path=source_path,
+        source_sha=source_sha,
+    )
+    payload.update(
+        {
+            "source_row_schema_name": "payload_cache_issue_copy_descriptor_row_v1",
+            "submit_queue_shape_checked": True,
+            "submit_queue_capacity": 133,
+            "submit_queue_row_count": 133,
+            "submit_queue_planned_payload_bytes": 8512,
+            "copy_descriptor_submit_checked": True,
+            "copy_descriptor_submit_rejected": True,
+            "copy_descriptor_submit_allowed": False,
+            "copy_descriptor_submitted": False,
+            "copy_descriptor_dispatched": False,
+            "copy_descriptor_executed": False,
+        }
+    )
+    return payload
+
+
+def _payload_cache_copy_descriptor_dispatch_blocked_payload(
+    *,
+    source_path: str,
+    source_sha: str,
+) -> dict[str, object]:
+    payload = _payload_cache_blocked_common(
+        artifact_kind="premap_payload_cache_copy_descriptor_dispatch_blocked",
+        schema_name="payload_cache_copy_descriptor_dispatch_blocked_v1",
+        ready_key="copy_descriptor_dispatch_blocked_ready",
+        source_artifact_kind="premap_payload_cache_copy_descriptor_submit_blocked",
+        source_schema_name="payload_cache_copy_descriptor_submit_blocked_v1",
+        source_path_key="source_copy_descriptor_submit_blocked_json",
+        source_sha_key="source_copy_descriptor_submit_blocked_sha256",
+        source_path=source_path,
+        source_sha=source_sha,
+    )
+    payload.update(
+        {
+            "submit_queue_row_count": 133,
+            "submit_queue_capacity": 133,
+            "dispatch_queue_shape_checked": True,
+            "dispatch_capacity": 133,
+            "dispatch_queue_row_count": 133,
+            "dispatch_queue_planned_payload_bytes": 8512,
+            "copy_descriptor_dispatch_checked": True,
+            "copy_descriptor_dispatch_rejected": True,
+            "copy_descriptor_dispatch_allowed": False,
+            "copy_descriptor_submitted": False,
+            "copy_descriptor_dispatched": False,
+            "copy_descriptor_executed": False,
+        }
+    )
+    return payload
+
+
+def _payload_cache_copy_descriptor_execution_blocked_payload(
+    *,
+    source_path: str,
+    source_sha: str,
+) -> dict[str, object]:
+    payload = _payload_cache_blocked_common(
+        artifact_kind="premap_payload_cache_copy_descriptor_execution_blocked",
+        schema_name="payload_cache_copy_descriptor_execution_blocked_v1",
+        ready_key="copy_descriptor_execution_blocked_ready",
+        source_artifact_kind="premap_payload_cache_copy_descriptor_dispatch_blocked",
+        source_schema_name="payload_cache_copy_descriptor_dispatch_blocked_v1",
+        source_path_key="source_copy_descriptor_dispatch_blocked_json",
+        source_sha_key="source_copy_descriptor_dispatch_blocked_sha256",
+        source_path=source_path,
+        source_sha=source_sha,
+    )
+    payload.update(
+        {
+            "submit_queue_row_count": 133,
+            "dispatch_queue_row_count": 133,
+            "dispatch_capacity": 133,
+            "execution_queue_shape_checked": True,
+            "execution_capacity": 133,
+            "execution_queue_row_count": 133,
+            "execution_queue_planned_payload_bytes": 8512,
+            "copy_descriptor_execution_checked": True,
+            "copy_descriptor_execution_rejected": True,
+            "copy_descriptor_execution_allowed": False,
+            "copy_descriptor_submitted": False,
+            "copy_descriptor_dispatched": False,
+            "copy_descriptor_executed": False,
+        }
+    )
+    return payload
+
+
+def _payload_cache_copy_completion_blocked_payload(
+    *,
+    source_path: str,
+    source_sha: str,
+) -> dict[str, object]:
+    payload = _payload_cache_blocked_common(
+        artifact_kind="premap_payload_cache_copy_completion_blocked",
+        schema_name="payload_cache_copy_completion_blocked_v1",
+        ready_key="copy_completion_blocked_ready",
+        source_artifact_kind="premap_payload_cache_copy_descriptor_execution_blocked",
+        source_schema_name="payload_cache_copy_descriptor_execution_blocked_v1",
+        source_path_key="source_copy_descriptor_execution_blocked_json",
+        source_sha_key="source_copy_descriptor_execution_blocked_sha256",
+        source_path=source_path,
+        source_sha=source_sha,
+    )
+    payload.update(
+        {
+            "submit_queue_row_count": 133,
+            "dispatch_queue_row_count": 133,
+            "dispatch_capacity": 133,
+            "execution_queue_row_count": 133,
+            "execution_capacity": 133,
+            "completion_queue_shape_checked": True,
+            "completion_capacity": 133,
+            "completion_queue_row_count": 133,
+            "completion_queue_planned_payload_bytes": 8512,
+            "copy_completion_checked": True,
+            "copy_completion_rejected": True,
+            "copy_completion_allowed": False,
+            "copy_completed": False,
+            "copy_completion_count": 0,
+            "copy_descriptor_submitted": False,
+            "copy_descriptor_dispatched": False,
+            "copy_descriptor_executed": False,
+        }
+    )
+    return payload
+
+
+def _payload_cache_ready_credit_blocked_payload(
+    *,
+    source_path: str,
+    source_sha: str,
+) -> dict[str, object]:
+    payload = _payload_cache_blocked_common(
+        artifact_kind="premap_payload_cache_ready_credit_blocked",
+        schema_name="payload_cache_ready_credit_blocked_v1",
+        ready_key="ready_credit_blocked_ready",
+        source_artifact_kind="premap_payload_cache_copy_completion_blocked",
+        source_schema_name="payload_cache_copy_completion_blocked_v1",
+        source_path_key="source_copy_completion_blocked_json",
+        source_sha_key="source_copy_completion_blocked_sha256",
+        source_path=source_path,
+        source_sha=source_sha,
+    )
+    payload.update(
+        {
+            "submit_queue_row_count": 133,
+            "dispatch_queue_row_count": 133,
+            "dispatch_capacity": 133,
+            "execution_queue_row_count": 133,
+            "execution_capacity": 133,
+            "completion_queue_row_count": 133,
+            "completion_capacity": 133,
+            "ready_credit_queue_shape_checked": True,
+            "ready_credit_capacity": 133,
+            "ready_credit_queue_row_count": 133,
+            "ready_credit_queue_planned_payload_bytes": 8512,
+            "ready_credit_checked": True,
+            "ready_credit_rejected": True,
+            "ready_credit_allowed": False,
+            "ready_credit_count": 0,
+            "copy_completed": False,
+            "copy_completion_count": 0,
+            "copy_descriptor_submitted": False,
+            "copy_descriptor_dispatched": False,
+            "copy_descriptor_executed": False,
+        }
+    )
+    return payload
+
+
 def _validate_payload_cache_copy_descriptor_plan_with_manager(
     tmp_path: Path,
     payload: dict[str, object],
@@ -6590,6 +6834,21 @@ def _write_gate(
     payload_cache_copy_descriptor_plan_path = (
         f"reports/{name}_payload_cache_copy_descriptor_plan.json"
     )
+    payload_cache_copy_descriptor_submit_blocked_path = (
+        f"reports/{name}_payload_cache_copy_descriptor_submit_blocked.json"
+    )
+    payload_cache_copy_descriptor_dispatch_blocked_path = (
+        f"reports/{name}_payload_cache_copy_descriptor_dispatch_blocked.json"
+    )
+    payload_cache_copy_descriptor_execution_blocked_path = (
+        f"reports/{name}_payload_cache_copy_descriptor_execution_blocked.json"
+    )
+    payload_cache_copy_completion_blocked_path = (
+        f"reports/{name}_payload_cache_copy_completion_blocked.json"
+    )
+    payload_cache_ready_credit_blocked_path = (
+        f"reports/{name}_payload_cache_ready_credit_blocked.json"
+    )
     standalone_wna16_adjacent_typed_slot_canary_path = (
         f"reports/{name}_future_native_wna16_adjacent_typed_slot_standalone_canary.json"
     )
@@ -7711,6 +7970,71 @@ def _write_gate(
             root / payload_cache_copy_descriptor_plan_path,
             json.dumps(_payload_cache_copy_descriptor_plan_payload()) + "\n",
         )
+        plan_sha = hashlib.sha256(
+            (root / payload_cache_copy_descriptor_plan_path).read_bytes()
+        ).hexdigest()
+        _write(
+            root / payload_cache_copy_descriptor_submit_blocked_path,
+            json.dumps(
+                _payload_cache_copy_descriptor_submit_blocked_payload(
+                    source_path=payload_cache_copy_descriptor_plan_path,
+                    source_sha=plan_sha,
+                )
+            )
+            + "\n",
+        )
+        submit_sha = hashlib.sha256(
+            (root / payload_cache_copy_descriptor_submit_blocked_path).read_bytes()
+        ).hexdigest()
+        _write(
+            root / payload_cache_copy_descriptor_dispatch_blocked_path,
+            json.dumps(
+                _payload_cache_copy_descriptor_dispatch_blocked_payload(
+                    source_path=payload_cache_copy_descriptor_submit_blocked_path,
+                    source_sha=submit_sha,
+                )
+            )
+            + "\n",
+        )
+        dispatch_sha = hashlib.sha256(
+            (root / payload_cache_copy_descriptor_dispatch_blocked_path).read_bytes()
+        ).hexdigest()
+        _write(
+            root / payload_cache_copy_descriptor_execution_blocked_path,
+            json.dumps(
+                _payload_cache_copy_descriptor_execution_blocked_payload(
+                    source_path=payload_cache_copy_descriptor_dispatch_blocked_path,
+                    source_sha=dispatch_sha,
+                )
+            )
+            + "\n",
+        )
+        execution_sha = hashlib.sha256(
+            (root / payload_cache_copy_descriptor_execution_blocked_path).read_bytes()
+        ).hexdigest()
+        _write(
+            root / payload_cache_copy_completion_blocked_path,
+            json.dumps(
+                _payload_cache_copy_completion_blocked_payload(
+                    source_path=payload_cache_copy_descriptor_execution_blocked_path,
+                    source_sha=execution_sha,
+                )
+            )
+            + "\n",
+        )
+        completion_sha = hashlib.sha256(
+            (root / payload_cache_copy_completion_blocked_path).read_bytes()
+        ).hexdigest()
+        _write(
+            root / payload_cache_ready_credit_blocked_path,
+            json.dumps(
+                _payload_cache_ready_credit_blocked_payload(
+                    source_path=payload_cache_copy_completion_blocked_path,
+                    source_sha=completion_sha,
+                )
+            )
+            + "\n",
+        )
         for mirror_field, runner_path in (
             ("descriptor_ptr", online_merged_arg_slot_descriptor_ptr_runner_path),
             (
@@ -7907,6 +8231,11 @@ def _write_gate(
         "  payload_cache_manager_production_ab_preflight_required: true\n"
         "  payload_cache_manager_production_ab_preflight_max_envelope_overhead_ratio: 0.05\n"
         "  payload_cache_copy_descriptor_plan_required: true\n"
+        "  payload_cache_copy_descriptor_submit_blocked_required: true\n"
+        "  payload_cache_copy_descriptor_dispatch_blocked_required: true\n"
+        "  payload_cache_copy_descriptor_execution_blocked_required: true\n"
+        "  payload_cache_copy_completion_blocked_required: true\n"
+        "  payload_cache_ready_credit_blocked_required: true\n"
         "  wna16_side_consumer_variant_execution_required: true\n"
         "  wna16_side_consumer_variant_execution_min_source_count: 128\n"
         "  single_field_handle_handoff_canary_required: true\n"
@@ -8140,6 +8469,16 @@ def _write_gate(
             f"{payload_cache_manager_production_ab_preflight_path}\n"
             "  payload_cache_copy_descriptor_plan_json: "
             f"{payload_cache_copy_descriptor_plan_path}\n"
+            "  payload_cache_copy_descriptor_submit_blocked_json: "
+            f"{payload_cache_copy_descriptor_submit_blocked_path}\n"
+            "  payload_cache_copy_descriptor_dispatch_blocked_json: "
+            f"{payload_cache_copy_descriptor_dispatch_blocked_path}\n"
+            "  payload_cache_copy_descriptor_execution_blocked_json: "
+            f"{payload_cache_copy_descriptor_execution_blocked_path}\n"
+            "  payload_cache_copy_completion_blocked_json: "
+            f"{payload_cache_copy_completion_blocked_path}\n"
+            "  payload_cache_ready_credit_blocked_json: "
+            f"{payload_cache_ready_credit_blocked_path}\n"
             "  payload_cache_producer_state_stream_online_contract_json: "
             f"{payload_cache_producer_state_stream_online_contract_path}\n"
             "  payload_cache_stream_producer_production_ab_bridge_json: "
@@ -8245,7 +8584,7 @@ def test_premap_lab_preflight_accepts_default_readonly_wiring(tmp_path: Path):
     assert result["passed"] is True
     assert result["failures"] == []
     assert result["runtime_gate_evidence_scan"]["gate_count"] == 5
-    assert result["runtime_gate_evidence_scan"]["evidence_path_count"] == 170
+    assert result["runtime_gate_evidence_scan"]["evidence_path_count"] == 180
     assert result["default_readonly_gate_required_evidence_check"]["passed"] is True
     summary = result["lab_gate_status_summary"]
     assert summary["passed"] is True
@@ -10510,9 +10849,9 @@ def test_premap_lab_preflight_accepts_default_readonly_wiring(tmp_path: Path):
     assert summary["payload_bytes_required"] == 0
     assert summary["passed_to_kernel_required"] is False
     assert summary["changes_kernel_launch_args_required"] is False
-    assert summary["required_evidence"]["required_count"] == 74
-    assert summary["required_evidence"]["present_count"] == 74
-    assert summary["required_evidence"]["passed_count"] == 74
+    assert summary["required_evidence"]["required_count"] == 79
+    assert summary["required_evidence"]["present_count"] == 79
+    assert summary["required_evidence"]["passed_count"] == 79
     assert summary["optional_evidence"]["required_count"] == 15
     assert summary["optional_evidence"]["present_count"] == 13
     assert summary["optional_evidence"]["passed_count"] == 13
@@ -12108,7 +12447,7 @@ def test_premap_lab_preflight_rejects_missing_optional_future_args_coverage(
         "default_kernel_consumer_future_kernel_args_total_mirror_coverage_incomplete"
         in result["failures"]
     )
-    assert summary["required_evidence"]["passed_count"] == 74
+    assert summary["required_evidence"]["passed_count"] == 79
     assert summary["default_optional_evidence_passed"] is True
     assert (
         summary[
@@ -14222,6 +14561,11 @@ def test_premap_lab_preflight_rejects_default_gate_without_typed_evidence(
         "payload_cache_manager_useful_work_ab_gate_json:missing_evidence_path",
         "payload_cache_manager_production_ab_preflight_json:missing_evidence_path",
         "payload_cache_copy_descriptor_plan_json:missing_evidence_path",
+        "payload_cache_copy_descriptor_submit_blocked_json:missing_evidence_path",
+        "payload_cache_copy_descriptor_dispatch_blocked_json:missing_evidence_path",
+        "payload_cache_copy_descriptor_execution_blocked_json:missing_evidence_path",
+        "payload_cache_copy_completion_blocked_json:missing_evidence_path",
+        "payload_cache_ready_credit_blocked_json:missing_evidence_path",
         "payload_cache_stream_producer_production_ab_bridge_json:missing_evidence_path",
         "payload_cache_stream_producer_production_ab_bridge_check_json:missing_evidence_path",
         "strict_live_connected_readonly_128_gate_json:missing_evidence_path",
@@ -19653,9 +19997,9 @@ def test_premap_lab_preflight_can_defer_self_referential_runner_evidence(
     assert summary["deferred_online_prelaunch_artifact_evidence"] is False
     assert summary["runtime_gate_evidence_deferred_count"] == 10
     assert summary["strict_default_gate_evidence_deferred_count"] == 5
-    assert summary["required_evidence"]["required_count"] == 74
-    assert summary["required_evidence"]["present_count"] == 72
-    assert summary["required_evidence"]["passed_count"] == 72
+    assert summary["required_evidence"]["required_count"] == 79
+    assert summary["required_evidence"]["present_count"] == 77
+    assert summary["required_evidence"]["passed_count"] == 77
     assert summary["optional_evidence"]["passed_count"] == 13
     for label in (
         "future_kernel_args_compatible_path_16_128export_artifact_check_json",
@@ -20230,7 +20574,7 @@ def test_premap_lab_preflight_cli_writes_summary(tmp_path: Path):
     assert result["runtime_gate_evidence_scan"]["passed"] is True
     assert result["lab_gate_status_summary"]["passed"] is True
     assert (
-        result["lab_gate_status_summary"]["required_evidence"]["passed_count"] == 74
+        result["lab_gate_status_summary"]["required_evidence"]["passed_count"] == 79
     )
 
 
@@ -20266,7 +20610,7 @@ def test_premap_lab_preflight_cli_summary_only_writes_status_block(tmp_path: Pat
     assert exit_code == 0
     assert result["passed"] is True
     assert result["default_readonly_gate_path"] == default_gate
-    assert result["required_evidence"]["passed_count"] == 74
+    assert result["required_evidence"]["passed_count"] == 79
     assert result["optional_evidence"]["passed_count"] == 13
     assert "lab_gate_status_summary" not in result
 

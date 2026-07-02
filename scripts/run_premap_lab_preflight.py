@@ -190,6 +190,11 @@ REQUIRED_DEFAULT_GATE_CONTRACT = {
     "payload_cache_manager_production_ab_preflight_required": True,
     "payload_cache_manager_production_ab_preflight_max_envelope_overhead_ratio": 0.05,
     "payload_cache_copy_descriptor_plan_required": True,
+    "payload_cache_copy_descriptor_submit_blocked_required": True,
+    "payload_cache_copy_descriptor_dispatch_blocked_required": True,
+    "payload_cache_copy_descriptor_execution_blocked_required": True,
+    "payload_cache_copy_completion_blocked_required": True,
+    "payload_cache_ready_credit_blocked_required": True,
     "wna16_side_consumer_variant_execution_required": True,
     "wna16_side_consumer_variant_execution_min_source_count": 128,
     "single_field_handle_handoff_canary_required": True,
@@ -368,6 +373,11 @@ REQUIRED_DEFAULT_GATE_EVIDENCE_JSON_LABELS = {
     "payload_cache_manager_useful_work_ab_gate_json",
     "payload_cache_manager_production_ab_preflight_json",
     "payload_cache_copy_descriptor_plan_json",
+    "payload_cache_copy_descriptor_submit_blocked_json",
+    "payload_cache_copy_descriptor_dispatch_blocked_json",
+    "payload_cache_copy_descriptor_execution_blocked_json",
+    "payload_cache_copy_completion_blocked_json",
+    "payload_cache_ready_credit_blocked_json",
     "payload_cache_stream_producer_production_ab_bridge_json",
     "payload_cache_stream_producer_production_ab_bridge_check_json",
     "future_kernel_native_dispatch_consumer_online_artifact_check_32_128export_json",
@@ -7209,6 +7219,51 @@ def _validate_required_evidence_payload(
         return [
             f"{evidence_label}:{failure}"
             for failure in _validate_payload_cache_copy_descriptor_plan_evidence(
+                evidence,
+                evidence_paths=evidence_paths,
+                root=root,
+            )
+        ]
+    if evidence_label == "payload_cache_copy_descriptor_submit_blocked_json":
+        return [
+            f"{evidence_label}:{failure}"
+            for failure in _validate_payload_cache_copy_descriptor_submit_blocked_evidence(
+                evidence,
+                evidence_paths=evidence_paths,
+                root=root,
+            )
+        ]
+    if evidence_label == "payload_cache_copy_descriptor_dispatch_blocked_json":
+        return [
+            f"{evidence_label}:{failure}"
+            for failure in _validate_payload_cache_copy_descriptor_dispatch_blocked_evidence(
+                evidence,
+                evidence_paths=evidence_paths,
+                root=root,
+            )
+        ]
+    if evidence_label == "payload_cache_copy_descriptor_execution_blocked_json":
+        return [
+            f"{evidence_label}:{failure}"
+            for failure in _validate_payload_cache_copy_descriptor_execution_blocked_evidence(
+                evidence,
+                evidence_paths=evidence_paths,
+                root=root,
+            )
+        ]
+    if evidence_label == "payload_cache_copy_completion_blocked_json":
+        return [
+            f"{evidence_label}:{failure}"
+            for failure in _validate_payload_cache_copy_completion_blocked_evidence(
+                evidence,
+                evidence_paths=evidence_paths,
+                root=root,
+            )
+        ]
+    if evidence_label == "payload_cache_ready_credit_blocked_json":
+        return [
+            f"{evidence_label}:{failure}"
+            for failure in _validate_payload_cache_ready_credit_blocked_evidence(
                 evidence,
                 evidence_paths=evidence_paths,
                 root=root,
@@ -14067,6 +14122,350 @@ def _validate_payload_cache_copy_descriptor_plan_evidence(
     return failures
 
 
+def _validate_payload_cache_copy_blocked_chain_evidence(
+    evidence: dict[str, Any],
+    *,
+    evidence_paths: dict[str, Any] | None,
+    root: Path | None,
+    failure_prefix: str,
+    expected_artifact_kind: str,
+    expected_schema_name: str,
+    ready_field: str,
+    source_label: str,
+    source_path_key: str,
+    source_sha_key: str,
+    source_artifact_kind: str,
+    source_schema_name: str,
+    queue_row_fields: tuple[str, ...],
+    capacity_fields: tuple[str, ...],
+    planned_bytes_field: str,
+    true_fields: tuple[str, ...],
+    false_fields: tuple[str, ...],
+    zero_fields: tuple[str, ...],
+) -> list[str]:
+    failures: list[str] = []
+    expected_values = {
+        "artifact_kind": expected_artifact_kind,
+        "schema_name": expected_schema_name,
+        "passed": True,
+        "failures": [],
+        ready_field: True,
+        "source_artifact_kind": source_artifact_kind,
+        "source_schema_name": source_schema_name,
+        "payload_bytes": 0,
+        "issued_payload_count": 0,
+        "payload_transfer_enabled": False,
+        "live_payload_runtime_enabled": False,
+        "payload_transfer_runtime_enabled": False,
+        "payload_deref_allowed": False,
+        "payload_deref_runtime_allowed": False,
+        "ready_credit": False,
+        "ready_before_demand_credit": False,
+        "real_ready_credit_granted": False,
+        "kernel_arg_pass_allowed": False,
+        "passed_to_kernel": False,
+        "changes_kernel_launch_args": False,
+        "full_fetch_runtime_allowed": False,
+        "uses_current_wna16_args": False,
+        "passes_current_wna16_args": False,
+        "measures_tpot": False,
+        "measures_vllm_latency": False,
+        "live_runtime_instantiated": False,
+        "requires_payload_runtime": False,
+    }
+    for key, expected_value in expected_values.items():
+        if type(evidence.get(key)) is not type(expected_value) or evidence.get(key) != expected_value:
+            failures.append(f"{failure_prefix}_{key}_mismatch")
+    for key in true_fields:
+        if evidence.get(key) is not True:
+            failures.append(f"{failure_prefix}_{key}_mismatch")
+    for key in false_fields:
+        if evidence.get(key) is not False:
+            failures.append(f"{failure_prefix}_{key}_mismatch")
+    for key in zero_fields:
+        if _int_metric(evidence, key) != 0:
+            failures.append(f"{failure_prefix}_{key}_mismatch")
+
+    descriptor_count = _int_metric(evidence, "copy_descriptor_count")
+    issued = _int_metric(evidence, "issued_prefetch_count")
+    requested = _int_metric(evidence, "requested_issue_count")
+    planned_per_issue = _int_metric(evidence, "planned_payload_bytes_per_issue")
+    planned_bytes = _int_metric(evidence, "planned_payload_bytes")
+    queue_planned_bytes = _int_metric(evidence, planned_bytes_field)
+    packet_count = _int_metric(evidence, "packet_count")
+    nonempty_packet_count = _int_metric(evidence, "nonempty_packet_count")
+    packet_error_count = _int_metric(evidence, "packet_error_count")
+
+    if descriptor_count is None or descriptor_count <= 0:
+        failures.append(f"{failure_prefix}_copy_descriptor_count_invalid")
+    for key in queue_row_fields:
+        value = _int_metric(evidence, key)
+        if value is None or descriptor_count is None or value != descriptor_count:
+            failures.append(f"{failure_prefix}_{key}_mismatch")
+    for key in capacity_fields:
+        value = _int_metric(evidence, key)
+        if value is None or descriptor_count is None or value < descriptor_count:
+            failures.append(f"{failure_prefix}_{key}_invalid")
+    if issued is None or descriptor_count is None or issued != descriptor_count:
+        failures.append(f"{failure_prefix}_issued_prefetch_count_mismatch")
+    if requested is None or requested <= 0:
+        failures.append(f"{failure_prefix}_requested_issue_count_invalid")
+    if planned_per_issue is None or planned_per_issue <= 0:
+        failures.append(f"{failure_prefix}_planned_payload_bytes_per_issue_invalid")
+    if (
+        planned_bytes is None
+        or queue_planned_bytes is None
+        or planned_bytes != queue_planned_bytes
+        or descriptor_count is None
+        or planned_per_issue is None
+        or planned_bytes != descriptor_count * planned_per_issue
+        or planned_bytes <= 0
+    ):
+        failures.append(f"{failure_prefix}_planned_payload_bytes_mismatch")
+    if packet_count is None or packet_count <= 0:
+        failures.append(f"{failure_prefix}_packet_count_invalid")
+    if nonempty_packet_count is None or nonempty_packet_count <= 0:
+        failures.append(f"{failure_prefix}_nonempty_packet_count_invalid")
+    if packet_error_count is None or packet_error_count != 0:
+        failures.append(f"{failure_prefix}_packet_error_count_nonzero")
+    for key in ("copy_descriptor_row_hash", "copy_descriptor_packet_hash"):
+        value = evidence.get(key)
+        if (
+            not isinstance(value, str)
+            or len(value) != 64
+            or any(char not in "0123456789abcdef" for char in value.lower())
+        ):
+            failures.append(f"{failure_prefix}_{key}_invalid")
+
+    if root is None or evidence_paths is None:
+        failures.append(f"{failure_prefix}_evidence_paths_missing")
+        return failures
+    source_path = evidence_paths.get(source_label)
+    observed_source_path = evidence.get(source_path_key)
+    if not isinstance(source_path, str) or not source_path:
+        failures.append(f"{failure_prefix}_source_path_missing")
+    elif not isinstance(observed_source_path, str) or not observed_source_path:
+        failures.append(f"{failure_prefix}_{source_path_key}_missing")
+    elif not _path_labels_match(observed_source_path, source_path, root=root):
+        failures.append(f"{failure_prefix}_{source_path_key}_mismatch")
+    observed_source_sha = evidence.get(source_sha_key)
+    expected_source_sha = (
+        _path_label_sha256(source_path, root=root)
+        if isinstance(source_path, str)
+        else None
+    )
+    if not isinstance(observed_source_sha, str) or observed_source_sha != expected_source_sha:
+        failures.append(f"{failure_prefix}_{source_sha_key}_mismatch")
+    return failures
+
+
+def _validate_payload_cache_copy_descriptor_submit_blocked_evidence(
+    evidence: dict[str, Any],
+    *,
+    evidence_paths: dict[str, Any] | None,
+    root: Path | None,
+) -> list[str]:
+    return _validate_payload_cache_copy_blocked_chain_evidence(
+        evidence,
+        evidence_paths=evidence_paths,
+        root=root,
+        failure_prefix="payload_cache_copy_descriptor_submit_blocked",
+        expected_artifact_kind="premap_payload_cache_copy_descriptor_submit_blocked",
+        expected_schema_name="payload_cache_copy_descriptor_submit_blocked_v1",
+        ready_field="copy_descriptor_submit_blocked_ready",
+        source_label="payload_cache_copy_descriptor_plan_json",
+        source_path_key="source_copy_descriptor_plan_json",
+        source_sha_key="source_copy_descriptor_plan_sha256",
+        source_artifact_kind="premap_payload_cache_copy_descriptor_plan",
+        source_schema_name="payload_cache_issue_copy_descriptor_plan_v1",
+        queue_row_fields=("submit_queue_row_count",),
+        capacity_fields=("submit_queue_capacity",),
+        planned_bytes_field="submit_queue_planned_payload_bytes",
+        true_fields=(
+            "submit_queue_shape_checked",
+            "copy_descriptor_submit_checked",
+            "copy_descriptor_submit_rejected",
+        ),
+        false_fields=(
+            "copy_descriptor_submit_allowed",
+            "copy_descriptor_submitted",
+            "copy_descriptor_dispatched",
+            "copy_descriptor_executed",
+        ),
+        zero_fields=(),
+    )
+
+
+def _validate_payload_cache_copy_descriptor_dispatch_blocked_evidence(
+    evidence: dict[str, Any],
+    *,
+    evidence_paths: dict[str, Any] | None,
+    root: Path | None,
+) -> list[str]:
+    return _validate_payload_cache_copy_blocked_chain_evidence(
+        evidence,
+        evidence_paths=evidence_paths,
+        root=root,
+        failure_prefix="payload_cache_copy_descriptor_dispatch_blocked",
+        expected_artifact_kind="premap_payload_cache_copy_descriptor_dispatch_blocked",
+        expected_schema_name="payload_cache_copy_descriptor_dispatch_blocked_v1",
+        ready_field="copy_descriptor_dispatch_blocked_ready",
+        source_label="payload_cache_copy_descriptor_submit_blocked_json",
+        source_path_key="source_copy_descriptor_submit_blocked_json",
+        source_sha_key="source_copy_descriptor_submit_blocked_sha256",
+        source_artifact_kind="premap_payload_cache_copy_descriptor_submit_blocked",
+        source_schema_name="payload_cache_copy_descriptor_submit_blocked_v1",
+        queue_row_fields=("submit_queue_row_count", "dispatch_queue_row_count"),
+        capacity_fields=("submit_queue_capacity", "dispatch_capacity"),
+        planned_bytes_field="dispatch_queue_planned_payload_bytes",
+        true_fields=(
+            "dispatch_queue_shape_checked",
+            "copy_descriptor_dispatch_checked",
+            "copy_descriptor_dispatch_rejected",
+        ),
+        false_fields=(
+            "copy_descriptor_dispatch_allowed",
+            "copy_descriptor_submitted",
+            "copy_descriptor_dispatched",
+            "copy_descriptor_executed",
+        ),
+        zero_fields=(),
+    )
+
+
+def _validate_payload_cache_copy_descriptor_execution_blocked_evidence(
+    evidence: dict[str, Any],
+    *,
+    evidence_paths: dict[str, Any] | None,
+    root: Path | None,
+) -> list[str]:
+    return _validate_payload_cache_copy_blocked_chain_evidence(
+        evidence,
+        evidence_paths=evidence_paths,
+        root=root,
+        failure_prefix="payload_cache_copy_descriptor_execution_blocked",
+        expected_artifact_kind="premap_payload_cache_copy_descriptor_execution_blocked",
+        expected_schema_name="payload_cache_copy_descriptor_execution_blocked_v1",
+        ready_field="copy_descriptor_execution_blocked_ready",
+        source_label="payload_cache_copy_descriptor_dispatch_blocked_json",
+        source_path_key="source_copy_descriptor_dispatch_blocked_json",
+        source_sha_key="source_copy_descriptor_dispatch_blocked_sha256",
+        source_artifact_kind="premap_payload_cache_copy_descriptor_dispatch_blocked",
+        source_schema_name="payload_cache_copy_descriptor_dispatch_blocked_v1",
+        queue_row_fields=(
+            "submit_queue_row_count",
+            "dispatch_queue_row_count",
+            "execution_queue_row_count",
+        ),
+        capacity_fields=("dispatch_capacity", "execution_capacity"),
+        planned_bytes_field="execution_queue_planned_payload_bytes",
+        true_fields=(
+            "execution_queue_shape_checked",
+            "copy_descriptor_execution_checked",
+            "copy_descriptor_execution_rejected",
+        ),
+        false_fields=(
+            "copy_descriptor_execution_allowed",
+            "copy_descriptor_submitted",
+            "copy_descriptor_dispatched",
+            "copy_descriptor_executed",
+        ),
+        zero_fields=(),
+    )
+
+
+def _validate_payload_cache_copy_completion_blocked_evidence(
+    evidence: dict[str, Any],
+    *,
+    evidence_paths: dict[str, Any] | None,
+    root: Path | None,
+) -> list[str]:
+    return _validate_payload_cache_copy_blocked_chain_evidence(
+        evidence,
+        evidence_paths=evidence_paths,
+        root=root,
+        failure_prefix="payload_cache_copy_completion_blocked",
+        expected_artifact_kind="premap_payload_cache_copy_completion_blocked",
+        expected_schema_name="payload_cache_copy_completion_blocked_v1",
+        ready_field="copy_completion_blocked_ready",
+        source_label="payload_cache_copy_descriptor_execution_blocked_json",
+        source_path_key="source_copy_descriptor_execution_blocked_json",
+        source_sha_key="source_copy_descriptor_execution_blocked_sha256",
+        source_artifact_kind="premap_payload_cache_copy_descriptor_execution_blocked",
+        source_schema_name="payload_cache_copy_descriptor_execution_blocked_v1",
+        queue_row_fields=(
+            "submit_queue_row_count",
+            "dispatch_queue_row_count",
+            "execution_queue_row_count",
+            "completion_queue_row_count",
+        ),
+        capacity_fields=("dispatch_capacity", "execution_capacity", "completion_capacity"),
+        planned_bytes_field="completion_queue_planned_payload_bytes",
+        true_fields=(
+            "completion_queue_shape_checked",
+            "copy_completion_checked",
+            "copy_completion_rejected",
+        ),
+        false_fields=(
+            "copy_completion_allowed",
+            "copy_completed",
+            "copy_descriptor_submitted",
+            "copy_descriptor_dispatched",
+            "copy_descriptor_executed",
+        ),
+        zero_fields=("copy_completion_count",),
+    )
+
+
+def _validate_payload_cache_ready_credit_blocked_evidence(
+    evidence: dict[str, Any],
+    *,
+    evidence_paths: dict[str, Any] | None,
+    root: Path | None,
+) -> list[str]:
+    return _validate_payload_cache_copy_blocked_chain_evidence(
+        evidence,
+        evidence_paths=evidence_paths,
+        root=root,
+        failure_prefix="payload_cache_ready_credit_blocked",
+        expected_artifact_kind="premap_payload_cache_ready_credit_blocked",
+        expected_schema_name="payload_cache_ready_credit_blocked_v1",
+        ready_field="ready_credit_blocked_ready",
+        source_label="payload_cache_copy_completion_blocked_json",
+        source_path_key="source_copy_completion_blocked_json",
+        source_sha_key="source_copy_completion_blocked_sha256",
+        source_artifact_kind="premap_payload_cache_copy_completion_blocked",
+        source_schema_name="payload_cache_copy_completion_blocked_v1",
+        queue_row_fields=(
+            "submit_queue_row_count",
+            "dispatch_queue_row_count",
+            "execution_queue_row_count",
+            "completion_queue_row_count",
+            "ready_credit_queue_row_count",
+        ),
+        capacity_fields=(
+            "dispatch_capacity",
+            "execution_capacity",
+            "completion_capacity",
+            "ready_credit_capacity",
+        ),
+        planned_bytes_field="ready_credit_queue_planned_payload_bytes",
+        true_fields=(
+            "ready_credit_queue_shape_checked",
+            "ready_credit_checked",
+            "ready_credit_rejected",
+        ),
+        false_fields=(
+            "ready_credit_allowed",
+            "copy_completed",
+            "copy_descriptor_submitted",
+            "copy_descriptor_dispatched",
+            "copy_descriptor_executed",
+        ),
+        zero_fields=("copy_completion_count", "ready_credit_count"),
+    )
+
+
 def _validate_payload_cache_stream_producer_production_ab_bridge_evidence(
     evidence: dict[str, Any],
     *,
@@ -16575,6 +16974,72 @@ def run_premap_lab_preflight(
         _load_evidence_payload_from_check(
             default_gate_required_evidence_check,
             payload_cache_copy_descriptor_plan_label,
+            root=root,
+        )
+    )
+    payload_cache_copy_descriptor_submit_label = (
+        "payload_cache_copy_descriptor_submit_blocked_json"
+    )
+    payload_cache_copy_descriptor_submit_row = _find_evidence_row(
+        default_gate_required_evidence_check,
+        payload_cache_copy_descriptor_submit_label,
+    )
+    payload_cache_copy_descriptor_submit_payload = (
+        _load_evidence_payload_from_check(
+            default_gate_required_evidence_check,
+            payload_cache_copy_descriptor_submit_label,
+            root=root,
+        )
+    )
+    payload_cache_copy_descriptor_dispatch_label = (
+        "payload_cache_copy_descriptor_dispatch_blocked_json"
+    )
+    payload_cache_copy_descriptor_dispatch_row = _find_evidence_row(
+        default_gate_required_evidence_check,
+        payload_cache_copy_descriptor_dispatch_label,
+    )
+    payload_cache_copy_descriptor_dispatch_payload = (
+        _load_evidence_payload_from_check(
+            default_gate_required_evidence_check,
+            payload_cache_copy_descriptor_dispatch_label,
+            root=root,
+        )
+    )
+    payload_cache_copy_descriptor_execution_label = (
+        "payload_cache_copy_descriptor_execution_blocked_json"
+    )
+    payload_cache_copy_descriptor_execution_row = _find_evidence_row(
+        default_gate_required_evidence_check,
+        payload_cache_copy_descriptor_execution_label,
+    )
+    payload_cache_copy_descriptor_execution_payload = (
+        _load_evidence_payload_from_check(
+            default_gate_required_evidence_check,
+            payload_cache_copy_descriptor_execution_label,
+            root=root,
+        )
+    )
+    payload_cache_copy_completion_label = "payload_cache_copy_completion_blocked_json"
+    payload_cache_copy_completion_row = _find_evidence_row(
+        default_gate_required_evidence_check,
+        payload_cache_copy_completion_label,
+    )
+    payload_cache_copy_completion_payload = (
+        _load_evidence_payload_from_check(
+            default_gate_required_evidence_check,
+            payload_cache_copy_completion_label,
+            root=root,
+        )
+    )
+    payload_cache_ready_credit_label = "payload_cache_ready_credit_blocked_json"
+    payload_cache_ready_credit_row = _find_evidence_row(
+        default_gate_required_evidence_check,
+        payload_cache_ready_credit_label,
+    )
+    payload_cache_ready_credit_payload = (
+        _load_evidence_payload_from_check(
+            default_gate_required_evidence_check,
+            payload_cache_ready_credit_label,
             root=root,
         )
     )
@@ -28451,6 +28916,127 @@ def run_premap_lab_preflight(
         )
         is False
     )
+    def _copy_blocked_summary_fields(
+        *,
+        prefix: str,
+        row: dict[str, Any],
+        payload: dict[str, Any],
+        ready_key: str,
+        queue_row_key: str,
+        queue_planned_bytes_key: str,
+    ) -> dict[str, Any]:
+        return {
+            f"{prefix}_required": True,
+            f"{prefix}_present": row.get("exists") is True,
+            f"{prefix}_passed": _evidence_row_passed(row),
+            f"{prefix}_ready": _bool_metric(payload, ready_key),
+            f"{prefix}_count": _int_metric(payload, "copy_descriptor_count"),
+            f"{prefix}_issued_prefetch_count": _int_metric(
+                payload,
+                "issued_prefetch_count",
+            ),
+            f"{prefix}_requested_issue_count": _int_metric(
+                payload,
+                "requested_issue_count",
+            ),
+            f"{prefix}_planned_payload_bytes": _int_metric(
+                payload,
+                "planned_payload_bytes",
+            ),
+            f"{prefix}_queue_row_count": _int_metric(payload, queue_row_key),
+            f"{prefix}_queue_planned_payload_bytes": _int_metric(
+                payload,
+                queue_planned_bytes_key,
+            ),
+            f"{prefix}_copy_descriptor_row_hash": payload.get(
+                "copy_descriptor_row_hash"
+            ),
+            f"{prefix}_copy_descriptor_packet_hash": payload.get(
+                "copy_descriptor_packet_hash"
+            ),
+            f"{prefix}_payload_bytes": _int_metric(payload, "payload_bytes"),
+            f"{prefix}_issued_payload_count": _int_metric(
+                payload,
+                "issued_payload_count",
+            ),
+            f"{prefix}_ready_credit": _bool_metric(payload, "ready_credit"),
+            f"{prefix}_real_ready_credit_granted": _bool_metric(
+                payload,
+                "real_ready_credit_granted",
+            ),
+            f"{prefix}_kernel_arg_pass_allowed": _bool_metric(
+                payload,
+                "kernel_arg_pass_allowed",
+            ),
+            f"{prefix}_passed_to_kernel": _bool_metric(payload, "passed_to_kernel"),
+            f"{prefix}_uses_current_wna16_args": _bool_metric(
+                payload,
+                "uses_current_wna16_args",
+            ),
+            f"{prefix}_copy_completed": _bool_metric(payload, "copy_completed"),
+            f"{prefix}_copy_completion_count": _int_metric(
+                payload,
+                "copy_completion_count",
+            ),
+            f"{prefix}_ready_credit_count": _int_metric(
+                payload,
+                "ready_credit_count",
+            ),
+            f"{prefix}_source_artifact_kind": payload.get("source_artifact_kind"),
+            f"{prefix}_source_schema_name": payload.get("source_schema_name"),
+        }
+
+    lab_gate_status_summary.update(
+        _copy_blocked_summary_fields(
+            prefix="payload_cache_copy_descriptor_submit_blocked",
+            row=payload_cache_copy_descriptor_submit_row,
+            payload=payload_cache_copy_descriptor_submit_payload,
+            ready_key="copy_descriptor_submit_blocked_ready",
+            queue_row_key="submit_queue_row_count",
+            queue_planned_bytes_key="submit_queue_planned_payload_bytes",
+        )
+    )
+    lab_gate_status_summary.update(
+        _copy_blocked_summary_fields(
+            prefix="payload_cache_copy_descriptor_dispatch_blocked",
+            row=payload_cache_copy_descriptor_dispatch_row,
+            payload=payload_cache_copy_descriptor_dispatch_payload,
+            ready_key="copy_descriptor_dispatch_blocked_ready",
+            queue_row_key="dispatch_queue_row_count",
+            queue_planned_bytes_key="dispatch_queue_planned_payload_bytes",
+        )
+    )
+    lab_gate_status_summary.update(
+        _copy_blocked_summary_fields(
+            prefix="payload_cache_copy_descriptor_execution_blocked",
+            row=payload_cache_copy_descriptor_execution_row,
+            payload=payload_cache_copy_descriptor_execution_payload,
+            ready_key="copy_descriptor_execution_blocked_ready",
+            queue_row_key="execution_queue_row_count",
+            queue_planned_bytes_key="execution_queue_planned_payload_bytes",
+        )
+    )
+    lab_gate_status_summary.update(
+        _copy_blocked_summary_fields(
+            prefix="payload_cache_copy_completion_blocked",
+            row=payload_cache_copy_completion_row,
+            payload=payload_cache_copy_completion_payload,
+            ready_key="copy_completion_blocked_ready",
+            queue_row_key="completion_queue_row_count",
+            queue_planned_bytes_key="completion_queue_planned_payload_bytes",
+        )
+    )
+    lab_gate_status_summary.update(
+        _copy_blocked_summary_fields(
+            prefix="payload_cache_ready_credit_blocked",
+            row=payload_cache_ready_credit_row,
+            payload=payload_cache_ready_credit_payload,
+            ready_key="ready_credit_blocked_ready",
+            queue_row_key="ready_credit_queue_row_count",
+            queue_planned_bytes_key="ready_credit_queue_planned_payload_bytes",
+        )
+    )
+
     payload_cache_manager_useful_work_ab_ready = (
         lab_gate_status_summary.get("payload_cache_manager_useful_work_ab_gate_passed")
         is True
@@ -28566,6 +29152,196 @@ def run_premap_lab_preflight(
             "payload_cache_copy_descriptor_plan_uses_current_wna16_args"
         )
         is False
+    )
+    def _blocked_chain_stage_ready(
+        *,
+        prefix: str,
+        upstream_ready: bool,
+        expected_count: int | None,
+        expected_planned_payload_bytes: int | None,
+        expected_row_hash: str | None,
+        expected_packet_hash: str | None,
+    ) -> bool:
+        return (
+            upstream_ready
+            and lab_gate_status_summary.get(f"{prefix}_passed") is True
+            and lab_gate_status_summary.get(f"{prefix}_ready") is True
+            and expected_count is not None
+            and lab_gate_status_summary.get(f"{prefix}_count") == expected_count
+            and lab_gate_status_summary.get(f"{prefix}_issued_prefetch_count")
+            == expected_count
+            and lab_gate_status_summary.get(f"{prefix}_queue_row_count")
+            == expected_count
+            and expected_planned_payload_bytes is not None
+            and lab_gate_status_summary.get(f"{prefix}_planned_payload_bytes")
+            == expected_planned_payload_bytes
+            and lab_gate_status_summary.get(f"{prefix}_queue_planned_payload_bytes")
+            == expected_planned_payload_bytes
+            and expected_row_hash is not None
+            and lab_gate_status_summary.get(f"{prefix}_copy_descriptor_row_hash")
+            == expected_row_hash
+            and expected_packet_hash is not None
+            and lab_gate_status_summary.get(f"{prefix}_copy_descriptor_packet_hash")
+            == expected_packet_hash
+            and lab_gate_status_summary.get(f"{prefix}_payload_bytes") == 0
+            and lab_gate_status_summary.get(f"{prefix}_issued_payload_count") == 0
+            and lab_gate_status_summary.get(f"{prefix}_ready_credit") is False
+            and lab_gate_status_summary.get(f"{prefix}_real_ready_credit_granted")
+            is False
+            and lab_gate_status_summary.get(f"{prefix}_kernel_arg_pass_allowed")
+            is False
+            and lab_gate_status_summary.get(f"{prefix}_passed_to_kernel") is False
+            and lab_gate_status_summary.get(f"{prefix}_uses_current_wna16_args")
+            is False
+        )
+
+    payload_cache_copy_descriptor_plan_count = lab_gate_status_summary.get(
+        "payload_cache_copy_descriptor_plan_count"
+    )
+    payload_cache_copy_descriptor_plan_planned_payload_bytes = (
+        lab_gate_status_summary.get("payload_cache_copy_descriptor_plan_planned_payload_bytes")
+    )
+    payload_cache_copy_descriptor_plan_row_hash = (
+        payload_cache_copy_descriptor_plan_payload.get("copy_descriptor_row_hash")
+    )
+    payload_cache_copy_descriptor_plan_packet_hash = (
+        payload_cache_copy_descriptor_plan_payload.get("copy_descriptor_packet_hash")
+    )
+    payload_cache_copy_descriptor_submit_blocked_ready = _blocked_chain_stage_ready(
+        prefix="payload_cache_copy_descriptor_submit_blocked",
+        upstream_ready=payload_cache_copy_descriptor_plan_ready,
+        expected_count=(
+            payload_cache_copy_descriptor_plan_count
+            if isinstance(payload_cache_copy_descriptor_plan_count, int)
+            else None
+        ),
+        expected_planned_payload_bytes=(
+            payload_cache_copy_descriptor_plan_planned_payload_bytes
+            if isinstance(payload_cache_copy_descriptor_plan_planned_payload_bytes, int)
+            else None
+        ),
+        expected_row_hash=(
+            payload_cache_copy_descriptor_plan_row_hash
+            if isinstance(payload_cache_copy_descriptor_plan_row_hash, str)
+            else None
+        ),
+        expected_packet_hash=(
+            payload_cache_copy_descriptor_plan_packet_hash
+            if isinstance(payload_cache_copy_descriptor_plan_packet_hash, str)
+            else None
+        ),
+    )
+    payload_cache_copy_descriptor_dispatch_blocked_ready = _blocked_chain_stage_ready(
+        prefix="payload_cache_copy_descriptor_dispatch_blocked",
+        upstream_ready=payload_cache_copy_descriptor_submit_blocked_ready,
+        expected_count=(
+            payload_cache_copy_descriptor_plan_count
+            if isinstance(payload_cache_copy_descriptor_plan_count, int)
+            else None
+        ),
+        expected_planned_payload_bytes=(
+            payload_cache_copy_descriptor_plan_planned_payload_bytes
+            if isinstance(payload_cache_copy_descriptor_plan_planned_payload_bytes, int)
+            else None
+        ),
+        expected_row_hash=(
+            payload_cache_copy_descriptor_plan_row_hash
+            if isinstance(payload_cache_copy_descriptor_plan_row_hash, str)
+            else None
+        ),
+        expected_packet_hash=(
+            payload_cache_copy_descriptor_plan_packet_hash
+            if isinstance(payload_cache_copy_descriptor_plan_packet_hash, str)
+            else None
+        ),
+    )
+    payload_cache_copy_descriptor_execution_blocked_ready = _blocked_chain_stage_ready(
+        prefix="payload_cache_copy_descriptor_execution_blocked",
+        upstream_ready=payload_cache_copy_descriptor_dispatch_blocked_ready,
+        expected_count=(
+            payload_cache_copy_descriptor_plan_count
+            if isinstance(payload_cache_copy_descriptor_plan_count, int)
+            else None
+        ),
+        expected_planned_payload_bytes=(
+            payload_cache_copy_descriptor_plan_planned_payload_bytes
+            if isinstance(payload_cache_copy_descriptor_plan_planned_payload_bytes, int)
+            else None
+        ),
+        expected_row_hash=(
+            payload_cache_copy_descriptor_plan_row_hash
+            if isinstance(payload_cache_copy_descriptor_plan_row_hash, str)
+            else None
+        ),
+        expected_packet_hash=(
+            payload_cache_copy_descriptor_plan_packet_hash
+            if isinstance(payload_cache_copy_descriptor_plan_packet_hash, str)
+            else None
+        ),
+    )
+    payload_cache_copy_completion_blocked_ready = (
+        _blocked_chain_stage_ready(
+            prefix="payload_cache_copy_completion_blocked",
+            upstream_ready=payload_cache_copy_descriptor_execution_blocked_ready,
+            expected_count=(
+                payload_cache_copy_descriptor_plan_count
+                if isinstance(payload_cache_copy_descriptor_plan_count, int)
+                else None
+            ),
+            expected_planned_payload_bytes=(
+                payload_cache_copy_descriptor_plan_planned_payload_bytes
+                if isinstance(payload_cache_copy_descriptor_plan_planned_payload_bytes, int)
+                else None
+            ),
+            expected_row_hash=(
+                payload_cache_copy_descriptor_plan_row_hash
+                if isinstance(payload_cache_copy_descriptor_plan_row_hash, str)
+                else None
+            ),
+            expected_packet_hash=(
+                payload_cache_copy_descriptor_plan_packet_hash
+                if isinstance(payload_cache_copy_descriptor_plan_packet_hash, str)
+                else None
+            ),
+        )
+        and lab_gate_status_summary.get("payload_cache_copy_completion_blocked_copy_completed")
+        is False
+        and lab_gate_status_summary.get(
+            "payload_cache_copy_completion_blocked_copy_completion_count"
+        )
+        == 0
+    )
+    payload_cache_ready_credit_blocked_ready = (
+        _blocked_chain_stage_ready(
+            prefix="payload_cache_ready_credit_blocked",
+            upstream_ready=payload_cache_copy_completion_blocked_ready,
+            expected_count=(
+                payload_cache_copy_descriptor_plan_count
+                if isinstance(payload_cache_copy_descriptor_plan_count, int)
+                else None
+            ),
+            expected_planned_payload_bytes=(
+                payload_cache_copy_descriptor_plan_planned_payload_bytes
+                if isinstance(payload_cache_copy_descriptor_plan_planned_payload_bytes, int)
+                else None
+            ),
+            expected_row_hash=(
+                payload_cache_copy_descriptor_plan_row_hash
+                if isinstance(payload_cache_copy_descriptor_plan_row_hash, str)
+                else None
+            ),
+            expected_packet_hash=(
+                payload_cache_copy_descriptor_plan_packet_hash
+                if isinstance(payload_cache_copy_descriptor_plan_packet_hash, str)
+                else None
+            ),
+        )
+        and lab_gate_status_summary.get("payload_cache_ready_credit_blocked_copy_completed")
+        is False
+        and lab_gate_status_summary.get("payload_cache_ready_credit_blocked_copy_completion_count")
+        == 0
+        and lab_gate_status_summary.get("payload_cache_ready_credit_blocked_ready_credit_count")
+        == 0
     )
     wna16_benchmark_prerequisites_ready = (
         all_four_field_consumer_ready
@@ -28693,6 +29469,37 @@ def run_premap_lab_preflight(
         and not payload_cache_copy_descriptor_plan_ready
     ):
         failures.append("payload_cache_copy_descriptor_plan_not_ready")
+    if (
+        REQUIRED_DEFAULT_GATE_CONTRACT[
+            "payload_cache_copy_descriptor_submit_blocked_required"
+        ]
+        and not payload_cache_copy_descriptor_submit_blocked_ready
+    ):
+        failures.append("payload_cache_copy_descriptor_submit_blocked_not_ready")
+    if (
+        REQUIRED_DEFAULT_GATE_CONTRACT[
+            "payload_cache_copy_descriptor_dispatch_blocked_required"
+        ]
+        and not payload_cache_copy_descriptor_dispatch_blocked_ready
+    ):
+        failures.append("payload_cache_copy_descriptor_dispatch_blocked_not_ready")
+    if (
+        REQUIRED_DEFAULT_GATE_CONTRACT[
+            "payload_cache_copy_descriptor_execution_blocked_required"
+        ]
+        and not payload_cache_copy_descriptor_execution_blocked_ready
+    ):
+        failures.append("payload_cache_copy_descriptor_execution_blocked_not_ready")
+    if (
+        REQUIRED_DEFAULT_GATE_CONTRACT["payload_cache_copy_completion_blocked_required"]
+        and not payload_cache_copy_completion_blocked_ready
+    ):
+        failures.append("payload_cache_copy_completion_blocked_not_ready")
+    if (
+        REQUIRED_DEFAULT_GATE_CONTRACT["payload_cache_ready_credit_blocked_required"]
+        and not payload_cache_ready_credit_blocked_ready
+    ):
+        failures.append("payload_cache_ready_credit_blocked_not_ready")
     if future_wna16_payloadless_useful_production_like_timing_gate_ready:
         next_runtime_stage = "future_typed_slot_useful_consumer_or_payload_cache_manager"
     elif future_wna16_payloadless_useful_runtime_ablation_ready:
@@ -28790,6 +29597,21 @@ def run_premap_lab_preflight(
     lab_gate_status_summary[
         "payload_cache_copy_descriptor_plan_gate_ready"
     ] = payload_cache_copy_descriptor_plan_ready
+    lab_gate_status_summary[
+        "payload_cache_copy_descriptor_submit_blocked_gate_ready"
+    ] = payload_cache_copy_descriptor_submit_blocked_ready
+    lab_gate_status_summary[
+        "payload_cache_copy_descriptor_dispatch_blocked_gate_ready"
+    ] = payload_cache_copy_descriptor_dispatch_blocked_ready
+    lab_gate_status_summary[
+        "payload_cache_copy_descriptor_execution_blocked_gate_ready"
+    ] = payload_cache_copy_descriptor_execution_blocked_ready
+    lab_gate_status_summary[
+        "payload_cache_copy_completion_blocked_gate_ready"
+    ] = payload_cache_copy_completion_blocked_ready
+    lab_gate_status_summary[
+        "payload_cache_ready_credit_blocked_gate_ready"
+    ] = payload_cache_ready_credit_blocked_ready
     lab_gate_status_summary[
         "default_kernel_consumer_wna16_side_variant_ready"
     ] = wna16_side_variant_ready
