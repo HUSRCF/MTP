@@ -47223,6 +47223,65 @@ PYTHONNOUSERSITE=1 PYTHONPATH=src:. \
 # passed = true, failures = []
 ```
 
+### 2026-07-02 - Payload copy descriptor dispatch boundary remains blocked but row-backed
+
+The same row-backed payload-copy plan now reaches the dispatch boundary.  This
+still does not dispatch or execute any copy; it only proves that the submit
+queue can be consumed as a future dispatch queue under an explicit capacity:
+
+```text
+artifact:
+  outputs/reports/premap_kernel_consumer/
+    premap_payload_cache_copy_descriptor_dispatch_blocked_dolly32_gen64_packet2560_gpu1_lead32_20260702.json
+
+copy_descriptor_count = 4661
+submit_queue_row_count = 4661
+dispatch_queue_row_count = 4661
+dispatch_capacity = 4661
+planned_payload_bytes = 298304
+dispatch_queue_planned_payload_bytes = 298304
+copy_descriptor_dispatch_checked = true
+copy_descriptor_dispatch_rejected = true
+copy_descriptor_dispatch_allowed = false
+copy_descriptor_submitted = false
+copy_descriptor_dispatched = false
+copy_descriptor_executed = false
+payload_bytes = 0
+ready_credit = false
+kernel_arg_pass_allowed = false
+passed_to_kernel = false
+uses_current_wna16_args = false
+```
+
+The payload path evidence chain is now:
+
+```text
+manager accepted issues
+-> copy descriptor rows
+-> submit queue shape checked, submit blocked
+-> dispatch queue shape checked, dispatch blocked
+```
+
+Validation:
+
+```bash
+PYTHONNOUSERSITE=1 PYTHONPATH=src:. \
+  /home/husrcf/anaconda3/envs/TRY/bin/python -m pytest \
+  tests/test_materialize_premap_payload_cache_copy_descriptor_dispatch_blocked.py -q
+# 4 passed
+
+PYTHONNOUSERSITE=1 PYTHONPATH=src:. \
+  /home/husrcf/anaconda3/envs/TRY/bin/python \
+  scripts/materialize_premap_payload_cache_copy_descriptor_dispatch_blocked.py \
+  --copy-descriptor-submit-blocked-json \
+    outputs/reports/premap_kernel_consumer/premap_payload_cache_copy_descriptor_submit_blocked_dolly32_gen64_packet2560_gpu1_lead32_20260702.json \
+  --output-json \
+    outputs/reports/premap_kernel_consumer/premap_payload_cache_copy_descriptor_dispatch_blocked_dolly32_gen64_packet2560_gpu1_lead32_20260702.json \
+  --dispatch-capacity 4661 \
+  --require-pass
+# passed = true, failures = []
+```
+
 2026-06-29 update:
 the payload/cache-manager useful-work path is now a stricter lab precondition
 rather than an isolated replay artifact.  The default readonly lab gate now
