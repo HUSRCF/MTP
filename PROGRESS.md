@@ -2,10 +2,88 @@
 
 ## Progress Version
 
-- Version: `v1.56.3-native-execution-adapter-blocked`
+- Version: `v1.56.4-native-execution-adapter-payloadless-canary`
 - Updated: 2026-07-02
 
-## Latest Update: Native Execution Adapter Blocked Gate Added
+## Latest Update: Native Execution Adapter Payloadless Canary Added
+
+The row-backed payload/cache-manager chain now has a side-effect-free native
+execution adapter canary after the blocked adapter gate:
+
+```text
+copy descriptor plan
+-> submit blocked
+-> dispatch blocked
+-> execution blocked
+-> completion blocked
+-> ready-credit blocked
+-> native execution adapter blocked
+-> native execution adapter payloadless canary
+```
+
+The new canary consumes the blocked adapter artifact by path + sha256, checks
+the same row/hash/byte continuity, and projects the rows into a native adapter
+execution envelope without granting any runtime effects:
+
+```text
+copy_descriptor_count = 4661
+native_execution_adapter_payloadless_rows_consumed = 4661
+native_execution_adapter_payloadless_field_count = 4
+native_execution_adapter_payloadless_work_units = 18644
+native_execution_adapter_payloadless_expected_work_units = 18644
+native_execution_adapter_payloadless_work_coverage = 1.0
+
+native_execution_adapter_payloadless_allowed = true
+native_execution_adapter_payloadless_executed = true
+native_execution_adapter_effectful_allowed = false
+native_execution_adapter_effectful_execution_count = 0
+
+payload_bytes = 0
+payload_transfer_enabled = false
+ready_credit = false
+real_ready_credit_granted = false
+kernel_arg_pass_allowed = false
+passed_to_kernel = false
+uses_current_wna16_args = false
+```
+
+This is not a real payload-copy or WNA16-arg path.  It only proves that the
+native adapter can consume the row-backed plan as a payloadless execution
+envelope under the existing lab safety boundary.
+
+Artifact:
+
+```text
+outputs/reports/premap_kernel_consumer/premap_payload_cache_native_execution_adapter_payloadless_canary_dolly32_gen64_packet2560_gpu1_lead32_20260702.json
+```
+
+Validation:
+
+```text
+env PYTHONNOUSERSITE=1 PYTHONPATH=src:. /home/husrcf/anaconda3/envs/TRY/bin/python \
+  scripts/materialize_premap_payload_cache_native_execution_adapter_payloadless_canary.py \
+  --native-execution-adapter-blocked-json outputs/reports/premap_kernel_consumer/premap_payload_cache_native_execution_adapter_blocked_dolly32_gen64_packet2560_gpu1_lead32_20260702.json \
+  --output-json outputs/reports/premap_kernel_consumer/premap_payload_cache_native_execution_adapter_payloadless_canary_dolly32_gen64_packet2560_gpu1_lead32_20260702.json \
+  --adapter-capacity 4661 \
+  --require-pass
+# passed = true
+
+env PYTHONNOUSERSITE=1 PYTHONPATH=src:. /home/husrcf/anaconda3/envs/TRY/bin/python \
+  -m pytest tests/test_materialize_premap_payload_cache_native_execution_adapter_payloadless_canary.py -q
+# 7 passed
+```
+
+Next gate:
+
+```text
+Promote this payloadless canary into the lab preflight summary only after it has
+the same compact checker coverage as the blocked chain.  After that, choose
+between:
+  1. native adapter effectful canary with payload/ready still disabled, or
+  2. a real payload copy canary.
+```
+
+## Previous Update: Native Execution Adapter Blocked Gate Added
 
 The row-backed payload/cache-manager chain now reaches a native execution
 adapter boundary while still blocking all real runtime effects:
