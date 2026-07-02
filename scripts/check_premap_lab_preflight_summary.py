@@ -34,7 +34,7 @@ REQUIRED_SHA_FIELDS = [
     "default_kernel_consumer_arg_slot_standalone_evidence_sha256",
     "default_kernel_consumer_wna16_side_variant_evidence_sha256",
 ]
-EXPECTED_REQUIRED_EVIDENCE_COUNT = 79
+EXPECTED_REQUIRED_EVIDENCE_COUNT = 80
 VLLM_REPLAY_VISIBLE_NATIVE_PRODUCER_REQUIRED_LABEL = (
     "payload_cache_vllm_replay_visible_native_producer_contract_json"
 )
@@ -50,6 +50,7 @@ REQUIRED_EVIDENCE_LABELS = (
     "payload_cache_copy_descriptor_execution_blocked_json",
     "payload_cache_copy_completion_blocked_json",
     "payload_cache_ready_credit_blocked_json",
+    "payload_cache_native_execution_adapter_blocked_json",
 )
 PAYLOAD_CACHE_COPY_BLOCKED_CHAIN_PREFIXES = (
     "payload_cache_copy_descriptor_submit_blocked",
@@ -57,6 +58,7 @@ PAYLOAD_CACHE_COPY_BLOCKED_CHAIN_PREFIXES = (
     "payload_cache_copy_descriptor_execution_blocked",
     "payload_cache_copy_completion_blocked",
     "payload_cache_ready_credit_blocked",
+    "payload_cache_native_execution_adapter_blocked",
 )
 PAYLOAD_CACHE_COPY_BLOCKED_CHAIN_SOURCE_CONTRACT = {
     "payload_cache_copy_descriptor_submit_blocked": (
@@ -78,6 +80,10 @@ PAYLOAD_CACHE_COPY_BLOCKED_CHAIN_SOURCE_CONTRACT = {
     "payload_cache_ready_credit_blocked": (
         "premap_payload_cache_copy_completion_blocked",
         "payload_cache_copy_completion_blocked_v1",
+    ),
+    "payload_cache_native_execution_adapter_blocked": (
+        "premap_payload_cache_ready_credit_blocked",
+        "payload_cache_ready_credit_blocked_v1",
     ),
 }
 REQUIRED_LAYOUT_CHECKS = {
@@ -212,9 +218,15 @@ def _check_payload_cache_copy_blocked_chain_summary(
         failures.append(f"{plan_prefix}_requested_issue_count_invalid")
     if plan_bytes is None or plan_bytes <= 0:
         failures.append(f"{plan_prefix}_planned_payload_bytes_invalid")
+    plan_row_hash = summary.get(f"{plan_prefix}_copy_descriptor_row_hash")
+    plan_packet_hash = summary.get(f"{plan_prefix}_copy_descriptor_packet_hash")
+    if not _is_hex64(plan_row_hash):
+        failures.append(f"{plan_prefix}_copy_descriptor_row_hash_invalid")
+        plan_row_hash = None
+    if not _is_hex64(plan_packet_hash):
+        failures.append(f"{plan_prefix}_copy_descriptor_packet_hash_invalid")
+        plan_packet_hash = None
 
-    baseline_row_hash: str | None = None
-    baseline_packet_hash: str | None = None
     for prefix in PAYLOAD_CACHE_COPY_BLOCKED_CHAIN_PREFIXES:
         if summary.get(f"{prefix}_gate_ready") is not True:
             failures.append(f"{prefix}_gate_ready_mismatch")
@@ -263,20 +275,17 @@ def _check_payload_cache_copy_blocked_chain_summary(
         packet_hash = summary.get(f"{prefix}_copy_descriptor_packet_hash")
         if not _is_hex64(row_hash):
             failures.append(f"{prefix}_copy_descriptor_row_hash_invalid")
-        elif baseline_row_hash is None:
-            baseline_row_hash = row_hash
-        elif row_hash != baseline_row_hash:
+        elif plan_row_hash is not None and row_hash != plan_row_hash:
             failures.append(f"{prefix}_copy_descriptor_row_hash_mismatch")
         if not _is_hex64(packet_hash):
             failures.append(f"{prefix}_copy_descriptor_packet_hash_invalid")
-        elif baseline_packet_hash is None:
-            baseline_packet_hash = packet_hash
-        elif packet_hash != baseline_packet_hash:
+        elif plan_packet_hash is not None and packet_hash != plan_packet_hash:
             failures.append(f"{prefix}_copy_descriptor_packet_hash_mismatch")
 
     for prefix in (
         "payload_cache_copy_completion_blocked",
         "payload_cache_ready_credit_blocked",
+        "payload_cache_native_execution_adapter_blocked",
     ):
         if summary.get(f"{prefix}_copy_completed") is not False:
             failures.append(f"{prefix}_copy_completed_mismatch")
@@ -284,6 +293,31 @@ def _check_payload_cache_copy_blocked_chain_summary(
             failures.append(f"{prefix}_copy_completion_count_mismatch")
     if _int_metric(summary, "payload_cache_ready_credit_blocked_ready_credit_count") != 0:
         failures.append("payload_cache_ready_credit_blocked_ready_credit_count_mismatch")
+    adapter_prefix = "payload_cache_native_execution_adapter_blocked"
+    for suffix, expected in (
+        ("checked", True),
+        ("rejected", True),
+        ("allowed", False),
+        ("consumes_ready_credit_blocked", True),
+    ):
+        key = f"{adapter_prefix}_{suffix}"
+        if summary.get(key) is not expected:
+            failures.append(f"{key}_mismatch")
+    for suffix in (
+        "ready_credit_count",
+        "adapter_ready_credit_count",
+        "execution_count",
+        "completed_count",
+        "payload_copy_count",
+    ):
+        key = f"{adapter_prefix}_{suffix}"
+        if _int_metric(summary, key) != 0:
+            failures.append(f"{key}_mismatch")
+    adapter_capacity = _int_metric(summary, f"{adapter_prefix}_capacity")
+    if plan_count is not None and (
+        adapter_capacity is None or adapter_capacity < plan_count
+    ):
+        failures.append(f"{adapter_prefix}_capacity_invalid")
 
 
 def _payloadless_execution_ready(summary: dict[str, Any], failures: list[str]) -> bool:

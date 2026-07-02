@@ -1579,6 +1579,7 @@ def _summary() -> dict[str, object]:
         "payload_cache_copy_descriptor_execution_blocked_gate_ready": True,
         "payload_cache_copy_completion_blocked_gate_ready": True,
         "payload_cache_ready_credit_blocked_gate_ready": True,
+        "payload_cache_native_execution_adapter_blocked_gate_ready": True,
         "payload_cache_copy_descriptor_plan_required": True,
         "payload_cache_copy_descriptor_plan_present": True,
         "payload_cache_copy_descriptor_plan_passed": True,
@@ -1587,6 +1588,12 @@ def _summary() -> dict[str, object]:
         "payload_cache_copy_descriptor_plan_issued_prefetch_count": 4661,
         "payload_cache_copy_descriptor_plan_requested_issue_count": 20160,
         "payload_cache_copy_descriptor_plan_planned_payload_bytes": 298304,
+        "payload_cache_copy_descriptor_plan_copy_descriptor_row_hash": (
+            "d926e83cea0105879f8ce6e98607c046f680fa128e8f7c5818f72ac1d09e352d"
+        ),
+        "payload_cache_copy_descriptor_plan_copy_descriptor_packet_hash": (
+            "458446bd55b664d55aea47ffbe93bbcc50cdb64de4229e4cbfe40b1f4abb67d6"
+        ),
         "payload_cache_copy_descriptor_plan_payload_bytes": 0,
         "payload_cache_copy_descriptor_plan_kernel_arg_pass_allowed": False,
         "payload_cache_copy_descriptor_plan_passed_to_kernel": False,
@@ -1618,6 +1625,11 @@ def _summary() -> dict[str, object]:
                     "payload_cache_ready_credit_blocked",
                     "premap_payload_cache_copy_completion_blocked",
                     "payload_cache_copy_completion_blocked_v1",
+                ),
+                (
+                    "payload_cache_native_execution_adapter_blocked",
+                    "premap_payload_cache_ready_credit_blocked",
+                    "payload_cache_ready_credit_blocked_v1",
                 ),
             )
             for key, value in {
@@ -1653,6 +1665,18 @@ def _summary() -> dict[str, object]:
         "payload_cache_ready_credit_blocked_copy_completed": False,
         "payload_cache_ready_credit_blocked_copy_completion_count": 0,
         "payload_cache_ready_credit_blocked_ready_credit_count": 0,
+        "payload_cache_native_execution_adapter_blocked_copy_completed": False,
+        "payload_cache_native_execution_adapter_blocked_copy_completion_count": 0,
+        "payload_cache_native_execution_adapter_blocked_ready_credit_count": 0,
+        "payload_cache_native_execution_adapter_blocked_adapter_ready_credit_count": 0,
+        "payload_cache_native_execution_adapter_blocked_capacity": 4661,
+        "payload_cache_native_execution_adapter_blocked_checked": True,
+        "payload_cache_native_execution_adapter_blocked_rejected": True,
+        "payload_cache_native_execution_adapter_blocked_allowed": False,
+        "payload_cache_native_execution_adapter_blocked_consumes_ready_credit_blocked": True,
+        "payload_cache_native_execution_adapter_blocked_execution_count": 0,
+        "payload_cache_native_execution_adapter_blocked_completed_count": 0,
+        "payload_cache_native_execution_adapter_blocked_payload_copy_count": 0,
         "default_readonly_gate_sha256": HEX,
         "canary_gate_sha256": HEX,
         "default_kernel_consumer_schema_artifact_sha256": HEX,
@@ -1662,9 +1686,9 @@ def _summary() -> dict[str, object]:
         "default_kernel_consumer_dispatch_ptr_standalone_evidence_sha256": HEX,
         "default_kernel_consumer_arg_slot_standalone_evidence_sha256": HEX,
         "required_evidence": {
-            "required_count": 79,
-            "present_count": 79,
-            "passed_count": 79,
+            "required_count": 80,
+            "present_count": 80,
+            "passed_count": 80,
             "evidence": {
                 "payload_cache_vllm_replay_visible_native_producer_contract_json": {
                     "exists": True,
@@ -1695,6 +1719,10 @@ def _summary() -> dict[str, object]:
                     "passed": True,
                 },
                 "payload_cache_ready_credit_blocked_json": {
+                    "exists": True,
+                    "passed": True,
+                },
+                "payload_cache_native_execution_adapter_blocked_json": {
                     "exists": True,
                     "passed": True,
                 },
@@ -5252,6 +5280,98 @@ def test_check_premap_lab_preflight_summary_rejects_ready_credit_publication() -
     assert result["passed"] is False
     assert (
         "payload_cache_ready_credit_blocked_ready_credit_count_mismatch"
+        in result["failures"]
+    )
+
+
+def test_check_premap_lab_preflight_summary_rejects_chain_hashes_that_only_match_each_other() -> None:
+    summary = _summary()
+    bad_row_hash = "c" * 64
+    bad_packet_hash = "d" * 64
+    for prefix in (
+        "payload_cache_copy_descriptor_submit_blocked",
+        "payload_cache_copy_descriptor_dispatch_blocked",
+        "payload_cache_copy_descriptor_execution_blocked",
+        "payload_cache_copy_completion_blocked",
+        "payload_cache_ready_credit_blocked",
+        "payload_cache_native_execution_adapter_blocked",
+    ):
+        summary[f"{prefix}_copy_descriptor_row_hash"] = bad_row_hash
+        summary[f"{prefix}_copy_descriptor_packet_hash"] = bad_packet_hash
+
+    result = check_premap_lab_preflight_summary(summary)
+
+    assert result["passed"] is False
+    assert "payload_cache_copy_descriptor_submit_blocked_copy_descriptor_row_hash_mismatch" in result[
+        "failures"
+    ]
+    assert (
+        "payload_cache_native_execution_adapter_blocked_copy_descriptor_packet_hash_mismatch"
+        in result["failures"]
+    )
+
+
+def test_check_premap_lab_preflight_summary_rejects_native_adapter_gate_not_ready() -> None:
+    summary = _summary()
+    summary["payload_cache_native_execution_adapter_blocked_gate_ready"] = False
+
+    result = check_premap_lab_preflight_summary(summary)
+
+    assert result["passed"] is False
+    assert (
+        "payload_cache_native_execution_adapter_blocked_gate_ready_mismatch"
+        in result["failures"]
+    )
+
+
+def test_check_premap_lab_preflight_summary_rejects_native_adapter_execution() -> None:
+    summary = _summary()
+    summary["payload_cache_native_execution_adapter_blocked_execution_count"] = 1
+
+    result = check_premap_lab_preflight_summary(summary)
+
+    assert result["passed"] is False
+    assert (
+        "payload_cache_native_execution_adapter_blocked_execution_count_mismatch"
+        in result["failures"]
+    )
+
+
+def test_check_premap_lab_preflight_summary_rejects_native_adapter_allowed() -> None:
+    summary = _summary()
+    summary["payload_cache_native_execution_adapter_blocked_allowed"] = True
+
+    result = check_premap_lab_preflight_summary(summary)
+
+    assert result["passed"] is False
+    assert (
+        "payload_cache_native_execution_adapter_blocked_allowed_mismatch"
+        in result["failures"]
+    )
+
+
+def test_check_premap_lab_preflight_summary_rejects_native_adapter_payload_copy_count() -> None:
+    summary = _summary()
+    summary["payload_cache_native_execution_adapter_blocked_payload_copy_count"] = 1
+
+    result = check_premap_lab_preflight_summary(summary)
+
+    assert result["passed"] is False
+    assert (
+        "payload_cache_native_execution_adapter_blocked_payload_copy_count_mismatch"
+        in result["failures"]
+    )
+
+
+def test_check_premap_lab_preflight_summary_rejects_native_adapter_ready_credit_count() -> None:
+    summary = _summary()
+    summary["payload_cache_native_execution_adapter_blocked_adapter_ready_credit_count"] = 1
+
+    result = check_premap_lab_preflight_summary(summary)
+
+    assert result["passed"] is False
+    assert (
+        "payload_cache_native_execution_adapter_blocked_adapter_ready_credit_count_mismatch"
         in result["failures"]
     )
 

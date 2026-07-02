@@ -195,6 +195,7 @@ REQUIRED_DEFAULT_GATE_CONTRACT = {
     "payload_cache_copy_descriptor_execution_blocked_required": True,
     "payload_cache_copy_completion_blocked_required": True,
     "payload_cache_ready_credit_blocked_required": True,
+    "payload_cache_native_execution_adapter_blocked_required": True,
     "wna16_side_consumer_variant_execution_required": True,
     "wna16_side_consumer_variant_execution_min_source_count": 128,
     "single_field_handle_handoff_canary_required": True,
@@ -378,6 +379,7 @@ REQUIRED_DEFAULT_GATE_EVIDENCE_JSON_LABELS = {
     "payload_cache_copy_descriptor_execution_blocked_json",
     "payload_cache_copy_completion_blocked_json",
     "payload_cache_ready_credit_blocked_json",
+    "payload_cache_native_execution_adapter_blocked_json",
     "payload_cache_stream_producer_production_ab_bridge_json",
     "payload_cache_stream_producer_production_ab_bridge_check_json",
     "future_kernel_native_dispatch_consumer_online_artifact_check_32_128export_json",
@@ -5735,6 +5737,13 @@ def _validate_required_evidence_payload(
         "payload_cache_vllm_replay_visible_count_ptr_readiness_json",
         "payload_cache_manager_useful_work_ab_gate_json",
         "payload_cache_manager_production_ab_preflight_json",
+        "payload_cache_copy_descriptor_plan_json",
+        "payload_cache_copy_descriptor_submit_blocked_json",
+        "payload_cache_copy_descriptor_dispatch_blocked_json",
+        "payload_cache_copy_descriptor_execution_blocked_json",
+        "payload_cache_copy_completion_blocked_json",
+        "payload_cache_ready_credit_blocked_json",
+        "payload_cache_native_execution_adapter_blocked_json",
         "payload_cache_stream_producer_production_ab_bridge_json",
         "payload_cache_stream_producer_production_ab_bridge_check_json",
         "future_kernel_native_arg_slot_packed_weight_mirror_canary_json",
@@ -7264,6 +7273,15 @@ def _validate_required_evidence_payload(
         return [
             f"{evidence_label}:{failure}"
             for failure in _validate_payload_cache_ready_credit_blocked_evidence(
+                evidence,
+                evidence_paths=evidence_paths,
+                root=root,
+            )
+        ]
+    if evidence_label == "payload_cache_native_execution_adapter_blocked_json":
+        return [
+            f"{evidence_label}:{failure}"
+            for failure in _validate_payload_cache_native_execution_adapter_blocked_evidence(
                 evidence,
                 evidence_paths=evidence_paths,
                 root=root,
@@ -14466,6 +14484,65 @@ def _validate_payload_cache_ready_credit_blocked_evidence(
     )
 
 
+def _validate_payload_cache_native_execution_adapter_blocked_evidence(
+    evidence: dict[str, Any],
+    *,
+    evidence_paths: dict[str, Any] | None,
+    root: Path | None,
+) -> list[str]:
+    return _validate_payload_cache_copy_blocked_chain_evidence(
+        evidence,
+        evidence_paths=evidence_paths,
+        root=root,
+        failure_prefix="payload_cache_native_execution_adapter_blocked",
+        expected_artifact_kind="premap_payload_cache_native_execution_adapter_blocked",
+        expected_schema_name="payload_cache_native_execution_adapter_blocked_v1",
+        ready_field="native_execution_adapter_blocked_ready",
+        source_label="payload_cache_ready_credit_blocked_json",
+        source_path_key="source_ready_credit_blocked_json",
+        source_sha_key="source_ready_credit_blocked_sha256",
+        source_artifact_kind="premap_payload_cache_ready_credit_blocked",
+        source_schema_name="payload_cache_ready_credit_blocked_v1",
+        queue_row_fields=(
+            "submit_queue_row_count",
+            "dispatch_queue_row_count",
+            "execution_queue_row_count",
+            "completion_queue_row_count",
+            "ready_credit_queue_row_count",
+            "native_execution_adapter_row_count",
+        ),
+        capacity_fields=(
+            "dispatch_capacity",
+            "execution_capacity",
+            "completion_capacity",
+            "ready_credit_capacity",
+            "native_execution_adapter_capacity",
+        ),
+        planned_bytes_field="native_execution_adapter_planned_payload_bytes",
+        true_fields=(
+            "native_execution_adapter_row_window_checked",
+            "native_execution_adapter_checked",
+            "native_execution_adapter_rejected",
+            "native_execution_adapter_consumes_ready_credit_blocked",
+        ),
+        false_fields=(
+            "native_execution_adapter_allowed",
+            "copy_completed",
+            "copy_descriptor_submitted",
+            "copy_descriptor_dispatched",
+            "copy_descriptor_executed",
+        ),
+        zero_fields=(
+            "copy_completion_count",
+            "ready_credit_count",
+            "native_execution_adapter_execution_count",
+            "native_execution_adapter_completed_count",
+            "native_execution_adapter_payload_copy_count",
+            "native_execution_adapter_ready_credit_count",
+        ),
+    )
+
+
 def _validate_payload_cache_stream_producer_production_ab_bridge_evidence(
     evidence: dict[str, Any],
     *,
@@ -17040,6 +17117,20 @@ def run_premap_lab_preflight(
         _load_evidence_payload_from_check(
             default_gate_required_evidence_check,
             payload_cache_ready_credit_label,
+            root=root,
+        )
+    )
+    payload_cache_native_execution_adapter_label = (
+        "payload_cache_native_execution_adapter_blocked_json"
+    )
+    payload_cache_native_execution_adapter_row = _find_evidence_row(
+        default_gate_required_evidence_check,
+        payload_cache_native_execution_adapter_label,
+    )
+    payload_cache_native_execution_adapter_payload = (
+        _load_evidence_payload_from_check(
+            default_gate_required_evidence_check,
+            payload_cache_native_execution_adapter_label,
             root=root,
         )
     )
@@ -27047,6 +27138,14 @@ def run_premap_lab_preflight(
                 "planned_payload_bytes",
             )
         ),
+        "payload_cache_copy_descriptor_plan_copy_descriptor_row_hash": (
+            payload_cache_copy_descriptor_plan_payload.get("copy_descriptor_row_hash")
+        ),
+        "payload_cache_copy_descriptor_plan_copy_descriptor_packet_hash": (
+            payload_cache_copy_descriptor_plan_payload.get(
+                "copy_descriptor_packet_hash"
+            )
+        ),
         "payload_cache_copy_descriptor_plan_payload_bytes": (
             _int_metric(payload_cache_copy_descriptor_plan_payload, "payload_bytes")
         ),
@@ -29036,6 +29135,66 @@ def run_premap_lab_preflight(
             queue_planned_bytes_key="ready_credit_queue_planned_payload_bytes",
         )
     )
+    lab_gate_status_summary.update(
+        _copy_blocked_summary_fields(
+            prefix="payload_cache_native_execution_adapter_blocked",
+            row=payload_cache_native_execution_adapter_row,
+            payload=payload_cache_native_execution_adapter_payload,
+            ready_key="native_execution_adapter_blocked_ready",
+            queue_row_key="native_execution_adapter_row_count",
+            queue_planned_bytes_key="native_execution_adapter_planned_payload_bytes",
+        )
+    )
+    lab_gate_status_summary.update(
+        {
+            "payload_cache_native_execution_adapter_blocked_capacity": _int_metric(
+                payload_cache_native_execution_adapter_payload,
+                "native_execution_adapter_capacity",
+            ),
+            "payload_cache_native_execution_adapter_blocked_checked": _bool_metric(
+                payload_cache_native_execution_adapter_payload,
+                "native_execution_adapter_checked",
+            ),
+            "payload_cache_native_execution_adapter_blocked_rejected": _bool_metric(
+                payload_cache_native_execution_adapter_payload,
+                "native_execution_adapter_rejected",
+            ),
+            "payload_cache_native_execution_adapter_blocked_allowed": _bool_metric(
+                payload_cache_native_execution_adapter_payload,
+                "native_execution_adapter_allowed",
+            ),
+            "payload_cache_native_execution_adapter_blocked_consumes_ready_credit_blocked": (
+                _bool_metric(
+                    payload_cache_native_execution_adapter_payload,
+                    "native_execution_adapter_consumes_ready_credit_blocked",
+                )
+            ),
+            "payload_cache_native_execution_adapter_blocked_execution_count": (
+                _int_metric(
+                    payload_cache_native_execution_adapter_payload,
+                    "native_execution_adapter_execution_count",
+                )
+            ),
+            "payload_cache_native_execution_adapter_blocked_completed_count": (
+                _int_metric(
+                    payload_cache_native_execution_adapter_payload,
+                    "native_execution_adapter_completed_count",
+                )
+            ),
+            "payload_cache_native_execution_adapter_blocked_payload_copy_count": (
+                _int_metric(
+                    payload_cache_native_execution_adapter_payload,
+                    "native_execution_adapter_payload_copy_count",
+                )
+            ),
+            "payload_cache_native_execution_adapter_blocked_adapter_ready_credit_count": (
+                _int_metric(
+                    payload_cache_native_execution_adapter_payload,
+                    "native_execution_adapter_ready_credit_count",
+                )
+            ),
+        }
+    )
 
     payload_cache_manager_useful_work_ab_ready = (
         lab_gate_status_summary.get("payload_cache_manager_useful_work_ab_gate_passed")
@@ -29343,6 +29502,64 @@ def run_premap_lab_preflight(
         and lab_gate_status_summary.get("payload_cache_ready_credit_blocked_ready_credit_count")
         == 0
     )
+    payload_cache_native_execution_adapter_blocked_ready = (
+        _blocked_chain_stage_ready(
+            prefix="payload_cache_native_execution_adapter_blocked",
+            upstream_ready=payload_cache_ready_credit_blocked_ready,
+            expected_count=(
+                payload_cache_copy_descriptor_plan_count
+                if isinstance(payload_cache_copy_descriptor_plan_count, int)
+                else None
+            ),
+            expected_planned_payload_bytes=(
+                payload_cache_copy_descriptor_plan_planned_payload_bytes
+                if isinstance(payload_cache_copy_descriptor_plan_planned_payload_bytes, int)
+                else None
+            ),
+            expected_row_hash=(
+                payload_cache_copy_descriptor_plan_row_hash
+                if isinstance(payload_cache_copy_descriptor_plan_row_hash, str)
+                else None
+            ),
+            expected_packet_hash=(
+                payload_cache_copy_descriptor_plan_packet_hash
+                if isinstance(payload_cache_copy_descriptor_plan_packet_hash, str)
+                else None
+            ),
+        )
+        and lab_gate_status_summary.get(
+            "payload_cache_native_execution_adapter_blocked_checked"
+        )
+        is True
+        and lab_gate_status_summary.get(
+            "payload_cache_native_execution_adapter_blocked_rejected"
+        )
+        is True
+        and lab_gate_status_summary.get(
+            "payload_cache_native_execution_adapter_blocked_allowed"
+        )
+        is False
+        and lab_gate_status_summary.get(
+            "payload_cache_native_execution_adapter_blocked_consumes_ready_credit_blocked"
+        )
+        is True
+        and lab_gate_status_summary.get(
+            "payload_cache_native_execution_adapter_blocked_execution_count"
+        )
+        == 0
+        and lab_gate_status_summary.get(
+            "payload_cache_native_execution_adapter_blocked_completed_count"
+        )
+        == 0
+        and lab_gate_status_summary.get(
+            "payload_cache_native_execution_adapter_blocked_payload_copy_count"
+        )
+        == 0
+        and lab_gate_status_summary.get(
+            "payload_cache_native_execution_adapter_blocked_adapter_ready_credit_count"
+        )
+        == 0
+    )
     wna16_benchmark_prerequisites_ready = (
         all_four_field_consumer_ready
         and future_wna16_kernel_side_typed_consumer_path_ready
@@ -29500,6 +29717,13 @@ def run_premap_lab_preflight(
         and not payload_cache_ready_credit_blocked_ready
     ):
         failures.append("payload_cache_ready_credit_blocked_not_ready")
+    if (
+        REQUIRED_DEFAULT_GATE_CONTRACT[
+            "payload_cache_native_execution_adapter_blocked_required"
+        ]
+        and not payload_cache_native_execution_adapter_blocked_ready
+    ):
+        failures.append("payload_cache_native_execution_adapter_blocked_not_ready")
     if future_wna16_payloadless_useful_production_like_timing_gate_ready:
         next_runtime_stage = "future_typed_slot_useful_consumer_or_payload_cache_manager"
     elif future_wna16_payloadless_useful_runtime_ablation_ready:
@@ -29612,6 +29836,9 @@ def run_premap_lab_preflight(
     lab_gate_status_summary[
         "payload_cache_ready_credit_blocked_gate_ready"
     ] = payload_cache_ready_credit_blocked_ready
+    lab_gate_status_summary[
+        "payload_cache_native_execution_adapter_blocked_gate_ready"
+    ] = payload_cache_native_execution_adapter_blocked_ready
     lab_gate_status_summary[
         "default_kernel_consumer_wna16_side_variant_ready"
     ] = wna16_side_variant_ready

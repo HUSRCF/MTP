@@ -2,10 +2,104 @@
 
 ## Progress Version
 
-- Version: `v1.56.2-row-backed-payload-completion-ready-blocked`
+- Version: `v1.56.3-native-execution-adapter-blocked`
 - Updated: 2026-07-02
 
-## Latest Update: Payload Completion / Ready-Credit Blocked Chain Added
+## Latest Update: Native Execution Adapter Blocked Gate Added
+
+The row-backed payload/cache-manager chain now reaches a native execution
+adapter boundary while still blocking all real runtime effects:
+
+```text
+copy descriptor plan
+-> submit blocked
+-> dispatch blocked
+-> execution blocked
+-> completion blocked
+-> ready-credit blocked
+-> native execution adapter blocked
+```
+
+The new adapter consumes the ready-credit-blocked artifact by path + sha256 and
+checks the same row/hash/byte continuity before explicitly rejecting execution:
+
+```text
+copy_descriptor_count = 4661
+native_execution_adapter_row_count = 4661
+native_execution_adapter_capacity = 4661
+planned_payload_bytes = 298304
+native_execution_adapter_planned_payload_bytes = 298304
+
+native_execution_adapter_checked = true
+native_execution_adapter_rejected = true
+native_execution_adapter_allowed = false
+native_execution_adapter_execution_count = 0
+native_execution_adapter_completed_count = 0
+native_execution_adapter_payload_copy_count = 0
+native_execution_adapter_ready_credit_count = 0
+
+payload_bytes = 0
+ready_credit = false
+real_ready_credit_granted = false
+kernel_arg_pass_allowed = false
+passed_to_kernel = false
+uses_current_wna16_args = false
+```
+
+The compact preflight summary now also exports the copy descriptor plan
+row/packet hashes.  `check_premap_lab_preflight_summary.py` compares every
+blocked stage, including the native execution adapter, against the plan hash
+instead of using the first blocked stage as the baseline.
+
+Artifacts:
+
+```text
+outputs/reports/premap_kernel_consumer/premap_payload_cache_native_execution_adapter_blocked_dolly32_gen64_packet2560_gpu1_lead32_20260702.json
+outputs/reports/premap_kernel_consumer/lab_preflight_native_execution_adapter_blocked_default_gate_summary_20260702.json
+outputs/reports/premap_kernel_consumer/lab_preflight_native_execution_adapter_blocked_default_gate_summary_20260702.check.json
+```
+
+Validation:
+
+```text
+python scripts/materialize_premap_payload_cache_native_execution_adapter_blocked.py \
+  --ready-credit-blocked-json outputs/reports/premap_kernel_consumer/premap_payload_cache_ready_credit_blocked_dolly32_gen64_packet2560_gpu1_lead32_20260702.json \
+  --output-json outputs/reports/premap_kernel_consumer/premap_payload_cache_native_execution_adapter_blocked_dolly32_gen64_packet2560_gpu1_lead32_20260702.json \
+  --adapter-capacity 4661 \
+  --require-pass
+# passed = true
+
+python scripts/run_premap_lab_preflight.py \
+  --default-readonly-gate configs/runtime/premap_consumer_readonly_gate_dolly128_gen64_awq_w7900_gpu1_live_connected_readonly.yaml \
+  --summary-only \
+  --output-json outputs/reports/premap_kernel_consumer/lab_preflight_native_execution_adapter_blocked_default_gate_summary_20260702.json
+# passed = true, required_evidence = 80 / 80 / 80
+
+python scripts/check_premap_lab_preflight_summary.py \
+  outputs/reports/premap_kernel_consumer/lab_preflight_native_execution_adapter_blocked_default_gate_summary_20260702.json \
+  --output-json outputs/reports/premap_kernel_consumer/lab_preflight_native_execution_adapter_blocked_default_gate_summary_20260702.check.json
+# passed = true
+
+pytest tests/test_cache_lab_gate.py \
+       tests/test_check_prefetch_lab_default_gate.py \
+       tests/test_materialize_premap_payload_cache_native_execution_adapter_blocked.py \
+       tests/test_run_premap_lab_preflight.py \
+       tests/test_check_premap_lab_preflight_summary.py -q
+# 674 passed
+```
+
+Next gate:
+
+```text
+Use this blocked adapter gate to decide between:
+  1. native execution payloadless consumer canary, or
+  2. real payload copy canary.
+
+Do not grant ready credit or pass kernel args until a native adapter can prove
+row-backed execution semantics without side effects.
+```
+
+## Previous Update: Payload Completion / Ready-Credit Blocked Chain Added
 
 The row-backed payload/cache-manager blocked chain now extends past execution
 boundary into completion publication and ready-credit publication:
