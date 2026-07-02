@@ -47075,6 +47075,95 @@ PYTHONNOUSERSITE=1 /home/husrcf/anaconda3/envs/TRY/bin/python \
 # passed = true, failures = []
 ```
 
+### 2026-07-02 - Same-source payload copy descriptor plan promoted to lab gate
+
+The payload/cache-manager path now has one more runtime-facing dry-run step:
+the accepted prefetches from the same-source packet2560 issue stream are
+materialized as a future payload-copy descriptor plan.  This is still a
+payloadless safety gate, not a performance claim:
+
+```text
+artifact:
+  outputs/reports/premap_kernel_consumer/
+    premap_payload_cache_copy_descriptor_plan_dolly32_gen64_packet2560_gpu1_lead32_20260701.json
+
+copy_descriptor_count = 4661
+issued_prefetch_count = 4661
+requested_issue_count = 20160
+planned_payload_bytes = 298304
+payload_bytes = 0
+ready_credit = false
+kernel_arg_pass_allowed = false
+passed_to_kernel = false
+uses_current_wna16_args = false
+```
+
+The builder replays the same exported producer-state packets used by the
+ready-time issue-stream executor and now enforces the same token-index
+provenance boundary:
+
+```text
+event_timing_mode = token_index
+token_source_decode_workload_count = 2520
+token_source_config_count = 0
+token_source_missing_count = 0
+shifted_issue_unique_issue_key_count = 1280
+shifted_issue_duplicate_issue_key_count = 1240
+shifted_issue_row_shift_mismatch_count = 0
+shifted_issue_row_clamp_mismatch_count = 0
+packet_error_count = 0
+```
+
+The default lab gate now treats this artifact as required evidence:
+
+```text
+payload_cache_copy_descriptor_plan_required = true
+payload_cache_copy_descriptor_plan_gate_ready = true
+required_evidence = 74 / 74 passed
+```
+
+The lab validator keeps this gate payloadless and kernel-disconnected while
+allowing the manager's normal partial-hit semantics:
+
+```text
+live_payload_runtime_enabled must be false
+payload_transfer_runtime_enabled must be false
+copy-plan replay issued/demand/hit/used counts must match the manager gate
+manager demand_hit_count may be less than demand_count
+relative packet paths must resolve under the online manifest directory
+copy_descriptor_row_hash / copy_descriptor_packet_hash must be 64-char hex
+```
+
+Validation:
+
+```bash
+PYTHONNOUSERSITE=1 PYTHONPATH=src:. \
+  /home/husrcf/anaconda3/envs/TRY/bin/python -m pytest \
+  tests/test_run_premap_lab_preflight.py \
+  tests/test_materialize_premap_payload_cache_copy_descriptor_plan.py \
+  -q --tb=short -x
+# 362 passed
+
+PYTHONNOUSERSITE=1 PYTHONPATH=src:. \
+  /home/husrcf/anaconda3/envs/TRY/bin/python \
+  scripts/run_premap_lab_preflight.py \
+  --default-readonly-gate \
+    configs/runtime/premap_consumer_readonly_gate_dolly128_gen64_awq_w7900_gpu1_live_connected_readonly.yaml \
+  --output-json \
+    outputs/reports/premap_kernel_consumer/lab_preflight_same_source_packet2560_copy_descriptor_plan_gate_20260702.json
+# passed = true, failures = []
+```
+
+Current interpretation:
+
+```text
+ready-time manager useful work: evidence-ready
+production-like state-only envelope: lightweight but not a speedup
+payload copy descriptor plan: evidence-ready and lab-gated
+real payload copy / ready publication: still disabled
+real WNA16 kernel arg mutation: still disabled
+```
+
 2026-06-29 update:
 the payload/cache-manager useful-work path is now a stricter lab precondition
 rather than an isolated replay artifact.  The default readonly lab gate now

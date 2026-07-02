@@ -189,6 +189,7 @@ REQUIRED_DEFAULT_GATE_CONTRACT = {
     "payload_cache_manager_useful_work_ab_gate_required": True,
     "payload_cache_manager_production_ab_preflight_required": True,
     "payload_cache_manager_production_ab_preflight_max_envelope_overhead_ratio": 0.05,
+    "payload_cache_copy_descriptor_plan_required": True,
     "wna16_side_consumer_variant_execution_required": True,
     "wna16_side_consumer_variant_execution_min_source_count": 128,
     "single_field_handle_handoff_canary_required": True,
@@ -366,6 +367,7 @@ REQUIRED_DEFAULT_GATE_EVIDENCE_JSON_LABELS = {
     "payload_cache_vllm_replay_visible_count_ptr_readiness_json",
     "payload_cache_manager_useful_work_ab_gate_json",
     "payload_cache_manager_production_ab_preflight_json",
+    "payload_cache_copy_descriptor_plan_json",
     "payload_cache_stream_producer_production_ab_bridge_json",
     "payload_cache_stream_producer_production_ab_bridge_check_json",
     "future_kernel_native_dispatch_consumer_online_artifact_check_32_128export_json",
@@ -7203,6 +7205,15 @@ def _validate_required_evidence_payload(
                 root=root,
             )
         ]
+    if evidence_label == "payload_cache_copy_descriptor_plan_json":
+        return [
+            f"{evidence_label}:{failure}"
+            for failure in _validate_payload_cache_copy_descriptor_plan_evidence(
+                evidence,
+                evidence_paths=evidence_paths,
+                root=root,
+            )
+        ]
     if evidence_label == "payload_cache_stream_producer_production_ab_bridge_json":
         return [
             f"{evidence_label}:{failure}"
@@ -13919,6 +13930,143 @@ def _validate_payload_cache_manager_production_ab_preflight_evidence(
     return failures
 
 
+def _validate_payload_cache_copy_descriptor_plan_evidence(
+    evidence: dict[str, Any],
+    *,
+    evidence_paths: dict[str, Any] | None,
+    root: Path | None,
+    failure_prefix: str = "payload_cache_copy_descriptor_plan",
+) -> list[str]:
+    failures: list[str] = []
+    expected_values = {
+        "artifact_kind": "premap_payload_cache_copy_descriptor_plan",
+        "schema_name": "payload_cache_issue_copy_descriptor_plan_v1",
+        "row_schema_name": "payload_cache_issue_copy_descriptor_row_v1",
+        "passed": True,
+        "failures": [],
+        "copy_descriptor_plan_ready": True,
+        "copy_descriptor_shape_checked": True,
+        "copy_descriptor_submitted": False,
+        "copy_descriptor_executed": False,
+        "payload_bytes": 0,
+        "issued_payload_count": 0,
+        "payload_transfer_enabled": False,
+        "live_payload_runtime_enabled": False,
+        "payload_transfer_runtime_enabled": False,
+        "payload_deref_allowed": False,
+        "payload_deref_runtime_allowed": False,
+        "ready_credit": False,
+        "ready_before_demand_credit": False,
+        "real_ready_credit_granted": False,
+        "kernel_arg_pass_allowed": False,
+        "passed_to_kernel": False,
+        "changes_kernel_launch_args": False,
+        "full_fetch_runtime_allowed": False,
+        "uses_current_wna16_args": False,
+        "passes_current_wna16_args": False,
+        "measures_tpot": False,
+        "measures_vllm_latency": False,
+        "live_runtime_instantiated": False,
+        "requires_payload_runtime": False,
+    }
+    for key, expected_value in expected_values.items():
+        if type(evidence.get(key)) is not type(expected_value) or evidence.get(key) != expected_value:
+            failures.append(f"{failure_prefix}_{key}_mismatch")
+
+    packet_count = _int_metric(evidence, "packet_count")
+    nonempty_packet_count = _int_metric(evidence, "nonempty_packet_count")
+    packet_error_count = _int_metric(evidence, "packet_error_count")
+    requested = _int_metric(evidence, "requested_issue_count")
+    issued = _int_metric(evidence, "issued_prefetch_count")
+    descriptor_count = _int_metric(evidence, "copy_descriptor_count")
+    manager_issued = _int_metric(evidence, "manager_replay_issued_fetch_count")
+    manager_demand = _int_metric(evidence, "manager_replay_demand_count")
+    manager_hit = _int_metric(evidence, "manager_replay_demand_hit_count")
+    manager_used = _int_metric(evidence, "manager_replay_used_fetch_count")
+    planned_per_issue = _int_metric(evidence, "planned_payload_bytes_per_issue")
+    planned_bytes = _int_metric(evidence, "planned_payload_bytes")
+    if packet_count is None or packet_count <= 0:
+        failures.append(f"{failure_prefix}_packet_count_invalid")
+    if nonempty_packet_count is None or nonempty_packet_count <= 0:
+        failures.append(f"{failure_prefix}_nonempty_packet_count_invalid")
+    if packet_error_count is None or packet_error_count != 0:
+        failures.append(f"{failure_prefix}_packet_error_count_nonzero")
+    if requested is None or requested <= 0:
+        failures.append(f"{failure_prefix}_requested_issue_count_invalid")
+    if issued is None or issued <= 0:
+        failures.append(f"{failure_prefix}_issued_prefetch_count_invalid")
+    if descriptor_count is None or descriptor_count <= 0:
+        failures.append(f"{failure_prefix}_copy_descriptor_count_invalid")
+    if (
+        issued is not None
+        and descriptor_count is not None
+        and descriptor_count != issued
+    ):
+        failures.append(f"{failure_prefix}_copy_descriptor_issued_count_mismatch")
+    if manager_issued is None or issued is None or manager_issued != issued:
+        failures.append(f"{failure_prefix}_manager_replay_issued_count_mismatch")
+    if manager_demand is None or requested is None or manager_demand != requested:
+        failures.append(f"{failure_prefix}_manager_replay_demand_count_mismatch")
+    if (
+        manager_hit is None
+        or manager_demand is None
+        or manager_hit <= 0
+        or manager_hit > manager_demand
+    ):
+        failures.append(f"{failure_prefix}_manager_replay_hit_count_mismatch")
+    if (
+        manager_used is None
+        or manager_issued is None
+        or manager_used <= 0
+        or manager_used > manager_issued
+    ):
+        failures.append(f"{failure_prefix}_manager_replay_used_count_mismatch")
+    if planned_per_issue is None or planned_per_issue <= 0:
+        failures.append(f"{failure_prefix}_planned_payload_bytes_per_issue_invalid")
+    if (
+        planned_bytes is None
+        or planned_per_issue is None
+        or descriptor_count is None
+        or planned_bytes != planned_per_issue * descriptor_count
+        or planned_bytes <= 0
+    ):
+        failures.append(f"{failure_prefix}_planned_payload_bytes_mismatch")
+    for key in ("copy_descriptor_row_hash", "copy_descriptor_packet_hash"):
+        value = evidence.get(key)
+        if (
+            not isinstance(value, str)
+            or len(value) != 64
+            or any(char not in "0123456789abcdef" for char in value.lower())
+        ):
+            failures.append(f"{failure_prefix}_{key}_invalid")
+
+    if root is None or evidence_paths is None:
+        failures.append(f"{failure_prefix}_evidence_paths_missing")
+        return failures
+    manager_path = evidence_paths.get("payload_cache_manager_useful_work_ab_gate_json")
+    if not isinstance(manager_path, str) or not manager_path:
+        failures.append(f"{failure_prefix}_manager_gate_path_missing")
+        return failures
+    manager_payload = _load_json_object_path(manager_path, root=root)
+    if manager_payload.get("artifact_kind") != "premap_payload_cache_manager_useful_work_ab_gate":
+        failures.append(f"{failure_prefix}_manager_gate_artifact_kind_mismatch")
+    if manager_payload.get("passed") is not True:
+        failures.append(f"{failure_prefix}_manager_gate_not_passed")
+    manager_gate_issued = _int_metric(manager_payload, "issued_prefetch_count")
+    manager_gate_demand = _int_metric(manager_payload, "demand_count")
+    manager_gate_hit = _int_metric(manager_payload, "demand_hit_count")
+    manager_gate_used = _int_metric(manager_payload, "used_fetch_count")
+    if manager_gate_issued is None or issued is None or manager_gate_issued != issued:
+        failures.append(f"{failure_prefix}_manager_gate_issued_count_mismatch")
+    if manager_gate_demand is None or requested is None or manager_gate_demand != requested:
+        failures.append(f"{failure_prefix}_manager_gate_demand_count_mismatch")
+    if manager_gate_hit is None or manager_hit is None or manager_gate_hit != manager_hit:
+        failures.append(f"{failure_prefix}_manager_gate_hit_count_mismatch")
+    if manager_gate_used is None or manager_used is None or manager_gate_used != manager_used:
+        failures.append(f"{failure_prefix}_manager_gate_used_count_mismatch")
+    return failures
+
+
 def _validate_payload_cache_stream_producer_production_ab_bridge_evidence(
     evidence: dict[str, Any],
     *,
@@ -16415,6 +16563,18 @@ def run_premap_lab_preflight(
         _load_evidence_payload_from_check(
             default_gate_required_evidence_check,
             payload_cache_manager_production_ab_preflight_label,
+            root=root,
+        )
+    )
+    payload_cache_copy_descriptor_plan_label = "payload_cache_copy_descriptor_plan_json"
+    payload_cache_copy_descriptor_plan_row = _find_evidence_row(
+        default_gate_required_evidence_check,
+        payload_cache_copy_descriptor_plan_label,
+    )
+    payload_cache_copy_descriptor_plan_payload = (
+        _load_evidence_payload_from_check(
+            default_gate_required_evidence_check,
+            payload_cache_copy_descriptor_plan_label,
             root=root,
         )
     )
@@ -26385,6 +26545,64 @@ def run_premap_lab_preflight(
                 "passed_to_kernel",
             )
         ),
+        "payload_cache_copy_descriptor_plan_required": True,
+        "payload_cache_copy_descriptor_plan_present": (
+            payload_cache_copy_descriptor_plan_row.get("exists") is True
+        ),
+        "payload_cache_copy_descriptor_plan_passed": (
+            _evidence_row_passed(payload_cache_copy_descriptor_plan_row)
+        ),
+        "payload_cache_copy_descriptor_plan_ready": (
+            _bool_metric(
+                payload_cache_copy_descriptor_plan_payload,
+                "copy_descriptor_plan_ready",
+            )
+        ),
+        "payload_cache_copy_descriptor_plan_count": (
+            _int_metric(
+                payload_cache_copy_descriptor_plan_payload,
+                "copy_descriptor_count",
+            )
+        ),
+        "payload_cache_copy_descriptor_plan_issued_prefetch_count": (
+            _int_metric(
+                payload_cache_copy_descriptor_plan_payload,
+                "issued_prefetch_count",
+            )
+        ),
+        "payload_cache_copy_descriptor_plan_requested_issue_count": (
+            _int_metric(
+                payload_cache_copy_descriptor_plan_payload,
+                "requested_issue_count",
+            )
+        ),
+        "payload_cache_copy_descriptor_plan_planned_payload_bytes": (
+            _int_metric(
+                payload_cache_copy_descriptor_plan_payload,
+                "planned_payload_bytes",
+            )
+        ),
+        "payload_cache_copy_descriptor_plan_payload_bytes": (
+            _int_metric(payload_cache_copy_descriptor_plan_payload, "payload_bytes")
+        ),
+        "payload_cache_copy_descriptor_plan_kernel_arg_pass_allowed": (
+            _bool_metric(
+                payload_cache_copy_descriptor_plan_payload,
+                "kernel_arg_pass_allowed",
+            )
+        ),
+        "payload_cache_copy_descriptor_plan_passed_to_kernel": (
+            _bool_metric(
+                payload_cache_copy_descriptor_plan_payload,
+                "passed_to_kernel",
+            )
+        ),
+        "payload_cache_copy_descriptor_plan_uses_current_wna16_args": (
+            _bool_metric(
+                payload_cache_copy_descriptor_plan_payload,
+                "uses_current_wna16_args",
+            )
+        ),
         "deferred_online_prelaunch_runner_evidence": bool(
             defer_online_prelaunch_runner_evidence
         ),
@@ -28312,6 +28530,43 @@ def run_premap_lab_preflight(
         )
         is False
     )
+    payload_cache_copy_descriptor_plan_ready = (
+        payload_cache_manager_useful_work_ab_ready
+        and lab_gate_status_summary.get("payload_cache_copy_descriptor_plan_passed")
+        is True
+        and lab_gate_status_summary.get("payload_cache_copy_descriptor_plan_ready")
+        is True
+        and lab_gate_status_summary.get("payload_cache_copy_descriptor_plan_count")
+        is not None
+        and lab_gate_status_summary.get("payload_cache_copy_descriptor_plan_count")
+        > 0
+        and lab_gate_status_summary.get(
+            "payload_cache_copy_descriptor_plan_issued_prefetch_count"
+        )
+        == lab_gate_status_summary.get("payload_cache_copy_descriptor_plan_count")
+        and lab_gate_status_summary.get(
+            "payload_cache_copy_descriptor_plan_planned_payload_bytes"
+        )
+        is not None
+        and lab_gate_status_summary.get(
+            "payload_cache_copy_descriptor_plan_planned_payload_bytes"
+        )
+        > 0
+        and lab_gate_status_summary.get("payload_cache_copy_descriptor_plan_payload_bytes")
+        == 0
+        and lab_gate_status_summary.get(
+            "payload_cache_copy_descriptor_plan_kernel_arg_pass_allowed"
+        )
+        is False
+        and lab_gate_status_summary.get(
+            "payload_cache_copy_descriptor_plan_passed_to_kernel"
+        )
+        is False
+        and lab_gate_status_summary.get(
+            "payload_cache_copy_descriptor_plan_uses_current_wna16_args"
+        )
+        is False
+    )
     wna16_benchmark_prerequisites_ready = (
         all_four_field_consumer_ready
         and future_wna16_kernel_side_typed_consumer_path_ready
@@ -28433,6 +28688,11 @@ def run_premap_lab_preflight(
         and not payload_cache_manager_production_ab_preflight_ready
     ):
         failures.append("payload_cache_manager_production_ab_preflight_not_ready")
+    if (
+        REQUIRED_DEFAULT_GATE_CONTRACT["payload_cache_copy_descriptor_plan_required"]
+        and not payload_cache_copy_descriptor_plan_ready
+    ):
+        failures.append("payload_cache_copy_descriptor_plan_not_ready")
     if future_wna16_payloadless_useful_production_like_timing_gate_ready:
         next_runtime_stage = "future_typed_slot_useful_consumer_or_payload_cache_manager"
     elif future_wna16_payloadless_useful_runtime_ablation_ready:
@@ -28527,6 +28787,9 @@ def run_premap_lab_preflight(
     lab_gate_status_summary[
         "payload_cache_manager_production_ab_preflight_gate_ready"
     ] = payload_cache_manager_production_ab_preflight_ready
+    lab_gate_status_summary[
+        "payload_cache_copy_descriptor_plan_gate_ready"
+    ] = payload_cache_copy_descriptor_plan_ready
     lab_gate_status_summary[
         "default_kernel_consumer_wna16_side_variant_ready"
     ] = wna16_side_variant_ready

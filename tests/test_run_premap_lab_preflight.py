@@ -50,6 +50,7 @@ from scripts.run_premap_lab_preflight import (
     _validate_readonly_live_trusted_refs_check_evidence,
     _validate_payload_cache_stream_producer_production_ab_bridge_evidence,
     _validate_payload_cache_stream_producer_production_ab_bridge_check_evidence,
+    _validate_payload_cache_copy_descriptor_plan_evidence,
 )
 from scripts.run_payload_cache_consumer_visible_hit_blocked_gate import (
     build_report as _payload_cache_consumer_visible_hit_blocked_gate_payload,
@@ -219,6 +220,7 @@ def test_default_lab_gate_requires_payload_cache_manager_preflight() -> None:
 
     assert contract["payload_cache_manager_useful_work_ab_gate_required"] is True
     assert contract["payload_cache_manager_production_ab_preflight_required"] is True
+    assert contract["payload_cache_copy_descriptor_plan_required"] is True
     assert (
         contract["payload_cache_manager_production_ab_preflight_max_envelope_overhead_ratio"]
         == 0.05
@@ -228,6 +230,9 @@ def test_default_lab_gate_requires_payload_cache_manager_preflight() -> None:
     )
     assert evidence["payload_cache_manager_production_ab_preflight_json"].endswith(
         "payload_cache_manager_production_ab_preflight.json"
+    )
+    assert evidence["payload_cache_copy_descriptor_plan_json"].endswith(
+        "premap_payload_cache_copy_descriptor_plan_dolly32_gen64_packet2560_gpu1_lead32_20260701.json"
     )
 
 
@@ -3451,6 +3456,156 @@ def _payload_cache_manager_production_ab_preflight_payload(
     }
 
 
+def _payload_cache_copy_descriptor_plan_payload() -> dict[str, object]:
+    return {
+        "artifact_kind": "premap_payload_cache_copy_descriptor_plan",
+        "schema_name": "payload_cache_issue_copy_descriptor_plan_v1",
+        "row_schema_name": "payload_cache_issue_copy_descriptor_row_v1",
+        "passed": True,
+        "failures": [],
+        "copy_descriptor_plan_ready": True,
+        "packet_count": 160,
+        "nonempty_packet_count": 160,
+        "packet_error_count": 0,
+        "requested_issue_count": 224,
+        "issued_prefetch_count": 133,
+        "copy_descriptor_count": 133,
+        "copy_descriptor_shape_checked": True,
+        "copy_descriptor_submitted": False,
+        "copy_descriptor_executed": False,
+        "copy_descriptor_row_hash": "a" * 64,
+        "copy_descriptor_packet_hash": "b" * 64,
+        "planned_payload_bytes_per_issue": 64,
+        "planned_payload_bytes": 8512,
+        "payload_bytes": 0,
+        "issued_payload_count": 0,
+        "payload_transfer_enabled": False,
+        "live_payload_runtime_enabled": False,
+        "payload_transfer_runtime_enabled": False,
+        "payload_deref_allowed": False,
+        "payload_deref_runtime_allowed": False,
+        "ready_credit": False,
+        "ready_before_demand_credit": False,
+        "real_ready_credit_granted": False,
+        "kernel_arg_pass_allowed": False,
+        "passed_to_kernel": False,
+        "changes_kernel_launch_args": False,
+        "full_fetch_runtime_allowed": False,
+        "uses_current_wna16_args": False,
+        "passes_current_wna16_args": False,
+        "measures_tpot": False,
+        "measures_vllm_latency": False,
+        "live_runtime_instantiated": False,
+        "requires_payload_runtime": False,
+        "manager_replay_issued_fetch_count": 133,
+        "manager_replay_demand_count": 224,
+        "manager_replay_demand_hit_count": 199,
+        "manager_replay_ready_late_miss_count": 25,
+        "manager_replay_used_fetch_count": 108,
+    }
+
+
+def _validate_payload_cache_copy_descriptor_plan_with_manager(
+    tmp_path: Path,
+    payload: dict[str, object],
+    *,
+    manager_payload: dict[str, object] | None = None,
+) -> list[str]:
+    reports_dir = tmp_path / "reports"
+    reports_dir.mkdir(parents=True, exist_ok=True)
+    manager_path = reports_dir / "payload_cache_manager_useful_work_ab_gate.json"
+    manager_path.write_text(
+        json.dumps(
+            manager_payload or _payload_cache_manager_useful_work_ab_gate_payload()
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    return _validate_payload_cache_copy_descriptor_plan_evidence(
+        payload,
+        evidence_paths={
+            "payload_cache_manager_useful_work_ab_gate_json": (
+                "reports/payload_cache_manager_useful_work_ab_gate.json"
+            )
+        },
+        root=tmp_path,
+    )
+
+
+def test_payload_cache_copy_descriptor_plan_accepts_partial_manager_hits(
+    tmp_path: Path,
+) -> None:
+    failures = _validate_payload_cache_copy_descriptor_plan_with_manager(
+        tmp_path,
+        _payload_cache_copy_descriptor_plan_payload(),
+    )
+
+    assert failures == []
+
+
+def test_payload_cache_copy_descriptor_plan_rejects_runtime_payload_toggles(
+    tmp_path: Path,
+) -> None:
+    payload = _payload_cache_copy_descriptor_plan_payload()
+    payload["live_payload_runtime_enabled"] = True
+
+    failures = _validate_payload_cache_copy_descriptor_plan_with_manager(
+        tmp_path,
+        payload,
+    )
+
+    assert (
+        "payload_cache_copy_descriptor_plan_live_payload_runtime_enabled_mismatch"
+        in failures
+    )
+
+    payload = _payload_cache_copy_descriptor_plan_payload()
+    payload["payload_transfer_runtime_enabled"] = True
+
+    failures = _validate_payload_cache_copy_descriptor_plan_with_manager(
+        tmp_path,
+        payload,
+    )
+
+    assert (
+        "payload_cache_copy_descriptor_plan_payload_transfer_runtime_enabled_mismatch"
+        in failures
+    )
+
+
+def test_payload_cache_copy_descriptor_plan_rejects_manager_count_mismatch(
+    tmp_path: Path,
+) -> None:
+    manager = _payload_cache_manager_useful_work_ab_gate_payload()
+    manager["demand_hit_count"] = 198
+    manager["demand_hit_rate"] = 198 / manager["demand_count"]
+
+    failures = _validate_payload_cache_copy_descriptor_plan_with_manager(
+        tmp_path,
+        _payload_cache_copy_descriptor_plan_payload(),
+        manager_payload=manager,
+    )
+
+    assert (
+        "payload_cache_copy_descriptor_plan_manager_gate_hit_count_mismatch"
+        in failures
+    )
+
+
+def test_payload_cache_copy_descriptor_plan_rejects_non_hex_hash(
+    tmp_path: Path,
+) -> None:
+    payload = _payload_cache_copy_descriptor_plan_payload()
+    payload["copy_descriptor_row_hash"] = "g" * 64
+
+    failures = _validate_payload_cache_copy_descriptor_plan_with_manager(
+        tmp_path,
+        payload,
+    )
+
+    assert "payload_cache_copy_descriptor_plan_copy_descriptor_row_hash_invalid" in failures
+
+
 def _payload_cache_shifted_issue_runtime_shadow_gate_payload() -> dict[str, object]:
     return {
         "artifact_kind": "premap_payload_cache_shifted_issue_runtime_shadow_gate",
@@ -6432,6 +6587,9 @@ def _write_gate(
     payload_cache_manager_production_ab_preflight_path = (
         f"reports/{name}_payload_cache_manager_production_ab_preflight.json"
     )
+    payload_cache_copy_descriptor_plan_path = (
+        f"reports/{name}_payload_cache_copy_descriptor_plan.json"
+    )
     standalone_wna16_adjacent_typed_slot_canary_path = (
         f"reports/{name}_future_native_wna16_adjacent_typed_slot_standalone_canary.json"
     )
@@ -7549,6 +7707,10 @@ def _write_gate(
             )
             + "\n",
         )
+        _write(
+            root / payload_cache_copy_descriptor_plan_path,
+            json.dumps(_payload_cache_copy_descriptor_plan_payload()) + "\n",
+        )
         for mirror_field, runner_path in (
             ("descriptor_ptr", online_merged_arg_slot_descriptor_ptr_runner_path),
             (
@@ -7744,6 +7906,7 @@ def _write_gate(
         "  payload_cache_manager_useful_work_ab_gate_required: true\n"
         "  payload_cache_manager_production_ab_preflight_required: true\n"
         "  payload_cache_manager_production_ab_preflight_max_envelope_overhead_ratio: 0.05\n"
+        "  payload_cache_copy_descriptor_plan_required: true\n"
         "  wna16_side_consumer_variant_execution_required: true\n"
         "  wna16_side_consumer_variant_execution_min_source_count: 128\n"
         "  single_field_handle_handoff_canary_required: true\n"
@@ -7975,6 +8138,8 @@ def _write_gate(
             f"{payload_cache_manager_useful_work_ab_gate_path}\n"
             "  payload_cache_manager_production_ab_preflight_json: "
             f"{payload_cache_manager_production_ab_preflight_path}\n"
+            "  payload_cache_copy_descriptor_plan_json: "
+            f"{payload_cache_copy_descriptor_plan_path}\n"
             "  payload_cache_producer_state_stream_online_contract_json: "
             f"{payload_cache_producer_state_stream_online_contract_path}\n"
             "  payload_cache_stream_producer_production_ab_bridge_json: "
@@ -8080,7 +8245,7 @@ def test_premap_lab_preflight_accepts_default_readonly_wiring(tmp_path: Path):
     assert result["passed"] is True
     assert result["failures"] == []
     assert result["runtime_gate_evidence_scan"]["gate_count"] == 5
-    assert result["runtime_gate_evidence_scan"]["evidence_path_count"] == 168
+    assert result["runtime_gate_evidence_scan"]["evidence_path_count"] == 170
     assert result["default_readonly_gate_required_evidence_check"]["passed"] is True
     summary = result["lab_gate_status_summary"]
     assert summary["passed"] is True
@@ -9114,6 +9279,19 @@ def test_premap_lab_preflight_accepts_default_readonly_wiring(tmp_path: Path):
     assert (
         summary["payload_cache_manager_production_ab_preflight_passed_to_kernel"]
         is False
+    )
+    assert summary["payload_cache_copy_descriptor_plan_gate_ready"] is True
+    assert summary["payload_cache_copy_descriptor_plan_count"] == 133
+    assert summary["payload_cache_copy_descriptor_plan_issued_prefetch_count"] == 133
+    assert summary["payload_cache_copy_descriptor_plan_requested_issue_count"] == 224
+    assert summary["payload_cache_copy_descriptor_plan_planned_payload_bytes"] == 8512
+    assert summary["payload_cache_copy_descriptor_plan_payload_bytes"] == 0
+    assert (
+        summary["payload_cache_copy_descriptor_plan_kernel_arg_pass_allowed"] is False
+    )
+    assert summary["payload_cache_copy_descriptor_plan_passed_to_kernel"] is False
+    assert (
+        summary["payload_cache_copy_descriptor_plan_uses_current_wna16_args"] is False
     )
     assert (
         summary[
@@ -10332,9 +10510,9 @@ def test_premap_lab_preflight_accepts_default_readonly_wiring(tmp_path: Path):
     assert summary["payload_bytes_required"] == 0
     assert summary["passed_to_kernel_required"] is False
     assert summary["changes_kernel_launch_args_required"] is False
-    assert summary["required_evidence"]["required_count"] == 73
-    assert summary["required_evidence"]["present_count"] == 73
-    assert summary["required_evidence"]["passed_count"] == 73
+    assert summary["required_evidence"]["required_count"] == 74
+    assert summary["required_evidence"]["present_count"] == 74
+    assert summary["required_evidence"]["passed_count"] == 74
     assert summary["optional_evidence"]["required_count"] == 15
     assert summary["optional_evidence"]["present_count"] == 13
     assert summary["optional_evidence"]["passed_count"] == 13
@@ -11930,7 +12108,7 @@ def test_premap_lab_preflight_rejects_missing_optional_future_args_coverage(
         "default_kernel_consumer_future_kernel_args_total_mirror_coverage_incomplete"
         in result["failures"]
     )
-    assert summary["required_evidence"]["passed_count"] == 73
+    assert summary["required_evidence"]["passed_count"] == 74
     assert summary["default_optional_evidence_passed"] is True
     assert (
         summary[
@@ -14043,6 +14221,7 @@ def test_premap_lab_preflight_rejects_default_gate_without_typed_evidence(
         "payload_cache_vllm_replay_visible_count_ptr_readiness_json:missing_evidence_path",
         "payload_cache_manager_useful_work_ab_gate_json:missing_evidence_path",
         "payload_cache_manager_production_ab_preflight_json:missing_evidence_path",
+        "payload_cache_copy_descriptor_plan_json:missing_evidence_path",
         "payload_cache_stream_producer_production_ab_bridge_json:missing_evidence_path",
         "payload_cache_stream_producer_production_ab_bridge_check_json:missing_evidence_path",
         "strict_live_connected_readonly_128_gate_json:missing_evidence_path",
@@ -19474,9 +19653,9 @@ def test_premap_lab_preflight_can_defer_self_referential_runner_evidence(
     assert summary["deferred_online_prelaunch_artifact_evidence"] is False
     assert summary["runtime_gate_evidence_deferred_count"] == 10
     assert summary["strict_default_gate_evidence_deferred_count"] == 5
-    assert summary["required_evidence"]["required_count"] == 73
-    assert summary["required_evidence"]["present_count"] == 71
-    assert summary["required_evidence"]["passed_count"] == 71
+    assert summary["required_evidence"]["required_count"] == 74
+    assert summary["required_evidence"]["present_count"] == 72
+    assert summary["required_evidence"]["passed_count"] == 72
     assert summary["optional_evidence"]["passed_count"] == 13
     for label in (
         "future_kernel_args_compatible_path_16_128export_artifact_check_json",
@@ -20051,7 +20230,7 @@ def test_premap_lab_preflight_cli_writes_summary(tmp_path: Path):
     assert result["runtime_gate_evidence_scan"]["passed"] is True
     assert result["lab_gate_status_summary"]["passed"] is True
     assert (
-        result["lab_gate_status_summary"]["required_evidence"]["passed_count"] == 73
+        result["lab_gate_status_summary"]["required_evidence"]["passed_count"] == 74
     )
 
 
@@ -20087,7 +20266,7 @@ def test_premap_lab_preflight_cli_summary_only_writes_status_block(tmp_path: Pat
     assert exit_code == 0
     assert result["passed"] is True
     assert result["default_readonly_gate_path"] == default_gate
-    assert result["required_evidence"]["passed_count"] == 73
+    assert result["required_evidence"]["passed_count"] == 74
     assert result["optional_evidence"]["passed_count"] == 13
     assert "lab_gate_status_summary" not in result
 
